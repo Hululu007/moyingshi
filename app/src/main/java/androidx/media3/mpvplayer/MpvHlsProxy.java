@@ -12,6 +12,10 @@ import com.fongmi.android.tv.utils.HlsAdblockPipeline;
 import com.fongmi.android.tv.utils.HlsManifestCleaner;
 import com.fongmi.android.tv.utils.Notify;
 
+import com.fongmi.android.tv.cache.CacheCenter;
+import com.fongmi.android.tv.cache.CacheModuleId;
+import com.fongmi.android.tv.cache.CachePolicyStore;
+import com.fongmi.android.tv.cache.PlaybackCacheBudget;
 import com.fongmi.android.tv.player.PlaybackAutoContext;
 import com.fongmi.android.tv.player.PlaybackRouteRegistry;
 import com.fongmi.android.tv.player.PlaybackResourceClassifier;
@@ -334,6 +338,7 @@ public final class MpvHlsProxy extends NanoHTTPD {
             if (cacheClient != null) cacheClient.close();
             cacheClient = null;
             started = false;
+            pruneToIdleBudget();
         }
     }
 
@@ -1400,6 +1405,24 @@ public final class MpvHlsProxy extends NanoHTTPD {
 
     private void pruneCache() {
         cacheCoordinator.prune(configuredCacheLimitBytes());
+    }
+
+    /**
+     * Converges the MPV HLS disk cache once playback ends.
+     *
+     * <p>Opening a proxy session prunes with the playback limit, which stays deliberately
+     * generous. Only the end of playback applies the shared total limit: the coordinator keeps the
+     * smaller of the requested capacity and every registered client, and this runs after the
+     * client lease was closed, so the budget is what takes effect. Pruning walks the directory and
+     * deletes spans, so it never runs on the thread that is tearing the player down.</p>
+     */
+    private void pruneToIdleBudget() {
+        MpvHlsCacheCoordinator coordinator = cacheCoordinator;
+        long budget = PlaybackCacheBudget.capacityBytes(false,
+                CachePolicyStore.getTotalLimitBytes(),
+                configuredCacheLimitBytes(),
+                CacheCenter.get().cachedOthersBytes(CacheModuleId.MPV_HLS));
+        new Thread(() -> coordinator.prune(budget), "mpv-hls-idle-prune").start();
     }
 
     private long cacheBytes() {
