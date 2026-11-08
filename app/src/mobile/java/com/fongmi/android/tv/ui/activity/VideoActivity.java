@@ -459,6 +459,7 @@ private int mAudioBackgroundRandomNonce;
     private final String mDanmakuOwnerTag = "auto-danmaku-" + java.util.UUID.randomUUID();
     private AutoDanmakuToken mAutoDanmaku;
     private okhttp3.Call mAutoDanmakuCall;
+    private AutoDanmakuToken mDecodeRestoreToken;
     private boolean mDanmakuRetired;
 
     private static final class AutoDanmakuToken {
@@ -484,6 +485,7 @@ private int mAudioBackgroundRandomNonce;
 
     private void invalidateAutoDanmaku() {
         mAutoDanmaku = null;
+        mDecodeRestoreToken = null;
         if (mAutoDanmakuCall != null) mAutoDanmakuCall.cancel();
         mAutoDanmakuCall = null;
     }
@@ -5408,6 +5410,9 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         int requestId = ++decodeSwitchRequestId;
         int generation = beginPlayerContentSwitch(requestId, key, flag, episode);
         decodeSwitchRefreshing = true;
+        AutoDanmakuToken restore = mAutoDanmaku;
+        invalidateAutoDanmaku();
+        mDecodeRestoreToken = restore;
         setNextDecodeText();
         setDecodeSwitchPending(true);
         mClock.setCallback(null);
@@ -5437,9 +5442,15 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         setDecodeSwitchPending(false);
         if (!canApplyPlayerContentRequest(requestId, generation, key, flag, episode)) return;
         if (result == null || result.hasMsg() || result.getRealUrl().isEmpty()) {
+            mAutoDanmaku = mDecodeRestoreToken;
+            mDecodeRestoreToken = null;
             player().toggleDecode();
         } else {
+            mDecodeRestoreToken = null;
+            PlayerManager danmakuManager = player();
+            String beforeTrace = danmakuManager.getPlaybackTraceId();
             player().switchDecode(result, activePlaybackKey(), metadata, isUseParse(), position, speed, repeat);
+            searchAutoDanmaku(result, danmakuManager, beforeTrace);
         }
         setR1Callback();
         setDecode();
