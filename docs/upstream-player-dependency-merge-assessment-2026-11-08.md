@@ -532,3 +532,18 @@ Android ZIP/SAF/16KiB官方页读取受阻，当前无完整最佳实践通过�
 | C-TV-ASYNC-RESULT-OWNERSHIP | [弹幕查询所有权](C-TV-ASYNC-RESULT-OWNERSHIP-danmaku.md) | 双端当前会话校验，拒绝迟到回调，不迁controller/不取消新owner |
 
 本文为五任务索引；各任务自己的设计、实现、验收和回滚只写入上表唯一文件。进度与具体提交在最终集成后统一归档，不以源提交直接cherry-pick作为实施。
+
+## 最终集成归档 — 2026-11-08
+
+| 单元 | 原始代码/修复完整提交 | 单元测试结果 |
+| --- | --- | --- |
+| [C-TV-STRM](C-TV-STRM-http-pointer.md) | `38d2670e10eb69fa8c00c3bbd8df48b07d98f1db` | 16项定向测试通过；HTTP/Source公共链，不等于decoder实播 |
+| [C-TV-PYTHON-CLEANUP](C-TV-PYTHON-CLEANUP-failed-init.md) | `d3a7298d5f3a6f76f5f2a256d4fd6f02ff7cecef` → `c861fac058e89136a6a2be233262b532fb4ceee6` | 24项定向测试通过；F1诊断后备已修复且独立复审通过；原生资源归零未设备测 |
+| [C-TV-PROXY-RESPONSE](C-TV-PROXY-RESPONSE-compatibility.md) | `e81ae22a1cdc4d026d6d5ecbbb11b96ddc3e9103` → `93d2217d00156a672f47d1405bb97dac5471ba16` | 18项定向测试通过；测试source set修正后Mobile单测编译通过；QuickJS/Python完整native链未测 |
+| [C-TV-SEEK-OWNERSHIP](C-TV-SEEK-OWNERSHIP-tv-keys.md) | `dc5f1e60c4f96f88f5183cbf11b50bf97f2c6b65` | 21项真实输入/消费者测试和双端Java编译通过；完整设备生命周期未测 |
+| [C-TV-ASYNC-RESULT-OWNERSHIP](C-TV-ASYNC-RESULT-OWNERSHIP-danmaku.md) | `1425d0118975ed9412cb85a688a8de9f0f6b3c10` → `3e39a08eb900b92579e90a68782e5ce18d519b9d` → `4a4907c859f09468e7624a1803e9e68c4e446323` | 23项单元测试通过；F2/F3/F4复审ADDRESSED；Mobile真消费者/ARM设备未测；R1为已知未修风险 |
+
+- 采用私有分支no-commit集成merge保留各原始code commit和recovery tag，不复制/重写历史；联合验证通过后才原子提交集成状态。
+- 联合定向测试最终一次（代码末态 4a4907c8）：9类102项0失败/0错误/0跳过，Leanback/Mobile Debug Java及Mobile UnitTestJavaCompile通过；日志 tree reports/TV-SMALL-FIXES-FINAL-4a4907c8.log。整批判定为 Spec PASS / Quality approved（F2/F3/F4均ADDRESSED），R1列入已知未修风险。
+- 原工作区Silent1566及其app/.cxx和未提交旧评估报告保持原样；所有提交/tag仅本地，未推送/未安装候选。
+- 独立审查已路由并修复：失败诊断打印可逃逸(F1)；Robo测试错误放common导致Mobile单测编译回归。其它STRM保基线协议观察未扩大scope。
