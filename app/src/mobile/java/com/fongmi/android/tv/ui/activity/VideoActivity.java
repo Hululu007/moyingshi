@@ -460,6 +460,7 @@ private int mAudioBackgroundRandomNonce;
     private AutoDanmakuToken mAutoDanmaku;
     private okhttp3.Call mAutoDanmakuCall;
     private AutoDanmakuToken mDecodeRestoreToken;
+    private Object mDecodeRestoreOwner;
     private boolean mDanmakuRetired;
 
     private static final class AutoDanmakuToken {
@@ -486,6 +487,7 @@ private int mAudioBackgroundRandomNonce;
     private void invalidateAutoDanmaku() {
         mAutoDanmaku = null;
         mDecodeRestoreToken = null;
+        mDecodeRestoreOwner = null;
         if (mAutoDanmakuCall != null) mAutoDanmakuCall.cancel();
         mAutoDanmakuCall = null;
     }
@@ -517,11 +519,24 @@ private int mAudioBackgroundRandomNonce;
         });
     }
 
+    private void finishDecodeRestore(Object owner, boolean restoreCurrent) {
+        if (mDecodeRestoreOwner != owner) return;
+        AutoDanmakuToken pending = mDecodeRestoreToken;
+        mDecodeRestoreOwner = null;
+        mDecodeRestoreToken = null;
+        if (restoreCurrent && mAutoDanmaku == null) mAutoDanmaku = pending;
+    }
+
     private void renewAutoDanmaku() {
         AutoDanmakuToken token = mAutoDanmaku;
-        if (!ownsAutoDanmaku(token) || TextUtils.equals(token.trace, token.manager.getPlaybackTraceId())) return;
+        if (!ownsAutoDanmaku(token)) return;
+        String beforeTrace = token.trace;
+        if (TextUtils.equals(beforeTrace, token.manager.getPlaybackTraceId())) {
+            if (mAutoDanmakuCall != null) return;
+            beforeTrace = com.fongmi.android.tv.player.PlaybackTrace.NONE;
+        }
         invalidateAutoDanmaku();
-        searchAutoDanmaku(token.result, token.manager, token.trace);
+        searchAutoDanmaku(token.result, token.manager, beforeTrace);
     }
 
     @Override
@@ -5412,6 +5427,8 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         decodeSwitchRefreshing = true;
         AutoDanmakuToken restore = mAutoDanmaku;
         invalidateAutoDanmaku();
+        Object owner = new Object();
+        mDecodeRestoreOwner = owner;
         mDecodeRestoreToken = restore;
         setNextDecodeText();
         setDecodeSwitchPending(true);
@@ -5420,11 +5437,12 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         Task.execute(() -> {
             try {
                 Result result = SiteApi.playerContent(key, flag, episode);
-                App.post(() -> switchDecodeWithResult(requestId, generation, key, flag, episode, result, position, speed, repeat, metadata));
+                App.post(() -> switchDecodeWithResult(owner, requestId, generation, key, flag, episode, result, position, speed, repeat, metadata));
             } catch (Throwable e) {
                 App.post(() -> {
                     if (!isCurrentPlayerContentRequest(requestId, generation, key, flag, episode)) return;
                     decodeSwitchRefreshing = false;
+                    finishDecodeRestore(owner, true);
                     setDecodeSwitchPending(false);
                     setDecode();
                     Notify.show(e.getMessage());
@@ -5434,7 +5452,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         return true;
     }
 
-    private void switchDecodeWithResult(int requestId, int generation, String key, String flag, String episode,
+    private void switchDecodeWithResult(Object owner, int requestId, int generation, String key, String flag, String episode,
                                         Result result, long position, float speed, boolean repeat, MediaMetadata metadata) {
         if (requestId != decodeSwitchRequestId
                 || !isCurrentPlayerContentRequest(requestId, generation, key, flag, episode)) return;
@@ -5442,11 +5460,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         setDecodeSwitchPending(false);
         if (!canApplyPlayerContentRequest(requestId, generation, key, flag, episode)) return;
         if (result == null || result.hasMsg() || result.getRealUrl().isEmpty()) {
-            mAutoDanmaku = mDecodeRestoreToken;
-            mDecodeRestoreToken = null;
+            finishDecodeRestore(owner, true);
             player().toggleDecode();
         } else {
-            mDecodeRestoreToken = null;
+            finishDecodeRestore(owner, false);
             PlayerManager danmakuManager = player();
             String beforeTrace = danmakuManager.getPlaybackTraceId();
             player().switchDecode(result, activePlaybackKey(), metadata, isUseParse(), position, speed, repeat);
