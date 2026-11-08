@@ -36,7 +36,7 @@ android {
     ndkVersion "29.0.14206865"
 
     defaultConfig {
-        applicationId "com.github.mooyingshi.osc"
+        applicationId "com.github.mooyingshi.osc.tv"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
         versionCode 560
