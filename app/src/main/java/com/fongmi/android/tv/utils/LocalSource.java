@@ -184,8 +184,14 @@ public class LocalSource {
             Site site = new Site();
             site.setKey(Json.safeString(object, "key"));
             site.setName(Json.safeString(object, "name"));
-            site.setApi(UrlUtil.convert(Json.safeString(object, "api")));
-            site.setExt(UrlUtil.convert(Json.safeString(object, "ext")));
+            String rawApi = Json.safeString(object, "api");
+            String rawExt = Json.safeString(object, "ext");
+            site.setApi(UrlUtil.convert(rawApi));
+            // FileSpider 读规则走自己的 File(b)：非 http 当成本地路径 new File(s) 直接读盘，
+            // "file://" 前缀会让 exists() 失败、http:// 又依赖本机服务回环（日志已证实会失败）。
+            // 所以 FileSpider 的 ext 直接给绝对路径，不走 UrlUtil.convert()。
+            // XBPQ/XYQHiker 未确认是否认裸路径，仍走 http:// 不动。
+            site.setExt("csp_FileSpider".equals(rawApi) ? toPlainPath(rawExt) : UrlUtil.convert(rawExt));
             site.setJar(Json.safeString(object, "jar"));
             site.setHomePage(UrlUtil.convert(Json.safeString(object, "homePage")));
             site.setType(object.has("type") ? object.get("type").getAsInt() : 3);
@@ -395,6 +401,14 @@ public class LocalSource {
         int i = url.indexOf("/file/");
         if (url.startsWith("http://127.0.0.1:") && i > 0) return "file://" + url.substring(i + 6);
         return null;
+    }
+
+    /** file:// 或本机 http://127.0.0.1:端口/file/ 地址还原成绝对路径（FileSpider.b() 只认裸路径）；其余原样返回。 */
+    private static String toPlainPath(String url) {
+        if (url == null) return "";
+        String fileUrl = toFileUrl(url);
+        if (fileUrl != null) return fileUrl.substring("file://".length());
+        return url;
     }
 
     /** 在扫描目录下递归找指定文件名的 .py（跳过屏蔽目录）。 */
