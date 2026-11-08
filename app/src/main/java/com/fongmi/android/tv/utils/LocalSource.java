@@ -371,6 +371,8 @@ public class LocalSource {
                 changed = true;
                 continue;
             }
+            // 旧版非 cat .js 一律注册成 api=file:// 直接加载：var rule 格式的要走 drpy 引擎才有数据。
+            if (migrateDrpyJs(site)) changed = true;
             if (!isStaleCspApi(site.getApi())) continue;
             String pyUrl = toFileUrl(site.getExt());
             // ext 必须是 .py 文件地址才算数，别把别的后缀文件当成蜘蛛。
@@ -392,6 +394,40 @@ public class LocalSource {
             // 后面 getSites() 才重新读盘换成本机地址。
             sites = null;
         }
+    }
+
+    /**
+     * 修旧版扫进来的非 cat .js 注册：var rule 格式的改走 drpy 引擎（api=lib/drpy2-fast.min.js、ext=文件地址），
+     * ES 模块格式（export default）的直接加载是对的，不用动；cat.js、cat 目录里的 .js、wv.js 不动；
+     * 文件已不存在的也不动，等用户重扫。
+     */
+    private static boolean migrateDrpyJs(Site site) {
+        String api = site.getApi();
+        String ext = site.getExt();
+        File file = null;
+        if (api != null && api.startsWith("file://") && api.toLowerCase(Locale.ROOT).endsWith(".js")) file = new File(api.substring("file://".length()));
+        else if ("lib/drpy2-fast.min.js".equals(api) && ext != null && ext.startsWith("file://")) file = new File(ext.substring("file://".length()));
+        if (file == null || !file.exists()) return false;
+        String name = file.getName().toLowerCase(Locale.ROOT);
+        if ("cat.js".equals(name) || "wv.js".equals(name) || isInCategoryDir(file, "cat")) return false;
+        if (isDrpyModule(file)) {
+            // ES 模块格式：直接加载已是对的；之前若被错注册成引擎，改回直接加载。
+            if ("lib/drpy2-fast.min.js".equals(api)) {
+                site.setApi(fileUrl(file));
+                site.setExt("");
+                site.setType(3);
+                return true;
+            }
+            return false;
+        }
+        // var rule 格式：必须走 drpy 引擎。
+        if (!"lib/drpy2-fast.min.js".equals(api) || !fileUrl(file).equals(ext)) {
+            site.setApi("lib/drpy2-fast.min.js");
+            site.setExt(fileUrl(file));
+            site.setType(3);
+            return true;
+        }
+        return false;
     }
 
     /** file:// 地址原样用；本机地址 http://127.0.0.1:端口/file/路径 还原成 file:// 路径；其余返回 null。 */
@@ -483,7 +519,14 @@ public class LocalSource {
             result.add(newSite(base, display, 3, fileUrl(file), "", ""));
         } else if ("js".equals(extension(lower)) || "wv.js".equals(normalizeExt(lower))) {
             if ("wv.js".equals(normalizeExt(lower))) result.add(newSite(base, display, 3, "csp_WvSpider", fileUrl(file), spiderJar("WvSpider.jar")));
-            else result.add(newSite(base, display, 3, fileUrl(file), "", ""));
+            else if (isDrpyModule(file)) {
+                // drpy 的 ES 模块格式（export default 导出函数）：直接当蜘蛛加载，Global 已提供 req/pdfa/pdfh；
+                // 走引擎的话，引擎 init 里 eval 会报 export 语法错，全空。
+                result.add(newSite(base, display, 3, fileUrl(file), "", ""));
+            } else {
+                // var rule 格式：走 drpy 引擎（魔影同款），引擎 init 读规则、提供解析。
+                result.add(newSite(base, display, 3, "lib/drpy2-fast.min.js", fileUrl(file), ""));
+            }
         } else if ("php".equals(extension(lower))) {
             Site site = newSite(base, display, 4, fileUrl(file), file.getAbsolutePath(), "");
             site.setSearchable(0);
@@ -585,6 +628,16 @@ public class LocalSource {
 
     private static String fileUrl(File file) {
         return "file://" + file.getAbsolutePath();
+    }
+
+    /** 是不是 drpy 的 ES 模块格式（export default 导出函数）：这类脚本直接当蜘蛛加载。 */
+    private static boolean isDrpyModule(File file) {
+        try {
+            String content = Path.read(file);
+            return content != null && content.contains("export default");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** 蜘蛛 jar 地址缓存（魔影 sv4.b 的 ConcurrentHashMap 缓存）。 */

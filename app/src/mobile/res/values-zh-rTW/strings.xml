@@ -16,6 +16,8 @@
     <string name="local_source_empty">暫無本地源</string>
     <string name="local_source_count">共 %1$d 個本地源</string>
     <string name="local_source_pick_dir">選擇資料夾</string>
+    <string name="local_source_change_dir">更換資料夾</string>
+    <string name="local_source_scan_dir_empty">未選擇資料夾</string>
     <string name="local_source_pick_file">選擇檔案</string>
     <string name="local_source_scan_all">掃描全部</string>
     <string name="local_source_select_all">全選</string>
