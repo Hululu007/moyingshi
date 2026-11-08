@@ -464,24 +464,29 @@ private boolean runtimeSourceOnly;
     }
 
     private boolean ownsAutoDanmaku(AutoDanmakuToken token) {
+        Episode episode = getEpisode();
+        if (episode == null) return false;
         return token != null && token == mAutoDanmaku && !mDanmakuRetired
                 && !isFinishing() && !isDestroyed() && !isPlaybackExiting() && !isRedirect()
                 && service() == token.binding && service() != null && player() == token.manager && isOwner()
                 && TextUtils.equals(token.key, getHistoryKey())
                 && TextUtils.equals(token.url, token.result.getRealUrl())
-                && TextUtils.equals(token.episodeName, getEpisode().getName())
-                && TextUtils.equals(token.episodeUrl, getEpisode().getUrl())
-                && TextUtils.equals(token.flag, getEpisodePlayFlag(getFlag(), getEpisode()));
+                && TextUtils.equals(token.episodeName, episode.getName())
+                && TextUtils.equals(token.episodeUrl, episode.getUrl())
+                && TextUtils.equals(token.flag, getEpisodePlayFlag(getFlag(), episode));
     }
 
     private void searchAutoDanmaku(Result result, PlayerManager manager, String beforeTrace) {
+        if (mAutoDanmakuCall != null) invalidateAutoDanmaku();
         if (service() == null || player() != manager || mDanmakuRetired || isRedirect() || isPlaybackExiting()
                 || !isOwner() || isFinishing() || isDestroyed()) return;
+        Episode episode = getEpisode();
+        if (episode == null) return;
         String trace = manager.getPlaybackTraceId();
         if (com.fongmi.android.tv.player.PlaybackTrace.NONE.equals(trace) || TextUtils.equals(beforeTrace, trace)
                 || !DanmakuApi.canAutoSearch(result.getDanmaku())) return;
-        AutoDanmakuToken token = new AutoDanmakuToken(service(), manager, result, getHistoryKey(), getEpisode(),
-                getEpisodePlayFlag(getFlag(), getEpisode()), mHistory.getVodName());
+        AutoDanmakuToken token = new AutoDanmakuToken(service(), manager, result, getHistoryKey(), episode,
+                getEpisodePlayFlag(getFlag(), episode), mHistory.getVodName());
         mAutoDanmaku = token;
         mAutoDanmakuCall = DanmakuApi.searchOwned(token.name, token.episodeName, mDanmakuOwnerTag, item -> {
             if (ownsAutoDanmaku(token) && TextUtils.equals(token.trace, token.manager.getPlaybackTraceId())) {
@@ -492,9 +497,14 @@ private boolean runtimeSourceOnly;
 
     private void renewAutoDanmaku() {
         AutoDanmakuToken token = mAutoDanmaku;
-        if (!ownsAutoDanmaku(token) || TextUtils.equals(token.trace, token.manager.getPlaybackTraceId())) return;
+        if (!ownsAutoDanmaku(token)) return;
+        String beforeTrace = token.trace;
+        if (TextUtils.equals(beforeTrace, token.manager.getPlaybackTraceId())) {
+            if (mAutoDanmakuCall != null) return;
+            beforeTrace = com.fongmi.android.tv.player.PlaybackTrace.NONE;
+        }
         invalidateAutoDanmaku();
-        searchAutoDanmaku(token.result, token.manager, token.trace);
+        searchAutoDanmaku(token.result, token.manager, beforeTrace);
     }
 
     @Override
@@ -3548,7 +3558,9 @@ private boolean runtimeSourceOnly;
         if (DanmakuApi.canAutoSearch(siteDanmakus)) {
             // 自动弹幕只属于本次播放会话：上游用 token 归属拦住过期结果，这里沿用同一机制，
             // 但仍走墨影视自己的富标题解析（缓存/手动标题/AI 兜底/spider-first），不降级成纯标题搜索。
-            AutoDanmakuToken token = new AutoDanmakuToken(service(), danmakuManager, result, getHistoryKey(), getEpisode(), getEpisodePlayFlag(getFlag(), getEpisode()), mHistory.getVodName());
+            Episode danmakuEpisode = getEpisode();
+            if (danmakuEpisode == null) return;
+            AutoDanmakuToken token = new AutoDanmakuToken(service(), danmakuManager, result, getHistoryKey(), danmakuEpisode, getEpisodePlayFlag(getFlag(), danmakuEpisode), mHistory.getVodName());
             mAutoDanmaku = token;
             DanmakuApi.search(MediaTitleRequest.builder()
                     .siteKey(getKey())
@@ -4278,11 +4290,15 @@ private boolean runtimeSourceOnly;
     public void onItemClick(Result result) {
         invalidateShortDramaQueue("quality");
         updateActionQuality(result);
+        PlayerManager manager = service() != null ? player() : null;
+        String beforeTrace = manager != null ? manager.getPlaybackTraceId() : null;
+        cancelKeySeek();
         beginPlayHealth();
         // 切清晰度也会重建 spec，字幕列表跟着重置，所以这里同样要恢复一次。
         if (SubtitleRestoreCoordinator.restore(mHistory, player(), result)) syncHistory();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         subtitlePlaybackSession.onPlaybackStarted(this, result);
+        if (manager != null) searchAutoDanmaku(result, manager, beforeTrace);
     }
 
     private void reverseEpisode(boolean scroll) {
@@ -7110,7 +7126,10 @@ private boolean runtimeSourceOnly;
             refreshTmdbRelatedVideos();
         }
         else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
-        else if (event.getType() == RefreshEvent.Type.DANMAKU) player().reloadDanmaku(Danmaku.from(event.getPath()));
+        else if (event.getType() == RefreshEvent.Type.DANMAKU) {
+            invalidateAutoDanmaku();
+            player().reloadDanmaku(Danmaku.from(event.getPath()));
+        }
         else if (event.getType() == RefreshEvent.Type.HISTORY) refreshPersonalRecommendationsForHistory();
     }
 
@@ -9604,7 +9623,7 @@ private boolean runtimeSourceOnly;
         if (mTmdbHeaderView != null) mTmdbHeaderView.onDestroy();
         if (mTmdbUIAdapter != null) mTmdbUIAdapter.release();
         saveHistory(true);
-        DanmakuApi.cancel();
+        DanmakuApi.cancel(mDanmakuOwnerTag);
         stopBackdropAutoScroll();
         dismissQuickSearchDialog();
         RefreshEvent.keep();

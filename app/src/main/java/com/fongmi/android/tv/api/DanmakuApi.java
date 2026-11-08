@@ -22,6 +22,8 @@ import com.github.catvod.utils.Trans;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import okhttp3.Call;
@@ -30,6 +32,7 @@ import okhttp3.Response;
 public class DanmakuApi {
 
     private static final String TAG = DanmakuApi.class.getSimpleName();
+    private static final Set<Call> OWNED = ConcurrentHashMap.newKeySet();
 
     public static boolean canSearch() {
         return DanmakuSetting.isLoad() && DanmakuSetting.isAuto() && DanmakuSetting.hasValidApiUrl();
@@ -98,6 +101,7 @@ public class DanmakuApi {
     public static Call searchOwned(String name, String episode, String ownerTag, Consumer<Danmaku> found) {
         String url = DanmakuSetting.getValidApiUrl();
         Call call = TextUtils.isEmpty(url) ? null : newCall(name, episode, url, ownerTag);
+        if (call != null) OWNED.add(call);
         enqueue(call, found);
         return call;
     }
@@ -107,10 +111,16 @@ public class DanmakuApi {
         call.enqueue(new Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
+                OWNED.remove(call);
                 try {
                     arrayFrom(response.body().string()).stream().findFirst().ifPresent(item -> App.post(() -> found.accept(item)));
                 } catch (Exception ignored) {
                 }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                OWNED.remove(call);
             }
         });
     }
@@ -190,5 +200,13 @@ public class DanmakuApi {
 
     public static void cancel() {
         OkHttp.cancel(TAG);
+        for (Call call : OWNED) call.cancel();
+        OWNED.clear();
+    }
+
+    public static void cancel(String ownerTag) {
+        OkHttp.cancel(TAG);
+        if (TextUtils.isEmpty(ownerTag)) return;
+        OkHttp.cancel(ownerTag);
     }
 }
