@@ -1,5 +1,6 @@
 package com.fongmi.android.tv.utils;
 
+import android.os.Build;
 import android.text.TextUtils;
 
 import com.fongmi.android.tv.App;
@@ -11,6 +12,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +23,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * 本地源（魔影式）：扫描本地文件夹里的源文件，存进应用内部目录的 sites.json，
@@ -165,6 +171,14 @@ public class LocalSource {
         saveSites(new ArrayList<>());
     }
 
+    /** 按 key 删站点（直接操作原始列表，不经过地址转换，写回的还是 file://）。 */
+    public static synchronized void removeByKeys(List<String> keys) {
+        if (keys == null || keys.isEmpty()) return;
+        List<Site> raw = getSitesRaw();
+        boolean changed = raw.removeIf(site -> keys.contains(site.getKey()));
+        if (changed) saveSites(raw);
+    }
+
     private static Site siteFrom(JsonObject object) {
         try {
             Site site = new Site();
@@ -189,16 +203,22 @@ public class LocalSource {
         JsonObject object = new JsonObject();
         put(object, "key", site.getKey());
         put(object, "name", site.getName());
-        put(object, "api", site.getApi());
-        put(object, "ext", site.getExt());
+        put(object, "api", rawUrl(site.getApi()));
+        put(object, "ext", rawUrl(site.getExt()));
         put(object, "jar", site.getJar());
-        put(object, "homePage", site.getHomePage());
+        put(object, "homePage", rawUrl(site.getHomePage()));
         if (site.getType() != null) object.addProperty("type", site.getType());
         if (site.getSearchable() != null) object.addProperty("searchable", site.getSearchable());
         if (site.getQuickSearch() != null) object.addProperty("quickSearch", site.getQuickSearch());
         if (site.getChangeable() != null) object.addProperty("changeable", site.getChangeable());
         if (site.getHide() != null) object.addProperty("hide", site.getHide());
         return object;
+    }
+
+    /** 写盘前把已转换的本机地址还原成 file://：读出时换成的 http://127.0.0.1:端口/file/... 绝不能落盘，端口一变就全空。 */
+    private static String rawUrl(String url) {
+        String fileUrl = toFileUrl(url);
+        return fileUrl != null ? fileUrl : url;
     }
 
     private static void put(JsonObject object, String key, String value) {
@@ -254,6 +274,8 @@ public class LocalSource {
     /** 把文件解析成站点并合并进现有列表，返回新导入的站点数。 */
     private static synchronized int parse(List<File> files, boolean showSecret) {
         if (files == null || files.isEmpty()) return 0;
+        // 先把盘里已有的坏条目修好（写死的本机地址、坏的 csp_ 注册），再合并，免得重扫出 _1 副本。
+        migrateStalePyApi();
         List<Site> current = new ArrayList<>(getSitesRaw());
         Map<String, Site> byKey = new LinkedHashMap<>();
         for (Site site : current) byKey.put(site.getKey(), site);
@@ -262,9 +284,10 @@ public class LocalSource {
             for (Site site : parseFile(file, showSecret)) {
                 String key = site.getKey();
                 Site old = byKey.get(key);
-                if (old != null && old.getApi().equals(site.getApi())) continue;
-                if (old != null && isStaleCspApi(old.getApi())) {
-                    // 旧条目是坏的 csp_ 写法：直接刷新为新解析的结果，不产生 _1 副本。
+                if (old != null && isSameSite(old, site)) continue;
+                if (old != null && isRefreshableStale(old)) {
+                    // 旧条目是坏的写法（坏的 csp_、没解析过的相对地址、已写死的本机地址、坏的 csp_ 注册）：
+                    // 直接刷新为新解析的结果，不产生 _1 副本。
                     site.setKey(key);
                     byKey.put(key, site);
                     added++;
@@ -291,12 +314,57 @@ public class LocalSource {
         return api != null && api.startsWith("csp_") && !isKnownCspApi(api);
     }
 
-    /** 修旧版扫进来的 .py 坏条目：api 是 csp_<文件名> 的改回文件地址，ext 清掉。 */
+    /** 没解析过的相对地址（./demo.py、../x.py、裸文件名）：Loader 会把它当脚本源码，全空。 */
+    private static boolean isUnresolvedRefApi(String api) {
+        if (TextUtils.isEmpty(api)) return false;
+        if (api.contains("://") || api.startsWith("csp_") || api.startsWith("assets://")) return false;
+        return true;
+    }
+
+    /** 新旧条目是不是同一份（api 相同且旧的不是坏注册）：是就不用刷新。 */
+    private static boolean isSameSite(Site old, Site site) {
+        if (!old.getApi().equals(site.getApi())) return false;
+        // api 相同，但旧条目是坏的 csp_ 注册（type 不是 3 或 jar 为空）：要刷新。
+        return !isBadCspRegistration(old);
+    }
+
+    /** 旧条目能不能直接刷新：坏的 csp_ 写法、没解析过的相对地址、已写死的本机地址、坏的 csp_ 注册。 */
+    private static boolean isRefreshableStale(Site old) {
+        return isStaleCspApi(old.getApi()) || isUnresolvedRefApi(old.getApi())
+                || toFileUrl(old.getApi()) != null || isBadCspRegistration(old);
+    }
+
+    /** 坏的 csp_ 注册：api 是真的 Jar 蜘蛛类，但 type 不是 3（不走蜘蛛）或 jar 为空（加载器找不到）。 */
+    private static boolean isBadCspRegistration(Site site) {
+        return isKnownCspApi(site.getApi())
+                && (site.getType() == null || site.getType() != 3 || TextUtils.isEmpty(site.getJar()));
+    }
+
+    /** 修旧版扫进来的坏条目：.py 的 csp_ 写法改回文件地址；xbpq/xyq/wv.js 的坏注册（type=0、jar 为空）改回魔影的注册；写死的本机地址还原成 file://。 */
     private static void migrateStalePyApi() {
         List<Site> raw = getSitesRaw();
         if (raw.isEmpty()) return;
         boolean changed = false;
         for (Site site : raw) {
+            // 弹窗删站时把读出时换成的 http://127.0.0.1:端口/file/... 写回去了：端口一变就全空，先还原成 file://。
+            String api = toFileUrl(site.getApi());
+            if (api != null && !api.equals(site.getApi())) { site.setApi(api); changed = true; }
+            String ext = toFileUrl(site.getExt());
+            if (ext != null && !ext.equals(site.getExt())) { site.setExt(ext); changed = true; }
+            String homePage = toFileUrl(site.getHomePage());
+            if (homePage != null && !homePage.equals(site.getHomePage())) { site.setHomePage(homePage); changed = true; }
+            // 旧版 xbpq/xyq/wv.js 注册错了（type=0、一律 csp_XYQHiker、jar 为空）：按 ext 文件名改回魔影的注册。
+            if (isBadCspRegistration(site)) {
+                String lower = site.getExt() == null ? "" : site.getExt().toLowerCase(Locale.ROOT);
+                if (lower.endsWith("xbpq.json")) { site.setApi("csp_XBPQ"); site.setJar(spiderJar("XBPQ.jar")); }
+                else if (lower.endsWith("xyq.json")) { site.setApi("csp_XYQHiker"); site.setJar(spiderJar("XYQ.jar")); }
+                else if (lower.endsWith("wv.js")) { site.setApi("csp_WvSpider"); site.setJar(spiderJar("WvSpider.jar")); }
+                else if (lower.endsWith(".json")) { site.setApi("csp_FileSpider"); site.setJar(spiderJar("WvSpider.jar")); }
+                else continue;
+                site.setType(3);
+                changed = true;
+                continue;
+            }
             if (!isStaleCspApi(site.getApi())) continue;
             String pyUrl = toFileUrl(site.getExt());
             // ext 必须是 .py 文件地址才算数，别把别的后缀文件当成蜘蛛。
@@ -392,12 +460,15 @@ public class LocalSource {
         boolean isXbpq = isInCategoryDir(file, "pq") || "xbpq.json".equals(normalizeExt(lower));
         boolean isXyq = isInCategoryDir(file, "yq") || "xyq.json".equals(normalizeExt(lower));
         boolean isCat = isInCategoryDir(file, "cat");
-        if (isXbpq || isXyq) {
-            result.add(newSite(base, display, 0, "csp_XYQHiker", fileUrl(file), ""));
+        if (isXbpq) {
+            // 魔影同款：xbpq 走 csp_XBPQ + XBPQ.jar，type 必须是 3 才走蜘蛛；之前 type=0、一律 csp_XYQHiker、jar 为空，全空。
+            result.add(newSite(base, display, 3, "csp_XBPQ", fileUrl(file), spiderJar("XBPQ.jar")));
+        } else if (isXyq) {
+            result.add(newSite(base, display, 3, "csp_XYQHiker", fileUrl(file), spiderJar("XYQ.jar")));
         } else if ("cat.js".equals(lower) || ("js".equals(extension(lower)) && isCat)) {
             result.add(newSite(base, display, 3, fileUrl(file), "", ""));
         } else if ("js".equals(extension(lower)) || "wv.js".equals(normalizeExt(lower))) {
-            if ("wv.js".equals(normalizeExt(lower))) result.add(newSite(base, display, 3, "csp_WvSpider", fileUrl(file), ""));
+            if ("wv.js".equals(normalizeExt(lower))) result.add(newSite(base, display, 3, "csp_WvSpider", fileUrl(file), spiderJar("WvSpider.jar")));
             else result.add(newSite(base, display, 3, fileUrl(file), "", ""));
         } else if ("php".equals(extension(lower))) {
             Site site = newSite(base, display, 4, fileUrl(file), file.getAbsolutePath(), "");
@@ -409,8 +480,17 @@ public class LocalSource {
             // 之前写成 csp_<文件名> 会被当成 Java 蜘蛛走 JarLoader，类不存在就全空。
             result.add(newSite(base, display, 3, fileUrl(file), "", ""));
         } else if ("html".equals(extension(lower))) {
-            result.add(newSite(base, display, 3, fileUrl(file), fileUrl(file), ""));
-        } else if ("json".equals(extension(lower)) || "txt".equals(extension(lower))) {
+            // 魔影同款：api=csp_Nostr，homePage=文件地址；之前 api=file:// 走不到任何蜘蛛，全空。
+            // jar 为空，加载配置时用当前配置的 spider.jar 兜底（VodConfig.initSite）。
+            Site site = newSite(base, display, 3, "csp_Nostr", "", "");
+            site.setHomePage(fileUrl(file));
+            result.add(site);
+        } else if ("json".equals(extension(lower))) {
+            // 先当配置文件解析（FongMi 模板那种带 sites 的）；解析不出站点就按魔影当蜘蛛规则注册。
+            List<Site> configSites = parseConfigFile(file);
+            if (!configSites.isEmpty()) result.addAll(configSites);
+            else result.add(newSite(base, display, 3, "csp_FileSpider", fileUrl(file), spiderJar("WvSpider.jar")));
+        } else if ("txt".equals(extension(lower))) {
             result.addAll(parseConfigFile(file));
         }
         return result;
@@ -436,23 +516,121 @@ public class LocalSource {
         try {
             JsonElement element = App.gson().fromJson(Path.read(file), JsonElement.class);
             if (element == null) return result;
-            if (element.isJsonObject() && element.getAsJsonObject().has("sites")) {
-                for (JsonElement item : Json.safeListElement(element.getAsJsonObject(), "sites")) {
+            if (!element.isJsonObject()) return result;
+            JsonObject config = element.getAsJsonObject();
+            // 模板里的 spider/api 都是相对路径（./demo.py、./spider.jar），以配置文件位置为基准；
+            // 不解析就原样传给 Loader，非 http 的 api 会被当成脚本源码，全空。
+            String spider = resolveConfigRef(file, Json.safeString(config, "spider"));
+            if (config.has("sites")) {
+                for (JsonElement item : Json.safeListElement(config, "sites")) {
                     if (!item.isJsonObject()) continue;
                     Site site = siteFromRaw(item.getAsJsonObject());
-                    if (site != null && !site.getKey().isEmpty()) result.add(site);
+                    if (site != null && !site.getKey().isEmpty()) {
+                        resolveSiteRefs(file, site, spider);
+                        result.add(site);
+                    }
                 }
-            } else if (element.isJsonObject() && element.getAsJsonObject().has("key")) {
-                Site site = siteFromRaw(element.getAsJsonObject());
-                if (site != null && !site.getKey().isEmpty()) result.add(site);
+            } else if (config.has("key")) {
+                Site site = siteFromRaw(config);
+                if (site != null && !site.getKey().isEmpty()) {
+                    resolveSiteRefs(file, site, spider);
+                    result.add(site);
+                }
             }
         } catch (Exception ignored) {
         }
         return result;
     }
 
+    /** 把配置文件里站点的相对地址解析成文件地址（以配置文件所在目录为基准）。 */
+    private static void resolveSiteRefs(File configFile, Site site, String spider) {
+        site.setApi(resolveConfigRef(configFile, site.getApi()));
+        site.setJar(resolveConfigRef(configFile, site.getJar()));
+        site.setHomePage(resolveConfigRef(configFile, site.getHomePage()));
+        // ext 通常是 JSON 选项，只在它长得像相对路径时才解析。
+        String ext = site.getExt();
+        if (!TextUtils.isEmpty(ext) && (ext.startsWith("./") || ext.startsWith("../") || ext.startsWith("/"))) {
+            site.setExt(resolveConfigRef(configFile, ext));
+        }
+        // Java 蜘蛛（csp_ 开头）要靠配置里的 spider.jar，站点自己没写 jar 就用配置的。
+        if (!TextUtils.isEmpty(site.getApi()) && site.getApi().startsWith("csp_")
+                && TextUtils.isEmpty(site.getJar()) && !TextUtils.isEmpty(spider)) {
+            site.setJar(spider);
+        }
+    }
+
+    /** 相对地址 → 文件地址；已有协议（http/file/csp_/assets）的不动。 */
+    private static String resolveConfigRef(File configFile, String ref) {
+        if (TextUtils.isEmpty(ref)) return "";
+        if (ref.contains("://") || ref.startsWith("csp_") || ref.startsWith("assets://")) return ref;
+        if (ref.startsWith("/")) return "file://" + ref;
+        File parent = configFile.getParentFile();
+        if (parent == null) return ref;
+        return "file://" + new File(parent, ref).toPath().normalize().toString();
+    }
+
     private static String fileUrl(File file) {
         return "file://" + file.getAbsolutePath();
+    }
+
+    /** 蜘蛛 jar 地址缓存（魔影 sv4.b 的 ConcurrentHashMap 缓存）。 */
+    private static final ConcurrentHashMap<String, String> SPIDER_JARS = new ConcurrentHashMap<>();
+
+    /**
+     * 取蜘蛛 jar 的地址（魔影 sv4.b 同款）：APK 自带的 assets/spider/ 里的 jar，
+     * 第一次用时解到应用内部目录 files/spider/，返回 file:/绝对路径；失败返回 ""。
+     * WvSpider.jar 还要顺带把里面的 libjsc.so 解到缓存目录的 jar/ 下（sv4.a 同款）。
+     */
+    private static String spiderJar(String name) {
+        return SPIDER_JARS.computeIfAbsent(name, LocalSource::extractSpiderJar);
+    }
+
+    private static String extractSpiderJar(String name) {
+        try {
+            File dir = new File(Path.files(), "spider");
+            if (!dir.exists() && !dir.mkdirs()) return "";
+            File target = new File(dir, name);
+            if (!target.exists() || target.length() <= 0) {
+                File tmp = new File(dir, name + ".tmp");
+                try (InputStream in = App.get().getAssets().open("spider/" + name);
+                     FileOutputStream out = new FileOutputStream(tmp)) {
+                    byte[] buf = new byte[8192];
+                    int read;
+                    while ((read = in.read(buf)) > 0) out.write(buf, 0, read);
+                } catch (Exception e) {
+                    tmp.delete();
+                    return "";
+                }
+                if (target.exists()) target.delete();
+                if (!tmp.renameTo(target)) return "";
+            }
+            if ("WvSpider.jar".equals(name)) extractLibJsc(target);
+            return "file:/" + target.getAbsolutePath();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** 把 WvSpider.jar 里的 libjsc.so 解到缓存目录的 jar/ 下（魔影 sv4.a 同款）。 */
+    private static void extractLibJsc(File jar) {
+        try {
+            File target = new File(Path.jar(), "libjsc.so");
+            if (target.exists() && target.length() > 0) return;
+            String[] abis = Build.SUPPORTED_ABIS;
+            String abi = (abis == null || abis.length <= 0) ? "armeabi-v7a" : abis[0];
+            try (ZipFile zip = new ZipFile(jar)) {
+                ZipEntry entry = zip.getEntry("lib/" + abi + "/libjsc.so");
+                if (entry == null) entry = zip.getEntry("lib/armeabi-v7a/libjsc.so");
+                if (entry == null) return;
+                try (InputStream in = zip.getInputStream(entry);
+                     FileOutputStream out = new FileOutputStream(target)) {
+                    byte[] buf = new byte[8192];
+                    int read;
+                    while ((read = in.read(buf)) > 0) out.write(buf, 0, read);
+                }
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private static String stripExtension(String name) {

@@ -224,15 +224,15 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
     }
 
     private void removeSelected() {
-        List<Site> selected = new ArrayList<>();
-        for (Site site : adapter.getItems()) if (adapter.isSelected(site)) selected.add(site);
-        if (selected.isEmpty()) return;
-        List<Site> remain = new ArrayList<>(LocalSource.getSites());
-        remain.removeIf(site -> selected.stream().anyMatch(s -> s.getKey().equals(site.getKey())));
-        LocalSource.saveSites(remain);
+        List<String> keys = new ArrayList<>();
+        for (Site site : adapter.getItems()) if (adapter.isSelected(site)) keys.add(site.getKey());
+        if (keys.isEmpty()) return;
+        int count = keys.size();
+        // 直接删原始条目：拿已转换的 getSites() 再 saveSites() 会把 http://127.0.0.1:端口/file/... 写回盘里，端口一变就全空。
+        LocalSource.removeByKeys(keys);
         adapter.clearSelection();
         refreshList();
-        Notify.show(getString(R.string.local_source_deleted, selected.size()));
+        Notify.show(getString(R.string.local_source_deleted, count));
         reloadConfig();
     }
 
