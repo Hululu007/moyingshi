@@ -602,6 +602,23 @@ public class CacheManagementDialog extends DialogFragment {
     }
 
     /**
+     * Applies the playback limit off the UI thread.
+     *
+     * <p>Converging rebuilds the SimpleCache, which loads its index and evicts every span above the
+     * new capacity. That is disk work and must not sit between the click and the next frame.</p>
+     */
+    private void applyPlaybackLimit() {
+        Thread worker = new Thread(() -> {
+            MediaSourceFactory.enforceCapacityNow();
+            App.post(() -> {
+                if (binding == null || !isAdded()) return;
+                refresh(true);
+            });
+        }, "exo-cache-apply");
+        worker.start();
+    }
+
+    /**
      * 焦点环走 MaterialButton 自带的描边通道，而不是 foreground `<shape>`。
      *
      * <p>原因（2026-10-10 实测）：按钮的圆角由 {@code ShapeAppearance.M3.Comp.Button.Small.
@@ -619,23 +636,6 @@ public class CacheManagementDialog extends DialogFragment {
     private void applyFocusRing(MaterialButton button, int strokeColorRes) {
         button.setStrokeColor(androidx.core.content.ContextCompat.getColorStateList(requireContext(), strokeColorRes));
         button.setStrokeWidth(requireContext().getResources().getDimensionPixelSize(R.dimen.webhtv_focus_ring_width));
-    }
-
-    /**
-     * Applies the playback limit off the UI thread.
-     *
-     * <p>Converging rebuilds the SimpleCache, which loads its index and evicts every span above the
-     * new capacity. That is disk work and must not sit between the click and the next frame.</p>
-     */
-    private void applyPlaybackLimit() {
-        Thread worker = new Thread(() -> {
-            MediaSourceFactory.enforceCapacityNow();
-            App.post(() -> {
-                if (binding == null || !isAdded()) return;
-                refresh(true);
-            });
-        }, "exo-cache-apply");
-        worker.start();
     }
 
     private MaterialButton moduleButton(CacheModuleId id) {
