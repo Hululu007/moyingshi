@@ -2856,6 +2856,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void getDetail(boolean refresh) {
+        cancelKeySeek();
         detailStartTime = System.currentTimeMillis();
         detailHealthRecorded = false;
         SpiderDebug.log("video-flow", "detail start key=%s id=%s name=%s refresh=%s", getKey(), getId(), getName(), refresh);
@@ -2871,6 +2872,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void getDetail(Vod item) {
+        cancelKeySeek();
         revealManualSearch = false;
         if (!isAutoMode()) mViewModel.stopSearch();
         saveHistory();
@@ -3327,6 +3329,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void getPlayer(Flag flag, Episode episode) {
+        cancelKeySeek();
         publishPluginEpisodeContext(episode);
         mBinding.widget.title.setText(getPlaybackControlTitle(episode));
         playerStartTime = System.currentTimeMillis();
@@ -3401,6 +3404,7 @@ private boolean runtimeSourceOnly;
             mPlaybackPlayerStarted = false;
             return;
         }
+        cancelKeySeek();
         if (isFinishing() || isDestroyed()) return;
         SpiderDebug.log("video-flow", "player finish cost=%dms useParse=%s multi=%s msg=%s", System.currentTimeMillis() - playerStartTime, result.shouldUseParse(), result.getUrl().isMulti(), result.getMsg());
         // C111: same gate as setDetail(Result) — setPlayer() writes mQualityAdapter before any other guard.
@@ -4409,6 +4413,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void setParse(Parse item) {
+        cancelKeySeek();
         VodConfig.get().setParse(item);
         notifyItemChanged(mBinding.control.parse, mParseAdapter);
     }
@@ -4995,6 +5000,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void exitFullscreen() {
+        cancelKeySeek();
         if (mAudioStageVisible) {
             mBinding.video.setForeground(null);
             mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
@@ -5209,7 +5215,9 @@ private boolean runtimeSourceOnly;
         else onPrev(true);
     }
 
+
     private boolean onNext(boolean notify) {
+        cancelKeySeek();
         Episode item = getAdjacentEpisode(1);
         if (!item.isSelected()) {
             onItemClick(item);
@@ -5220,6 +5228,7 @@ private boolean runtimeSourceOnly;
     }
 
     private boolean onPrev(boolean notify) {
+        cancelKeySeek();
         Episode item = getAdjacentEpisode(-1);
         if (!item.isSelected()) {
             onItemClick(item);
@@ -5402,12 +5411,14 @@ private boolean runtimeSourceOnly;
     }
 
     private void onReplay() {
+        cancelKeySeek();
         mHistory.setPosition(C.TIME_UNSET);
         if (player().isEmpty()) onRefresh();
         else player().setMediaItem();
     }
 
     private void onRefresh() {
+        cancelKeySeek();
         saveHistory();
         // 「切换线路不自动播放」：线路点击只换线路/选集列表，旧流继续播。
         // 抑制必须先于拆流，否则用户还没点具体集数，正在看的视频就先被停掉了；
@@ -5531,6 +5542,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void switchPlayerKernel(int type) {
+        cancelKeySeek();
         if (refreshAndSwitchPlayerKernel(type)) return;
         mClock.setCallback(null);
         clearLyrics();
@@ -5590,6 +5602,7 @@ private boolean runtimeSourceOnly;
         if (result == null || result.hasMsg() || result.getRealUrl().isEmpty()) {
             Notify.show(result != null && result.hasMsg() ? result.getMsg() : getString(R.string.error_play_url));
         } else {
+            cancelKeySeek();
             player().switchPlayer(type, result, activePlaybackKey(), metadata, isUseParse(), position, speed, repeat);
             rememberPlayerKernel(type);
         }
@@ -5599,6 +5612,7 @@ private boolean runtimeSourceOnly;
 
     private void onDecode() {
         invalidateShortDramaQueue("decode");
+        cancelKeySeek();
         mClock.setCallback(null);
         player().toggleDecode();
         setDecode();
@@ -5738,6 +5752,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void onToggle() {
+        cancelKeySeek();
         if (isVisible(mBinding.control.getRoot())) hideControl();
         else showControl(getFocus2());
     }
@@ -5809,6 +5824,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void showControl(View view) {
+        cancelKeySeek();
         showTopInfo();
         setPlayParamsState();
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
@@ -5819,6 +5835,7 @@ private boolean runtimeSourceOnly;
     }
 
     private void hideControl() {
+        cancelKeySeek();
         mBinding.control.getRoot().setVisibility(View.GONE);
         updateCustomButtonVisibility();
         if (mOsd != null) mOsd.setControlsVisible(false);
@@ -6742,6 +6759,7 @@ private boolean runtimeSourceOnly;
         updateVideoCover();
         player().resetTrack();
         player().reset();
+        cancelKeySeek();
         player().stop();
         // Automatic line fallback continues in the same failed playback session.
         // Keep the remembered kernel, but recreate its engine so the next line cannot
@@ -6765,6 +6783,7 @@ private boolean runtimeSourceOnly;
     @Override
     protected void onReclaim() {
         if (!canApplyPlayerResult()) return;
+        cancelKeySeek();
         Result result = mViewModel.getPlayer().getValue();
         if (result != null) setPlayer(result);
     }
@@ -6830,6 +6849,7 @@ private boolean runtimeSourceOnly;
 
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
+        if (!isPlaying && isPaused()) cancelKeySeek();
         syncKaraokePosition();
         checkAudioPlayImg(isPlaying);
         if (isPlaying) {
@@ -8759,21 +8779,25 @@ private boolean runtimeSourceOnly;
     }
 
     private void onPaused() {
+        cancelKeySeek();
         controller().pause();
     }
 
     private void onPlay() {
+        cancelKeySeek();
         if (mHistory != null && isEnded()) controller().seekTo(mHistory.getOpening());
         if (!player().isEmpty() && isIdle()) controller().prepare();
         controller().play();
     }
 
     private boolean onSeekBack() {
+        cancelKeySeek();
         controller().seekBack();
         return true;
     }
 
     private boolean onSeekForward() {
+        cancelKeySeek();
         controller().seekForward();
         return true;
     }
@@ -8942,7 +8966,16 @@ private boolean runtimeSourceOnly;
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (dispatchDiscMenuKey(event)) return true;
+        if (KeyUtil.isActionDown(event) && (!isFullscreen() || isVisible(mBinding.control.getRoot()) || isVisible(mBinding.lutQuick) || (!KeyUtil.isLeftKey(event) && !KeyUtil.isRightKey(event) && !KeyUtil.isBackKey(event)))) cancelKeySeek();
+        if (KeyUtil.isActionDown(event) && KeyUtil.isBackKey(event)) {
+            boolean preview = isVisible(mBinding.widget.center);
+            cancelKeySeek();
+            if (preview) mBinding.widget.center.setVisibility(View.VISIBLE);
+        }
+        if (dispatchDiscMenuKey(event)) {
+            cancelKeySeek();
+            return true;
+        }
         if (KeyUtil.isActionUp(event) && KeyUtil.isBackKey(event) && mBinding.lutQuick.hideIfVisible()) return true;
         if (mKeyDown.isChangingSpeed() && KeyUtil.isActionUp(event) && KeyUtil.isUpKey(event)) {
             mKeyDown.releaseSpeed();
@@ -8958,14 +8991,23 @@ private boolean runtimeSourceOnly;
         }
         if (isVisible(mBinding.control.getRoot())) {
             setR1Callback();
-            if (dispatchOpeningEndingAdjust(event)) return true;
+            if (dispatchOpeningEndingAdjust(event)) {
+                cancelKeySeek();
+                return true;
+            }
             if (dispatchSpeedAdjust(event)) return true;
             if (PlayerControlFocusHelper.handleKey(mBinding.control.getRoot(), getFocus2(), event)) return true;
             if (PlayerControlFocusHelper.containsFocus(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
         }
-        if (onEpisodeKey(event)) return true;
+        if (onEpisodeKey(event)) {
+            cancelKeySeek();
+            return true;
+        }
         if (handleEpisodeLongPress(event)) return true;
-        if (mAudioStageVisible && isGone(mBinding.control.getRoot()) && dispatchAudioStageKey(event)) return true;
+        if (mAudioStageVisible && isGone(mBinding.control.getRoot()) && dispatchAudioStageKey(event)) {
+            cancelKeySeek();
+            return true;
+        }
         if (isFullscreen() && isGone(mBinding.control.getRoot()) && mKeyDown.hasEvent(event) && service() != null) return mKeyDown.onKeyDown(event);
         if (KeyUtil.isMediaFastForward(event)) return onSeekForward();
         if (KeyUtil.isMediaRewind(event)) return onSeekBack();
@@ -9101,6 +9143,26 @@ private boolean runtimeSourceOnly;
         }
         if (focus != null && isChildOf(mBinding.lutQuick, focus) && focus.isEnabled()) focus.performClick();
         return true;
+    }
+
+    private void cancelKeySeek() {
+        if (mKeyDown != null) mKeyDown.cancelSeek();
+    }
+
+    @Override
+    public boolean canSeek() {
+        return service() != null && !isFinishing() && !isDestroyed() && !isPlaybackExiting() && !isRedirect() && isOwner()
+                && !player().isEmpty();
+    }
+
+    @Override
+    public String getSeekSession() {
+        return service() == null ? com.fongmi.android.tv.player.PlaybackTrace.NONE : player().getPlaybackTraceId();
+    }
+
+    @Override
+    public void onSeekCancel() {
+        hideCenter();
     }
 
     @Override
@@ -9365,6 +9427,7 @@ private boolean runtimeSourceOnly;
     @Override
     protected void onStop() {
         cancelTvTouch();
+        cancelKeySeek();
         super.onStop();
         mKeyDown.releaseSpeed();
         mPlayerUi.onStop();
@@ -9382,6 +9445,7 @@ private boolean runtimeSourceOnly;
         } else if (isVisible(mBinding.control.getRoot())) {
             hideControl();
         } else if (isVisible(mBinding.widget.center)) {
+            cancelKeySeek();
             hideCenter();
         } else if (isFullscreen()) {
             exitFullscreen();
@@ -9414,6 +9478,7 @@ private boolean runtimeSourceOnly;
     }
     @Override
     protected void onDestroy() {
+        cancelKeySeek();
         invalidateShortDramaQueue("destroy");
         cancelPendingEpisodeGridFocus();
         cancelPendingArrayFocus();
@@ -12906,6 +12971,7 @@ private View findAudioStageFocusTarget(View focus, List<View> focusables, KeyEve
     }
 
 public void onCasted() {
+        cancelKeySeek();
         clearLyrics();
         clearKaraokeState();
         player().stop();
