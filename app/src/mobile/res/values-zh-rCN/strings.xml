@@ -35,6 +35,10 @@
     <string name="local_source_php_hint">PHP 根目录已设置</string>
     <string name="local_source_php_root_label">PHP 根目录：%1$s</string>
     <string name="local_source_php_root_empty">未设置</string>
+    <string name="local_source_too_many_files">文件过多请选择子文件夹</string>
+    <string name="local_source_browse_up">返回上级</string>
+    <string name="local_source_browse_exit">返回列表</string>
+    <string name="local_source_browse_empty">此文件夹没有可用的源文件</string>
 
     <!-- Short drama section -->
     <string name="drama_recommend">推荐</string>

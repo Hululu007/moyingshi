@@ -39,7 +39,7 @@ public class LocalSource {
     /** 扫描收录的文件后缀白名单（与魔影一致）。 */
     public static final List<String> EXTENSIONS = Arrays.asList("wv.js", "cat.js", "xbpq.json", "xyq.json", "php", "html", "js", "py", "json");
     /** 扫描时跳过的目录名（与魔影一致）。 */
-    public static final Set<String> BLOCKED_DIRS = new HashSet<>(Arrays.asList("Android", ".thumbnails", "DCIM", "Pictures", "Movies", "Documents", "Music", "Ringtones", "Notifications", "Alarms", "PODCASTS", "Bluetooth", "WhatsApp", "tencent", "WeChat", "QQBrowser", "KuGou", "NetEaseCloudMusic", "Douyin", "Sina", "BaiduNetdisk", "Bilibili", "Logs", "Temp", "pids", "lxserver", "EnvFiles", "danmu_api", "examples", "migu_video", "musicfree", "musicSdk", "data", "controllers", "node_modules", "docs", "config", "lib", "libs", "libs_drpy", "apps", "public", "plugins", "utils", "scripts", "json", "jx", "webdav-files", "webdav", "install", ".github"));
+    public static final Set<String> BLOCKED_DIRS = new HashSet<>(Arrays.asList("Android", ".thumbnails", "DCIM", "Pictures", "Movies", "Documents", "Music", "Ringtones", "Notifications", "Alarms", "PODCASTS", "Bluetooth", "WhatsApp", "tencent", "WeChat", "QQBrowser", "KuGou", "NetEaseCloudMusic", "Douyin", "Sina", "BaiduNetdisk", "Bilibili", "Logs", "Temp", "pids", "lxserver", "EnvFiles", "danmu_api", "examples", "migu_video", "musicfree", "musicSdk", "data", "controllers", "node_modules", "docs", "config", "lib", "libs", "libs_drpy", "apps", "public", "plugins", "utils", "scripts", "jx", "webdav-files", "webdav", "install", ".github"));
 
     /** [标签] 到分类名的映射（与魔影一致）。 */
     public static final Map<String, String> CATEGORIES = new LinkedHashMap<>();
@@ -231,9 +231,54 @@ public class LocalSource {
         if (value != null) object.addProperty(key, value);
     }
 
+    /** 单个文件夹里的文件数上限：超过就跳过这个文件夹，不扫，免得卡死。 */
+    public static final int MAX_FILES_PER_DIR = 100;
+
+    /** 上次扫描有没有因文件过多跳过文件夹（读一次就清掉，弹窗只提示一次）。 */
+    private static volatile boolean skippedLargeDir;
+
+    public static boolean takeSkippedLargeDir() {
+        boolean skipped = skippedLargeDir;
+        skippedLargeDir = false;
+        return skipped;
+    }
+
+    /** 直接子目录里的文件个数（不含子目录、不递归）。 */
+    public static int fileCount(File dir) {
+        if (dir == null || !dir.isDirectory()) return 0;
+        File[] children = dir.listFiles();
+        if (children == null) return 0;
+        int count = 0;
+        for (File child : children) if (child.isFile()) count++;
+        return count;
+    }
+
+    /** 浏览文件夹时列出的条目：未屏蔽的子目录在前、支持的源文件在后，各按名字排序。 */
+    public static List<File> listBrowseable(File dir) {
+        List<File> result = new ArrayList<>();
+        if (dir == null || !dir.isDirectory()) return result;
+        File[] children = dir.listFiles();
+        if (children == null) return result;
+        List<File> dirs = new ArrayList<>();
+        List<File> files = new ArrayList<>();
+        for (File child : children) {
+            if (child.isDirectory()) {
+                if (!BLOCKED_DIRS.contains(child.getName())) dirs.add(child);
+            } else if (isSupported(child.getName())) {
+                files.add(child);
+            }
+        }
+        dirs.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        files.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        result.addAll(dirs);
+        result.addAll(files);
+        return result;
+    }
+
     /** 扫描一个目录（递归），返回新导入的站点数。 */
     public static int scan(File dir) {
         if (dir == null || !dir.isDirectory()) return 0;
+        skippedLargeDir = false;
         List<File> files = new ArrayList<>();
         collect(dir, files);
         return parse(files, isShowSecret());
@@ -244,10 +289,15 @@ public class LocalSource {
         return parse(files, isShowSecret());
     }
 
-    /** 递归收集白名单后缀的文件，跳过屏蔽目录。 */
+    /** 递归收集白名单后缀的文件，跳过屏蔽目录；文件超过上限的文件夹整个跳过，免得卡死。 */
     private static void collect(File dir, List<File> out) {
         File[] children = dir.listFiles();
         if (children == null) return;
+        int files = 0;
+        for (File child : children) if (child.isFile() && ++files > MAX_FILES_PER_DIR) {
+            skippedLargeDir = true;
+            return;
+        }
         for (File child : children) {
             if (child.isDirectory()) {
                 if (!BLOCKED_DIRS.contains(child.getName())) collect(child, out);
