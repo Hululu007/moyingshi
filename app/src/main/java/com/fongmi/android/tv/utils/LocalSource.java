@@ -243,38 +243,6 @@ public class LocalSource {
         return skipped;
     }
 
-    /** 直接子目录里的文件个数（不含子目录、不递归）。 */
-    public static int fileCount(File dir) {
-        if (dir == null || !dir.isDirectory()) return 0;
-        File[] children = dir.listFiles();
-        if (children == null) return 0;
-        int count = 0;
-        for (File child : children) if (child.isFile()) count++;
-        return count;
-    }
-
-    /** 浏览文件夹时列出的条目：未屏蔽的子目录在前、支持的源文件在后，各按名字排序。 */
-    public static List<File> listBrowseable(File dir) {
-        List<File> result = new ArrayList<>();
-        if (dir == null || !dir.isDirectory()) return result;
-        File[] children = dir.listFiles();
-        if (children == null) return result;
-        List<File> dirs = new ArrayList<>();
-        List<File> files = new ArrayList<>();
-        for (File child : children) {
-            if (child.isDirectory()) {
-                if (!BLOCKED_DIRS.contains(child.getName())) dirs.add(child);
-            } else if (isSupported(child.getName())) {
-                files.add(child);
-            }
-        }
-        dirs.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        files.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        result.addAll(dirs);
-        result.addAll(files);
-        return result;
-    }
-
     /** 扫描一个目录（递归），返回新导入的站点数。 */
     public static int scan(File dir) {
         if (dir == null || !dir.isDirectory()) return 0;

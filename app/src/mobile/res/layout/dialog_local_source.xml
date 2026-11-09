@@ -70,57 +70,6 @@
 
     </HorizontalScrollView>
 
-    <androidx.appcompat.widget.LinearLayoutCompat
-        android:id="@+id/browserBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/browseUp"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:paddingEnd="12dp"
-            android:paddingStart="12dp"
-            android:text="@string/local_source_browse_up"
-            android:textColor="@color/dialog_outlined_button_text"
-            android:textSize="12sp"
-            app:backgroundTint="@color/dialog_outlined_button_bg"
-            app:strokeColor="@color/dialog_outlined_button_stroke" />
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/browsePath"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:ellipsize="middle"
-            android:maxLines="1" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/browseExit"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:paddingEnd="12dp"
-            android:paddingStart="12dp"
-            android:text="@string/local_source_browse_exit"
-            android:textColor="@color/dialog_outlined_button_text"
-            android:textSize="12sp"
-            app:backgroundTint="@color/dialog_outlined_button_bg"
-            app:strokeColor="@color/dialog_outlined_button_stroke" />
-
-    </androidx.appcompat.widget.LinearLayoutCompat>
-
     <com.fongmi.android.tv.ui.custom.CustomRecyclerView
         android:id="@+id/sites"
         android:layout_width="match_parent"
@@ -130,18 +79,6 @@
         android:clipChildren="false"
         android:clipToPadding="false"
         android:overScrollMode="never"
-        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-    <com.fongmi.android.tv.ui.custom.CustomRecyclerView
-        android:id="@+id/files"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:overScrollMode="never"
-        android:visibility="gone"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
     <com.google.android.material.textview.MaterialTextView
