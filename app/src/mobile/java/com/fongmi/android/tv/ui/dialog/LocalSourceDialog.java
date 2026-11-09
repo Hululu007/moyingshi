@@ -163,8 +163,11 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
         moreExpanded = expanded;
         binding.moreActions.setVisibility(expanded ? View.VISIBLE : View.GONE);
         binding.moreToggle.setText(expanded ? R.string.local_source_collapse : R.string.local_source_more);
-        // 列表最小高度：收起时 360dp（约 5 条），展开时 120dp（约 2 条），给按钮腾地方。
+        // 列表高度：收起时 360dp（约 5 条），展开时 120dp（约 2 条），给按钮腾地方。
+        // 上下限锁死同一值：只设最小高度时 weight 会把它撑大、把“更多操作”顶出屏幕，
+        // 加了最大高度才卡得住。
         binding.sites.setMinHeight(ResUtil.dp2px(expanded ? 120 : 360));
+        binding.sites.setMaxHeight(ResUtil.dp2px(expanded ? 120 : 360));
         binding.sites.requestLayout();
     }
 
