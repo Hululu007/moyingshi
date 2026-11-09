@@ -60,7 +60,8 @@ public class LocalFileAdapter extends RecyclerView.Adapter<LocalFileAdapter.View
         private final ItemLocalFileBinding binding;
 
         ViewHolder(@NonNull ItemLocalFileBinding binding) {
-            super(binding);
+            super(binding.getRoot());
+            this.binding = binding;
         }
     }
 }
