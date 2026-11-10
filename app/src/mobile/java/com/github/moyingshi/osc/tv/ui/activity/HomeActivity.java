@@ -64,6 +64,7 @@ import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.MobileWindow;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
+import com.github.moyingshi.osc.tv.utils.PreviousProcessCrashRecovery;
 import com.github.moyingshi.osc.tv.utils.UrlUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.moyingshi.osc.tv.web.WebHomeChrome;
@@ -155,6 +156,10 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     }
 
     private void checkAction(Intent intent) {
+        PreviousProcessCrashRecovery.checkBeforeConfig(this, () -> handleAction(intent));
+    }
+
+    private void handleAction(Intent intent) {
         if (intent.hasExtra(EXTRA_NAV_POSITION)) {
             change(intent.getIntExtra(EXTRA_NAV_POSITION, 0));
             intent.removeExtra(EXTRA_NAV_POSITION);
@@ -202,6 +207,10 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     }
 
     private void initConfig() {
+        PreviousProcessCrashRecovery.checkBeforeConfig(this, this::loadConfig);
+    }
+
+    private void loadConfig() {
         if (CrashRestartMode.consume()) {
             checkAction(getIntent());
             StateEvent.empty();

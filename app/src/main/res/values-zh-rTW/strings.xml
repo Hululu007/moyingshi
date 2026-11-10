@@ -3096,4 +3096,5 @@
     <string name="setting_search_title">設置搜索</string>
     <string name="setting_search_hint">搜索設置項</string>
     <string name="setting_search_empty">沒有找到相關設置</string>
+    <string name="crash_action_failed">操作失敗，請重試。</string>
 </resources>

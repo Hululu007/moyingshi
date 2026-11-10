@@ -3193,4 +3193,5 @@
     <string name="setting_search_title">设置搜索</string>
     <string name="setting_search_hint">搜索设置项</string>
     <string name="setting_search_empty">没有找到相关设置</string>
+    <string name="crash_action_failed">操作失败，请重试。</string>
 </resources>

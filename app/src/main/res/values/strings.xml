@@ -3200,4 +3200,5 @@
     <string name="setting_search_title">Search Settings</string>
     <string name="setting_search_hint">Search settings</string>
     <string name="setting_search_empty">No matching settings</string>
+    <string name="crash_action_failed">Action failed. Please try again.</string>
 </resources>

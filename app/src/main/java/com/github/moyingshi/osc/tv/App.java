@@ -34,9 +34,11 @@ import com.github.moyingshi.osc.tv.setting.ProxySetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.subtitle.provider.SubtitleProviderRegistry;
 import com.github.moyingshi.osc.tv.theme.ThemeController;
+import com.github.moyingshi.osc.tv.utils.CrashReport;
 import com.github.moyingshi.osc.tv.utils.DanmakuSearchListFocusFixer;
 import com.github.moyingshi.osc.tv.utils.NsdDeviceDiscovery;
 import com.github.moyingshi.osc.tv.utils.Notify;
+import com.github.moyingshi.osc.tv.utils.PreviousProcessCrashRecovery;
 import com.github.moyingshi.osc.tv.utils.PreviousProcessExitLogger;
 import com.github.moyingshi.osc.tv.utils.Task;
 import com.github.moyingshi.osc.tv.utils.WebViewDataDirectoryGuard;
@@ -62,6 +64,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     private volatile int foregroundActivities;
     private volatile Context originContext;
     private Hook hook;
+    private volatile boolean lightweightProcess = true;
 
     /** 同一语言上语言更新连续失败的次数上限，超过后放弃该语言，避免热路径无限重试。 */
     private static final int MAX_RESOURCES_APPLY_ATTEMPTS = 3;
@@ -126,7 +129,15 @@ public class App extends Application implements Application.ActivityLifecycleCal
         super.attachBaseContext(base);
         // 原源子进程必须先被识别：它的私有 Context 只在租约 open 时安装，此前不得做任何主进程初始化。
         if (com.github.moyingshi.osc.tv.playback.origin.OriginSessionBootstrap.identify(base)) return;
-        if (PlaybackRecoveryMonitor.isRecoveryProcess(base)) return;
+        boolean errorProcess = CrashReport.isErrorProcess(base);
+        lightweightProcess = errorProcess || PlaybackRecoveryMonitor.isRecoveryProcess(base);
+        if (lightweightProcess) {
+            if (errorProcess) Init.set(base);
+            return;
+        }
+        CrashReport.install(base);
+        // Helper processes must not publish recovery state on behalf of the default process.
+        if (CrashReport.isMainProcess(base)) PreviousProcessCrashRecovery.initialize(base);
         WebViewDataDirectoryGuard.clearStaleLock(base);
         Init.set(base);
     }
@@ -196,7 +207,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     public void onCreate() {
         super.onCreate();
         if (com.github.moyingshi.osc.tv.playback.origin.OriginSessionBootstrap.isWorker()) return;
-        if (PlaybackRecoveryMonitor.isRecoveryProcess(this)) return;
+        if (lightweightProcess) return;
         PlaybackMemoryMonitor.process().initialize(this);
         PlaybackSystemConditionMonitor.process().initialize(this);
         Setting.applyLanguage();
@@ -271,13 +282,13 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     @Override
     public void onTrimMemory(int level) {
-        if (!com.github.moyingshi.osc.tv.playback.origin.OriginSessionBootstrap.isWorker() && !PlaybackRecoveryMonitor.isRecoveryProcess(this)) PlaybackMemoryMonitor.process().onTrimMemory(level);
+        if (!com.github.moyingshi.osc.tv.playback.origin.OriginSessionBootstrap.isWorker() && !lightweightProcess) PlaybackMemoryMonitor.process().onTrimMemory(level);
         super.onTrimMemory(level);
     }
 
     @Override
     public void onLowMemory() {
-        if (!com.github.moyingshi.osc.tv.playback.origin.OriginSessionBootstrap.isWorker() && !PlaybackRecoveryMonitor.isRecoveryProcess(this)) PlaybackMemoryMonitor.process().onLowMemory();
+        if (!com.github.moyingshi.osc.tv.playback.origin.OriginSessionBootstrap.isWorker() && !lightweightProcess) PlaybackMemoryMonitor.process().onLowMemory();
         super.onLowMemory();
     }
 
@@ -355,6 +366,7 @@ public class App extends Application implements Application.ActivityLifecycleCal
     @Override
     @SuppressWarnings("deprecation")
     public Resources getResources() {
+        if (lightweightProcess) return super.getResources();
         int language = Setting.getLanguage();
         Resources cached = resources;
         if (cached != null && resourcesLanguage == language) return cached;

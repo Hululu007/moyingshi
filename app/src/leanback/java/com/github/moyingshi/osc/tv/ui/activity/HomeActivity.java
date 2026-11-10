@@ -85,6 +85,7 @@ import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.KeyUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
+import com.github.moyingshi.osc.tv.utils.PreviousProcessCrashRecovery;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
 import com.github.moyingshi.osc.tv.utils.UrlUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
@@ -644,6 +645,10 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     private void checkAction(Intent intent) {
+        PreviousProcessCrashRecovery.checkBeforeConfig(this, () -> handleAction(intent));
+    }
+
+    private void handleAction(Intent intent) {
         if (Intent.ACTION_SEND.equals(intent.getAction())) {
             VideoActivity.push(this, intent.getStringExtra(Intent.EXTRA_TEXT));
         } else if (Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
@@ -760,6 +765,10 @@ public class HomeActivity extends BaseActivity implements ExitConfirmDialog.List
     }
 
     private void initConfig() {
+        PreviousProcessCrashRecovery.checkBeforeConfig(this, this::loadConfig);
+    }
+
+    private void loadConfig() {
         if (CrashRestartMode.consume()) {
             SpiderDebug.log("startup", "skip config load once after crash restart");
             showContent();
