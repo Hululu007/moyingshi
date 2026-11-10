@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
@@ -30,6 +31,7 @@ import com.fongmi.android.tv.bean.Device;
 import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Value;
+import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.FragmentVodBinding;
 import com.fongmi.android.tv.event.CastEvent;
 import com.fongmi.android.tv.event.ConfigEvent;
@@ -46,6 +48,8 @@ import com.fongmi.android.tv.ui.activity.HomeActivity;
 import com.fongmi.android.tv.ui.activity.HistoryActivity;
 import com.fongmi.android.tv.ui.activity.KeepActivity;
 import com.fongmi.android.tv.ui.activity.SearchActivity;
+import com.fongmi.android.tv.ui.activity.VideoActivity;
+import com.fongmi.android.tv.ui.adapter.BannerAdapter;
 import com.fongmi.android.tv.ui.adapter.TypeAdapter;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.ApkPushDialog;
@@ -88,6 +92,24 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private int mHomeWebTopMargin;
     private Device pendingApkDevice;
 
+    // 首页轮播横幅（B1）：自动轮播，4 秒一页；用户拖动时暂停。
+    private BannerAdapter mBannerAdapter;
+    private boolean mBannerAutoScrollEnabled;
+    private boolean mBannerAutoScrollScheduled;
+    private boolean mBannerUserDragging;
+    private final Runnable mBannerAutoScroll = new Runnable() {
+        @Override
+        public void run() {
+            mBannerAutoScrollScheduled = false;
+            if (!mBannerAutoScrollEnabled || mBannerUserDragging) return;
+            if (mBinding == null || mBannerAdapter == null || mBannerAdapter.getItemCount() <= 1) return;
+            int next = (mBinding.banner.getCurrentItem() + 1) % mBannerAdapter.getItemCount();
+            mBinding.banner.setCurrentItem(next, true);
+            App.post(this, 4000);
+            mBannerAutoScrollScheduled = true;
+        }
+    };
+
     public static VodFragment newInstance() {
         return new VodFragment();
     }
@@ -115,6 +137,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.title.setSelected(true);
         mHomeWebTopMargin = ((ViewGroup.MarginLayoutParams) mBinding.homeWeb.getLayoutParams()).topMargin;
         setRecyclerView();
+        setBannerView();
         setWebView();
         setViewModel();
         showProgress();
@@ -173,6 +196,70 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.pager.setAdapter(new PageAdapter(getChildFragmentManager()));
     }
 
+    /**
+     * 首页轮播横幅（B1）：ViewPager2，横向滑动 + 4 秒自动轮播。
+     * 数据来自当前站首页推荐（SiteApi.homeContent 的 homeVideoContent，
+     * 即 Result.getList()）；无数据时整个横幅隐藏。
+     */
+    private void setBannerView() {
+        mBannerAdapter = new BannerAdapter(this::onBannerClick);
+        mBinding.banner.setOrientation(ViewPager2.ORIENTATION_HORIZONTAL);
+        mBinding.banner.setAdapter(mBannerAdapter);
+        mBinding.banner.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageScrollStateChanged(int state) {
+                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
+                    mBannerUserDragging = true;
+                } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                    mBannerUserDragging = false;
+                    startBannerAutoScroll();
+                }
+            }
+        });
+    }
+
+    /** 横幅数据：有推荐就显示，无推荐就隐藏（B1 要求）。 */
+    private void setBanner(List<Vod> list) {
+        if (mBannerAdapter == null) return;
+        mBannerAdapter.submit(list);
+        if (mBannerAdapter.getItemCount() > 0) mBinding.banner.setCurrentItem(0, false);
+        updateBannerVisibility();
+    }
+
+    /** 横幅可见的唯一判据：有数据、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateBannerVisibility() {
+        boolean show = mBannerAdapter != null && mBannerAdapter.getItemCount() > 0
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.banner.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) startBannerAutoScroll();
+        else stopBannerAutoScroll();
+    }
+
+    private void startBannerAutoScroll() {
+        if (mBannerAutoScrollScheduled) return;
+        if (mBannerAdapter == null || mBannerAdapter.getItemCount() <= 1) return;
+        mBannerAutoScrollEnabled = true;
+        mBannerAutoScrollScheduled = true;
+        App.post(mBannerAutoScroll, 4000);
+    }
+
+    private void stopBannerAutoScroll() {
+        mBannerAutoScrollEnabled = false;
+        mBannerAutoScrollScheduled = false;
+    }
+
+    /** 横幅点进详情：与 TypeFragment 的点播行为一致（索引站进搜索，其余进详情/播放）。 */
+    private void onBannerClick(Vod item) {
+        if (item.isAction()) {
+            com.fongmi.android.tv.content.ActionCardHelper.handleAction(requireActivity(), getHome().getKey(), item.getAction());
+        } else if (getHome().isIndex()) {
+            SearchActivity.start(requireActivity(), item.getName());
+        } else {
+            VideoActivity.start(requireActivity(), getHome().getKey(), item.getId(), item.getName(), item.getPic(), null);
+        }
+    }
+
     private void setWebView() {
         mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
         syncWebHomeChrome();
@@ -186,6 +273,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private void setAdapter(Result result) {
         if (mWeb != null && mWeb.isVisible()) return;
         mAdapter.addAll(mResult = result);
+        setBanner(result.getList());
         notifyPagerAdapter();
         mBinding.typeMore.setVisibility(View.GONE);
         mBinding.type.post(this::updateTypeMoreVisible);
@@ -620,6 +708,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     @Override
     public void onDestroyView() {
+        stopBannerAutoScroll();
         requestNormalChrome();
         if (mWeb != null) mWeb.destroy();
         EventBus.getDefault().unregister(this);
@@ -630,10 +719,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     public void onResume() {
         super.onResume();
         if (mWeb != null) mWeb.onResume();
+        if (mBinding != null && mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();
     }
 
     @Override
     public void onPause() {
+        stopBannerAutoScroll();
         if (mWeb != null) mWeb.onPause();
         super.onPause();
     }
@@ -726,6 +817,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.type.setVisibility(View.GONE);
         mBinding.typeMore.setVisibility(View.GONE);
         mBinding.pager.setVisibility(View.GONE);
+        mBinding.banner.setVisibility(View.GONE);
+        stopBannerAutoScroll();
         mBinding.filter.setVisibility(View.GONE);
         mBinding.link.setVisibility(View.GONE);
         mBinding.top.setVisibility(View.GONE);
@@ -737,6 +830,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.type.setVisibility(View.VISIBLE);
         updateTypeMoreVisible();
         mBinding.pager.setVisibility(View.VISIBLE);
+        updateBannerVisibility();
         if (mWeb != null) mWeb.hide();
         updateToolbarMenu();
     }
@@ -752,6 +846,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             mBinding.type.setVisibility(View.GONE);
             mBinding.typeMore.setVisibility(View.GONE);
             mBinding.pager.setVisibility(View.GONE);
+            mBinding.banner.setVisibility(View.GONE);
+            stopBannerAutoScroll();
             mBinding.filter.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
             mBinding.top.setVisibility(View.GONE);

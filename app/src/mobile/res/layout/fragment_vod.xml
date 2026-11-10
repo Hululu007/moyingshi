@@ -40,6 +40,13 @@
 
         </com.google.android.material.appbar.MaterialToolbar>
 
+        <!-- 首页轮播横幅（B1）：ViewPager2，数据取当前站首页推荐；无数据时隐藏。 -->
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/banner"
+            android:layout_width="match_parent"
+            android:layout_height="188dp"
+            android:visibility="gone" />
+
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/typeBar"
             android:layout_width="match_parent"
