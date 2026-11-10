@@ -1749,6 +1749,7 @@
     <string name="home_empty_title">Nothing to show</string>
     <string name="home_empty_description">The content source returned no items.</string>
     <string name="home_empty_action">Reload</string>
+    <string name="home_continue_watching">Continue Watching</string>
     <!--
         "No content source configured yet" empty state: the state right after an app reset,
         a reinstall or a factory reset. It is **not a failure** (there is no address to request,

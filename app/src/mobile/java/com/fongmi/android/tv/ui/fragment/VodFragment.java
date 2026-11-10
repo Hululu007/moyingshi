@@ -28,6 +28,7 @@ import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Class;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.bean.Device;
+import com.fongmi.android.tv.bean.History;
 import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Value;
@@ -46,10 +47,12 @@ import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.setting.AppBranding;
 import com.fongmi.android.tv.ui.activity.HomeActivity;
 import com.fongmi.android.tv.ui.activity.HistoryActivity;
+import com.fongmi.android.tv.ui.activity.HistoryResumeCoordinator;
 import com.fongmi.android.tv.ui.activity.KeepActivity;
 import com.fongmi.android.tv.ui.activity.SearchActivity;
 import com.fongmi.android.tv.ui.activity.VideoActivity;
 import com.fongmi.android.tv.ui.adapter.BannerAdapter;
+import com.fongmi.android.tv.ui.adapter.ContinueAdapter;
 import com.fongmi.android.tv.ui.adapter.TypeAdapter;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.ApkPushDialog;
@@ -77,6 +80,7 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class VodFragment extends BaseFragment implements ConfigListener, SiteListener, FilterListener, TypeAdapter.OnClickListener, HomeWebController.Listener {
@@ -97,6 +101,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private boolean mBannerAutoScrollEnabled;
     private boolean mBannerAutoScrollScheduled;
     private boolean mBannerUserDragging;
+
+    // 首页“继续观看”（B2）：横向滑动行，读观看历史。
+    private ContinueAdapter mContinueAdapter;
     private final Runnable mBannerAutoScroll = new Runnable() {
         @Override
         public void run() {
@@ -138,6 +145,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mHomeWebTopMargin = ((ViewGroup.MarginLayoutParams) mBinding.homeWeb.getLayoutParams()).topMargin;
         setRecyclerView();
         setBannerView();
+        setContinueView();
         setWebView();
         setViewModel();
         showProgress();
@@ -260,6 +268,42 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         }
     }
 
+    /**
+     * 首页“继续观看”（B2）：横向滑动行，读观看历史。
+     * 只显示未看完的（duration > 0 且 position < duration），最近 10 条；没有就隐藏整行。
+     */
+    private void setContinueView() {
+        mContinueAdapter = new ContinueAdapter(this::onContinueClick);
+        mBinding.continueList.setHasFixedSize(true);
+        mBinding.continueList.setItemAnimator(null);
+        mBinding.continueList.setAdapter(mContinueAdapter);
+        refreshContinue();
+    }
+
+    private void refreshContinue() {
+        if (mContinueAdapter == null) return;
+        List<History> items = new ArrayList<>();
+        for (History item : History.getForDisplay()) {
+            if (item.getDuration() > 0 && item.getPosition() < item.getDuration()) items.add(item);
+            if (items.size() >= 10) break;
+        }
+        mContinueAdapter.submit(items);
+        updateContinueVisibility();
+    }
+
+    /** “继续观看”可见的唯一判据：有未看完内容、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateContinueVisibility() {
+        boolean show = mContinueAdapter != null && mContinueAdapter.getItemCount() > 0
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.continueSection.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** “继续观看”点进续播：与历史页点播行为一致。 */
+    private void onContinueClick(History item) {
+        HistoryResumeCoordinator.open(requireActivity(), item);
+    }
+
     private void setWebView() {
         mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
         syncWebHomeChrome();
@@ -274,6 +318,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (mWeb != null && mWeb.isVisible()) return;
         mAdapter.addAll(mResult = result);
         setBanner(result.getList());
+        refreshContinue();
         notifyPagerAdapter();
         mBinding.typeMore.setVisibility(View.GONE);
         mBinding.type.post(this::updateTypeMoreVisible);
@@ -558,6 +603,10 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
                 if (mWeb != null && mWeb.isVisible()) return;
                 getFragment().onRefresh();
                 break;
+            case HISTORY:
+                if (mWeb != null && mWeb.isVisible()) return;
+                refreshContinue();
+                break;
         }
     }
 
@@ -719,7 +768,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     public void onResume() {
         super.onResume();
         if (mWeb != null) mWeb.onResume();
-        if (mBinding != null && mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();
+        if (mBinding == null) return;
+        refreshContinue();
+        if (mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();
     }
 
     @Override
@@ -819,6 +870,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.pager.setVisibility(View.GONE);
         mBinding.banner.setVisibility(View.GONE);
         stopBannerAutoScroll();
+        mBinding.continueSection.setVisibility(View.GONE);
         mBinding.filter.setVisibility(View.GONE);
         mBinding.link.setVisibility(View.GONE);
         mBinding.top.setVisibility(View.GONE);
@@ -831,6 +883,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         updateTypeMoreVisible();
         mBinding.pager.setVisibility(View.VISIBLE);
         updateBannerVisibility();
+        updateContinueVisibility();
         if (mWeb != null) mWeb.hide();
         updateToolbarMenu();
     }
@@ -848,6 +901,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             mBinding.pager.setVisibility(View.GONE);
             mBinding.banner.setVisibility(View.GONE);
             stopBannerAutoScroll();
+            mBinding.continueSection.setVisibility(View.GONE);
             mBinding.filter.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
             mBinding.top.setVisibility(View.GONE);
