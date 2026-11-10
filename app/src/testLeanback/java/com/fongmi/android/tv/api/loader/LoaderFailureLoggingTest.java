@@ -111,6 +111,47 @@ public class LoaderFailureLoggingTest {
     }
 
     @Test
+    public void namespacedPythonFailureCleanupRecoveryAndCacheStayIsolated() throws Exception {
+        PyLoader loader = new PyLoader();
+        State failed = new State(true), ready = new State(false), other = new State(false);
+        FakePythonSpider success = new FakePythonSpider(ready), sibling = new FakePythonSpider(other);
+        PythonFactory.spiders.add(new FakePythonSpider(failed));
+        PythonFactory.spiders.add(success); PythonFactory.spiders.add(sibling);
+        assertTrue(loader.getSpider("A", "same", "fixture.py", " [] ") instanceof SpiderNull);
+        assertEquals(List.of("init", "destroy"), failed.events);
+        assertEquals(0, failed.resources);
+        assertSame(success, loader.getSpider("A", "same", "fixture.py", " [] "));
+        assertSame(sibling, loader.getSpider("B", "same", "fixture.py", "{}"));
+        assertSame(success, loader.getSpider("A", "same", "fixture.py", " [] "));
+        assertEquals(List.of("init"), ready.events);
+        assertEquals("same", ready.siteKey); assertEquals("{}", ready.ext);
+        loader.setRecent("A", "same"); assertEquals("same", loader.proxy(java.util.Map.of())[0]);
+        assertEquals(java.util.Set.of("same"), loader.activeKeys());
+        loader.clear(); assertEquals(List.of("init", "destroy"), ready.events);
+        assertEquals(List.of("init", "destroy"), other.events);
+    }
+
+    @Test
+    public void namespacedJavaScriptFailureCleanupRecoveryAndCacheStayIsolated() throws Exception {
+        JsLoader loader = new JsLoader();
+        State failed = new State(true), ready = new State(false), other = new State(false);
+        FakeJavaScriptSpider success = new FakeJavaScriptSpider(ready), sibling = new FakeJavaScriptSpider(other);
+        JavaScriptFactory.spiders.add(new FakeJavaScriptSpider(failed));
+        JavaScriptFactory.spiders.add(success); JavaScriptFactory.spiders.add(sibling);
+        assertTrue(loader.getSpider("A", "same", "fixture.js", " [] ", "") instanceof SpiderNull);
+        assertEquals(List.of("init", "destroy"), failed.events); assertEquals(0, failed.resources);
+        assertSame(success, loader.getSpider("A", "same", "fixture.js", " [] ", ""));
+        assertSame(sibling, loader.getSpider("B", "same", "fixture.js", "{}", ""));
+        assertSame(success, loader.getSpider("A", "same", "fixture.js", " [] ", ""));
+        assertEquals(List.of("init"), ready.events);
+        assertEquals("same", ready.siteKey); assertEquals(" [] ", ready.ext);
+        loader.setRecent("B", "same"); assertEquals("same", loader.proxy(java.util.Map.of())[0]);
+        assertEquals(java.util.Set.of("same"), loader.activeKeys());
+        loader.clear(); assertEquals(List.of("init", "destroy"), ready.events);
+        assertEquals(List.of("init", "destroy"), other.events);
+    }
+
+    @Test
     public void pythonPreservesExtensionsOtherThanTheEmptyListCompatibilityCase() {
         PyLoader loader = new PyLoader();
         String[] extensions = {null, "", "   ", " {\"token\":1} ", " [] "};

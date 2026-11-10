@@ -152,7 +152,6 @@ acceptance：已post→pending换片→drain、A→B→A同URL、逆序完成、
 
 run 1/3，自检完成：15/15 最终测试、双端 Java 编译、scope/diff/checkpoint通过，索引字节不变。剩余 Mobile/设备 gate 已明确交父，不冒称行为验证。下一步仅执行 task_guard finish 原子提交与立即 tag，然后把精确 code hash/tag 写忽略 report 发父；不追加自引用 docs commit、不 push、不删除工作树。
 
-
 ## F2 / run 2/3 — Mobile decode 异步替换（2026-11-08 Asia/Shanghai）
 
 ### 根因与证据

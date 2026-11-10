@@ -239,3 +239,13 @@ helper是包内的**创建—初始化—缓存事务**，不是BaseLoader父类
 - 已完成：原精准RED完整XML文本快照1 failure；F1两处诊断隔离；最终24项GREEN+目标生产/test Java编译；三个路径diff/格式验收。
 - 当前tracked变更仅SpiderInit、SpiderInitTest、本唯一doc；原两loader/bridge/依赖/first commit/tag不改；忽略日志/report只用于证据。
 - 唯一下步：新guard finish第二原子commit/tag并追加报告，交父独立re-review。
+
+## 最终集成归档 — 2026-11-08
+
+- 用户已批准本任务窄适配，原始代码提交及恢复点在合并历史保留，不重写。
+- 代码/修复提交：`d3a7298d5f3a6f76f5f2a256d4fd6f02ff7cecef` → `c861fac058e89136a6a2be233262b532fb4ceee6`
+- 本地恢复 tag：`recovery/C-TV-PYTHON-CLEANUP/20261108070129-d3a7298d5f3a`
+- 本地恢复 tag：`recovery/C-TV-PYTHON-CLEANUP-DIAGNOSTICS/20261108080906-c861fac058e8`
+- 单元证据：24项定向测试通过；F1诊断后备已修复且独立复审通过；原生资源归零未设备测
+- 联合验证（2026-11-08 集成树 fresh）：9 类 94 项定向测试 0 失败/0 错误/0 跳过；Leanback Mobile arm64 Debug Java、Mobile UnitTestJavaCompile 编译通过；日志 `.codex/task-state/reports/TV-SMALL-FIXES-INTEGRATION-final.log`。整批仍不冒充 decoder 实播/设备/性能验收。
+- 回滚：针对本任务按上述代码链逆序git revert；合并历史保留真实来源，不reset原工作区或移动tag。

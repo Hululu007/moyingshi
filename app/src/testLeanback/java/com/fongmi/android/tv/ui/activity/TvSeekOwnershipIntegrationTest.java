@@ -47,7 +47,8 @@ import java.util.Collections;
 import java.util.List;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 28, application = TestApp.class)
+@Config(sdk = 27, application = TestApp.class)
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class TvSeekOwnershipIntegrationTest {
     private final List<PlayerManager> managers = new ArrayList<>();

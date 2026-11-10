@@ -32,12 +32,15 @@ import java.util.*;
 import java.util.concurrent.*;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 28, application = VideoDanmakuOwnershipTest.TestApp.class,
+@Config(sdk = 27, application = VideoDanmakuOwnershipTest.TestApp.class,
         shadows = {VideoDanmakuOwnershipTest.UiIsolation.class, VideoDanmakuOwnershipTest.SurfaceIsolation.class,
                 VideoDanmakuOwnershipTest.PrepareIsolation.class, VideoDanmakuOwnershipTest.ParseIsolation.class,
                 VideoDanmakuOwnershipTest.MobileSiteIsolation.class})
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class VideoDanmakuOwnershipTest {
+    private static java.lang.Class<?> mobileFixtureClass;
+    private static String mobileFixtureHash;
     private MockWebServer server;
     private OkHttpClient client;
     private CountDownLatch completed;
@@ -51,14 +54,17 @@ public class VideoDanmakuOwnershipTest {
         DanmakuSetting.putLoad(true);
         DanmakuSetting.putAuto(true);
         DanmakuSetting.putApiUrl(server.url("/danmaku").toString());
+        DanmakuSetting.putSpiderFirst(false);
+        com.fongmi.android.tv.setting.Setting.putDanmakuMatchCache(new DanmakuMatchCache());
         PlayerSetting.putPlayer(PlayerSetting.EXO);
     }
 
     @After public void cleanup() throws Exception {
+        com.fongmi.android.tv.api.DanmakuApi.cancel();
         client.dispatcher().cancelAll();
+        client.connectionPool().evictAll();
         server.shutdown();
         for (RecordingManager manager : managers) manager.release();
-        client.connectionPool().evictAll();
         client.dispatcher().executorService().shutdownNow();
     }
 
@@ -75,7 +81,12 @@ public class VideoDanmakuOwnershipTest {
         assertEquals("HTTP already posted; replacement pending must reject old danmaku", 0, host.manager.applied.size());
     }
 
+    @Config(sdk = 27)
     @Test public void currentAcceptedStartAppliesExactlyOnce() throws Exception {
+        android.content.res.Resources resources = org.robolectric.RuntimeEnvironment.getApplication().getResources();
+        android.graphics.drawable.Drawable icon = resources.getDrawable(androidx.media3.ui.R.drawable.exo_icon_vr, null);
+        System.out.println("C123-PROBE sdk=" + org.robolectric.RuntimeEnvironment.getApiLevel()
+                + " drawable=" + icon.getClass() + " size=" + icon.getIntrinsicWidth() + "x" + icon.getIntrinsicHeight());
         TestVideo host = host();
         response("current.xml");
         accepted(host, result());
@@ -91,15 +102,14 @@ public class VideoDanmakuOwnershipTest {
         accepted(host, shared);
         awaitPosted();
         String a1 = host.manager.getPlaybackTraceId();
-        DanmakuSetting.putAuto(false);
-        host.onItemClick(shared);
-        DanmakuSetting.putAuto(true);
         response("a2.xml");
-        accepted(host, shared);
+        host.onItemClick(shared);
         awaitPosted();
         assertNotEquals(a1, host.manager.getPlaybackTraceId());
         drain();
         assertEquals(Collections.singletonList(server.url("/a2.xml").toString()), host.manager.applied);
+        accepted(host, shared);
+        assertEquals("local duplicate setPlayer result must not restart or search", 2, server.getRequestCount());
     }
 
     @Test public void mutableResultCannotChangeCapturedSource() throws Exception {
@@ -298,10 +308,12 @@ public class VideoDanmakuOwnershipTest {
         ReflectionHelpers.callInstanceMethod(mobile, "refreshAndSwitchDecode");
         assertTrue(MobileSiteIsolation.entered.await(5, TimeUnit.SECONDS));
         MobileSiteIsolation.result = Result.objectFrom("{\"url\":\"https://example.test/fresh.mp4\",\"parse\":0,\"danmaku\":[{\"url\":\"https://example.test/site.xml\"}]}");
+        response("appended.xml");
         MobileSiteIsolation.release.countDown(); awaitMobilePosted(); drain();
+        pollDanmakuPosted(); drain();
         ReflectionHelpers.callInstanceMethod(mobile, "renewAutoDanmaku");
-        assertTrue(host.manager.applied.isEmpty());
-        assertEquals("fresh site danmaku must prevent any new auto HTTP", 1, server.getRequestCount());
+        assertEquals(Collections.singletonList(server.url("/appended.xml").toString()), host.manager.applied);
+        assertEquals("local site danmaku must retain auto append semantics", 2, server.getRequestCount());
     }
 
     @Test public void mobileAcceptedFreshDecodeQueriesAndAppliesItsNewSessionOnce() throws Exception {
@@ -363,11 +375,14 @@ public class VideoDanmakuOwnershipTest {
         Result b = result(); b.setUrl("https://example.test/b.mp4");
         response("b.xml"); acceptedMobile(host, mobile, b); awaitPosted();
         Object bToken = ReflectionHelpers.getField(mobile, "mAutoDanmaku");
+        String bTrace = host.manager.getPlaybackTraceId();
         drain();
         assertEquals(Collections.singletonList(server.url("/b.xml").toString()), host.manager.applied);
         MobileSiteIsolation.release.countDown(); awaitMobilePosted(); drain();
         assertSame("A late fallback must not overwrite B's real Mobile token", bToken,
                 ReflectionHelpers.getField(mobile, "mAutoDanmaku"));
+        assertEquals("A fallback must not toggle B", bTrace, host.manager.getPlaybackTraceId());
+        host.manager.toggleDecode();
         response("b-renewed.xml"); ReflectionHelpers.callInstanceMethod(mobile, "renewAutoDanmaku");
         pollDanmakuPosted(); drain();
         assertEquals(Arrays.asList(server.url("/b.xml").toString(), server.url("/b-renewed.xml").toString()), host.manager.applied);
@@ -417,6 +432,134 @@ public class VideoDanmakuOwnershipTest {
         assertEquals(1, server.getRequestCount());
     }
 
+    @Test public void shortDramaRequeryRejectsPostedOldTokenEvenWhenTraceAndEpisodeAreReused() throws Exception {
+        TestVideo host = host(); Result shared = result();
+        response("old-short.xml"); accepted(host, shared); awaitPosted();
+        String trace = host.manager.getPlaybackTraceId();
+        Object oldToken = ReflectionHelpers.getField(host, "mAutoDanmaku");
+        response("new-short.xml");
+        ReflectionHelpers.callInstanceMethod(host, "searchShortDramaDanmaku",
+                ReflectionHelpers.ClassParameter.from(Episode.class, ReflectionHelpers.callInstanceMethod(host, "getEpisode")),
+                ReflectionHelpers.ClassParameter.from(List.class, shared.getDanmaku()));
+        awaitPosted(); drain();
+        assertEquals(trace, host.manager.getPlaybackTraceId());
+        assertNotSame(oldToken, ReflectionHelpers.getField(host, "mAutoDanmaku"));
+        assertEquals(Collections.singletonList(server.url("/new-short.xml").toString()), host.manager.applied);
+    }
+
+    @Test public void shortDramaQueryDoesNotCancelAnotherPagesPostedResult() throws Exception {
+        TestVideo a = host(), b = host();
+        response("other-page.xml"); accepted(b, result()); awaitPosted();
+        response("short-page.xml"); accepted(a, result()); awaitPosted();
+        response("short-new.xml");
+        ReflectionHelpers.callInstanceMethod(a, "searchShortDramaDanmaku",
+                ReflectionHelpers.ClassParameter.from(Episode.class, ReflectionHelpers.callInstanceMethod(a, "getEpisode")),
+                ReflectionHelpers.ClassParameter.from(List.class, Collections.emptyList()));
+        awaitPosted(); drain();
+        assertEquals(Collections.singletonList(server.url("/other-page.xml").toString()), b.manager.applied);
+        assertEquals(Collections.singletonList(server.url("/short-new.xml").toString()), a.manager.applied);
+    }
+
+    @Test public void mobileGenerationGuardRejectsSameOwnerLateDecodeSuccess() throws Exception {
+        TestVideo host = host(); Object mobile = mobileSeam(host);
+        response("before-generation.xml"); acceptedMobile(host, mobile, result()); awaitPosted();
+        String trace = host.manager.getPlaybackTraceId();
+        MobileSiteIsolation.pending(); MobileSiteIsolation.result = result();
+        ReflectionHelpers.callInstanceMethod(mobile, "refreshAndSwitchDecode");
+        assertTrue(MobileSiteIsolation.entered.await(5, TimeUnit.SECONDS));
+        int generation = ReflectionHelpers.getField(mobile, "playerContentGeneration");
+        ReflectionHelpers.setField(mobile, "playerContentGeneration", generation + 1);
+        MobileSiteIsolation.release.countDown(); awaitMobilePosted(); drain();
+        assertEquals("request generation rejects same restore owner", trace, host.manager.getPlaybackTraceId());
+        assertTrue(host.manager.applied.isEmpty()); assertEquals(1, server.getRequestCount());
+    }
+
+    @Test public void mobileLateDecodeSuccessRejectsReplacementServiceAndManager() throws Exception { replacementDecode("success", true, true); }
+    @Test public void mobileLateDecodeErrorRejectsReplacementServiceAndManager() throws Exception { replacementDecode("error", true, true); }
+    @Test public void mobileLateDecodeNullRejectsReplacementServiceAndManager() throws Exception { replacementDecode("null", true, true); }
+    @Test public void mobileLateDecodeThrowableRejectsReplacementServiceAndManager() throws Exception { replacementDecode("throw", true, true); }
+    @Test public void mobileLateDecodeRejectsManagerReplacementInsideSameService() throws Exception { replacementDecode("success", false, true); }
+    @Test public void mobileLateDecodeRejectsServiceReplacementWithSameManager() throws Exception { replacementDecode("error", true, false); }
+
+    private void replacementDecode(String outcome, boolean replaceService, boolean replaceManager) throws Exception {
+        TestVideo host = host(); Object mobile = mobileSeam(host);
+        response("original.xml"); acceptedMobile(host, mobile, result()); awaitPosted();
+        MobileSiteIsolation.pending();
+        MobileSiteIsolation.result = outcome.equals("success") ? result() : outcome.equals("null") ? null : Result.error("fixture");
+        if (outcome.equals("throw")) MobileSiteIsolation.failure = new IllegalStateException("late original failure");
+        ReflectionHelpers.callInstanceMethod(mobile, "refreshAndSwitchDecode");
+        assertTrue(MobileSiteIsolation.entered.await(5, TimeUnit.SECONDS));
+        Object owner = ReflectionHelpers.getField(mobile, "mDecodeRestoreOwner");
+        Object restore = ReflectionHelpers.getField(mobile, "mDecodeRestoreToken");
+        int generation = ReflectionHelpers.getField(mobile, "playerContentGeneration");
+        int requestId = ReflectionHelpers.getField(mobile, "playerContentRequestId");
+        int writes = ReflectionHelpers.getField(mobile, "pendingUiWrites");
+        RecordingManager original = host.manager;
+        if (replaceManager) {
+            host.manager = new RecordingManager(); managers.add(host.manager);
+            ReflectionHelpers.setField(host.manager, "spec", ReflectionHelpers.getField(original, "spec"));
+            host.manager.getPlayer().setMediaItem(androidx.media3.common.MediaItem.fromUri("https://example.test/same.mp4"));
+            ((PlaybackTrace) ReflectionHelpers.getField(host.manager, "playbackTrace")).begin();
+        }
+        PlaybackService service = replaceService ? new PlaybackService() : host.service();
+        ReflectionHelpers.setField(service, "player", host.manager);
+        ReflectionHelpers.setField(host, "mService", service);
+        assertTrue("replacement remains semantically owned with same key", host.isOwner());
+        String trace = host.manager.getPlaybackTraceId(); int mutations = host.manager.decodeMutations;
+        server.enqueue(new MockResponse().setBody("[{\"url\":\"" + server.url("/must-not-apply.xml") + "\"}]"));
+        MobileSiteIsolation.release.countDown(); awaitMobilePosted(); drain();
+        assertEquals("old callback cannot mutate replacement decode", mutations, host.manager.decodeMutations);
+        assertEquals(trace, host.manager.getPlaybackTraceId());
+        assertEquals(generation, (int) ReflectionHelpers.getField(mobile, "playerContentGeneration"));
+        assertEquals(requestId, (int) ReflectionHelpers.getField(mobile, "playerContentRequestId"));
+        assertSame(owner, ReflectionHelpers.getField(mobile, "mDecodeRestoreOwner"));
+        assertSame(restore, ReflectionHelpers.getField(mobile, "mDecodeRestoreToken"));
+        assertEquals("stale callback cannot consume pending UI", writes, (int) ReflectionHelpers.getField(mobile, "pendingUiWrites"));
+        assertTrue((boolean) ReflectionHelpers.getField(mobile, "decodePending"));
+        assertTrue(host.manager.applied.isEmpty()); assertEquals(1, server.getRequestCount());
+    }
+
+    @Test public void mobileCurrentNullDecodeFallbackStillMutatesOriginalOnce() throws Exception {
+        TestVideo host = host(); Object mobile = mobileSeam(host);
+        response("before-null.xml"); acceptedMobile(host, mobile, result()); awaitPosted();
+        MobileSiteIsolation.pending(); MobileSiteIsolation.result = null;
+        ReflectionHelpers.callInstanceMethod(mobile, "refreshAndSwitchDecode");
+        assertTrue(MobileSiteIsolation.entered.await(5, TimeUnit.SECONDS));
+        int mutations = host.manager.decodeMutations;
+        MobileSiteIsolation.release.countDown(); awaitMobilePosted(); drain();
+        assertEquals(mutations + 1, host.manager.decodeMutations);
+        assertNull(ReflectionHelpers.getField(mobile, "mDecodeRestoreOwner"));
+        assertFalse((boolean) ReflectionHelpers.getField(mobile, "decodePending"));
+        response("null-restored.xml"); ReflectionHelpers.callInstanceMethod(mobile, "renewAutoDanmaku");
+        awaitPosted(); drain();
+        assertEquals(Collections.singletonList(server.url("/null-restored.xml").toString()), host.manager.applied);
+    }
+
+    @Test public void tvNoCallBadPortRecoversOnceOnSameTraceReady() throws Exception { badPortRecovery(false, false); }
+    @Test public void mobileNoCallBadPortRecoversOnceOnSameTraceReady() throws Exception { badPortRecovery(true, false); }
+    @Test public void tvCanceledNoCallCannotReviveOnSameTraceReady() throws Exception { badPortRecovery(false, true); }
+    @Test public void mobileCanceledNoCallCannotReviveOnSameTraceReady() throws Exception { badPortRecovery(true, true); }
+
+    private void badPortRecovery(boolean mobileFlavor, boolean canceled) throws Exception {
+        TestVideo host = host(); Object target = mobileFlavor ? mobileSeam(host) : host;
+        DanmakuSetting.putApiUrl("http://example.test:99999/danmaku");
+        assertTrue("Android Uri eligibility permits out-of-range port", com.fongmi.android.tv.api.DanmakuApi.canSearch());
+        if (mobileFlavor) acceptedMobile(host, target, result()); else accepted(host, result());
+        assertEquals(0, server.getRequestCount()); String trace = host.manager.getPlaybackTraceId();
+        if (canceled) com.fongmi.android.tv.api.DanmakuApi.cancel();
+        DanmakuSetting.putApiUrl(server.url("/danmaku").toString()); response("port-recovered.xml");
+        ReflectionHelpers.callInstanceMethod(target, "renewAutoDanmaku");
+        if (canceled) {
+            drain(); assertEquals(0, server.getRequestCount()); assertTrue(host.manager.applied.isEmpty());
+        } else {
+            awaitPosted(); drain();
+            assertEquals(Collections.singletonList(server.url("/port-recovered.xml").toString()), host.manager.applied);
+            ReflectionHelpers.callInstanceMethod(target, "renewAutoDanmaku");
+            assertEquals("completed same trace does not requery", 1, server.getRequestCount());
+        }
+        assertEquals(trace, host.manager.getPlaybackTraceId());
+    }
+
     private static void pollDanmakuPosted() {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (System.nanoTime() < deadline) {
@@ -462,21 +605,28 @@ public class VideoDanmakuOwnershipTest {
         java.nio.file.Path source = java.nio.file.Path.of("src/mobile/java/com/fongmi/android/tv/ui/activity/VideoActivity.java");
         if (!java.nio.file.Files.exists(source)) source = java.nio.file.Path.of("app").resolve(source);
         String mobile = java.nio.file.Files.readString(source);
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(mobile.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        System.out.println("C123-MOBILE-SHA256=" + hash);
+        if (mobileFixtureClass != null && hash.equals(mobileFixtureHash))
+            return mobileFixtureClass.getConstructor(TestVideo.class).newInstance(host);
         int begin = mobile.indexOf("    private final String mDanmakuOwnerTag");
         int end = mobile.indexOf("    @Override\n    protected void startPlayer", begin);
         if (end < 0) end = mobile.indexOf("    @Override\r\n    protected void startPlayer", begin);
         String body = mobile.substring(begin, end);
         String code = "package com.fongmi.android.tv.ui.activity;\n"
                 + "import android.text.TextUtils; import androidx.media3.common.MediaMetadata;\n"
-                + "import com.fongmi.android.tv.bean.*; import com.fongmi.android.tv.api.*;\n"
+                + "import com.fongmi.android.tv.bean.*; import com.fongmi.android.tv.api.*; import com.fongmi.android.tv.title.*;\n"
                 + "import com.fongmi.android.tv.player.*; import com.fongmi.android.tv.service.PlaybackService;\n"
                 + "import com.fongmi.android.tv.setting.*; import com.fongmi.android.tv.utils.Notify;\n"
                 + "import com.fongmi.android.tv.App; import com.github.catvod.crawler.SpiderDebug;\n"
                 + "import com.fongmi.android.tv.utils.Task;\n"
                 + "public class CompiledMobileDanmaku extends VideoDanmakuOwnershipTest.MobileBridge {\n"
-                + "private History mHistory; private boolean decodeSwitchRefreshing;\n"
+                + "private History mHistory; private boolean decodeSwitchRefreshing; private int decodeSwitchRequestId, playerContentGeneration, playerContentRequestId; private String playerContentKey, playerContentFlag, playerContentEpisode;\n"
                 + "public CompiledMobileDanmaku(VideoDanmakuOwnershipTest.TestVideo host) { super(host); mHistory=history(); }\n"
-                + body + sourceMethod(mobile, "refreshAndSwitchDecode") + sourceMethod(mobile, "switchDecodeWithResult") + "\n}";
+                + body + sourceMethod(mobile, "refreshAndSwitchDecode") + sourceMethod(mobile, "switchDecodeWithResult")
+                + sourceMethod(mobile, "beginPlayerContentSwitch") + sourceMethod(mobile, "isCurrentPlayerContentRequest")
+                + sourceMethod(mobile, "canApplyPlayerContentRequest") + sourceMethod(mobile, "isCurrentPlayerContentContext") + "\n}";
         Set<String> paths = new LinkedHashSet<>(Arrays.asList(System.getProperty("java.class.path").split(java.io.File.pathSeparator)));
         for (ClassLoader loader = host.getClass().getClassLoader(); loader != null; loader = loader.getParent()) {
             if (loader instanceof java.net.URLClassLoader urls) for (java.net.URL url : urls.getURLs()) {
@@ -494,7 +644,9 @@ public class VideoDanmakuOwnershipTest {
                 java.io.OutputStream.class, String[].class).invoke(compiler, null, errors, errors, args);
         assertEquals("Mobile source seam compiler: " + errors, 0, exit);
         ClassLoader loader = new java.net.URLClassLoader(new java.net.URL[]{output.toUri().toURL()}, host.getClass().getClassLoader());
-        return loader.loadClass("com.fongmi.android.tv.ui.activity.CompiledMobileDanmaku").getConstructor(TestVideo.class).newInstance(host);
+        mobileFixtureClass = loader.loadClass("com.fongmi.android.tv.ui.activity.CompiledMobileDanmaku");
+        mobileFixtureHash = hash;
+        return mobileFixtureClass.getConstructor(TestVideo.class).newInstance(host);
     }
 
     private static String sourceMethod(String source, String name) {
@@ -508,6 +660,8 @@ public class VideoDanmakuOwnershipTest {
 
     public static class MobileBridge {
         final TestVideo host;
+        public int pendingUiWrites;
+        public boolean decodePending;
         protected com.fongmi.android.tv.utils.Clock mClock;
         public MobileBridge(TestVideo host) { this.host = host; mClock = ReflectionHelpers.getField(host, "mClock"); }
         public History history() { return ReflectionHelpers.getField(host, "mHistory"); }
@@ -520,6 +674,11 @@ public class VideoDanmakuOwnershipTest {
         public boolean isFinishing() { return host.isFinishing(); }
         public boolean isDestroyed() { return host.isDestroyed(); }
         public String getHistoryKey() { return ReflectionHelpers.callInstanceMethod(host, "getHistoryKey"); }
+        public String getId() { return ReflectionHelpers.callInstanceMethod(host, "getId"); }
+        public int danmakuTmdbId() { return 0; }
+        public int danmakuTmdbSeasonNumber() { return 0; }
+        public String activePlaybackKey() { return getHistoryKey(); }
+        public void refreshDanmakuControls() { }
         public String getKey() { return ReflectionHelpers.callInstanceMethod(host, "getKey"); }
         public Flag getFlag() { return ReflectionHelpers.callInstanceMethod(host, "getFlag"); }
         public Episode getEpisode() { return ReflectionHelpers.callInstanceMethod(host, "getEpisode"); }
@@ -528,7 +687,7 @@ public class VideoDanmakuOwnershipTest {
         }
         public MediaMetadata buildMetadata() { return ReflectionHelpers.callInstanceMethod(host, "buildMetadata"); }
         public void setNextDecodeText() { }
-        public void setDecodeSwitchPending(boolean pending) { }
+        public void setDecodeSwitchPending(boolean pending) { decodePending = pending; pendingUiWrites++; }
         public void setR1Callback() { }
         public void setDecode() { }
     }
@@ -575,7 +734,16 @@ public class VideoDanmakuOwnershipTest {
         history.setVodRemarks("Episode A");
         history.setEpisodeUrl(episode.getUrl());
         ReflectionHelpers.setField(host, "mHistory", history);
-        ReflectionHelpers.setField(host, "mClock", Clock.create());
+        com.fongmi.android.tv.ui.player.VodPlayerUiController ui = new com.fongmi.android.tv.ui.player.VodPlayerUiController(
+                new com.fongmi.android.tv.ui.player.VodPlayerUiHost() {
+                    @Override public PlayerManager player() { return host.manager; }
+                    @Override public String osdTitle() { return "Test video"; }
+                }, com.fongmi.android.tv.ui.player.VodPlayerChrome.fromVideo(binding, binding.widget.clock, 14f), host);
+        ReflectionHelpers.setField(host, "mPlayerUi", ui);
+        ReflectionHelpers.setField(host, "mClock", ui.clock());
+        ReflectionHelpers.setField(host, "mOsd", ui.osd());
+        ReflectionHelpers.setField(host, "mPiP", ui.pip());
+        ReflectionHelpers.setField(host, "mKeyDown", com.fongmi.android.tv.ui.custom.CustomKeyDownVod.create(host));
         return host;
     }
 
@@ -623,11 +791,14 @@ public class VideoDanmakuOwnershipTest {
     public static class PendingModel extends SiteViewModel {
         int requests;
         @Override public void playerContent(String key, String flag, String id) { requests++; }
+        @Override public void playerContent(String key, String flag, String id, int playerType) { requests++; }
     }
     public static class RecordingManager extends PlayerManager {
+        int decodeMutations;
         final List<String> applied = new ArrayList<>();
         RecordingManager() { super(null); }
         @Override public void setDanmaku(Danmaku item) { if (!item.isEmpty()) applied.add(item.getUrl()); }
+        @Override public void addDanmaku(Danmaku item) { if (!item.isEmpty()) applied.add(item.getUrl()); }
     }
 
     // Isolate unrelated artwork/history persistence; actual getPlayer/setPlayer and ownership remain real.
@@ -660,6 +831,7 @@ public class VideoDanmakuOwnershipTest {
                 long position, float speed, boolean repeat) { beginFixtureTrace("fixture-switch-decode-result"); }
 
         private void beginFixtureTrace(String reason) {
+            if (manager instanceof RecordingManager recording) recording.decodeMutations++;
             ReflectionHelpers.callInstanceMethod(PlayerManager.class, manager, "beginPlaybackTrace",
                     ReflectionHelpers.ClassParameter.from(String.class, reason),
                     ReflectionHelpers.ClassParameter.from(boolean.class, false));

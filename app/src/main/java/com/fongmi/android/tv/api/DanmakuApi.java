@@ -33,6 +33,43 @@ public class DanmakuApi {
 
     private static final String TAG = DanmakuApi.class.getSimpleName();
     private static final Set<Call> OWNED = ConcurrentHashMap.newKeySet();
+    private static final Set<OwnedSearch> SEARCHES = ConcurrentHashMap.newKeySet();
+
+    public static final class OwnedSearch {
+        private final String ownerTag;
+        private final Set<Call> calls = ConcurrentHashMap.newKeySet();
+        private volatile boolean canceled;
+        private boolean queued, supplied;
+
+        private OwnedSearch(String ownerTag) { this.ownerTag = ownerTag; }
+
+        public synchronized boolean canRetry() {
+            return !canceled && !queued && !supplied;
+        }
+
+        public synchronized void cancel() {
+            canceled = true;
+            for (Call call : calls) call.cancel();
+            calls.clear();
+            SEARCHES.remove(this);
+        }
+
+        private synchronized boolean enqueue(Call call, Callback callback) {
+            if (canceled) { call.cancel(); return false; }
+            calls.add(call);
+            call.enqueue(callback);
+            queued = true;
+            return true;
+        }
+
+        private synchronized void deliver(Danmaku item, Consumer<Danmaku> found) {
+            supplied = true;
+            App.post(() -> {
+                try { if (!canceled) found.accept(item); }
+                finally { SEARCHES.remove(this); }
+            });
+        }
+    }
 
     public static boolean canSearch() {
         return DanmakuSetting.isLoad() && DanmakuSetting.isAuto() && DanmakuSetting.hasValidApiUrl();
@@ -111,10 +148,15 @@ public class DanmakuApi {
         call.enqueue(new Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
-                OWNED.remove(call);
-                try {
-                    arrayFrom(response.body().string()).stream().findFirst().ifPresent(item -> App.post(() -> found.accept(item)));
+                try (Response body = response) {
+                    List<Danmaku> items = arrayFrom(body.body().string());
+                    if (items.isEmpty()) OWNED.remove(call);
+                    else App.post(() -> {
+                        try { if (!call.isCanceled()) found.accept(items.get(0)); }
+                        finally { OWNED.remove(call); }
+                    });
                 } catch (Exception ignored) {
+                    OWNED.remove(call);
                 }
             }
 
@@ -126,11 +168,18 @@ public class DanmakuApi {
     }
 
     public static void search(MediaTitleRequest request, Consumer<Danmaku> found) {
-        if (request == null || found == null) return;
+        OkHttp.cancel(TAG);
+        searchOwned(request, TAG, found);
+    }
+
+    public static OwnedSearch searchOwned(MediaTitleRequest request, String ownerTag, Consumer<Danmaku> found) {
+        OwnedSearch owner = new OwnedSearch(ownerTag);
+        if (request == null || found == null) { owner.cancel(); return owner; }
+        SEARCHES.add(owner);
         Danmaku cached = Setting.getDanmakuMatchCache().find(request.getSiteKey(), request.getVodId(), request.getEpisodeName());
         if (cached != null && !cached.isEmpty()) {
-            App.post(() -> found.accept(cached));
-            return;
+            owner.deliver(cached, found);
+            return owner;
         }
         MediaTitleResolver resolver = new MediaTitleResolver();
         DanmakuMatchCache cache = Setting.getDanmakuMatchCache();
@@ -138,17 +187,20 @@ public class DanmakuApi {
         List<String> titles = resolver.queryTitles(request, 3);
         titles.addAll(0, manualTitles);
         if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "resolved titles raw=%s episode=%s titles=%s", request.getRawTitle(), request.getEpisodeName(), titles);
-        searchFirst(titles, request.getEpisodeName(), 0, found, () -> {
+        searchFirst(owner, titles, request.getEpisodeName(), 0, found, () -> {
+            if (owner.canceled) return;
             List<String> cleanedTitles = resolver.queryCleanedTitles(request, 3);
             cleanedTitles.removeIf(title -> containsTitle(titles, title));
             if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "cleaned fallback titles raw=%s episode=%s titles=%s", request.getRawTitle(), request.getEpisodeName(), cleanedTitles);
-            searchFirst(cleanedTitles, request.getEpisodeName(), 0, found, () -> {
+            searchFirst(owner, cleanedTitles, request.getEpisodeName(), 0, found, () -> {
+                if (owner.canceled) return;
                 List<String> fallbackTitles = resolver.queryAiFallbackTitles(request, 3);
                 fallbackTitles.removeIf(title -> containsTitle(titles, title) || containsTitle(cleanedTitles, title));
                 if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "ai fallback titles raw=%s episode=%s titles=%s", request.getRawTitle(), request.getEpisodeName(), fallbackTitles);
-                searchFirst(fallbackTitles, request.getEpisodeName(), 0, found, null);
+                searchFirst(owner, fallbackTitles, request.getEpisodeName(), 0, found, null);
             });
         });
+        return owner;
     }
 
     private static boolean containsTitle(List<String> titles, String title) {
@@ -166,34 +218,37 @@ public class DanmakuApi {
         return titles;
     }
 
-    private static void searchFirst(List<String> titles, String episode, int index, Consumer<Danmaku> found, Runnable exhausted) {
+    private static void searchFirst(OwnedSearch owner, List<String> titles, String episode, int index, Consumer<Danmaku> found, Runnable exhausted) {
+        if (owner.canceled) return;
         if (titles == null || index >= titles.size()) {
             if (exhausted != null) exhausted.run();
+            else if (!owner.canRetry()) SEARCHES.remove(owner);
             return;
         }
-        Call call = newCall(titles.get(index), episode);
+        String url = DanmakuSetting.getValidApiUrl();
+        Call call = TextUtils.isEmpty(url) ? null : newCall(titles.get(index), episode, url, owner.ownerTag);
         if (call == null) {
-            searchFirst(titles, episode, index + 1, found, exhausted);
+            searchFirst(owner, titles, episode, index + 1, found, exhausted);
             return;
         }
-        call.enqueue(new Callback() {
+        owner.enqueue(call, new Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) {
-                try {
-                    List<Danmaku> items = arrayFrom(response.body().string());
-                    if (!items.isEmpty()) {
-                        App.post(() -> found.accept(items.get(0)));
-                    } else {
-                        searchFirst(titles, episode, index + 1, found, exhausted);
-                    }
+                owner.calls.remove(call);
+                try (Response body = response) {
+                    if (owner.canceled || call.isCanceled()) return;
+                    List<Danmaku> items = arrayFrom(body.body().string());
+                    if (!items.isEmpty()) owner.deliver(items.get(0), found);
+                    else searchFirst(owner, titles, episode, index + 1, found, exhausted);
                 } catch (Exception e) {
-                    searchFirst(titles, episode, index + 1, found, exhausted);
+                    searchFirst(owner, titles, episode, index + 1, found, exhausted);
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                searchFirst(titles, episode, index + 1, found, exhausted);
+                owner.calls.remove(call);
+                if (!call.isCanceled()) searchFirst(owner, titles, episode, index + 1, found, exhausted);
             }
         });
     }
@@ -202,11 +257,13 @@ public class DanmakuApi {
         OkHttp.cancel(TAG);
         for (Call call : OWNED) call.cancel();
         OWNED.clear();
+        for (OwnedSearch search : SEARCHES) search.cancel();
     }
 
     public static void cancel(String ownerTag) {
-        OkHttp.cancel(TAG);
         if (TextUtils.isEmpty(ownerTag)) return;
+        for (Call call : OWNED) if (ownerTag.equals(call.request().tag())) { call.cancel(); OWNED.remove(call); }
+        for (OwnedSearch search : SEARCHES) if (ownerTag.equals(search.ownerTag)) search.cancel();
         OkHttp.cancel(ownerTag);
     }
 }
