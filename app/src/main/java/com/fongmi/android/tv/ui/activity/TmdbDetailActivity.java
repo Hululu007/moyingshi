@@ -4667,7 +4667,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(ResUtil.dp2px(12), ResUtil.dp2px(10), ResUtil.dp2px(12), ResUtil.dp2px(10));
+        row.setPadding(ResUtil.dp2px(16), ResUtil.dp2px(12), ResUtil.dp2px(16), ResUtil.dp2px(12));
         row.setClickable(true);
         row.setFocusable(true);
         row.setOnFocusChangeListener((view, focused) -> styleExternalLinkRow(view, currentThemeColors()));
@@ -4704,7 +4704,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean focused = row.hasFocus();
         GradientDrawable background = new GradientDrawable();
         background.setColor(modeController.isCinemaStyle() ? TmdbCinemaTheme.palette(lightTheme).ratingChip() : colors.chip);
-        background.setCornerRadius(ResUtil.dp2px(10));
+        // BieCuiLe grouped-card row: 16dp radius + settings-row padding (see
+        // docs/ui-restyle-biecuile.md §3.2/§6, shape_setting_row_card). Theme
+        // colors and focus-ring logic below are unchanged.
+        background.setCornerRadius(ResUtil.dp2px(16));
         background.setStroke(focused ? focusRingWidthPx() : ResUtil.dp2px(CHIP_STROKE_DP), focused ? focusStroke() : colors.line);
         row.setBackground(background);
         for (int i = 0; i < row.getChildCount(); i++) {
