@@ -85,6 +85,7 @@
     <string name="play_title">Chapter</string>
     <string name="play_scale">Default</string>
     <string name="play_lut">LUT</string>
+    <string name="play_picture_adjust">Picture</string>
     <string name="play_config">Config</string>
     <string name="play_cast">Cast</string>
     <string name="play_change">Change</string>
@@ -1641,6 +1642,17 @@
     <string name="lut_unavailable_video_prefer">Extension video decode does not support LUT color</string>
     <string name="lut_unavailable_hdr">HDR/Dolby Vision content does not support LUT color yet</string>
     <string name="lut_unavailable_no_video">Current content has no video track</string>
+    <string name="pic_brightness">Brightness</string>
+    <string name="pic_contrast">Contrast</string>
+    <string name="pic_saturation">Saturation</string>
+    <string name="pic_hue">Hue</string>
+    <string name="pic_gamma">Gamma</string>
+    <string name="pic_anime4k">Anime4K upscaling</string>
+    <string name="pic_anime4k_hint">MPV kernel only. May drop frames or heat up low-end devices.</string>
+    <string name="pic_reset">Reset</string>
+    <string name="pic_unavailable_kernel">Current player engine does not support picture adjustment</string>
+    <string name="pic_unavailable_output_mode">Current output mode does not support picture adjustment. Switch to GPU output mode to use it</string>
+    <string name="pic_unavailable_hdr">HDR/Dolby Vision content does not support picture adjustment on Exo yet</string>
 
     <!-- Danmaku -->
     <string name="danmaku_load">Danmaku load</string>

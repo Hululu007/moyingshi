@@ -84,6 +84,7 @@
     <string name="play_title">章节</string>
     <string name="play_scale">原始</string>
     <string name="play_lut">LUT</string>
+    <string name="play_picture_adjust">画面</string>
     <string name="play_config">配置</string>
     <string name="play_cast">投屏</string>
     <string name="play_change">换源</string>
@@ -1637,6 +1638,17 @@
     <string name="lut_unavailable_video_prefer">扩展视频解码不支持 LUT 调色</string>
     <string name="lut_unavailable_hdr">HDR/Dolby Vision 内容暂不支持 LUT 调色</string>
     <string name="lut_unavailable_no_video">当前内容没有视频画面</string>
+    <string name="pic_brightness">亮度</string>
+    <string name="pic_contrast">对比度</string>
+    <string name="pic_saturation">饱和度</string>
+    <string name="pic_hue">色相</string>
+    <string name="pic_gamma">伽马</string>
+    <string name="pic_anime4k">Anime4K 超分</string>
+    <string name="pic_anime4k_hint">仅 mpv 内核可用，低端机可能掉帧发热。</string>
+    <string name="pic_reset">重置</string>
+    <string name="pic_unavailable_kernel">当前播放器内核不支持画面调节</string>
+    <string name="pic_unavailable_output_mode">当前输出模式不支持画面调节，请切换为 GPU 输出模式后使用</string>
+    <string name="pic_unavailable_hdr">HDR/Dolby Vision 内容在 Exo 下暂不支持画面调节</string>
 
     <!-- Danmaku -->
     <string name="danmaku_load">弹幕加载</string>
