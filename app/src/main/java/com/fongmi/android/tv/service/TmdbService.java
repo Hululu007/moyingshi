@@ -87,6 +87,25 @@ public class TmdbService {
         }
     }
 
+    /**
+     * Widget 组件用的通用 TMDB GET（B5）：任意 path + 参数，走同一套
+     * ensureReady / apiBuilder / execute / requestJson（缓存 1 小时、401 熔断、失败回退旧缓存）。
+     * path 只能拼在官方 apiBase 后面（必须以 / 开头、不含 ..），API Key 在宿主侧注入，绝不进脚本。
+     */
+    public JsonObject get(@NonNull String path, Map<String, String> params, @NonNull TmdbConfig config) throws Exception {
+        ensureReady(config);
+        if (!path.startsWith("/") || path.contains("..")) throw new IllegalArgumentException("TMDB path 非法");
+        HttpUrl.Builder builder = apiBuilder(config.getApiBase() + path, config);
+        if (params != null) {
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) continue;
+                builder.addQueryParameter(entry.getKey(), entry.getValue());
+            }
+        }
+        String url = builder.build().toString();
+        return requestJson(url, config, "widget", url, TimeUnit.HOURS.toMillis(1), "TMDB 返回为空", "TMDB 失败: HTTP ");
+    }
+
     public JsonObject searchRaw(@NonNull String keyword, @NonNull TmdbConfig config) throws Exception {
         ensureReady(config);
         String url = searchUrl(keyword, config);

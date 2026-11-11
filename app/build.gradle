@@ -171,6 +171,8 @@ dependencies {
     // 未改成 api：那会扩大 quickjs 模块的公开面，影响所有未来的消费者。
     implementation libs.quickjs.android
     implementation libs.quickjs.java
+    // B5 Widget.dom 用 jsoup：quickjs 模块的 jsoup 是 implementation，不向 app 传递，故此处显式声明（同一版本 1.22.2）。
+    implementation libs.jsoup
     implementation libs.appcompat
     implementation libs.lifecycle.service
     implementation libs.media
