@@ -43,24 +43,47 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_ai"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/setting_ai_recommendation"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/aiRecommendationText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="@string/setting_unconfigured" />
+                    tools:text="@string/setting_unconfigured"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/personalRecommendation"
@@ -71,24 +94,47 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_personal"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/setting_personal_recommendation"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/personalRecommendationText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="Off" />
+                    tools:text="Off"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/recommendationFeedback"
@@ -99,18 +145,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_edit"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/setting_recommendation_feedback"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/recommendationFeedbackText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -119,6 +180,12 @@
                     android:textSize="16sp"
                     tools:text="2 项 · 90 天后自动恢复" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
 
@@ -151,18 +218,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_blue">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_subtitle"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_subtitle_realtime_model"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/subtitleRealtimeModelText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -171,6 +253,12 @@
                     android:textSize="16sp"
                     tools:text="未下载（点击下载）" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/subtitleAiSettings"
@@ -189,24 +277,47 @@
                     android:background="@drawable/shape_setting_row_card"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
+                    <FrameLayout
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/shape_setting_circle_orange">
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_setting_number"
+                            android:tint="@android:color/white" />
+                    </FrameLayout>
 
                     <com.google.android.material.textview.MaterialTextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="16dp"
                         android:text="@string/player_subtitle_ai_max_concurrency"
                         android:textColor="@color/setting_card_title"
-                        android:textSize="16sp" />
+                        android:textSize="16sp"
+                        android:ellipsize="end"
+                        android:maxLines="1" />
 
                     <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/subtitleAiMaxConcurrencyText"
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
+                        android:layout_marginStart="8dp"
                         android:layout_height="wrap_content"
                         android:gravity="end"
                         android:textColor="@color/setting_card_value"
                         android:textSize="16sp"
-                        tools:text="2" />
+                        tools:text="2"
+                        android:ellipsize="end"
+                        android:maxLines="1" />
 
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/setting_chevron" />
                 </androidx.appcompat.widget.LinearLayoutCompat>
 
                 <androidx.appcompat.widget.LinearLayoutCompat
@@ -218,24 +329,47 @@
                     android:background="@drawable/shape_setting_row_card"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
+                    <FrameLayout
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/shape_setting_circle_orange">
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_setting_number"
+                            android:tint="@android:color/white" />
+                    </FrameLayout>
 
                     <com.google.android.material.textview.MaterialTextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="16dp"
                         android:text="@string/player_subtitle_ai_chunk_count"
                         android:textColor="@color/setting_card_title"
-                        android:textSize="16sp" />
+                        android:textSize="16sp"
+                        android:ellipsize="end"
+                        android:maxLines="1" />
 
                     <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/subtitleAiChunkCountText"
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
+                        android:layout_marginStart="8dp"
                         android:layout_height="wrap_content"
                         android:gravity="end"
                         android:textColor="@color/setting_card_value"
                         android:textSize="16sp"
-                        tools:text="2" />
+                        tools:text="2"
+                        android:ellipsize="end"
+                        android:maxLines="1" />
 
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/ic_chevron_right"
+                        android:tint="@color/setting_chevron" />
                 </androidx.appcompat.widget.LinearLayoutCompat>
 
             </androidx.appcompat.widget.LinearLayoutCompat>

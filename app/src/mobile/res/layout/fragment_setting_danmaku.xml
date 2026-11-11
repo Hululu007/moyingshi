@@ -36,23 +36,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_blue">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_danmaku"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/danmaku_load"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/danmakuLoadText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="開" />
+                    tools:text="開"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -67,18 +84,33 @@
                 android:gravity="center_vertical"
                 android:visibility="gone"
                 tools:visibility="visible">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_violet">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_list"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/danmaku_api"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/danmakuApiText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="middle"
                     android:gravity="end"
@@ -87,6 +119,12 @@
                     android:textSize="16sp"
                     tools:text="https://" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -100,23 +138,40 @@
                 android:gravity="center_vertical"
                 android:visibility="gone"
                 tools:visibility="visible">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/danmaku_auto_load"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/danmakuAutoText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="關" />
+                    tools:text="關"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -131,23 +186,40 @@
                 android:gravity="center_vertical"
                 android:visibility="gone"
                 tools:visibility="visible">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_blue">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_danmaku"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/danmaku_spider_first"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/danmakuSpiderText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="關" />
+                    tools:text="關"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
         </androidx.appcompat.widget.LinearLayoutCompat>

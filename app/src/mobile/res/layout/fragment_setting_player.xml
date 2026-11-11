@@ -36,23 +36,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_render"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/renderText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="Surface" />
+                    tools:text="Surface"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -65,18 +82,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_violet">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_list"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_button_config"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/playerButtonsText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -85,6 +117,12 @@
                     android:textSize="16sp"
                     tools:text="显示 17/19" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -96,18 +134,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_live"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_pad_live"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/padLiveText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -127,18 +180,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_violet">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_badge"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_exo_4k_compat"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/exo4kCompatText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -147,6 +215,12 @@
                     android:textSize="16sp"
                     tools:text="关" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -158,24 +232,47 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_kernel"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/kernelText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="EXO" />
+                    tools:text="EXO"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -187,19 +284,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_edit"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:singleLine="true"
                     android:text="@string/player_mpv_config"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/mpvConfigText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -208,6 +319,12 @@
                     android:textSize="16sp"
                     tools:text="默认" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
               </androidx.appcompat.widget.LinearLayoutCompat>
 
               <androidx.appcompat.widget.LinearLayoutCompat
@@ -219,19 +336,33 @@
                   android:background="@drawable/shape_setting_row_card"
                   android:gravity="center_vertical"
                   android:orientation="horizontal">
+                  <FrameLayout
+                      android:layout_width="48dp"
+                      android:layout_height="48dp"
+                      android:background="@drawable/shape_setting_circle_red">
+                      <androidx.appcompat.widget.AppCompatImageView
+                          android:layout_width="24dp"
+                          android:layout_height="24dp"
+                          android:layout_gravity="center"
+                          android:src="@drawable/ic_setting_play"
+                          android:tint="@android:color/white" />
+                  </FrameLayout>
 
                   <com.google.android.material.textview.MaterialTextView
-                      android:layout_width="wrap_content"
+                      android:layout_width="0dp"
+                      android:layout_weight="1"
+                      android:layout_marginStart="16dp"
                       android:layout_height="wrap_content"
-                      android:layout_marginEnd="16dp"
                       android:singleLine="true"
                       android:text="@string/player_mpv_render"
                       android:textColor="@color/setting_card_title"
-                      android:textSize="16sp" />
+                      android:textSize="16sp"
+                      android:ellipsize="end" />
 
                   <com.google.android.material.textview.MaterialTextView
                       android:id="@+id/mpvRenderText"
-                      android:layout_width="match_parent"
+                      android:layout_width="wrap_content"
+                      android:layout_marginStart="8dp"
                       android:layout_height="wrap_content"
                       android:ellipsize="end"
                       android:gravity="end"
@@ -240,6 +371,12 @@
                       android:textSize="16sp"
                       tools:text="OpenGL" />
 
+                  <androidx.appcompat.widget.AppCompatImageView
+                      android:layout_width="20dp"
+                      android:layout_height="20dp"
+                      android:layout_marginStart="8dp"
+                      android:src="@drawable/ic_chevron_right"
+                      android:tint="@color/setting_chevron" />
               </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -251,23 +388,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_bluray_menu"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/blurayMenuText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="关" />
+                    tools:text="关"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -280,24 +434,47 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_appearance"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_scale"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/scaleText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="預設" />
+                    tools:text="預設"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -309,18 +486,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_appearance"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_lut"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/lutText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -329,6 +521,12 @@
                     android:textSize="16sp"
                     tools:text="Kodak 2383 · 100%" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -340,18 +538,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_blue">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_subtitle"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_caption"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/captionText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="middle"
                     android:gravity="end"
@@ -371,18 +584,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_osd"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/osdText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -391,6 +619,12 @@
                     android:textSize="16sp"
                     tools:text="标题、时间、进度" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -402,18 +636,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_violet">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_badge"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/osd_media_badge_position"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/osdMediaBadgePositionText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -422,6 +671,12 @@
                     android:textSize="16sp"
                     tools:text="右下角" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -433,24 +688,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_buffer"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/bufferText"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="1" />
+                    tools:text="1"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="wrap_content"
@@ -460,6 +731,12 @@
                     android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -471,18 +748,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_buffer_bytes"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/bufferBytesText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -491,6 +783,12 @@
                     android:textSize="16sp"
                     tools:text="128MB" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -502,18 +800,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_back_buffer"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/backBufferText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -522,6 +835,12 @@
                     android:textSize="16sp"
                     tools:text="30秒" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -533,18 +852,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_folder"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_cache"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/playCacheText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -553,6 +887,12 @@
                     android:textSize="16sp"
                     tools:text="500MB" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -564,18 +904,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_refresh"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_preload"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/preloadText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -595,18 +950,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_preload_threads"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/preloadThreadText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -615,6 +985,12 @@
                     android:textSize="16sp"
                     tools:text="1 条" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -626,18 +1002,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_preload_size"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/preloadSizeText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -646,6 +1037,12 @@
                     android:textSize="16sp"
                     tools:text="128MB" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -657,18 +1054,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_preload_time"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/preloadTimeText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -677,6 +1089,12 @@
                     android:textSize="16sp"
                     tools:text="120 秒" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -688,18 +1106,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_preload_ahead"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/preloadAheadText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -708,6 +1141,12 @@
                     android:textSize="16sp"
                     tools:text="5 分钟" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -719,18 +1158,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_violet">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_list"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_preload_pause"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/preloadPauseText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -739,6 +1193,12 @@
                     android:textSize="16sp"
                     tools:text="始终" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -750,18 +1210,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_auto_play"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/autoPlayText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -781,18 +1256,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_auto_change"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/autoChangeText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -812,18 +1302,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_defer_flag_switch"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/deferFlagSwitchText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -843,18 +1348,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_remember_brightness"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/rememberBrightnessText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -874,18 +1394,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_live"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_live_source_fallback"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/liveSourceFallbackText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -905,18 +1440,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_refresh"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_failure_fallback"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/failureFallbackText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="end"
@@ -925,6 +1475,12 @@
                     android:textSize="16sp"
                     tools:text="软解后切核心" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -936,24 +1492,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_orange">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_number"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_speed"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/speedText"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="1" />
+                    tools:text="1"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="wrap_content"
@@ -963,6 +1535,12 @@
                     android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -974,23 +1552,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_doh"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_tunnel"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tunnelText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="關" />
+                    tools:text="關"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1003,23 +1598,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_music_notification"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/musicNotificationText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="On" />
+                    tools:text="On"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1032,23 +1644,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_audio_book_notification"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/audioBookNotificationText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="On" />
+                    tools:text="On"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1061,23 +1690,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_audio_decode"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/audioDecodeText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="開" />
+                    tools:text="開"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1090,23 +1736,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_audio_passthrough"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/audioPassThroughText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="開" />
+                    tools:text="開"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1119,23 +1782,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_video_decode"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/videoDecodeText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="開" />
+                    tools:text="開"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1148,23 +1828,40 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_red">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_play"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_aac_track"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/aacText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="開" />
+                    tools:text="開"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -1177,24 +1874,47 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_switch"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_background"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/backgroundText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:gravity="end"
                     android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
-                    tools:text="開啟" />
+                    tools:text="開啟"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
@@ -1206,18 +1926,33 @@
                 android:background="@drawable/shape_setting_row_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_edit"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
                     android:text="@string/player_ua"
                     android:textColor="@color/setting_card_title"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/uaText"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_height="wrap_content"
                     android:ellipsize="middle"
                     android:gravity="end"
@@ -1226,6 +1961,12 @@
                     android:textSize="16sp"
                     tools:text="okhttp/4.11.0" />
 
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/setting_chevron" />
             </androidx.appcompat.widget.LinearLayoutCompat>
         </androidx.appcompat.widget.LinearLayoutCompat>
     </androidx.core.widget.NestedScrollView>
