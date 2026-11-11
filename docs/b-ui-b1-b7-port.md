@@ -3,7 +3,7 @@
 任务来源：用户 2026-11-10 21:50 定“B档全套”（B1–B7，B8 全量 Flutter 重写不做）。
 参考：`~/workspace/ui-ref/analysis.md`（第 4 节）、参考 APK `~/workspace/ui-ref/ref-app.apk`（BieCuiLe com.langhuan.tv v1.1.5，Flutter UI，只能仿外观）。
 基线：main `c3c507e9`，仓库干净，无预存脏文件。
-约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每做完一项走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.mooyingshi.osc、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
+约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每做完一项走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.moyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
 
 ## 进度
 

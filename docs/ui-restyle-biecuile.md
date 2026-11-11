@@ -148,7 +148,7 @@
 
 ## 5. 哪些不动（改外观，不是改功能）
 
-- 品牌：名“墨影视”、包名 `com.github.mooyingshi.osc`、水墨品牌（§7 第 3 点已定：启动图标不换）。
+- 品牌：名“墨影视”、包名 `com.github.moyingshi.osc.tv`、水墨品牌（§7 第 3 点已定：启动图标不换）。
 - 全部功能：本地源（.py/.js/.json 扫描）、Archive.org 爬虫、默认搜索本站、短剧（默认关）、实验室、GitCloud、一键同步、TMDB/Trakt/Bangumi/豆瓣账号、解析接口、同步收发——**一个都不能丢**；设置页重组时逐行对照，丢一行即返工。
 - 底栏 6 项（vod/live/drama/following/local_source/setting），BottomNavigationView 上限 6 项是硬限制（material 1.14.0，第 7 项启动即崩）。
 - 液态玻璃开关（pref `liquid_glass`，默认开）与同一套模糊/透光参数；玻璃底栏悬浮胶囊形态（B3）保留。

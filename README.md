@@ -1,4 +1,4 @@
-# 墨影视（Mooyingshi）
+# 墨影视（moyingshi）
 
 墨影视基于 [Silent1566/webhtv](https://github.com/Silent1566/webhtv)（WebHomeTV）二次开发，遵循 GPL-3.0 许可证。WebHomeTV 是基于 [FongMi](https://github.com/FongMi/TV) / CatVod 生态二次开发的 Android 影音应用,保留原有点播、直播、Spider、解析、投屏、本地 HTTP 服务等能力,并重点增强了 **WebHome 自定义首页**、**App Native SDK**、**管理页面**、**远程托管**、**WebHome 扩展**、**登录态学习/同步**、**网盘链接检测**、**站点健康排序**、**观影记录同步** 和 **Nostr/TMDB 推荐首页**。
 
@@ -377,7 +377,7 @@ keyPassword=your_key_password
 
 ```bash
 scripts/build_media_deps.sh
-bash gradlew :app:testMobileArm64_v8aDebugUnitTest --tests 'com.fongmi.android.tv.player.danmaku.*'
+bash gradlew :app:testMobileArm64_v8aDebugUnitTest --tests 'com.github.moyingshi.osc.tv.player.danmaku.*'
 bash gradlew :app:assembleMobileArm64_v8aDebug :app:assembleLeanbackArm64_v8aDebug
 ```
 

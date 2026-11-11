@@ -3,7 +3,7 @@
 任务来源：用户 2026-11-11 07:55 说“开始b5”。B5 是 B 档里最重的一项（1–2 周功能级工程）。
 参考：`~/workspace/ui-ref/analysis.md`（B5 在第 4 节；BieCuiLe 组件在第 2.1 节）、参考 APK 解包 `~/workspace/ui-ref/extracted/`（`assets/flutter_assets/assets/widgets/*.js`、`assets/widget_host.js`、`assets/flutter_assets/assets/widget_samples/samples.json`）。
 基线：main `4598c4a8`（B1–B4 之后 + 横幅 ViewPager2 闪退修复，已推到线上 main，本地与线上一致）。
-约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.mooyingshi.osc、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
+约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.moyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
 
 ## Recovery anchor
 
@@ -217,7 +217,7 @@ public JsonObject get(@NonNull String path, Map<String, String> params, @NonNull
 | | drpy 蜘蛛（现有） | Widget 组件（新增） |
 |---|---|---|
 | 脚本格式 | ES module（`export default {home, homeVod, category, detail, search, play}`） | 普通脚本（`var WidgetMetadata` + 顶层 async 函数） |
-| 入口 | `JsLoader` → `quickjs Spider`（`com.fongmi.quickjs.crawler.Spider`） | 新增 `WidgetHost`（app 模块，`com.fongmi.android.tv.widget`） |
+| 入口 | `JsLoader` → `quickjs Spider`（`com.github.moyingshi.osc.tv.quickjs.crawler.Spider`） | 新增 `WidgetHost`（app 模块，`com.github.moyingshi.osc.tv.widget`） |
 | JS 宿主 API | `local`、`req`/`_http`、`pd`/`pdfh`、drpy2-fast 引擎 | `Widget.http/tmdb/storage/dom`、`fetch`、`console` |
 | 数据来源 | 站点（py/js/json） | 公开 API（Bangumi/豆瓣/Mikan/TMDB） |
 | 渲染 | 点播页/分类页/详情页/搜索页/播放器 | 首页分区行 + 浏览页 |

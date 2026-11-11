@@ -3,7 +3,7 @@
 任务来源：用户 2026-11-11 14:38 说“b6”。B6 是 B 档最后一项待做的功能级工程（1–2 周）。
 参考：`~/workspace/ui-ref/analysis.md`（B6 在第 4 节；播放器在第 2.4 节）、BieCuiLe 解包 `~/workspace/ui-ref/extracted/`（`assets/flutter_assets/assets/shaders/Anime4K_Upscale_CNN_x2_S.glsl`、`assets/flutter_assets/assets/i18n/en.json`）。
 基线：main `d3f2b211`（B5 之后，已推到线上 main，本地与线上一致，工作树干净）。
-约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.mooyingshi.osc、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项、B1–B5）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
+约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.moyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项、B1–B5）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
 
 完成句：播放器里加“画面”入口，五项调节（亮度/对比度/饱和度/色相/伽马）在 Exo 与 mpv 内核实时生效、ijk 明确不支持，Anime4K 开关只在 mpv 内核可用（默认关），调节值持久化，黑边虚化本期不做。
 
@@ -64,8 +64,8 @@ en.json 只有 "黑边虚化": "Blur letterbox" 一条文案；Flutter 侧的实
 
 ### 2.2 mpv 内核：原生属性 + 原生 shader（最顺的一路）
 
-- 五项调节：mpv 原生属性 `brightness / contrast / saturation / hue / gamma`，运行时 `set_property` 即可实时改，不用重建播放器。Mooyingshi 的 `MpvPlayer`（`app/src/main/java/androidx/media3/mpvplayer/MpvPlayer.java`）已有私有 `mpvSetPropertyDouble`（`MPVLib.setPropertyDouble` 封装，带 propertySnapshot 记录）；需新增一个公开方法（如 `setVideoProperty(String property, double value)`，内部 `initialized` 检查 + 调 `mpvSetPropertyDouble`），`MpvPlayerEngine` 再包一层。**不改 mpv 源码、不改 lock、不碰 native。**
-- 注意：mpv 手册说 eq 属性“不是所有 vo 都支持”；Mooyingshi 默认 `vo=gpu`（`MpvPlayerConfig.java:206`，`vo = "gpu"`），gpu/gpu-next 均支持 eq 属性。`mediacodec_embed` 直出模式（surface-direct）下没有 GPU VO，eq 属性与 glsl-shader 都不生效——与 LUT 的限制完全一致（`MpvPlayerEngine.supportsNativeLut()` 在 surface-direct 时返回 false；`LutEligibility` 同样判 surface-direct 不可用）。Anime4K 与五项调节在 surface-direct 下同样不可用，面板里按同一口径提示（复用 `LutEligibility` 式的不可用原因文案，见 §6）。
+- 五项调节：mpv 原生属性 `brightness / contrast / saturation / hue / gamma`，运行时 `set_property` 即可实时改，不用重建播放器。moyingshi 的 `MpvPlayer`（`app/src/main/java/androidx/media3/mpvplayer/MpvPlayer.java`）已有私有 `mpvSetPropertyDouble`（`MPVLib.setPropertyDouble` 封装，带 propertySnapshot 记录）；需新增一个公开方法（如 `setVideoProperty(String property, double value)`，内部 `initialized` 检查 + 调 `mpvSetPropertyDouble`），`MpvPlayerEngine` 再包一层。**不改 mpv 源码、不改 lock、不碰 native。**
+- 注意：mpv 手册说 eq 属性“不是所有 vo 都支持”；moyingshi 默认 `vo=gpu`（`MpvPlayerConfig.java:206`，`vo = "gpu"`），gpu/gpu-next 均支持 eq 属性。`mediacodec_embed` 直出模式（surface-direct）下没有 GPU VO，eq 属性与 glsl-shader 都不生效——与 LUT 的限制完全一致（`MpvPlayerEngine.supportsNativeLut()` 在 surface-direct 时返回 false；`LutEligibility` 同样判 surface-direct 不可用）。Anime4K 与五项调节在 surface-direct 下同样不可用，面板里按同一口径提示（复用 `LutEligibility` 式的不可用原因文案，见 §6）。
 - Anime4K：把上游 shader 文件放 `app/src/main/assets/shaders/Anime4K_Upscale_CNN_x2_S.glsl`，运行时由新写的 `Anime4kShaderStore` 拷到缓存目录（`cacheDir/mpv_shaders/Anime4K_Upscale_CNN_x2_S.glsl`，与 LUT 的 `mpv_lut_shaders` 目录并列；清缓存时一并清理，见单元 3），再走现成的 `glsl-shaders` 机制挂载。
   - 现状缺口：`MpvPlayer.applyShaderPipeline()` 只管一个槽位（`lutShader` / `appliedLutShaderPath`，`change-list glsl-shaders append/remove`）。Anime4K 需要**第二个独立槽位**：新增 `anime4kShaderPath` + 公开 `setAnime4kShader(@Nullable String path)`，`applyShaderPipeline` 改为分别管理两个槽位（各管各的 append/remove，互不干扰）。
   - 挂载顺序：glsl-shaders 列表里 **Anime4K 在前、LUT 在后**（先超分放大，再做 LUT 调色；与“先修后调”的常规顺序一致）。BieCuiLe 只有一个 shader，无参考顺序；这是墨影视自己的决定，写死在 `applyShaderPipeline` 里。

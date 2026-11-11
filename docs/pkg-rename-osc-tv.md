@@ -6,7 +6,7 @@
 
 - 目标：全仓库包名改成 `com.github.moyingshi.osc.tv`；applicationId 两变体（mobile/leanback 共用 defaultConfig，无 per-flavor 后缀）、源码包 `com.fongmi.android.tv` 全部迁移、authority 与硬编码包名全改、全仓库 grep 旧包名零残留（历史文档例外见下）；不做旧版数据迁移。
 - 基线：本地 main `e435e251`（设置页+详情页+播放器+首页 chips 改版已推，构建 run 42998181049 在跑那份代码，不受这次改动影响）；工作树干净。
-- 进度：调查完成（见“现状清单”）；Phase 1 已完成（applicationId + namespace + Manifest 全限定名 + 工作流测试过滤器 + proguard，commit `38ab810b`）；Phase 2 已完成（源码迁移 2495 文件 + 内容替换 2606 文件 + 仓库地址改小写，commit `71283605`）；Phase 3 已完成（authority/硬编码扫尾 + 全仓库验证 + config 仓库地址，见“验证”）；Phase 4 活文档更新未开始。
+- 进度：调查完成（见“现状清单”）；Phase 1 已完成（commit `38ab810b`）；Phase 2 已完成（commit `71283605`）；Phase 3 已完成（commit `42c06784`）；Phase 4 已完成（活文档更新，见“结果”）。全部做完，本地 main `e435e251` → 4 笔新提交，未推、未编，等用户定推不推。
 - 风险：预编译 `third_party/exo-ass-native/prebuilt/arm64-v8a/libexo_ass.so` 含旧 JNI 符号（`Java_com_fongmi_android_tv_player_exo_ass_AssNative_*`），本机无 NDK 重编不了；下次发版前必须用 `scripts/build_exo_ass_native.py`（NDK 29）重编，否则 Exo ASS 字幕渲染报 UnsatisfiedLinkError。
 - 下一步：做完 Phase 1 提交。
 
@@ -51,6 +51,19 @@
 2. Phase 2：源码目录迁移 + 全仓库内容替换（code/config；历史 md 与 webhome-devkit 镜像除外；预编译 `.so` 二进制除外）+ 仓库地址改小写。commit `71283605`。
 3. Phase 3：authority 与硬编码扫尾 + 验证（grep 零残留、XML 解析、底栏 6 项、R/BuildConfig 引用抽查）+ config 仓库地址。
 4. Phase 4：活文档更新 + 本文档收尾（结果、验证证据、`.so` 重编提醒）。
+
+## 结果（Phase 4，2026-11-11 18:56）
+
+- 提交（本地 main `e435e251` → 4 笔，未推、未编）：
+  - `38ab810b` chore(pkg)：applicationId `com.github.moyingshi.osc.tv`、namespace（app/nodejs/quickjs/chaquo）、eventBusIndex、Manifest 全限定名、工作流测试过滤器、proguard。
+  - `71283605` refactor(pkg)：源码 2495 文件目录迁移 + 2606 文件内容替换 + 仓库地址 `xinyonghuu/Mooyingshi` → `xinyonghuu/moyingshi`（Github.java 等 12 个 app 文件 + widget_host.js）。
+  - `42c06784` chore(pkg)：authority 扫尾 + 全仓库验证 + config 仓库地址。
+  - Phase 4（本文档提交）：活文档更新（README、b-ui/b5/b6/ui-restyle）+ 本文档收尾。
+- 每笔都有 recovery tag：`recovery/pkg-rename-osc-tv-p1|p2|p3|p4/<时间戳>-<短 hash>`。
+- 新旧包名对照：applicationId `com.github.moyingshi.osc.tv`；源码包 `com.github.moyingshi.osc.tv`（+ `.nodejs` / `.quickjs` / `.chaquo` 子包）；namespace 同上；authority `${applicationId}.provider` 自动跟随。
+- 新仓库 `moyingshi`（全小写）：代码里写死的仓库地址已全改小写；GitHub 上须先删旧仓库 `Mooyingshi` 才能建新仓库（顺序由主对话办）；本地 git remote 仍指向旧仓库地址，推新仓库前须改 remote（主对话办）。
+- 未做完/风险：① 预编译 `libexo_ass.so` 须用 `scripts/build_exo_ass_native.py`（NDK 29）重编，否则 Exo ASS 字幕渲染 UnsatisfiedLinkError；② 没编译、没真机测（本机无 SDK），第一次编译检查靠推上去后的 GitHub 构建；③ 历史文档（251 个 md）保留旧包名原样（见“现状清单”），那是写下当时的真实记录，有些还是上游自身的包名。
+- 建议先测（推上去编完之后）：安装新包 APK 与老版并存、互不干扰；设置/历史/收藏全新空白（旧数据不迁移）；更新检查走新仓库地址（beta 渠道能看到新版、能下载）；老版 App 检查更新被 validatePackage 挡住（下新包、校验失败、删包、老 App 原样保留）；进短剧、播 ASS 字幕（.so 重编前会崩，须先重编）；底栏仍 6 项。
 
 ## 验证（Phase 3，2026-11-11 18:52）
 
