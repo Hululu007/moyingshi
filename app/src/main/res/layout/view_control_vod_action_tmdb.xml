@@ -60,6 +60,11 @@
             android:text="@string/play_lut" />
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/pictureAdjust"
+            style="@style/Control"
+            android:text="@string/play_picture_adjust" />
+
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/speed"
             style="@style/Control"
             android:fontFeatureSettings="tnum"

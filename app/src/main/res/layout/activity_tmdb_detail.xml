@@ -1468,6 +1468,12 @@
                             android:text="@string/play_lut" />
 
                         <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/playerPictureAdjust"
+                            style="@style/Control"
+                            android:layout_marginEnd="8dp"
+                            android:text="@string/play_picture_adjust" />
+
+                        <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/playerParse"
                             style="@style/Control"
                             android:layout_marginEnd="8dp"

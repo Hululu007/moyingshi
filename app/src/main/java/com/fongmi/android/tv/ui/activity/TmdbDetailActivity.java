@@ -176,6 +176,7 @@ import com.fongmi.android.tv.ui.dialog.CodecCapabilityDialog;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.DisplayDialog;
 import com.fongmi.android.tv.ui.dialog.MultiThreadProxyDialog;
+import com.fongmi.android.tv.ui.dialog.PictureAdjustDialog;
 import com.fongmi.android.tv.ui.dialog.PlayerKernelDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleManualSearchDialog;
@@ -1245,6 +1246,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             }
 
             @Override
+            public void showPictureAdjust() {
+                TmdbDetailActivity.this.onInlinePictureAdjust();
+            }
+
+            @Override
             public void refreshPlayback() {
                 TmdbDetailActivity.this.refreshInlinePlayback();
             }
@@ -1419,6 +1425,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.multiThreadProxy, View.class).setOnClickListener(guarded(this::showInlineMultiThreadProxy));
         detailActionView(R.id.codecCapability, View.class).setOnClickListener(guarded(this::showInlineCodecCapability));
         detailActionView(R.id.lut, View.class).setOnClickListener(guarded(this::onInlineLut));
+        detailActionView(R.id.pictureAdjust, View.class).setOnClickListener(guarded(this::onInlinePictureAdjust));
         detailActionView(R.id.speed, View.class).setOnClickListener(guarded(this::changeInlineSpeed));
         detailActionView(R.id.speed, View.class).setOnLongClickListener(view -> resetInlineSpeed());
         detailActionView(R.id.scale, View.class).setOnClickListener(guarded(this::cycleInlineScale));
@@ -8403,6 +8410,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         buttons.put(PlayerButtonSetting.SCALE, binding.playerScale);
         buttons.put(PlayerButtonSetting.QUALITY, binding.playerQuality);
         buttons.put(PlayerButtonSetting.LUT, binding.playerLut);
+        buttons.put(PlayerButtonSetting.PICTURE_ADJUST, binding.playerPictureAdjust);
         buttons.put(PlayerButtonSetting.PARSE, binding.playerParse);
         buttons.put(PlayerButtonSetting.TEXT, binding.playerTextTrack);
         buttons.put(PlayerButtonSetting.AUDIO, binding.playerAudioTrack);
@@ -8428,6 +8436,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         buttons.put(PlayerButtonSetting.MULTI_THREAD_PROXY, detailActionView(R.id.multiThreadProxy, View.class));
         buttons.put(PlayerButtonSetting.CODEC_CAPABILITY, detailActionView(R.id.codecCapability, View.class));
         buttons.put(PlayerButtonSetting.LUT, detailActionView(R.id.lut, View.class));
+        buttons.put(PlayerButtonSetting.PICTURE_ADJUST, detailActionView(R.id.pictureAdjust, View.class));
         buttons.put(PlayerButtonSetting.SPEED, detailActionView(R.id.speed, View.class));
         buttons.put(PlayerButtonSetting.SCALE, detailActionView(R.id.scale, View.class));
         buttons.put(PlayerButtonSetting.QUALITY, detailActionView(R.id.actionQuality, View.class));
@@ -9053,6 +9062,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             }
         });
         focusInlineLutQuickIfVisible();
+    }
+
+    private void onInlinePictureAdjust() {
+        if (service() == null || player().isEmpty()) {
+            Notify.show("播放器未就绪");
+            return;
+        }
+        PictureAdjustDialog.show(this, player());
     }
 
     private void onInlineLutChanged() {

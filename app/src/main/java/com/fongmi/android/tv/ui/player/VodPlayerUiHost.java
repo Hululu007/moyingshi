@@ -62,6 +62,9 @@ public interface VodPlayerUiHost {
     default void showLut() {
     }
 
+    default void showPictureAdjust() {
+    }
+
     default void refreshPlayback() {
     }
 
