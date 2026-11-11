@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -42,12 +43,19 @@ public final class AboutDialog {
     private static final int FULLSCREEN_INSET_DP = 32;
     private static final long PROBE_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(5);
 
+    /** 关于页版本号连点 5 次开启/关闭隐藏设置：两次点击间隔超过 2 秒则重新计数。 */
+    private static final long VERSION_TAP_WINDOW_MS = 2000;
+    private static final int VERSION_TAP_COUNT = 5;
+    private static int sVersionTapCount;
+    private static long sVersionTapLastMs;
+
     private AboutDialog() {
     }
 
     public static void show(FragmentActivity activity, Runnable updateAction) {
         DialogAboutBinding binding = DialogAboutBinding.inflate(LayoutInflater.from(activity));
         binding.version.setText(activity.getString(R.string.about_version, AppVersion.fullName(), BuildConfig.FLAVOR_mode, BuildConfig.FLAVOR_abi));
+        binding.version.setOnClickListener(v -> onVersionClick());
 
         Dialog dialog = new Dialog(activity);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -66,6 +74,21 @@ public final class AboutDialog {
         dialog.show();
         configureWindow(activity, dialog, binding);
         binding.confirm.requestFocus();
+    }
+
+    /**
+     * 版本号连点 5 次切换隐藏设置：关闭时开启，开启时关闭，并 Toast 告知。
+     * 隐藏分组的显隐由设置页在回到前台时按开关状态重建分组实现。
+     */
+    private static void onVersionClick() {
+        long now = SystemClock.elapsedRealtime();
+        if (now - sVersionTapLastMs > VERSION_TAP_WINDOW_MS) sVersionTapCount = 0;
+        sVersionTapLastMs = now;
+        if (++sVersionTapCount < VERSION_TAP_COUNT) return;
+        sVersionTapCount = 0;
+        boolean enabled = !Setting.isHiddenSettingsEnabled();
+        Setting.putHiddenSettingsEnabled(enabled);
+        Notify.show(enabled ? R.string.hidden_settings_enabled : R.string.hidden_settings_disabled);
     }
 
     private static void showGithubProxy(FragmentActivity activity) {

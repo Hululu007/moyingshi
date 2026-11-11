@@ -404,6 +404,22 @@ public class Setting {
         Prefers.put("incognito", incognito);
     }
 
+    public static boolean isHiddenSettingsEnabled() {
+        return Prefers.getBoolean("hidden_settings_enabled");
+    }
+
+    public static void putHiddenSettingsEnabled(boolean enabled) {
+        Prefers.put("hidden_settings_enabled", enabled);
+    }
+
+    public static boolean isDownloadEnabled() {
+        return Prefers.getBoolean("download_enabled");
+    }
+
+    public static void putDownloadEnabled(boolean enabled) {
+        Prefers.put("download_enabled", enabled);
+    }
+
     public static boolean isLiquidGlass() {
         return Prefers.getBoolean("liquid_glass", true);
     }
