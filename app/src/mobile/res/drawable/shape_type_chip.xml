@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首页分类片背景：选中态主色实心药丸 + 白字，未选中态与旧 shape_item_round 一致
+     （半透明黑药丸 + 白字）。只供 adapter_type.xml 使用；shape_item_round /
+     selector_text 是搜索片、B5 筛选片、收藏页共用的，不能动。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/shape_type_chip_selected" android:state_selected="true" />
+    <item android:drawable="@drawable/shape_item_round" />
+</selector>
