@@ -178,7 +178,7 @@ public class WidgetBrowseActivity extends BaseActivity {
         for (WidgetModule module : mMetadata.getModules()) {
             if (!module.isCategory()) modules.add(module);
         }
-        mBinding.moduleChips.setAdapter(new ChipAdapter(modules, module -> {
+        mBinding.moduleChips.setAdapter(new ChipAdapter<WidgetModule>(modules, module -> {
             if (mModule != module) selectModule(module);
         }, module -> module == mModule, module -> module.getTitle()));
     }
@@ -199,7 +199,7 @@ public class WidgetBrowseActivity extends BaseActivity {
     /** 参数片：只列当前值下可见的参数；片上显示“标题：当前值”。 */
     private void setParamChips() {
         List<JsonObject> params = WidgetManager.visibleParams(mModule, mParams);
-        mBinding.paramChips.setAdapter(new ChipAdapter(params, this::onParamChipClick, param -> false, param -> {
+        mBinding.paramChips.setAdapter(new ChipAdapter<JsonObject>(params, this::onParamChipClick, param -> false, param -> {
             String title = Json.safeString(param, "title");
             if (TextUtils.isEmpty(title)) title = Json.safeString(param, "name");
             return title + "：" + paramDisplayValue(param);
