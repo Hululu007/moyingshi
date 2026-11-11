@@ -15,12 +15,12 @@
 ## Recovery anchor
 
 - 目标：B6 画面调节五项 + Anime4K + 播放器调节面板 + 参数持久化（见上完成句）。
-- 当前阶段：设计文档已写（本文件）；实现未开始。
-- 分支/HEAD：main / d3f2b211。
-- 已完成：BieCuiLe 播放器文案与 Anime4K shader 已读（§1）；三内核调节能力已摸清（§2）；Anime4K 上游文件已下载并与 APK 内文件逐字节比对一致（§3）。
+- 当前阶段：设计文档 + 单元 1–6 已实现并提交；单元 7 收尾中。
+- 分支/HEAD：main / b1a27158。
+- 已完成：设计文档（28b19c98）；模型 + 持久化 + 文案（8d901a1e）；Exo 效果器（9501d64f）；mpv 侧（ff3eb885）；接线（92b2976b）；面板（ff4af5ba）；按钮（b1a27158）。
 - 未验证：全部实现（无本地 SDK，编译靠 GitHub 构建；每项只做静态核对；性能/发热只能真机测）。
 - 风险：task_guard 是单会话状态（`.codex/task-state/current`），不可并行跑多个 guard 会话——B6 各单元必须串行做、串行提交。
-- 下一步：按 §8 的单元顺序实现，先做单元 1（模型 + 持久化）。
+- 下一步：单元 7 更新 tracker（b-ui-b1-b7-port.md 的 B6 行）+ 全量静态核对 + 汇报。
 
 ---
 
@@ -78,6 +78,7 @@ en.json 只有 "黑边虚化": "Blur letterbox" 一条文案；Flutter 侧的实
 - 与 LUT 的组合：`PlayerManager` 里 effects 列表改为 `[PictureAdjustEffect, DynamicLutEffect]`（调节在前、LUT 在后，与 mpv 侧顺序一致）。现状 `PlayerManager` 多处直接传 `dynamicLutEffect.effects()`（6782/6990/7075/7165/7198 行附近），需抽一个 `currentVideoEffects()` 统一组装；`safeSetVideoEffects` 的“已激活则复用”短路逻辑保留（两个 effect 都是状态型对象，uniform 改了就实时生效，不用重设列表）。
 - HDR：与 LUT 同款处理——HDR 片源下 Exo 不挂调节 effect（`LutEligibility.isHdr` 的判断逻辑复用；需把 `isHdr(Format)` 抽成可复用的公开方法或在 `PictureAdjustEffect` 侧自己判一次，二选一，单元 4 定）。mpv 侧 HDR 不受限（VO 内处理），所以同一滑杆值在 mpv 下对 HDR 生效、在 Exo 下不生效——面板里对 Exo+HDR 给出提示，见 §6。
 - 隧道模式（tunneling）/软解：与 LUT 同款门禁（`canWarmLutPipeline`：tunnel 开、SOFT 解码、video-prefer 时不挂 effects）；调节 effect 复用同一组门禁条件，不另发明。
+- 修正（实施时明确）：门禁复用 `canWarmLutPipeline`，其中含 `lutAllowed`——`lutAllowed=false` 的场景（部分直播/TV Activity 主动禁 LUT）下调节 effect 同样不挂，与 LUT 同款；§2.1 的“引擎层调节照样生效”指 Vod/点播场景，不含这类主动禁用的场景。
 
 ### 2.4 五项映射公式（Exo shader 侧；mpv 侧走原生映射）
 
