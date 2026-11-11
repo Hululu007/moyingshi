@@ -36,8 +36,10 @@
                 android:id="@+id/tmdbSource"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -45,7 +47,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_tmdb_source"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -53,7 +55,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="启用" />
 
@@ -66,8 +68,10 @@
                 android:id="@+id/detailInteractionMode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -75,7 +79,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_detail_open_mode"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -83,7 +87,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="@string/setting_detail_open_native" />
 
@@ -93,9 +97,11 @@
                 android:id="@+id/detailThemeMode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:visibility="gone">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -103,7 +109,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_detail_theme_mode"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -111,7 +117,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="@string/setting_detail_theme_current" />
 
@@ -123,8 +129,10 @@
                 android:id="@+id/tmdbMatchMode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -132,7 +140,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_tmdb_match_mode"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -140,7 +148,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Smart" />
 
@@ -150,8 +158,10 @@
                 android:id="@+id/tmdbEpisodeFileSize"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -159,7 +169,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_tmdb_episode_file_size"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -167,7 +177,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="On" />
 
@@ -177,9 +187,11 @@
                 android:id="@+id/historyAggregation"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:visibility="gone">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -187,7 +199,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_history_aggregation"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -195,7 +207,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="On" />
 

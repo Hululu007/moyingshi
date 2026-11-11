@@ -31,7 +31,9 @@
                 android:id="@+id/searchThread"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -39,7 +41,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_search_thread"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -47,7 +49,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="10" />
 
@@ -57,8 +59,10 @@
                 android:id="@+id/following"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -66,7 +70,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_following"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -74,7 +78,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="On" />
 
@@ -84,8 +88,10 @@
                 android:id="@+id/autoBackup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -93,7 +99,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_auto_backup"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -101,7 +107,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Off" />
 
@@ -111,8 +117,10 @@
                 android:id="@+id/playbackOverlay"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -120,7 +128,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_playback_overlay"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -128,7 +136,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="On" />
 
@@ -138,8 +146,10 @@
                 android:id="@+id/playBackToDetail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -147,7 +157,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_play_back_to_detail"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -155,7 +165,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Off" />
 
@@ -165,8 +175,10 @@
                 android:id="@+id/episodeHistory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -174,7 +186,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_episode_history"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -182,7 +194,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="On" />
 
@@ -192,8 +204,10 @@
                 android:id="@+id/globalHistory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -201,7 +215,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_global_history"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -209,7 +223,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Off" />
 
@@ -219,8 +233,10 @@
                 android:id="@+id/interfaceFailover"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -228,7 +244,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_interface_failover"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -236,7 +252,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Off" />
 
@@ -247,8 +263,10 @@
                 android:id="@+id/playSpeed"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -256,7 +274,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_play_speed"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -264,7 +282,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="1.00" />
 
@@ -277,8 +295,10 @@
                 android:id="@+id/groupRule"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -286,7 +306,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_group_rule"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -294,7 +314,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="3/3" />
 
@@ -305,8 +325,10 @@
                 android:id="@+id/searchUi"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -314,7 +336,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_search_ui"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -322,7 +344,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Vertical" />
 
@@ -332,8 +354,10 @@
                 android:id="@+id/searchColumn"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -341,7 +365,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_search_column"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -349,7 +373,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Auto" />
 
@@ -359,8 +383,10 @@
                 android:id="@+id/siteColumn"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -368,7 +394,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_site_column"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -376,7 +402,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="Single row" />
 
@@ -386,8 +412,10 @@
                 android:id="@+id/searchResultSort"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -395,7 +423,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_search_result_sort"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -403,7 +431,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="First returned first" />
 
@@ -413,8 +441,10 @@
                android:id="@+id/resetApp"
                android:layout_width="match_parent"
                android:layout_height="wrap_content"
-               android:layout_marginTop="16dp"
-               android:background="@drawable/shape_item"
+               android:minHeight="72dp"
+               android:layout_marginTop="8dp"
+               android:background="@drawable/shape_setting_row_card"
+               android:gravity="center_vertical"
                android:orientation="horizontal">
 
                <com.google.android.material.textview.MaterialTextView
@@ -422,7 +452,7 @@
                    android:layout_height="wrap_content"
                    android:layout_marginEnd="16dp"
                    android:text="@string/setting_reset_app"
-                   android:textColor="?attr/webhtvColorOnWallpaper"
+                   android:textColor="@color/setting_card_title"
                    android:textSize="16sp" />
 
            </androidx.appcompat.widget.LinearLayoutCompat>
@@ -430,8 +460,10 @@
                 android:id="@+id/appBranding"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -439,7 +471,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_app_branding"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -447,7 +479,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="MO TV Classic · Current icon" />
 
@@ -457,8 +489,10 @@
                 android:id="@+id/touchOptimization"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -468,7 +502,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_touch_optimization"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -477,7 +511,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="Off" />
 
@@ -487,8 +521,10 @@
                 android:id="@+id/liquidGlass"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -498,7 +534,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_liquid_glass"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -507,7 +543,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="Off" />
 
@@ -517,8 +553,10 @@
                 android:id="@+id/dramaCollected"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -528,7 +566,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_short_drama_collected"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -537,7 +575,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="Off" />
 
@@ -547,8 +585,10 @@
                 android:id="@+id/glassBlur"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -558,7 +598,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_glass_blur"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -567,7 +607,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="5" />
 
@@ -577,8 +617,10 @@
                 android:id="@+id/glassDistortion"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -588,7 +630,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_glass_distortion"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -597,7 +639,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="30" />
 
@@ -607,8 +649,10 @@
                 android:id="@+id/glassTranslucency"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -618,7 +662,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_glass_translucency"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -627,7 +671,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="50%" />
 
@@ -637,8 +681,10 @@
                 android:id="@+id/glassDispersion"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -648,7 +694,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_glass_dispersion"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -657,7 +703,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:gravity="end"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="18sp"
                     tools:text="On" />
 
@@ -667,8 +713,10 @@
                 android:id="@+id/glassReset"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:focusable="true"
                 android:focusableInTouchMode="false"
                 android:orientation="horizontal">
@@ -678,7 +726,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/setting_glass_reset"
-                    android:textColor="@color/white"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="18sp" />
 
             </androidx.appcompat.widget.LinearLayoutCompat>

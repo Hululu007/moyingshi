@@ -31,7 +31,9 @@
                 android:id="@+id/subtitleAutoMatch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -39,7 +41,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/player_subtitle_auto_match"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -47,7 +49,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="end"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="开" />
 
@@ -57,8 +59,10 @@
                 android:id="@+id/subtitleLanguage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -66,7 +70,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/player_subtitle_language"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -76,7 +80,7 @@
                     android:ellipsize="end"
                     android:gravity="end"
                     android:singleLine="true"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="中文优先" />
 
@@ -86,8 +90,10 @@
                 android:id="@+id/subtitleAssrtToken"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/shape_item"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <com.google.android.material.textview.MaterialTextView
@@ -95,7 +101,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="16dp"
                     android:text="@string/player_subtitle_source"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_title"
                     android:textSize="16sp" />
 
                 <com.google.android.material.textview.MaterialTextView
@@ -105,7 +111,7 @@
                     android:ellipsize="end"
                     android:gravity="end"
                     android:singleLine="true"
-                    android:textColor="?attr/webhtvColorOnWallpaper"
+                    android:textColor="@color/setting_card_value"
                     android:textSize="16sp"
                     tools:text="已配置" />
 
