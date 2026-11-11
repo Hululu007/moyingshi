@@ -6,5 +6,5 @@
     android:layout_marginStart="16dp"
     android:layout_marginEnd="16dp"
     android:layout_marginBottom="8dp"
-    android:textColor="@color/setting_group_title"
+    android:textColor="?attr/webhtvColorOnWallpaperVariant"
     android:textSize="13sp" />

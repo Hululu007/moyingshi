@@ -2,7 +2,7 @@
 <resources>
     <!-- BieCuiLe-style grouped settings card palette (dark). -->
     <color name="setting_page_bg">#121212</color>
-    <color name="setting_card_bg">#1E1E1E</color>
+    <color name="setting_card_bg">#BF1E1E1E</color>
     <color name="setting_group_title">#98989D</color>
     <color name="setting_card_title">#FFFFFF</color>
     <color name="setting_card_subtitle">#98989D</color>

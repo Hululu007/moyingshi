@@ -5,7 +5,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/setting_page_bg"
+    android:background="@android:color/transparent"
+    android:backgroundBlurRadius="16dp"
     android:orientation="vertical">
 
     <androidx.appcompat.widget.LinearLayoutCompat
@@ -23,7 +24,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/nav_setting"
-            android:textColor="@color/setting_card_title"
+            android:textColor="?attr/webhtvColorOnWallpaper"
             android:textSize="30sp"
             android:textStyle="bold" />
 
@@ -36,7 +37,7 @@
             android:focusable="true"
             android:padding="6dp"
             android:src="@drawable/ic_search"
-            android:tint="@color/setting_accent" />
+            android:tint="?attr/webhtvColorOnWallpaper" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
