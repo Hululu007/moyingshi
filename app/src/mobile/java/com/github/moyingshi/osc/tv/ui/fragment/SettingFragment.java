@@ -82,9 +82,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_LIVE = "live";
     public static final String ROW_WALL = "wall";
     public static final String ROW_APPEARANCE = "appearance";
-    public static final String ROW_HOME_NAV = "home_nav";
     public static final String ROW_WIDGET = "widget";
-    public static final String ROW_SEARCH_INPUT = "search_input";
     public static final String ROW_PLAYER = "player";
     public static final String ROW_DANMAKU = "danmaku";
     public static final String ROW_SUBTITLE = "subtitle";
@@ -178,19 +176,13 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 R.string.setting_wall, ROW_WALL, this::onWall, this::setWallDefault, this::setWallRefresh);
         wallRow.findViewById(R.id.historyBtn).setOnLongClickListener(v -> onWallHistory());
 
-        // 通用：外观 / 首页与导航 / 增强功能 / 搜索与输入 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
+        // 通用：外观 / 增强功能 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
         ViewGroup general = addGroup(container, inflater, R.string.setting_group_general, false);
         addRow(general, inflater, R.drawable.ic_setting_appearance, R.drawable.shape_setting_circle_purple,
                 R.string.setting_appearance, R.string.setting_appearance_sub, ROW_APPEARANCE, this::onAppearance);
         addDivider(general);
-        addRow(general, inflater, R.drawable.ic_setting_home, R.drawable.shape_setting_circle_orange,
-                R.string.setting_home_nav, R.string.setting_home_nav_sub, ROW_HOME_NAV, () -> getRoot().change(5));
-        addDivider(general);
         addRow(general, inflater, R.drawable.ic_action_setting, R.drawable.shape_setting_circle_orange,
                 R.string.setting_enhance, R.string.setting_enhance_sub, ROW_WIDGET, () -> getRoot().change(3));
-        addDivider(general);
-        addRow(general, inflater, R.drawable.ic_search, R.drawable.shape_setting_circle_blue,
-                R.string.setting_search_input, R.string.setting_search_input_sub, ROW_SEARCH_INPUT, () -> getRoot().change(5));
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_play, R.drawable.shape_setting_circle_red,
                 R.string.setting_player, R.string.setting_player_sub, ROW_PLAYER, () -> getRoot().change(2));
@@ -401,7 +393,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case ROW_LIVE -> onLive();
             case ROW_WALL -> onWall();
             case ROW_APPEARANCE -> onAppearance();
-            case ROW_HOME_NAV, ROW_SEARCH_INPUT, ROW_PERSONAL -> getRoot().change(5);
+            case ROW_PERSONAL -> getRoot().change(5);
             case ROW_WIDGET -> getRoot().change(3);
             case ROW_PLAYER -> getRoot().change(2);
             case ROW_DANMAKU -> getRoot().change(4);

@@ -3138,14 +3138,10 @@
     <string name="setting_group_feature">特色功能</string>
     <string name="setting_group_storage">数据与存储</string>
     <string name="setting_group_about">关于</string>
-    <string name="setting_home_nav">首页与导航</string>
-    <string name="setting_search_input">搜索与输入</string>
     <string name="setting_local_source">本地源</string>
     <string name="setting_lab">实验室</string>
     <string name="setting_site_health">站点健康</string>
     <string name="setting_appearance_sub">深浅色、主题色彩、语言</string>
-    <string name="setting_home_nav_sub">导航栏、首页入口、轮播海报</string>
-    <string name="setting_search_input_sub">聚合搜索、默认搜索本站、遥控器键盘</string>
     <string name="setting_player_sub">手势、弹幕、倍速、字幕、短剧预载</string>
     <string name="setting_tmdb_sub">数据源、详情页、匹配模式</string>
     <string name="setting_danmaku_sub">弹幕开关、弹幕源、自动加载</string>

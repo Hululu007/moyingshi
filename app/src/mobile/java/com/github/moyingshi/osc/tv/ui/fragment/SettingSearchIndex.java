@@ -46,9 +46,7 @@ public final class SettingSearchIndex {
         entries.add(main(R.string.setting_live, 0, SettingFragment.ROW_LIVE));
         entries.add(main(R.string.setting_wall, 0, SettingFragment.ROW_WALL));
         entries.add(main(R.string.setting_appearance, R.string.setting_appearance_sub, SettingFragment.ROW_APPEARANCE));
-        entries.add(main(R.string.setting_home_nav, R.string.setting_home_nav_sub, SettingFragment.ROW_HOME_NAV));
         entries.add(main(R.string.setting_enhance, R.string.setting_enhance_sub, SettingFragment.ROW_WIDGET));
-        entries.add(main(R.string.setting_search_input, R.string.setting_search_input_sub, SettingFragment.ROW_SEARCH_INPUT));
         entries.add(main(R.string.setting_player, R.string.setting_player_sub, SettingFragment.ROW_PLAYER));
         entries.add(main(R.string.setting_danmaku, R.string.setting_danmaku_sub, SettingFragment.ROW_DANMAKU));
         entries.add(main(R.string.setting_subtitle, R.string.setting_subtitle_sub, SettingFragment.ROW_SUBTITLE));
