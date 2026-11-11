@@ -18,6 +18,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            app:layout_scrollFlags="scroll"
             app:menu="@menu/menu_vod"
             app:popupTheme="@style/ToolbarPopupTheme">
 
@@ -45,7 +46,8 @@
             android:id="@+id/banner"
             android:layout_width="match_parent"
             android:layout_height="188dp"
-            android:visibility="gone" />
+            android:visibility="gone"
+            app:layout_scrollFlags="scroll" />
 
         <!-- 首页“继续观看”（B2）：横向滑动行，读观看历史；无未看完内容时隐藏。 -->
         <androidx.appcompat.widget.LinearLayoutCompat
@@ -55,7 +57,8 @@
             android:orientation="vertical"
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
-            android:visibility="gone">
+            android:visibility="gone"
+            app:layout_scrollFlags="scroll">
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/continueTitle"
@@ -84,8 +87,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone" />
+            android:visibility="gone"
+            app:layout_scrollFlags="scroll" />
 
+        <!-- 分类栏（吸顶）：故意不加 layout_scrollFlags——它是 AppBar 最后一个子项，
+             其相对 Y 正好等于全部 scroll 子项高度之和（总收起范围），收到底时正好停在屏幕顶部
+             钉住不动；下滑回顶部时随 AppBar 展开回到原位。背景淡入见 VodFragment 的 offset 监听。 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/typeBar"
             android:layout_width="match_parent"
