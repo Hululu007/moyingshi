@@ -45,7 +45,7 @@ public final class PictureAdjustDialog {
         LinearLayout container = new LinearLayout(activity);
         container.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         container.setOrientation(LinearLayout.VERTICAL);
-        int horizontal = ResUtil.dp2px(12);
+        int horizontal = ResUtil.dp2px(16);
         container.setPadding(horizontal, 0, horizontal, 0);
 
         if (adjustReason != null) {
@@ -72,7 +72,7 @@ public final class PictureAdjustDialog {
             slider.setFocusable(true);
             slider.setFocusableInTouchMode(true);
             slider.setEnabled(adjustReason == null);
-            ColorStateList active = ColorStateList.valueOf(Color.parseColor("#3D5AFE"));
+            ColorStateList active = ColorStateList.valueOf(Color.parseColor("#0B57D0"));
             ColorStateList inactive = ColorStateList.valueOf(Color.parseColor("#D0D5DD"));
             slider.setTrackActiveTintList(active);
             slider.setTrackInactiveTintList(inactive);
@@ -98,6 +98,7 @@ public final class PictureAdjustDialog {
 
         MaterialButton reset = new MaterialButton(activity);
         reset.setText(R.string.pic_reset);
+        reset.setCornerRadius(ResUtil.dp2px(18));
         reset.setOnClickListener(v -> {
             for (Slider slider : sliders) slider.setValue(0);
         });
