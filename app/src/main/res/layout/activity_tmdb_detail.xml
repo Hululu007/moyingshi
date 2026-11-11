@@ -77,7 +77,8 @@
                     android:textStyle="bold"
                     android:visibility="gone"
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/rematchTop"
@@ -93,7 +94,8 @@
                     android:textStyle="bold"
                     android:visibility="gone"
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/keepTop"
@@ -109,7 +111,8 @@
                     android:textStyle="bold"
                     android:visibility="gone"
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/followingTop"
@@ -125,7 +128,8 @@
                     android:textStyle="bold"
                     android:visibility="gone"
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="20dp" />
             </LinearLayout>
 
             <!-- 占位 + 焦点桥梁：真正的 playerPanel 已提升到 root 层，避免全屏切换时 SurfaceView reparent 导致黑屏。
@@ -181,7 +185,8 @@
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
                     app:layout_flexBasisPercent="0%"
                     app:layout_flexGrow="1"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="21dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/keepFusion"
@@ -204,7 +209,8 @@
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
                     app:layout_flexBasisPercent="0%"
                     app:layout_flexGrow="1"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="21dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/followingFusion"
@@ -226,7 +232,8 @@
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
                     app:layout_flexBasisPercent="0%"
                     app:layout_flexGrow="1"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="21dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/rematchFusion"
@@ -249,7 +256,8 @@
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
                     app:layout_flexBasisPercent="0%"
                     app:layout_flexGrow="1"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="21dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/themeMode"
@@ -272,7 +280,8 @@
                     app:backgroundTint="?attr/colorSurfaceContainerHighest"
                     app:layout_flexBasisPercent="0%"
                     app:layout_flexGrow="1"
-                    app:strokeColor="@android:color/transparent" />
+                    app:strokeColor="@android:color/transparent"
+                    app:cornerRadius="21dp" />
             </com.google.android.flexbox.FlexboxLayout>
 
             <Space
@@ -288,7 +297,7 @@
                 android:layout_marginEnd="16dp"
                 android:visibility="gone"
                 app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
-                app:cardCornerRadius="20dp"
+                app:cardCornerRadius="24dp"
                 app:cardElevation="0dp"
                 app:strokeColor="?attr/colorOutlineVariant"
                 app:strokeWidth="1dp">
@@ -400,7 +409,8 @@
                             android:singleLine="true"
                             android:textColor="@android:color/white"
                             android:textStyle="bold"
-                            app:backgroundTint="@color/webhtv_color_success" />
+                            app:backgroundTint="@color/webhtv_color_success"
+                            app:cornerRadius="23dp" />
 
                         <LinearLayout
                             android:layout_width="match_parent"
@@ -426,7 +436,8 @@
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="?attr/colorSurfaceContainerHigh"
-                                app:strokeColor="@android:color/transparent" />
+                                app:strokeColor="@android:color/transparent"
+                                app:cornerRadius="21dp" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/keep"
@@ -446,7 +457,8 @@
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="?attr/colorSurfaceContainerHigh"
-                                app:strokeColor="@android:color/transparent" />
+                                app:strokeColor="@android:color/transparent"
+                                app:cornerRadius="21dp" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/following"
@@ -467,7 +479,8 @@
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="?attr/colorSurfaceContainerHigh"
-                                app:strokeColor="@android:color/transparent" />
+                                app:strokeColor="@android:color/transparent"
+                                app:cornerRadius="21dp" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/rematch"
@@ -488,7 +501,8 @@
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="?attr/colorSurfaceContainerHigh"
-                                app:strokeColor="@android:color/transparent" />
+                                app:strokeColor="@android:color/transparent"
+                                app:cornerRadius="21dp" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/themeModeDetail"
@@ -509,7 +523,8 @@
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="?attr/colorSurfaceContainerHigh"
-                                app:strokeColor="@android:color/transparent" />
+                                app:strokeColor="@android:color/transparent"
+                                app:cornerRadius="21dp" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -642,7 +657,8 @@
                             android:textSize="14sp"
                             android:textStyle="bold"
                             app:backgroundTint="@android:color/transparent"
-                            app:strokeColor="@android:color/transparent" />
+                            app:strokeColor="@android:color/transparent"
+                            app:cornerRadius="18dp" />
 
                         <Space
                             android:layout_width="0dp"
@@ -664,7 +680,8 @@
                             app:iconPadding="0dp"
                             app:iconSize="20dp"
                             app:iconTint="@android:color/white"
-                            app:strokeColor="@android:color/transparent" />
+                            app:strokeColor="@android:color/transparent"
+                            app:cornerRadius="18dp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/episodeFileName"
@@ -682,7 +699,8 @@
                             app:iconPadding="0dp"
                             app:iconSize="20dp"
                             app:iconTint="@android:color/white"
-                            app:strokeColor="@android:color/transparent" />
+                            app:strokeColor="@android:color/transparent"
+                            app:cornerRadius="18dp" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/episodeViewMode"
@@ -700,7 +718,8 @@
                             app:iconPadding="0dp"
                             app:iconSize="20dp"
                             app:iconTint="@android:color/white"
-                            app:strokeColor="@android:color/transparent" />
+                            app:strokeColor="@android:color/transparent"
+                            app:cornerRadius="18dp" />
                     </LinearLayout>
 
                     <FrameLayout
@@ -796,7 +815,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
-                    app:cardCornerRadius="20dp"
+                    app:cardCornerRadius="24dp"
                     app:cardElevation="0dp"
                     app:strokeColor="?attr/colorOutlineVariant"
                     app:strokeWidth="1dp">
@@ -1047,7 +1066,7 @@
         android:descendantFocusability="afterDescendants"
         android:visibility="gone"
         app:cardBackgroundColor="@android:color/black"
-        app:cardCornerRadius="20dp"
+        app:cardCornerRadius="24dp"
         app:cardElevation="0dp"
         app:strokeColor="?attr/colorOutlineVariant"
         app:strokeWidth="1dp">
