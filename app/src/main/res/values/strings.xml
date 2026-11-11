@@ -3165,6 +3165,10 @@
     <string name="download_need_permission">Storage permission is required to download</string>
     <string name="download_unsupported">This video type can\'t be downloaded yet</string>
     <string name="download_no_episode_selected">Select at least one episode first</string>
+    <string name="download_drama_summary">%1$d episodes, %2$d done</string>
+    <string name="download_state_resolving">Resolving</string>
+    <string name="download_delete_failed">Delete failed, please retry</string>
+    <string name="download_file_missing">Downloaded file not found</string>
     <string name="setting_group_storage">Data &amp; Storage</string>
     <string name="setting_group_about">About</string>
     <string name="setting_local_source">Local Sources</string>

@@ -22,10 +22,14 @@ import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.cache.CacheCenter;
 import com.github.moyingshi.osc.tv.cache.CachePolicyStore;
 import com.github.moyingshi.osc.tv.databinding.FragmentSettingBinding;
+import com.github.moyingshi.osc.tv.databinding.ItemDownloadDramaBinding;
+import com.github.moyingshi.osc.tv.databinding.ItemDownloadEpisodeBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemSettingCardRowBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemSettingCardRowConfigBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemSettingGroupTitleBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
+import com.github.moyingshi.osc.tv.download.DownloadTask;
+import com.github.moyingshi.osc.tv.download.VideoDownloadManager;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.gitcloud.GitCloudAccountStore;
@@ -37,7 +41,9 @@ import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.setting.ConfigSyncPolicy;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.SiteHealthStore;
+import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
+import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.ui.dialog.AboutDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.AppearanceDialog;
@@ -64,8 +70,10 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -102,6 +110,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_DOH = "doh";
     public static final String ROW_INCOGNITO = "incognito";
     public static final String ROW_ABOUT = "about";
+    public static final String ROW_DOWNLOAD = "download";
 
     /** Row requested by settings search; consumed (posted) when this page becomes visible. */
     private static String sPendingRow;
@@ -112,6 +121,13 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
     private FragmentSettingBinding mBinding;
     private final Map<String, TextView> mValueViews = new HashMap<>();
+
+    /** 隐藏分组开关快照：与当前偏好不一致时回到前台重建分组。 */
+    private boolean mHiddenEnabled;
+    /** 隐藏分组里下载开关下方的下载列表容器（隐藏分组未建时为 null）。 */
+    private LinearLayout mDownloadListContainer;
+    /** 下载任务变化时只重建下载列表，不动整个设置页。 */
+    private final VideoDownloadManager.Listener mDownloadListener = this::refreshDownloadList;
 
     public static SettingFragment newInstance() {
         return new SettingFragment();
@@ -159,6 +175,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     // ------------------------------------------------------------------ groups
 
     private void buildGroups() {
+        mHiddenEnabled = Setting.isHiddenSettingsEnabled();
         mValueViews.clear();
         LinearLayout container = mBinding.groupsContainer;
         container.removeAllViews();
@@ -250,6 +267,21 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         ViewGroup about = addGroup(container, inflater, R.string.setting_group_about, false);
         addRow(about, inflater, R.drawable.ic_control_info, R.drawable.shape_setting_circle_blue,
                 R.string.setting_about, R.string.setting_about_sub, ROW_ABOUT, this::onVersion);
+
+        // 隐藏设置：默认关闭时整个分组不存在；关于页版本号连点 5 次后出现。
+        if (mHiddenEnabled) {
+            ViewGroup hidden = addGroup(container, inflater, R.string.setting_group_hidden, false);
+            addRow(hidden, inflater, R.drawable.ic_setting_download, R.drawable.shape_setting_circle_blue,
+                    R.string.setting_download, R.string.setting_download_sub, ROW_DOWNLOAD, this::setDownloadEnabled);
+            mDownloadListContainer = new LinearLayout(requireContext());
+            mDownloadListContainer.setOrientation(LinearLayout.VERTICAL);
+            mDownloadListContainer.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            hidden.addView(mDownloadListContainer);
+            refreshDownloadList();
+        } else {
+            mDownloadListContainer = null;
+        }
     }
 
     /** One group: title above a white rounded card; returns the card to add rows to. */
@@ -337,6 +369,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_SITE_HEALTH, getSiteHealthText());
         setValue(ROW_DOH, getDohList()[getDohIndex()]);
         setValue(ROW_INCOGNITO, getSwitch(Setting.isIncognito()));
+        setValue(ROW_DOWNLOAD, getSwitch(Setting.isDownloadEnabled()));
         setValue(ROW_ABOUT, AppVersion.fullName());
         setCacheText();
     }
@@ -413,6 +446,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case ROW_DOH -> setDoh();
             case ROW_INCOGNITO -> setIncognito();
             case ROW_ABOUT -> onVersion();
+            case ROW_DOWNLOAD -> setDownloadEnabled();
             default -> { /* unknown row: ignore */ }
         }
     }
@@ -579,6 +613,138 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_INCOGNITO, getSwitch(Setting.isIncognito()));
     }
 
+    private void setDownloadEnabled() {
+        Setting.putDownloadEnabled(!Setting.isDownloadEnabled());
+        setValue(ROW_DOWNLOAD, getSwitch(Setting.isDownloadEnabled()));
+        refreshDownloadList();
+    }
+
+    /** 隐藏开关变化后回到前台时重建分组（只在状态变了时重建，不丢滚动位置）。 */
+    private void refreshHiddenGroupIfNeeded() {
+        if (mBinding == null || !isAdded()) return;
+        if (Setting.isHiddenSettingsEnabled() == mHiddenEnabled) return;
+        buildGroups();
+        setText();
+    }
+
+    // ------------------------------------------------------------------ 下载列表
+
+    /** 只重建隐藏分组里的下载列表；开关关闭或分组未建时直接清空。 */
+    private void refreshDownloadList() {
+        if (mBinding == null || !isAdded() || mDownloadListContainer == null) return;
+        mDownloadListContainer.removeAllViews();
+        if (!Setting.isDownloadEnabled()) return;
+        List<DownloadTask> tasks = VideoDownloadManager.get().getTasks();
+        if (tasks.isEmpty()) {
+            TextView empty = new TextView(requireContext());
+            empty.setText(R.string.setting_download_list_empty);
+            empty.setTextColor(getResources().getColor(R.color.setting_card_subtitle, requireContext().getTheme()));
+            empty.setTextSize(13);
+            empty.setPadding(dp(80), dp(12), dp(16), dp(12));
+            mDownloadListContainer.addView(empty);
+            return;
+        }
+        Map<String, List<DownloadTask>> groups = new LinkedHashMap<>();
+        for (DownloadTask task : tasks) {
+            List<DownloadTask> group = groups.get(task.dramaName);
+            if (group == null) {
+                group = new ArrayList<>();
+                groups.put(task.dramaName, group);
+            }
+            group.add(task);
+        }
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+        for (Map.Entry<String, List<DownloadTask>> entry : groups.entrySet()) {
+            addDramaGroup(inflater, entry.getKey(), entry.getValue());
+        }
+    }
+
+    /** 一部剧一行：点展开看各集，长按出现删除按钮。 */
+    private void addDramaGroup(LayoutInflater inflater, String dramaName, List<DownloadTask> tasks) {
+        ItemDownloadDramaBinding binding = ItemDownloadDramaBinding.inflate(inflater, mDownloadListContainer, false);
+        binding.iconBg.setBackgroundResource(R.drawable.shape_setting_circle_blue);
+        binding.icon.setImageResource(R.drawable.ic_setting_folder);
+        binding.title.setText(dramaName);
+        binding.subtitle.setText(downloadSummary(tasks));
+        binding.value.setVisibility(View.GONE);
+        LinearLayout episodes = new LinearLayout(requireContext());
+        episodes.setOrientation(LinearLayout.VERTICAL);
+        episodes.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        episodes.setVisibility(View.GONE);
+        for (DownloadTask task : tasks) addEpisodeRow(inflater, episodes, task);
+        binding.getRoot().setOnClickListener(v -> {
+            binding.deleteBtn.setVisibility(View.GONE);
+            episodes.setVisibility(episodes.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+        });
+        binding.getRoot().setOnLongClickListener(v -> {
+            binding.deleteBtn.setVisibility(View.VISIBLE);
+            return true;
+        });
+        binding.deleteBtn.setOnClickListener(v -> confirmDeleteDrama(dramaName));
+        mDownloadListContainer.addView(binding.getRoot());
+        mDownloadListContainer.addView(episodes);
+    }
+
+    private String downloadSummary(List<DownloadTask> tasks) {
+        int done = 0;
+        for (DownloadTask task : tasks) {
+            if (task.isDone()) done++;
+        }
+        return getString(R.string.download_drama_summary, tasks.size(), done);
+    }
+
+    private void addEpisodeRow(LayoutInflater inflater, LinearLayout parent, DownloadTask task) {
+        ItemDownloadEpisodeBinding binding = ItemDownloadEpisodeBinding.inflate(inflater, parent, false);
+        binding.name.setText(task.episodeName);
+        binding.status.setText(downloadStatusText(task));
+        binding.getRoot().setOnClickListener(v -> playDownloaded(task));
+        parent.addView(binding.getRoot());
+    }
+
+    private String downloadStatusText(DownloadTask task) {
+        if (task == null || task.status == null) return "";
+        switch (task.status) {
+            case DONE:
+                return getString(R.string.download_state_done);
+            case FAILED:
+                return getString(R.string.download_state_failed);
+            case RESOLVING:
+                return getString(R.string.download_state_resolving);
+            case DOWNLOADING: {
+                int progress = task.progress();
+                String state = getString(R.string.download_state_downloading);
+                return progress < 0 ? state : state + " " + progress + "%";
+            }
+            case QUEUED:
+            default:
+                return getString(R.string.download_state_queued);
+        }
+    }
+
+    /** 点已完成的一集：播 Download 文件夹里的本地文件（走现有 push 本地文件通路）。 */
+    private void playDownloaded(DownloadTask task) {
+        if (task == null || !task.isDone()) return;
+        if (task.filePath == null || !new File(task.filePath).exists()) {
+            Notify.show(R.string.download_file_missing);
+            return;
+        }
+        VideoActivity.start(requireActivity(), "file://" + task.filePath);
+    }
+
+    /** 长按剧名后点的删除：先弹确认框，确认后真删文件夹 + 记录 + 列表行。 */
+    private void confirmDeleteDrama(String dramaName) {
+        new WebHtvAlertDialogBuilder(requireContext(), R.style.Theme_WebHTV_Dialog)
+                .setTitle(R.string.download_delete_title)
+                .setMessage(getString(R.string.download_delete_message, dramaName))
+                .setPositiveButton(R.string.download_delete, (dialog, which) -> VideoDownloadManager.get().deleteDrama(dramaName, ok -> {
+                    Notify.show(ok ? R.string.download_deleted : R.string.download_delete_failed);
+                    refreshDownloadList();
+                }))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .show();
+    }
+
     private void setDoh() {
         ChoiceDialog.showSingle(this, R.string.setting_doh, getDohList(), getDohIndex(), which -> {
             setDoh(VodConfig.get().getDoh().get(which));
@@ -687,20 +853,32 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     @Override
     public void onResume() {
         super.onResume();
+        VideoDownloadManager.get().addListener(mDownloadListener);
+        refreshHiddenGroupIfNeeded();
         setText();
+        refreshDownloadList();
         consumePendingRow();
+    }
+
+    @Override
+    public void onPause() {
+        VideoDownloadManager.get().removeListener(mDownloadListener);
+        super.onPause();
     }
 
     @Override
     public void onHiddenChanged(boolean hidden) {
         if (hidden) return;
+        refreshHiddenGroupIfNeeded();
         setText();
+        refreshDownloadList();
         consumePendingRow();
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        VideoDownloadManager.get().removeListener(mDownloadListener);
         EventBus.getDefault().unregister(this);
         mValueViews.clear();
         mBinding = null;
