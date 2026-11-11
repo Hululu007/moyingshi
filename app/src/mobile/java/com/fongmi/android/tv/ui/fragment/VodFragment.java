@@ -54,6 +54,7 @@ import com.fongmi.android.tv.ui.activity.HistoryResumeCoordinator;
 import com.fongmi.android.tv.ui.activity.KeepActivity;
 import com.fongmi.android.tv.ui.activity.SearchActivity;
 import com.fongmi.android.tv.ui.activity.VideoActivity;
+import com.fongmi.android.tv.ui.activity.WidgetBrowseActivity;
 import com.fongmi.android.tv.ui.adapter.BannerAdapter;
 import com.fongmi.android.tv.ui.adapter.ContinueAdapter;
 import com.fongmi.android.tv.ui.adapter.TypeAdapter;
@@ -352,6 +353,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             binding = AdapterWidgetSectionBinding.inflate(LayoutInflater.from(requireContext()), mBinding.widgetSections, false);
             binding.widgetTitle.setText(section.title());
             binding.getRoot().setTag(widgetId);
+            binding.widgetMore.setOnClickListener(v -> WidgetBrowseActivity.start(requireActivity(), widgetId));
             WidgetSectionAdapter adapter = new WidgetSectionAdapter(this::onWidgetItemClick);
             binding.widgetList.setHasFixedSize(true);
             binding.widgetList.setItemAnimator(null);

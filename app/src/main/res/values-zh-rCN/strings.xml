@@ -309,6 +309,11 @@
     <string name="repo_cnb">CNB 仓库</string>
     <string name="setting_debug_log">调试日志</string>
     <string name="setting_search_current_site">默认搜索本站</string>
+    <string name="widget_more">更多</string>
+    <string name="widget_refresh">刷新</string>
+    <string name="widget_load_failed">加载失败：%1$s</string>
+    <string name="widget_no_module">这个组件没有可浏览的分区</string>
+    <string name="widget_empty">这里什么都没有</string>
     <string name="setting_manage_page">管理页面</string>
     <string name="setting_remote_trust">远程托管</string>
     <string name="setting_git_cloud">Git 云盘</string>

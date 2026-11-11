@@ -312,6 +312,11 @@
     <string name="repo_cnb">CNB repository</string>
     <string name="setting_debug_log">Debug log</string>
     <string name="setting_search_current_site">Default search current site</string>
+    <string name="widget_more">More</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_load_failed">Failed to load: %1$s</string>
+    <string name="widget_no_module">This widget has no browsable section</string>
+    <string name="widget_empty">Nothing here yet</string>
     <string name="setting_manage_page">Management page</string>
     <string name="setting_remote_trust">Remote trust</string>
     <string name="setting_git_cloud">Git cloud drive</string>

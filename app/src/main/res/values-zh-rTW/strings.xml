@@ -280,6 +280,11 @@
     <string name="repo_cnb">CNB 倉庫</string>
     <string name="setting_debug_log">調試日誌</string>
     <string name="setting_search_current_site">預設搜尋本站</string>
+    <string name="widget_more">更多</string>
+    <string name="widget_refresh">重新整理</string>
+    <string name="widget_load_failed">載入失敗：%1$s</string>
+    <string name="widget_no_module">這個組件沒有可瀏覽的分區</string>
+    <string name="widget_empty">這裡什麼都沒有</string>
     <string name="setting_manage_page">管理頁面</string>
     <string name="setting_remote_trust">遠程託管</string>
     <string name="setting_git_cloud">Git 雲盤</string>

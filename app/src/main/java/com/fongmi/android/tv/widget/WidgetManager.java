@@ -109,7 +109,7 @@ public class WidgetManager {
             WidgetModule module = metadata.getHomeModule();
             if (module == null) throw new IllegalStateException("无首页模块");
             Map<String, String> params = defaultParams(module);
-            String paramsKey = stableParams(params);
+            String paramsKey = paramsKey(params);
             if (!module.noCache()) {
                 String cached = WidgetCache.read(builtin.id, module.getFunctionName(), paramsKey, module.cacheTtlMs());
                 List<WidgetItem> cachedItems = parseItems(cached);
@@ -153,8 +153,8 @@ public class WidgetManager {
         }
     }
 
-    /** 模块默认参数：取各 param 的 value（page 缺省为 1），再按 belongTo 条件过滤。 */
-    private static Map<String, String> defaultParams(WidgetModule module) {
+    /** 模块默认参数（公开给浏览页复用）：取各 param 的 value（page 缺省为 1），再按 belongTo 条件过滤。 */
+    public static Map<String, String> defaultParams(WidgetModule module) {
         Map<String, String> raw = new LinkedHashMap<>();
         for (JsonObject param : module.getParams()) {
             String name = Json.safeString(param, "name");
@@ -168,28 +168,38 @@ public class WidgetManager {
         for (JsonObject param : module.getParams()) {
             String name = Json.safeString(param, "name");
             if (TextUtils.isEmpty(name) || !raw.containsKey(name)) continue;
-            if (!param.has("belongTo") || param.get("belongTo").isJsonNull()) {
-                params.put(name, raw.get(name));
-                continue;
-            }
-            JsonObject belongTo = param.getAsJsonObject("belongTo");
-            String refValue = raw.get(Json.safeString(belongTo, "paramName"));
-            boolean ok = false;
-            if (belongTo.has("value") && belongTo.get("value").isJsonArray()) {
-                for (JsonElement element : belongTo.getAsJsonArray("value")) {
-                    if (refValue != null && refValue.equals(element.getAsString())) {
-                        ok = true;
-                        break;
-                    }
-                }
-            }
-            if (ok) params.put(name, raw.get(name));
+            if (isParamVisible(param, raw)) params.put(name, raw.get(name));
         }
         return params;
     }
 
-    /** 稳定序列化 params（按 key 排序），用作缓存 key 的一部分。 */
-    private static String stableParams(Map<String, String> params) {
+    /** 当前值下应显示的参数（跳过 page 分页与 constant 定值参数、以及 belongTo 条件不符的）。 */
+    public static List<JsonObject> visibleParams(WidgetModule module, Map<String, String> values) {
+        List<JsonObject> visible = new ArrayList<>();
+        for (JsonObject param : module.getParams()) {
+            String name = Json.safeString(param, "name");
+            String type = Json.safeString(param, "type");
+            if (TextUtils.isEmpty(name) || "page".equals(type) || "constant".equals(type)) continue;
+            if (isParamVisible(param, values)) visible.add(param);
+        }
+        return visible;
+    }
+
+    /** belongTo 条件：无 belongTo 视为可见；否则引用参数的当前值须在 value 列表里。 */
+    private static boolean isParamVisible(JsonObject param, Map<String, String> values) {
+        if (!param.has("belongTo") || param.get("belongTo").isJsonNull()) return true;
+        JsonObject belongTo = param.getAsJsonObject("belongTo");
+        String refValue = values.get(Json.safeString(belongTo, "paramName"));
+        if (belongTo.has("value") && belongTo.get("value").isJsonArray()) {
+            for (JsonElement element : belongTo.getAsJsonArray("value")) {
+                if (refValue != null && refValue.equals(element.getAsString())) return true;
+            }
+        }
+        return false;
+    }
+
+    /** 稳定序列化 params（按 key 排序），用作缓存 key 的一部分（公开给浏览页复用）。 */
+    public static String paramsKey(Map<String, String> params) {
         return App.gson().toJson(new TreeMap<>(params));
     }
 
