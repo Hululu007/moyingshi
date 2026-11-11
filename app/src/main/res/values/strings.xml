@@ -312,6 +312,7 @@
     <string name="repo_cnb">CNB repository</string>
     <string name="setting_debug_log">Debug log</string>
     <string name="setting_search_current_site">Default search current site</string>
+    <string name="setting_home_widget">Home widgets</string>
     <string name="widget_more">More</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_load_failed">Failed to load: %1$s</string>

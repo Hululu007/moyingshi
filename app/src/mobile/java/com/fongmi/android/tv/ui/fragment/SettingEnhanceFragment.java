@@ -106,6 +106,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.shortDramaSource.setOnClickListener(this::setShortDramaSource);
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.searchCurrentSite.setOnClickListener(this::setSearchCurrentSite);
+        mBinding.homeWidget.setOnClickListener(this::setHomeWidget);
         mBinding.siteHealthSort.setOnClickListener(view -> SiteHealthDialog.show(this, this::setText));
         mBinding.siteHealthSort.setOnLongClickListener(this::clearSiteHealth);
         mBinding.webHomeExtension.setOnClickListener(view -> WebHomeExtensionDialog.show(this, this::setText));
@@ -158,6 +159,7 @@ public class SettingEnhanceFragment extends BaseFragment {
                 mBinding.siteHealthSort,
                 mBinding.debugLog,
                 mBinding.searchCurrentSite,
+                mBinding.homeWidget,
                 mBinding.playbackWebhook,
                 mBinding.pluginManager
         };
@@ -175,6 +177,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         safeSet("shortDramaSource", mBinding.shortDramaSourceText, () -> getSwitch(!ShortDramaConfig.objectFrom(Setting.getShortDramaConfig()).getDisplayRules().isEmpty()));
         safeSet("debugLog", mBinding.debugLogText, () -> getSwitch(Setting.isDebugLog()));
         safeSet("searchCurrentSite", mBinding.searchCurrentSiteText, () -> getSwitch(Setting.isSearchCurrentSiteDefault()));
+        safeSet("homeWidget", mBinding.homeWidgetText, () -> getSwitch(Setting.isHomeWidget()));
         safeSet("siteHealthSort", mBinding.siteHealthSortText, this::getSiteHealthText);
         safeSet("webHomeExtension", mBinding.webHomeExtensionText, () -> {
             WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
@@ -299,6 +302,12 @@ public class SettingEnhanceFragment extends BaseFragment {
     private void setSearchCurrentSite(View view) {
         Setting.putSearchCurrentSiteDefault(!Setting.isSearchCurrentSiteDefault());
         setSummary(mBinding.searchCurrentSiteText, getSwitch(Setting.isSearchCurrentSiteDefault()));
+    }
+
+    /** 首页组件区开关（B5）：点行切换，默认关；开则首页显示 Bangumi/豆瓣/Mikan/TMDB 推荐行。 */
+    private void setHomeWidget(View view) {
+        Setting.putHomeWidget(!Setting.isHomeWidget());
+        setSummary(mBinding.homeWidgetText, getSwitch(Setting.isHomeWidget()));
     }
 
     private void setSiteName(View view) {
