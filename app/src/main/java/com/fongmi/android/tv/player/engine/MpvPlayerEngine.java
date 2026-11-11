@@ -30,6 +30,7 @@ import com.fongmi.android.tv.player.exo.ExoUtil;
 import com.fongmi.android.tv.player.exo.TrackUtil;
 import com.fongmi.android.tv.player.lut.MpvLutShader;
 import com.fongmi.android.tv.player.lut.LutSetting;
+import com.fongmi.android.tv.player.picture.PictureAdjust;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.player.mpv.MpvAutoControlPolicy;
 import com.fongmi.android.tv.player.mpv.MpvAutoOutputPolicy;
@@ -446,6 +447,21 @@ public class MpvPlayerEngine implements PlayerEngine {
     @Override
     public void setNativeLutShader(MpvLutShader shader) {
         player.setLutShader(shader);
+    }
+
+    /** B6：五项调节走 mpv 原生属性（-100..100，运行时 set_property 实时生效）。 */
+    public void setPictureAdjust(PictureAdjust adjust) {
+        if (adjust == null) adjust = PictureAdjust.NEUTRAL;
+        player.setVideoProperty("brightness", adjust.getBrightness());
+        player.setVideoProperty("contrast", adjust.getContrast());
+        player.setVideoProperty("saturation", adjust.getSaturation());
+        player.setVideoProperty("hue", adjust.getHue());
+        player.setVideoProperty("gamma", adjust.getGamma());
+    }
+
+    /** B6：Anime4K shader 槽位；path 为 null/空表示关闭。 */
+    public void setAnime4kShader(@Nullable String path) {
+        player.setAnime4kShader(path);
     }
 
     @Override

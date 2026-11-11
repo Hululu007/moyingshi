@@ -346,7 +346,7 @@ public final class CacheCleanupManager {
             case EXO -> outcome(MediaSourceFactory.clearCacheIfIdle());
             case MPV_HLS -> outcome(MpvHlsCacheCoordinator.shared(Path.cache("mpv_hls")).clearIfIdle());
             case MPV_DEMUXER -> clearTree(new File(cache, "mpv-demuxer-cache"));
-            case MPV_RUNTIME -> clearTrees(new File(cache, "mpv_lut_shaders"), new File(cache, "fontconfig"));
+            case MPV_RUNTIME -> clearTrees(new File(cache, "mpv_lut_shaders"), new File(cache, "mpv_shaders"), new File(cache, "fontconfig"));
             case LYRICS -> now
                     ? outcome(LyricsRepository.clearCache() >= 0)
                     : outcome(CacheRetentionManager.applyLimit(new File(cache, "lyrics"), limit,

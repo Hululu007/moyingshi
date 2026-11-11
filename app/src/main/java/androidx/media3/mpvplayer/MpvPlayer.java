@@ -251,6 +251,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private boolean isoTrackListDumped;
     private long isoMetadataListenerSessionId = -1;
     private String appliedLutShaderPath;
+    private String anime4kShaderPath = "";
+    private String appliedAnime4kShaderPath;
     private PlaybackParameters playbackParameters;
     private PlaybackException playerError;
     private Tracks currentTracks;
@@ -1013,6 +1015,19 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     public void setLutShader(@Nullable MpvLutShader shader) {
         lutShader = shader;
         applyShaderPipeline(false);
+    }
+
+    /** B6：Anime4K shader 槽位（与 LUT 槽位独立管理；path 为 null/空表示关闭）。 */
+    public void setAnime4kShader(@Nullable String path) {
+        anime4kShaderPath = path == null ? "" : path;
+        applyShaderPipeline(false);
+    }
+
+    /** B6：画面调节五项走 mpv 原生属性（brightness/contrast/saturation/hue/gamma，-100..100）。 */
+    public void setVideoProperty(String property, double value) {
+        if (!initialized || TextUtils.isEmpty(property)) return;
+        int result = mpvSetPropertyDouble(property, value);
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("mpv", "set video property %s=%.2f result=%d", property, value, result);
     }
 
     public void setLutPreviewProgress(float progress) {
@@ -5960,20 +5975,32 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
 
     private void applyShaderPipeline(boolean force) {
         if (!initialized) return;
-        String target = lutShader == null ? "" : lutShader.getPath();
-        if (!force && TextUtils.equals(appliedLutShaderPath, target)) return;
+        String lutTarget = lutShader == null ? "" : lutShader.getPath();
+        String a4kTarget = anime4kShaderPath == null ? "" : anime4kShaderPath;
+        if (!force && TextUtils.equals(appliedLutShaderPath, lutTarget) && TextUtils.equals(appliedAnime4kShaderPath, a4kTarget)) return;
+        // 先卸掉两个旧槽位，再按固定顺序挂：Anime4K 在前（先超分）、LUT 在后（再调色）。
+        // 任一槽位变化都会重挂另一个（mpv 会重走 shader 编译，但 gpu-shader-cache-dir 有缓存）。
         if (!TextUtils.isEmpty(appliedLutShaderPath)) {
             String optionKey = MpvLutShader.getPreviewOptionKey(appliedLutShaderPath);
             if (!optionKey.isEmpty()) safeCommand(new String[]{"change-list", "glsl-shader-opts", "del", optionKey});
             safeCommand(new String[]{"change-list", "glsl-shaders", "remove", appliedLutShaderPath});
             SpiderDebug.log("mpv", "shader remove lut=%s", appliedLutShaderPath);
         }
-        if (!TextUtils.isEmpty(target)) {
-            if (lutShader != null && lutShader.isPreview()) setLutPreviewProgress(0f);
-            safeCommand(new String[]{"change-list", "glsl-shaders", "append", target});
-            SpiderDebug.log("mpv", "shader append lut=%s", target);
+        if (!TextUtils.isEmpty(appliedAnime4kShaderPath)) {
+            safeCommand(new String[]{"change-list", "glsl-shaders", "remove", appliedAnime4kShaderPath});
+            SpiderDebug.log("mpv", "shader remove anime4k=%s", appliedAnime4kShaderPath);
         }
-        appliedLutShaderPath = target;
+        if (!TextUtils.isEmpty(a4kTarget)) {
+            safeCommand(new String[]{"change-list", "glsl-shaders", "append", a4kTarget});
+            SpiderDebug.log("mpv", "shader append anime4k=%s", a4kTarget);
+        }
+        if (!TextUtils.isEmpty(lutTarget)) {
+            if (lutShader != null && lutShader.isPreview()) setLutPreviewProgress(0f);
+            safeCommand(new String[]{"change-list", "glsl-shaders", "append", lutTarget});
+            SpiderDebug.log("mpv", "shader append lut=%s", lutTarget);
+        }
+        appliedLutShaderPath = lutTarget;
+        appliedAnime4kShaderPath = a4kTarget;
     }
 
     private void postToMain(Runnable runnable) {

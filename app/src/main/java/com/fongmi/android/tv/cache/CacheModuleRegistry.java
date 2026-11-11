@@ -21,7 +21,7 @@ import java.util.Set;
 public final class CacheModuleRegistry {
 
     private static final Set<String> MANAGED_ROOTS = Set.of(
-            "exo", "mpv_hls", "mpv-demuxer-cache", "mpv_lut_shaders", "fontconfig",
+            "exo", "mpv_hls", "mpv-demuxer-cache", "mpv_lut_shaders", "mpv_shaders", "fontconfig",
             "lyrics", "karaoke_tracks", "webhome_ext", "webhome_raw", "epg",
             "image_manager_disk_cache", "js", "py", "jar", "plugin-http-cache"
     );
