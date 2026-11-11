@@ -13,7 +13,7 @@ if (localPropsFile.exists()) {
 def chaquopyBuildPython = project.findProperty('chaquopyBuildPython') ?: localProps['chaquopyBuildPython']
 
 android {
-    namespace = 'com.fongmi.chaquo'
+    namespace = 'com.github.moyingshi.osc.tv.chaquo'
 
     compileSdk libs.versions.compileSdk.get().toInteger()
 

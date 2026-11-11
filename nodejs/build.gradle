@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = 'com.fongmi.android.tv.nodejs'
+    namespace = 'com.github.moyingshi.osc.tv.nodejs'
 
     compileSdk libs.versions.compileSdk.get().toInteger()
     ndkVersion = '28.2.13676358'

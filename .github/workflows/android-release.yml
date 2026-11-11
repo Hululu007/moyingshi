@@ -108,18 +108,18 @@ jobs:
           chmod +x ./gradlew
           ./gradlew \
             :app:testMobileArm64_v8aDebugUnitTest \
-            --tests 'com.fongmi.android.tv.player.danmaku.*' \
-            --tests 'com.fongmi.android.tv.UpdateChannelTest' \
-            --tests 'com.fongmi.android.tv.UpdaterFutureTest' \
-            --tests 'com.fongmi.android.tv.utils.GithubTest' \
-            --tests 'com.fongmi.android.tv.utils.GithubProxyTest' \
-            --tests 'com.fongmi.android.tv.ui.dialog.AboutDialogLayoutTest' \
-            --tests 'com.fongmi.android.tv.ui.dialog.UpdateDialogChannelVisibilityTest' \
-            --tests 'com.fongmi.android.tv.ui.adapter.VodAdapterLayoutTest' \
+            --tests 'com.github.moyingshi.osc.tv.player.danmaku.*' \
+            --tests 'com.github.moyingshi.osc.tv.UpdateChannelTest' \
+            --tests 'com.github.moyingshi.osc.tv.UpdaterFutureTest' \
+            --tests 'com.github.moyingshi.osc.tv.utils.GithubTest' \
+            --tests 'com.github.moyingshi.osc.tv.utils.GithubProxyTest' \
+            --tests 'com.github.moyingshi.osc.tv.ui.dialog.AboutDialogLayoutTest' \
+            --tests 'com.github.moyingshi.osc.tv.ui.dialog.UpdateDialogChannelVisibilityTest' \
+            --tests 'com.github.moyingshi.osc.tv.ui.adapter.VodAdapterLayoutTest' \
             --no-daemon
           ./gradlew \
             :app:testLeanbackArm64_v8aDebugUnitTest \
-            --tests 'com.fongmi.android.tv.ui.dialog.UpdateDialogLayoutTest' \
+            --tests 'com.github.moyingshi.osc.tv.ui.dialog.UpdateDialogLayoutTest' \
             --no-daemon
 
       - name: Resolve release tag

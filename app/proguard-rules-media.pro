@@ -197,6 +197,6 @@
   public androidx.appcompat.app.AlertDialog$Builder setNegativeButton(int, android.content.DialogInterface$OnClickListener);
   public androidx.appcompat.app.AlertDialog create();
 }
--keepclasseswithmembernames class com.fongmi.android.tv.player.exo.ass.AssNative {
+-keepclasseswithmembernames class com.github.moyingshi.osc.tv.player.exo.ass.AssNative {
     native <methods>;
 }

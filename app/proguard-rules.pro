@@ -1,13 +1,13 @@
 # TV
 -keep class androidx.leanback.widget.** { *; }
--keep class com.fongmi.quickjs.method.** { *; }
+-keep class com.github.moyingshi.osc.tv.quickjs.method.** { *; }
 
 # MPV JNI bridge
 -keep class is.xyz.mpv.MPVLib { *; }
 -keep class is.xyz.mpv.MPVLib$* { *; }
 
 # libplayer.so resolves this class and these methods by their literal JNI names.
--keep class com.fongmi.android.tv.player.iso.IsoSessionManager {
+-keep class com.github.moyingshi.osc.tv.player.iso.IsoSessionManager {
     public static long length(long);
     public static int readAt(long, long, java.nio.ByteBuffer, int);
     public static void close(long);
@@ -18,7 +18,7 @@
 # release inlining does not amplify timing-sensitive create/destroy transitions.
 -keep,allowobfuscation class androidx.media3.mpvplayer.MpvPlayer { *; }
 -keep,allowobfuscation class androidx.media3.mpvplayer.MpvPlayer$* { *; }
--keep,allowobfuscation class com.fongmi.android.tv.player.engine.MpvPlayerEngine { *; }
+-keep,allowobfuscation class com.github.moyingshi.osc.tv.player.engine.MpvPlayerEngine { *; }
 
 # Gson
 -keepattributes Signature
@@ -35,7 +35,7 @@
 # app package eliminates both classes of failure globally instead of patching each
 # offending class one by one. The dex size cost is a few MB; total APK size is
 # dominated by native .so libraries, so this is negligible.
--keep class com.fongmi.android.tv.** { *; }
+-keep class com.github.moyingshi.osc.tv.** { *; }
 
 # SimpleXML
 -keep interface org.simpleframework.xml.core.Label { public *; }
@@ -74,9 +74,9 @@
 -keep class * extends com.github.catvod.crawler.Spider
 # Chaquopy bridge loaded by name from CatVod jar spiders (for example the
 # csp_PyProxy sites in external configs). spring.jar resolves
-# com.fongmi.chaquo.Loader and com.fongmi.chaquo.Spider by their literal class
+# com.github.moyingshi.osc.tv.chaquo.Loader and com.github.moyingshi.osc.tv.chaquo.Spider by their literal class
 # names via reflection, so R8 must not shrink or rename them in release builds.
--keep class com.fongmi.chaquo.** { *; }
+-keep class com.github.moyingshi.osc.tv.chaquo.** { *; }
 
 # Jianpian
 -keep class com.p2p.** { *; }
@@ -91,8 +91,8 @@
 # the latter implies allowshrinking, so R8 may delete methods only reached by
 # reflection. Losing them makes the in-page search silently fall back to the
 # global search page in release builds only.
--keepclassmembers class com.fongmi.android.tv.ui.dialog.QuickSearchDialog {
-    public static com.fongmi.android.tv.ui.dialog.QuickSearchDialog create();
+-keepclassmembers class com.github.moyingshi.osc.tv.ui.dialog.QuickSearchDialog {
+    public static com.github.moyingshi.osc.tv.ui.dialog.QuickSearchDialog create();
     public void show(androidx.fragment.app.FragmentActivity);
     public void addAll(java.util.List);
     public void clear();
@@ -104,19 +104,19 @@
     public *** searchListener(***);
     public *** dismissListener(***);
 }
--keep interface com.fongmi.android.tv.ui.dialog.QuickSearchDialog$* { *; }
--keep interface com.fongmi.android.tv.ui.adapter.QuickAdapter$OnClickListener { *; }
+-keep interface com.github.moyingshi.osc.tv.ui.dialog.QuickSearchDialog$* { *; }
+-keep interface com.github.moyingshi.osc.tv.ui.adapter.QuickAdapter$OnClickListener { *; }
 # Inherited from DialogFragment, so the rule above cannot match it.
 -keepclassmembers class * extends androidx.fragment.app.DialogFragment {
     public void dismissAllowingStateLoss();
 }
 
 # Mobile inline cast uses reflection from the shared TMDB detail activity.
--keepclassmembernames class com.fongmi.android.tv.ui.dialog.CastDialog {
-    public static com.fongmi.android.tv.ui.dialog.CastDialog create();
-    public com.fongmi.android.tv.ui.dialog.CastDialog history(com.fongmi.android.tv.bean.History);
-    public com.fongmi.android.tv.ui.dialog.CastDialog video(com.fongmi.android.tv.bean.CastVideo);
-    public com.fongmi.android.tv.ui.dialog.CastDialog fm(boolean);
+-keepclassmembernames class com.github.moyingshi.osc.tv.ui.dialog.CastDialog {
+    public static com.github.moyingshi.osc.tv.ui.dialog.CastDialog create();
+    public com.github.moyingshi.osc.tv.ui.dialog.CastDialog history(com.github.moyingshi.osc.tv.bean.History);
+    public com.github.moyingshi.osc.tv.ui.dialog.CastDialog video(com.github.moyingshi.osc.tv.bean.CastVideo);
+    public com.github.moyingshi.osc.tv.ui.dialog.CastDialog fm(boolean);
     public void show(androidx.fragment.app.FragmentActivity);
 }
 

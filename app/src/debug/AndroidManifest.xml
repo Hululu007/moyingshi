@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <activity android:name="com.fongmi.android.tv.player.exo.ass.AssPrototypeActivity"
+        <activity android:name="com.github.moyingshi.osc.tv.player.exo.ass.AssPrototypeActivity"
             android:exported="true" android:screenOrientation="landscape"
             android:launchMode="singleTop" />
         <activity
-            android:name="com.fongmi.android.tv.theme.TmdbScrimHostActivity"
+            android:name="com.github.moyingshi.osc.tv.theme.TmdbScrimHostActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.Base" />
