@@ -78,6 +78,14 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
+        <!-- 首页组件区（B5）：Bangumi/豆瓣/Mikan/TMDB 推荐行，由 VodFragment 按组件动态添加；开关默认关，无数据时隐藏。 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/widgetSections"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/typeBar"
             android:layout_width="match_parent"

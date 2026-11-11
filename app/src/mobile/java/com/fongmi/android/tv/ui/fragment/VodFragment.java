@@ -33,7 +33,10 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Value;
 import com.fongmi.android.tv.bean.Vod;
+import com.fongmi.android.tv.databinding.AdapterWidgetSectionBinding;
 import com.fongmi.android.tv.databinding.FragmentVodBinding;
+import com.fongmi.android.tv.widget.WidgetItem;
+import com.fongmi.android.tv.widget.WidgetManager;
 import com.fongmi.android.tv.event.CastEvent;
 import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
@@ -54,6 +57,7 @@ import com.fongmi.android.tv.ui.activity.VideoActivity;
 import com.fongmi.android.tv.ui.adapter.BannerAdapter;
 import com.fongmi.android.tv.ui.adapter.ContinueAdapter;
 import com.fongmi.android.tv.ui.adapter.TypeAdapter;
+import com.fongmi.android.tv.ui.adapter.WidgetSectionAdapter;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.ApkPushDialog;
 import com.fongmi.android.tv.ui.dialog.ApkPushMethodDialog;
@@ -81,7 +85,9 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class VodFragment extends BaseFragment implements ConfigListener, SiteListener, FilterListener, TypeAdapter.OnClickListener, HomeWebController.Listener {
 
@@ -104,6 +110,11 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     // 首页“继续观看”（B2）：横向滑动行，读观看历史。
     private ContinueAdapter mContinueAdapter;
+
+    // 首页组件区（B5）：Bangumi/豆瓣/Mikan/TMDB 推荐行；开关默认关。
+    private WidgetManager mWidgetManager;
+    private final Map<String, AdapterWidgetSectionBinding> mWidgetSections = new LinkedHashMap<>();
+    private final Map<String, WidgetSectionAdapter> mWidgetAdapters = new LinkedHashMap<>();
     private final Runnable mBannerAutoScroll = new Runnable() {
         @Override
         public void run() {
@@ -304,6 +315,91 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         HistoryResumeCoordinator.open(requireActivity(), item);
     }
 
+    /**
+     * 首页组件区（B5）：开关开时加载各组件的首页行（先贴缓存、再后台刷新），
+     * 开关关时整区隐藏、已有行清掉。WidgetManager 自带会话内节流，
+     * setAdapter/onResume 反复调也不会重复发请求。
+     */
+    private void refreshWidgets() {
+        if (!Setting.isHomeWidget()) {
+            mWidgetSections.clear();
+            mWidgetAdapters.clear();
+            mBinding.widgetSections.removeAllViews();
+            mBinding.widgetSections.setVisibility(View.GONE);
+            return;
+        }
+        if (mWidgetManager == null) mWidgetManager = new WidgetManager();
+        mWidgetManager.loadHome(new WidgetManager.Listener() {
+            @Override
+            public void onSection(WidgetManager.Section section) {
+                // 回调可能晚于开关关闭到达：开关关时不加行。
+                if (mBinding == null || !isAdded() || !Setting.isHomeWidget()) return;
+                addWidgetSection(section);
+            }
+
+            @Override
+            public void onSectionFailed(String widgetId) {
+                if (mBinding == null || !isAdded()) return;
+                removeWidgetSection(widgetId);
+            }
+        });
+    }
+
+    private void addWidgetSection(WidgetManager.Section section) {
+        String widgetId = section.metadata.getId();
+        AdapterWidgetSectionBinding binding = mWidgetSections.get(widgetId);
+        if (binding == null) {
+            binding = AdapterWidgetSectionBinding.inflate(LayoutInflater.from(requireContext()), mBinding.widgetSections, false);
+            binding.widgetTitle.setText(section.title());
+            binding.getRoot().setTag(widgetId);
+            WidgetSectionAdapter adapter = new WidgetSectionAdapter(this::onWidgetItemClick);
+            binding.widgetList.setHasFixedSize(true);
+            binding.widgetList.setItemAnimator(null);
+            binding.widgetList.setAdapter(adapter);
+            mWidgetSections.put(widgetId, binding);
+            mWidgetAdapters.put(widgetId, adapter);
+            mBinding.widgetSections.addView(binding.getRoot(), widgetInsertIndex(widgetId));
+        } else {
+            binding.widgetTitle.setText(section.title());
+        }
+        WidgetSectionAdapter adapter = mWidgetAdapters.get(widgetId);
+        if (adapter != null) adapter.submit(section.items);
+        updateWidgetVisibility();
+    }
+
+    private void removeWidgetSection(String widgetId) {
+        AdapterWidgetSectionBinding binding = mWidgetSections.remove(widgetId);
+        mWidgetAdapters.remove(widgetId);
+        if (binding != null) mBinding.widgetSections.removeView(binding.getRoot());
+        updateWidgetVisibility();
+    }
+
+    /** 行按内置组件顺序（Bangumi → 豆瓣 → Mikan → TMDB）排，不随加载完成先后乱序。 */
+    private int widgetInsertIndex(String widgetId) {
+        int order = WidgetManager.builtinOrder(widgetId);
+        int index = 0;
+        for (int i = 0; i < mBinding.widgetSections.getChildCount(); i++) {
+            Object tag = mBinding.widgetSections.getChildAt(i).getTag();
+            int childOrder = tag instanceof String ? WidgetManager.builtinOrder((String) tag) : Integer.MAX_VALUE;
+            if (childOrder < order) index++;
+        }
+        return index;
+    }
+
+    /** 组件区可见的唯一判据：至少有一行、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateWidgetVisibility() {
+        boolean show = !mWidgetSections.isEmpty()
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.widgetSections.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** 组件条目点进：在当前资源里搜片名（与 B1 横幅的索引站行为一致）。 */
+    private void onWidgetItemClick(WidgetItem item) {
+        if (item == null || item.getTitle() == null || item.getTitle().isEmpty()) return;
+        SearchActivity.start(requireActivity(), item.getTitle());
+    }
+
     private void setWebView() {
         mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
         syncWebHomeChrome();
@@ -319,6 +415,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mAdapter.addAll(mResult = result);
         setBanner(result.getList());
         refreshContinue();
+        refreshWidgets();
         notifyPagerAdapter();
         mBinding.typeMore.setVisibility(View.GONE);
         mBinding.type.post(this::updateTypeMoreVisible);
@@ -758,6 +855,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     @Override
     public void onDestroyView() {
         stopBannerAutoScroll();
+        if (mWidgetManager != null) mWidgetManager.destroy();
         requestNormalChrome();
         if (mWeb != null) mWeb.destroy();
         EventBus.getDefault().unregister(this);
@@ -770,6 +868,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (mWeb != null) mWeb.onResume();
         if (mBinding == null) return;
         refreshContinue();
+        refreshWidgets();
         if (mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();
     }
 
@@ -871,6 +970,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.banner.setVisibility(View.GONE);
         stopBannerAutoScroll();
         mBinding.continueSection.setVisibility(View.GONE);
+        mBinding.widgetSections.setVisibility(View.GONE);
         mBinding.filter.setVisibility(View.GONE);
         mBinding.link.setVisibility(View.GONE);
         mBinding.top.setVisibility(View.GONE);
@@ -884,6 +984,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.pager.setVisibility(View.VISIBLE);
         updateBannerVisibility();
         updateContinueVisibility();
+        updateWidgetVisibility();
         if (mWeb != null) mWeb.hide();
         updateToolbarMenu();
     }
@@ -902,6 +1003,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             mBinding.banner.setVisibility(View.GONE);
             stopBannerAutoScroll();
             mBinding.continueSection.setVisibility(View.GONE);
+            mBinding.widgetSections.setVisibility(View.GONE);
             mBinding.filter.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
             mBinding.top.setVisibility(View.GONE);

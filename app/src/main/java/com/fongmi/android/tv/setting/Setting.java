@@ -738,6 +738,15 @@ public class Setting {
         Prefers.put("search_current_site_default", value);
     }
 
+    /** 首页组件区开关（B5）：默认关；开则首页显示 Bangumi/豆瓣/Mikan/TMDB 推荐行。 */
+    public static boolean isHomeWidget() {
+        return Prefers.getBoolean("home_widget", false);
+    }
+
+    public static void putHomeWidget(boolean value) {
+        Prefers.put("home_widget", value);
+    }
+
     public static void logDebugEnvironment(String reason) {
         boolean hardwareAccelerated = (App.get().getApplicationInfo().flags & ApplicationInfo.FLAG_HARDWARE_ACCELERATED) != 0;
         DebugLogStore.event(new com.github.catvod.crawler.diagnostics.DiagnosticEvent("env.device", "none", "process", 0, 0)
