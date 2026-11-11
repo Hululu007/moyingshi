@@ -164,6 +164,7 @@ import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
 import com.fongmi.android.tv.ui.dialog.LutPanelDialog;
 import com.fongmi.android.tv.ui.dialog.MultiThreadProxyDialog;
+import com.fongmi.android.tv.ui.dialog.PictureAdjustDialog;
 import com.fongmi.android.tv.ui.dialog.QuickSearchDialog;
 import com.fongmi.android.tv.ui.dialog.ReceiveDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
@@ -1838,6 +1839,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.control.action.video.setOnClickListener(guardedView(this::onTrack));
         mBinding.control.action.scale.setOnClickListener(guarded(this::onScale));
         mBinding.control.action.lut.setOnClickListener(guarded(this::onLut));
+        mBinding.control.action.pictureAdjust.setOnClickListener(guarded(this::onPictureAdjust));
         mBinding.control.action.karaoke.setOnClickListener(view -> onKaraokeMode());
         mBinding.control.action.speed.setOnClickListener(guarded(this::onSpeed));
         mBinding.control.action.reset.setOnClickListener(guarded(this::onReset));
@@ -2133,6 +2135,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
         addActionButton(PlayerButtonSetting.QUALITY, mBinding.control.action.actionQuality);
         addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
+        addActionButton(PlayerButtonSetting.PICTURE_ADJUST, mBinding.control.action.pictureAdjust);
         addActionButton(PlayerButtonSetting.RESET, mBinding.control.action.reset);
         addActionButton(PlayerButtonSetting.REPEAT, mBinding.control.action.repeat);
         addActionButton(PlayerButtonSetting.TEXT, mBinding.control.action.text);
@@ -5276,6 +5279,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         }
         else LutPanelDialog.create().player(player()).show(this);
         setR1Callback();
+    }
+
+    private void onPictureAdjust() {
+        PictureAdjustDialog.show(this, player());
     }
 
     @Override
