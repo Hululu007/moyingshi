@@ -16,80 +16,80 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/change2"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_change" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/search"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_search" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/actionFullscreen"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_fullscreen" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/player"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_exo" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/decode"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_decode" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/playParams"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_params" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/multiThreadProxy"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/multi_thread_proxy_button" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/codecCapability"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/codec_capability_short" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/lut"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_lut" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/pictureAdjust"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_picture_adjust" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/speed"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:fontFeatureSettings="tnum"
             android:text="@string/play_speed" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/scale"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_scale" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/actionQuality"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/detail_quality"
             android:visibility="gone"
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/reset"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_reset" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/repeat"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_repeat" />
 
         <View
@@ -99,56 +99,56 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/text"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:tag="3"
             android:text="@string/play_track_text" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/audio"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:tag="1"
             android:text="@string/play_track_audio" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/video"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:tag="2"
             android:text="@string/play_track_video" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/opening"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_op" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/ending"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_ed" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/danmaku"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/danmaku"
             android:visibility="gone"
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/adFeedback"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_ad_feedback"
             android:visibility="gone"
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/chapter"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/play_title"
             android:visibility="gone"
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/episodes"
-            style="@style/Control"
+            style="@style/ControlChip"
             android:text="@string/detail_episode" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>

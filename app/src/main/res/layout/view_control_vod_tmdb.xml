@@ -12,6 +12,7 @@
         android:id="@+id/top"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
+        android:background="@drawable/shape_control_top_bar"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="4dp"
@@ -224,6 +225,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
+        android:background="@drawable/shape_control_bottom_bar"
         android:orientation="vertical"
         android:paddingBottom="8dp">
 
