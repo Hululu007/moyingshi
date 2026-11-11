@@ -15,7 +15,7 @@ public class TmdbDetailInlineOsdTitleTest {
     @Test
     public void inlineOsdUsesCurrentEpisodeTitleInsteadOfSeasonProgress() throws IOException {
         String source = Files.readString(Path.of("src", "main", "java",
-                "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"),
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"),
                 StandardCharsets.UTF_8);
         int start = source.indexOf("private String getInlineOsdTitle()");
         int end = source.indexOf("\n    private ", start + 1);

@@ -13,7 +13,7 @@ public class AppResourcesWebViewCompatibilityTest {
 
     @Test
     public void applicationResourcesKeepTheAssetManagerUsedByWebView() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "App.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "App.java")));
 
         assertTrue("Application resources should start from the framework-owned Resources instance",
                 source.contains("Resources resources = super.getResources();"));
@@ -27,7 +27,7 @@ public class AppResourcesWebViewCompatibilityTest {
 
     @Test
     public void applicationResourcesUpdateIsSerializedAndFailSafe() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "App.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "App.java")));
 
         assertTrue("Application resources lookups are reachable from background threads, so the language update must run under a lock",
                 source.contains("synchronized (resourcesLock) {"));

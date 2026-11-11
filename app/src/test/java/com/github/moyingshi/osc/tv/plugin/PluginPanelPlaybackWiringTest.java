@@ -105,7 +105,7 @@ public class PluginPanelPlaybackWiringTest {
      */
     @Test
     public void loadingShellIsOpenedBeforeThePluginRuns() throws Exception {
-        String controller = read("src", "main", "java", "com", "fongmi", "android", "tv", "plugin", "PluginController.java");
+        String controller = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "plugin", "PluginController.java");
         String action = methodBody(controller, "private void onSlotAction(String pluginId, String action)");
 
         assertTrue("必须在动作派发之前开壳", action.contains("showLoadingPanel("));
@@ -136,14 +136,14 @@ public class PluginPanelPlaybackWiringTest {
 
     @Test
     public void playbackActivityStillProvidesTheOverlayContract() throws Exception {
-        String playback = read("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java");
+        String playback = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java");
 
         assertTrue(playback.contains("public final boolean pauseForOverlayPlayback()"));
         assertTrue(playback.contains("public final void resumeAfterOverlayPlayback(boolean shouldResume)"));
     }
 
     private static String dialog() throws Exception {
-        return read("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "PluginPanelDialog.java");
+        return read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PluginPanelDialog.java");
     }
 
     private static String methodBody(String source, String signature) {

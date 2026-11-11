@@ -23,7 +23,7 @@ public class FlagSwitchPlaybackWiringTest {
 
     @Test
     public void settingStoresTheToggleUnderItsOwnKey() throws Exception {
-        String source = read(sourcePath("main", "java").resolve(Path.of("com", "fongmi", "android", "tv", "setting", "PlayerSetting.java")));
+        String source = read(sourcePath("main", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java")));
 
         assertTrue("开关必须独立存储，默认关闭以保持升级后的既有行为",
                 source.contains("Prefers.getBoolean(\"player_defer_flag_switch\", false)"));
@@ -89,8 +89,8 @@ public class FlagSwitchPlaybackWiringTest {
 
     @Test
     public void settingPagesAndLayoutsExposeTheToggle() throws Exception {
-        String mobilePage = read(sourcePath("mobile", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SettingPlayerFragment.java")));
-        String leanbackPage = read(sourcePath("leanback", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingPlayerActivity.java")));
+        String mobilePage = read(sourcePath("mobile", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPlayerFragment.java")));
+        String leanbackPage = read(sourcePath("leanback", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPlayerActivity.java")));
         for (String source : new String[]{mobilePage, leanbackPage}) {
             assertTrue("设置页必须显示开关当前值", source.contains("mBinding.deferFlagSwitchText.setText(getSwitch(PlayerSetting.isDeferFlagSwitchPlayback()));"));
             assertTrue("设置页必须绑定开关点击", source.contains("mBinding.deferFlagSwitch.setOnClickListener(this::setDeferFlagSwitch);"));

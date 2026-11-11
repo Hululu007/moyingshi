@@ -12,7 +12,7 @@ public class DebugLogsPageTest {
 
     @Test
     public void logsPageHasBackToTopButton() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "server", "process", "DebugLogs.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "server", "process", "DebugLogs.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("debug logs page must render a back-to-top button",
@@ -29,7 +29,7 @@ public class DebugLogsPageTest {
 
     @Test
     public void logsPageKeepsAiTaggedFailuresInAiGroup() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "server", "process", "DebugLogs.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "server", "process", "DebugLogs.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int aiTagged = source.indexOf("if(r.tag&&r.tag.startsWith('ai-'))");
         int genericError = source.indexOf("if(low.includes('error')||low.includes('exception')||low.includes('failed')");

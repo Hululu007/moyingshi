@@ -44,7 +44,7 @@ public class AppStartupWarmupSourceTest {
     }
 
     private static String readSource() throws Exception {
-        Path moduleRelative = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "App.java");
+        Path moduleRelative = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "App.java");
         Path path = Files.exists(moduleRelative) ? moduleRelative : Path.of("app").resolve(moduleRelative);
         return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }

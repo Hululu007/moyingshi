@@ -17,7 +17,7 @@ public class VodTmdbParcelableTest {
 
     @Test
     public void vodParcelSourceTracksTmdbAndContentComparison() throws Exception {
-        String source = read(findAppPath().resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "bean", "Vod.java")));
+        String source = read(findAppPath().resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "bean", "Vod.java")));
 
         assertTrue(source.contains("this.tmdb = in.readParcelable(TmdbSourcePayload.class.getClassLoader());"));
         assertTrue(source.contains("dest.writeParcelable(this.tmdb, flags);"));

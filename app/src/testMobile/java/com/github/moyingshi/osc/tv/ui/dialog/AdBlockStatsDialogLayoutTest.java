@@ -30,8 +30,8 @@ public class AdBlockStatsDialogLayoutTest {
     @Test
     public void statsDialogUsesFixedSafetyMarginsInsteadOfScreenPercentages() throws Exception {
         Path root = findRepositoryRoot();
-        String mobile = read(root.resolve(Path.of("app", "src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
-        String leanback = read(root.resolve(Path.of("app", "src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
+        String mobile = read(root.resolve(Path.of("app", "src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
+        String leanback = read(root.resolve(Path.of("app", "src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
 
         assertTrue(mobile.contains("DialogSafeArea.width(activity, window) - horizontalMargin * 2"));
         assertTrue(mobile.contains("DialogSafeArea.height(activity, window) - verticalMargin * 2"));
@@ -96,7 +96,7 @@ public class AdBlockStatsDialogLayoutTest {
         Path root = findRepositoryRoot();
         for (String flavor : new String[] {"mobile", "leanback"}) {
             String layout = read(root.resolve(Path.of("app", "src", flavor, "res", "layout", "dialog_ad_block_stats.xml")));
-            String dialog = read(root.resolve(Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
+            String dialog = read(root.resolve(Path.of("app", "src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
 
             assertTrue(layout.contains("android:id=\"@+id/logPage\""));
             assertTrue(layout.contains("android:id=\"@+id/logRecycler\""));
@@ -117,7 +117,7 @@ public class AdBlockStatsDialogLayoutTest {
         for (String flavor : new String[] {"mobile", "leanback"}) {
             String dialogLayout = read(root.resolve(Path.of("app", "src", flavor, "res", "layout", "dialog_ad_block_stats.xml")));
             String rowLayout = read(root.resolve(Path.of("app", "src", flavor, "res", "layout", "adapter_ad_block_log.xml")));
-            String dialogSource = read(root.resolve(Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
+            String dialogSource = read(root.resolve(Path.of("app", "src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
 
             assertTrue(dialogLayout.contains("android:id=\"@+id/logTableScroll\""));
             assertTrue(dialogLayout.contains("@string/ad_log_site_name"));
@@ -146,7 +146,7 @@ public class AdBlockStatsDialogLayoutTest {
     public void rankingTabsSupportExpandingGroupedBlockLogsForBothFlavors() throws Exception {
         Path root = findRepositoryRoot();
         for (String flavor : new String[] {"mobile", "leanback"}) {
-            String dialog = read(root.resolve(Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
+            String dialog = read(root.resolve(Path.of("app", "src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AdBlockStatsDialog.java")));
 
             assertTrue(dialog.contains("class ExpandableLogAdapter"));
             assertTrue(dialog.contains("getBlockLogsBySource"));
@@ -190,7 +190,7 @@ public class AdBlockStatsDialogLayoutTest {
 
     @Test
     public void touchFilterOptionsDoNotConsumeTheFirstTapForFocus() throws Exception {
-        String dialog = read(findRepositoryRoot().resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "AdBlockLogFilterDialog.java")));
+        String dialog = read(findRepositoryRoot().resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AdBlockLogFilterDialog.java")));
 
         assertTrue(dialog.contains("Configuration.TOUCHSCREEN_NOTOUCH"));
         assertTrue(dialog.contains("checkBox.setFocusable(!touchDevice)"));

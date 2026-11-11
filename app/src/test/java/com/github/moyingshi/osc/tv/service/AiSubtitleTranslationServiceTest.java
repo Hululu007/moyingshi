@@ -234,7 +234,7 @@ public class AiSubtitleTranslationServiceTest {
 
     @Test
     public void translate_writesAiSubtitleEventsToDebugLogs() throws Exception {
-        java.nio.file.Path sourcePath = findMainJavaPath().resolve(java.nio.file.Path.of("com", "fongmi", "android", "tv", "service", "AiSubtitleTranslationService.java"));
+        java.nio.file.Path sourcePath = findMainJavaPath().resolve(java.nio.file.Path.of("com", "github", "moyingshi", "osc", "tv", "service", "AiSubtitleTranslationService.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("AI subtitle translation logs must use an ai-* tag so /debug/logs AI filter can show them",

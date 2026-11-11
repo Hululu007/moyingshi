@@ -13,7 +13,7 @@ public class ChannelUserAgentTest {
 
     @Test
     public void liveHeadersOnlyUseExplicitUserAgent() throws Exception {
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "Channel.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "bean", "Channel.java")));
 
         assertTrue(source.contains("if (!getUa().isEmpty()) headers.put(HttpHeaders.USER_AGENT, getUa());"));
         assertFalse(source.contains("DEFAULT_LIVE_UA"));

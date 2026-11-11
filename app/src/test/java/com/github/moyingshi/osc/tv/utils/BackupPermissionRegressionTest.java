@@ -13,19 +13,19 @@ public class BackupPermissionRegressionTest {
 
     @Test
     public void backupAndRestoreStopWhenFilePermissionIsDenied() throws Exception {
-        assertPermissionGuard(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingActivity.java"));
-        assertPermissionGuard(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingFragment.java"));
+        assertPermissionGuard(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingActivity.java"));
+        assertPermissionGuard(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingFragment.java"));
     }
 
     @Test
     public void homeDestroyBacksUpOnlyWhenEnabledAndAuthorized() throws Exception {
-        assertAutoBackupGuard(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java"));
-        assertAutoBackupGuard(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java"));
+        assertAutoBackupGuard(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java"));
+        assertAutoBackupGuard(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java"));
     }
 
     @Test
     public void localBackupPublishesOnlyACompletedArchive() throws Exception {
-        String database = read(source("main", "java", "com", "fongmi", "android", "tv", "db", "AppDatabase.java"));
+        String database = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "db", "AppDatabase.java"));
         assertTrue(database.contains("new File(Path.tv(), BACKUP_TEMP_FILE)"));
         assertTrue(database.contains("AppBackup.create(temporary, progress)"));
         assertTrue(database.contains("publishBackup(temporary, target)"));
@@ -33,15 +33,15 @@ public class BackupPermissionRegressionTest {
 
     @Test
     public void autoBackupCanBeConfiguredInPersonalSettings() throws Exception {
-        String setting = read(source("main", "java", "com", "fongmi", "android", "tv", "setting", "Setting.java"));
+        String setting = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java"));
         assertTrue(setting.contains("Prefers.getBoolean(\"auto_backup\", false)"));
         assertTrue(setting.contains("Prefers.put(\"auto_backup\", autoBackup)"));
 
-        String leanback = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingPersonalActivity.java"));
+        String leanback = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPersonalActivity.java"));
         assertTrue(leanback.contains("mBinding.autoBackup.setOnClickListener(this::setAutoBackup)"));
         assertTrue(leanback.contains("mBinding.autoBackupText.setText(getSwitch(isAutoBackupEnabled()))"));
 
-        String mobile = read(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingPersonalFragment.java"));
+        String mobile = read(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPersonalFragment.java"));
         assertTrue(mobile.contains("mBinding.autoBackup.setOnClickListener(this::setAutoBackup)"));
         assertTrue(mobile.contains("mBinding.autoBackupText.setText(getSwitch(isAutoBackupEnabled()))"));
 
@@ -57,11 +57,11 @@ public class BackupPermissionRegressionTest {
         assertFalse(manifest.contains("android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion"));
         assertFalse(manifest.contains("android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion"));
 
-        String permissionUtil = read(source("main", "java", "com", "fongmi", "android", "tv", "utils", "PermissionUtil.java"));
+        String permissionUtil = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "utils", "PermissionUtil.java"));
         assertTrue(permissionUtil.contains("permissions(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)"));
         assertTrue(permissionUtil.contains("targetSdkVersion >= Build.VERSION_CODES.R"));
 
-        String setting = read(source("main", "java", "com", "fongmi", "android", "tv", "setting", "Setting.java"));
+        String setting = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java"));
         assertTrue(setting.contains("Environment.isExternalStorageManager() || hasLegacyFileAccess()"));
     }
 

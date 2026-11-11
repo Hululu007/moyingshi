@@ -100,7 +100,7 @@ public class CrossSeasonEpisodeMappingTest {
      */
     @Test
     public void requestSeasonMustNotSuppressMultiSliceResolution() throws IOException {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv",
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv",
                 "ui", "helper", "TmdbUIAdapter.java")));
 
         assertTrue("Source.REQUEST 时必须重算不带 requestSeason 的解析",
@@ -158,7 +158,7 @@ public class CrossSeasonEpisodeMappingTest {
      */
     @Test
     public void seasonFetchIsNarrowedToWhatSourceEpisodesCover() throws IOException {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv",
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv",
                 "ui", "helper", "TmdbUIAdapter.java")));
 
         assertTrue("必须按源集数累加收窄拉取范围，而不是无条件拉全部可切分季",

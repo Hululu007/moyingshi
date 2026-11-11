@@ -13,7 +13,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void sharedFocusHelperProvidesDefaultFocusAndEscapeTrap() throws Exception {
-        Path helperPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "PlayerControlFocusHelper.java"));
+        Path helperPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "PlayerControlFocusHelper.java"));
         String helper = new String(Files.readAllBytes(helperPath), StandardCharsets.UTF_8);
 
         assertTrue("helper must expose default focus restoration",
@@ -28,7 +28,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void tmdbInlineFullscreenControlsRestoreAndTrapFocus() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int show = activity.indexOf("private void showInlineControls(boolean show, boolean focus)");
@@ -73,7 +73,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void tmdbInlineControlsAutoHideAfterTenSecondsOnTvEvenWhenFocused() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int delay = activity.indexOf("private long inlineControlsHideDelayMs()");
@@ -103,7 +103,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void tmdbInlinePlayerChoiceOffersExternalDispatchLikeNativeEnhanced() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int show = activity.indexOf("private boolean showInlinePlayerChoice()");
@@ -130,7 +130,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void sharedPlayerKernelDialogOffersExternalDispatchWhereverPlaybackRuns() throws Exception {
-        Path dialogPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "PlayerKernelDialog.java"));
+        Path dialogPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PlayerKernelDialog.java"));
         String dialog = new String(Files.readAllBytes(dialogPath), StandardCharsets.UTF_8);
 
         assertTrue(dialogPath + " must expose an external dispatch callback so playback screens can append the option",
@@ -151,10 +151,10 @@ public class PlayerControlFocusIntegrationTest {
         assertTrue("screens that pass no external callback must keep the plain kernel list",
                 dialog.contains("if (external == null) return kernel;"));
 
-        assertPlaybackScreenOffersExternalDispatch(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
-        assertPlaybackScreenOffersExternalDispatch(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
-        assertPlaybackScreenOffersExternalDispatch(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CastActivity.java")));
-        assertPlaybackScreenOffersExternalDispatch(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        assertPlaybackScreenOffersExternalDispatch(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java")));
+        assertPlaybackScreenOffersExternalDispatch(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java")));
+        assertPlaybackScreenOffersExternalDispatch(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CastActivity.java")));
+        assertPlaybackScreenOffersExternalDispatch(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
     }
 
     private static void assertPlaybackScreenOffersExternalDispatch(Path sourcePath) throws Exception {
@@ -192,8 +192,8 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void regularPlaybackControlsTrapFocusOnMobileAndLeanback() throws Exception {
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
 
@@ -203,7 +203,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void leanbackControlWakeKeepsUserChosenFocusOutsideTheIntroRange() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
 
         int remembered = leanback.indexOf("private boolean hasRememberedFocus()");
@@ -236,7 +236,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void leanbackEndingShortcutOutranksRememberedFocusNearTheEnd() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
 
         int onKeyUp = leanback.indexOf("public void onKeyUp()");
@@ -261,7 +261,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void fusionControlWakeKeepsUserChosenFocusOutsideTheIntroRange() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int predicate = activity.indexOf("private boolean hasRememberedInlineControlFocus()");
@@ -297,9 +297,9 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void tvControlClickIsRememberedAndPreferredFocusWinsOnWake() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
-        Path helperPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "PlayerControlFocusHelper.java"));
+        Path helperPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "PlayerControlFocusHelper.java"));
         String helper = new String(Files.readAllBytes(helperPath), StandardCharsets.UTF_8);
 
         int setup = activity.indexOf("private void setupInlineControl(View view)");
@@ -323,7 +323,7 @@ public class PlayerControlFocusIntegrationTest {
 
     @Test
     public void leanbackPlaybackControlButtonsKeepConfirmActionsWired() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int initEvent = source.indexOf("protected void initEvent() {");
         String body = enclosingMethodBody(source, initEvent);

@@ -24,8 +24,8 @@ public class SearchScopePopupLayoutTest {
 
     @Test
     public void tvScopeMenusShareGlassChromeAndFocusStates() throws Exception {
-        String search = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SearchActivity.java")));
-        String collect = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java")));
+        String search = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SearchActivity.java")));
+        String collect = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java")));
         String popup = read(findLeanbackResPath().resolve(Path.of("drawable", "shape_search_scope_popup.xml")));
         String item = read(findLeanbackResPath().resolve(Path.of("drawable", "selector_search_scope_item.xml")));
 
@@ -63,8 +63,8 @@ public class SearchScopePopupLayoutTest {
      */
     @Test
     public void mobileScopePopupsTakeTheirSurfaceFromThePalette() throws Exception {
-        String search = read(findJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SearchFragment.java")));
-        String collect = read(findJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java")));
+        String search = read(findJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SearchFragment.java")));
+        String collect = read(findJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java")));
 
         for (String source : new String[]{search, collect}) {
             assertFalse("search scope popups must not paint an opaque white panel",

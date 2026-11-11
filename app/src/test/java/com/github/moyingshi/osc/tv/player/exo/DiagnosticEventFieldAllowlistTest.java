@@ -38,7 +38,7 @@ public class DiagnosticEventFieldAllowlistTest {
     @Test
     public void everyFieldTheExoCollectorRecordsIsAcceptedByTheSchema() throws Exception {
         String source = read(sourcePath(
-                "main", "java", "com", "fongmi", "android", "tv", "player", "exo",
+                "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo",
                 "ExoDiagnosticCollector.java"));
         Set<String> names = new LinkedHashSet<>();
         Matcher matcher = OBSERVED_CALL.matcher(source);

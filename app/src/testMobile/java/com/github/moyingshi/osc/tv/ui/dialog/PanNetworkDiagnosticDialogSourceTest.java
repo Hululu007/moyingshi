@@ -12,7 +12,7 @@ public class PanNetworkDiagnosticDialogSourceTest {
 
     @Test
     public void highTrafficConfirmationUsesSharedEstimateAndLifecycleGuards() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "PanNetworkDiagnosticDialog.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PanNetworkDiagnosticDialog.java"));
         String show = methodBody(source, "public static void show(FragmentActivity activity, PlayerManager player)", "@NonNull");
         String startTest = methodBody(source, "private void startTest()", "private void confirmHighThread");
         String confirm = methodBody(source, "private void confirmHighThread(List<Integer> threads, long bytes)", "private void startConfirmedTest");
@@ -31,7 +31,7 @@ public class PanNetworkDiagnosticDialogSourceTest {
 
     @Test
     public void mobileDelayPopupChecksLifecycleBeforePostingDiagnostic() throws Exception {
-        String source = read(sourcePath("mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"));
+        String source = read(sourcePath("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
         String method = methodBody(source, "private void onPanDiagnostic()", "private void setImmersiveAudio()");
 
         assertTrue(method.contains("FragmentManager fragmentManager = activity.getSupportFragmentManager();"));

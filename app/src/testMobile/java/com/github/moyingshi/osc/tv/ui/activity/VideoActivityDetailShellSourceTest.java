@@ -77,7 +77,7 @@ public class VideoActivityDetailShellSourceTest {
     }
 
     private static String source() throws Exception {
-        Path path = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path path = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (!Files.isRegularFile(path)) path = Path.of("app").resolve(path);
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }

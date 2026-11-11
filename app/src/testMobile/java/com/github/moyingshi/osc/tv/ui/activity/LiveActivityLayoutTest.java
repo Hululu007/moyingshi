@@ -14,7 +14,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void leanbackLiveControlsUseSharedOsdWithoutLegacyTopBar() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String showControlBody = section(source, "private void showControl(View view)", "private void hideControl()");
 
@@ -34,7 +34,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertLiveSourceLabelFollowsHome(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String getLiveBody = section(source, "private void getLive()", "private void setSource(Live live)");
         String setSourceBody = section(source, "private void setSource(Live live)", "private void renderLive(Live live)");
@@ -74,7 +74,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void liveControlSheetMirrorsTheCurrentLiveSourceName() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "LiveControlDialog.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "LiveControlDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String initViewBody = section(source, "protected void initView()", "protected void initEvent()");
         String setPlayerBody = section(source, "public void setPlayer()", "private void setScale(int mode)");
@@ -93,7 +93,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void explicitLivePiPPreparesVideoBeforeEnteringSystemPiP() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         int onPip = source.indexOf("private void onPiP()");
@@ -147,7 +147,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void livePipAudioActionKeepsBackgroundPlayback() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         String panelBody = section(source, "public void onLiveBackgroundPanel()", "public void onLiveListStylePanel(boolean classic)");
@@ -200,7 +200,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void pendingLivePiPEntryIsCancelledWhenTheActivityStops() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("the pending pre-draw listener must be retained so it can be cancelled",
@@ -251,7 +251,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertLiveConfigInitializationUsesRuntimeState(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String checkLiveBody = section(source, "private void checkLive()", "private Callback getCallback()");
 
@@ -274,7 +274,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertLiveParseFailureUsesSourceFallback(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String renderLiveBody = section(source, "private void renderLive(Live live)", "private void setGroup(Live live)");
 
@@ -298,7 +298,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertSourceHttpErrorBypassesPlayerRetries(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String method = section(source, "protected boolean onSourceHttpError(int statusCode, String msg)", "protected void onError(String msg)");
 
@@ -319,7 +319,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertPlaybackErrorCancelsStaleBufferingFallback(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String onErrorBody = section(source, "protected void onError(String msg)", "protected void onReload(String msg)");
 
@@ -338,7 +338,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertLineFallbackExhaustionKeepsErrorFeedback(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         String advanceBody = section(source, "private boolean advanceLineForFallback()", "private boolean isLineFallbackExhausted()");
@@ -385,7 +385,7 @@ public class LiveActivityLayoutTest {
     }
     private static void assertPlaybackEndStaysOnCurrentChannel(Path javaRoot) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String checkEndedBody = section(source, "private void checkEnded()", "private void setTrackVisible()");
 
@@ -426,7 +426,7 @@ public class LiveActivityLayoutTest {
                 layout.contains("android:id=\"@+id/container\""));
 
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String setupBody = section(source, "private void setupActionButtons()", "private void addActionButton(");
         String visibilityBody = methodBody(source, "private void applyActionButtonVisibility()");
@@ -468,7 +468,7 @@ public class LiveActivityLayoutTest {
 
     private static void assertShowControlRefreshesTracks(Path javaRoot, String signature) throws Exception {
         Path sourcePath = javaRoot.resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String showBody = section(source, signature, "private void hideControl()");
 
@@ -482,7 +482,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void livePlayParamsEntryFollowsTheSharedSetting() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String stateBody = section(source, "private void setPlayParamsState()", "private void showInfo()");
 
@@ -497,7 +497,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void liveControlSheetMirrorsConfiguredButtons() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "LiveControlDialog.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "LiveControlDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String initViewBody = section(source, "protected void initView()", "protected void initEvent()");
         String setPlayerBody = section(source, "public void setPlayer()", "private void setScale(int mode)");
@@ -517,7 +517,7 @@ public class LiveActivityLayoutTest {
     @Test
     public void padLiveFullscreenRotatesWithoutLeavingFullscreen() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String showControlBody = section(source, "private void showControl()", "private void hideControl()");
         String onRotateBody = section(source, "private void onRotate()", "private void toggleFullscreenOrientation()");
@@ -560,7 +560,7 @@ public class LiveActivityLayoutTest {
                 land.contains("android:id=\"@+id/statusBar\""));
 
         Path sourcePath = findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java"));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String setupBody = section(source, "private void setupWindowInsets()", "private void setVideoView()");
         String insetBody = methodBody(source, "private void updateStatusBarInset(@Nullable WindowInsetsCompat insets)");

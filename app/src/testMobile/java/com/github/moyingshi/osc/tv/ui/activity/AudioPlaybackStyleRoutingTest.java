@@ -12,7 +12,7 @@ public class AudioPlaybackStyleRoutingTest {
 
     @Test
     public void immersiveAudioIsTheDefaultPlaybackStyle() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "PlayerSetting.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java")));
 
         assertTrue("Immersive audio must be the default when no style has been stored",
                 source.contains("Prefers.getBoolean(\"immersive_audio_mode\", true)"));
@@ -24,7 +24,7 @@ public class AudioPlaybackStyleRoutingTest {
 
     @Test
     public void audioContentHandlerDefersToVideoPlaybackInImmersiveMode() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "content", "AudioContentHandler.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "content", "AudioContentHandler.java")));
 
         assertTrue("Audio sites must still be claimed so immersive mode can use the direct audio launch path",
                 source.contains("return AudioUtil.isAudioSiteEnabled(key);"));
@@ -38,7 +38,7 @@ public class AudioPlaybackStyleRoutingTest {
 
     @Test
     public void standaloneAudioActivityRejectsImmersivePlayback() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "AudioActivity.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "AudioActivity.java")));
 
         assertTrue("Direct audio-site playback must route to the immersive launcher instead of falling through to the detail page",
                 source.contains("public static boolean startSite")
@@ -50,8 +50,8 @@ public class AudioPlaybackStyleRoutingTest {
 
     @Test
     public void immersiveAudioSiteLaunchConsumesResolvedPlaybackBeforeDetailRequest() throws Exception {
-        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String leanback = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertImmersiveAudioDirectLaunch("mobile", mobile);
         assertImmersiveAudioDirectLaunch("leanback", leanback);
@@ -59,10 +59,10 @@ public class AudioPlaybackStyleRoutingTest {
 
     @Test
     public void asynchronousAudioLaunchesUseLifecycleAwareFrameDeferral() throws Exception {
-        String audio = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "AudioActivity.java")));
-        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String leanback = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String launch = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "utils", "ActivityLaunch.java")));
+        String audio = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "AudioActivity.java")));
+        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String launch = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "utils", "ActivityLaunch.java")));
 
         assertTrue("built-in audio playback must defer its async Activity launch",
                 audio.contains("ActivityLaunch.postOnAnimation(activity, () -> start("));
@@ -80,7 +80,7 @@ public class AudioPlaybackStyleRoutingTest {
 
     @Test
     public void immersiveAudioStageOpensBeforeTheServiceBindsSoTheVideoPageNeverFlashes() throws Exception {
-        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue("mobile must be able to detect a pending immersive audio launch without consuming it",
                 mobile.contains("private boolean hasPendingImmersiveAudioLaunch()")

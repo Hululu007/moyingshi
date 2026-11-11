@@ -13,7 +13,7 @@ public class BaseConfigLifecycleTest {
 
     @Test
     public void loadCapturesCurrentConfigBeforeAsyncTaskStarts() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "api", "config", "BaseConfig.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "api", "config", "BaseConfig.java"));
         String source = Files.readString(sourcePath);
         assertTrue(source.contains("Config loadingConfig = getConfig();"));
         assertTrue(source.contains("loadConfig(id, loadingConfig, callback)"));
@@ -22,7 +22,7 @@ public class BaseConfigLifecycleTest {
 
     @Test
     public void ensureLoadedWaitsForCleanupBeforeTakingConfigMonitor() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "api", "config", "BaseConfig.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "api", "config", "BaseConfig.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int ensure = source.indexOf("public void ensureLoaded()");
         int postEvent = source.indexOf("protected void postEvent()", ensure);

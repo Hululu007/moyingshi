@@ -232,7 +232,7 @@ public class CacheFullCleanupTest {
     }
 
     private static String productionSource() throws Exception {
-        Path relative = Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv",
+        Path relative = Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv",
                 "cache", "CacheCleanupManager.java");
         Path path = Files.exists(relative) ? relative : Path.of("..").resolve(relative).normalize();
         return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");

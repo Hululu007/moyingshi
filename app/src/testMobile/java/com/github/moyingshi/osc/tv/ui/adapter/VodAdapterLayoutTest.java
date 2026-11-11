@@ -95,7 +95,7 @@ public class VodAdapterLayoutTest {
 
     private static void assertTitleMarquee(String style, String layoutName, String holderName) throws Exception {
         Element name = findById(parseLayout(read(findMobileResPath().resolve(Path.of("layout", layoutName)))), "@+id/name");
-        String holder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", holderName)));
+        String holder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", holderName)));
 
         assertTrue(style + " category title must marquee only when its text overflows",
                 "marquee".equals(androidAttribute(name, "ellipsize"))

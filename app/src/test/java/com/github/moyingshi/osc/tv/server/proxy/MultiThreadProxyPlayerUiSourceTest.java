@@ -15,12 +15,12 @@ public class MultiThreadProxyPlayerUiSourceTest {
     public void mobileAndLeanbackPlayersExposeConfigurableMultiThreadButton() throws Exception {
         String mobileLayout = read("mobile", "res", "layout", "view_control_vod_action.xml");
         String leanbackLayout = read("leanback", "res", "layout", "view_control_vod_action.xml");
-        String mobile = read("mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String leanback = read("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String mobile = read("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = read("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         String fusionLayout = read("main", "res", "layout", "activity_tmdb_detail.xml");
         String mobileFusionLayout = read("main", "res", "layout", "view_control_vod_action_tmdb.xml");
-        String fusion = read("main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String catalog = read("main", "java", "com", "fongmi", "android", "tv", "setting", "PlayerButtonSetting.java");
+        String fusion = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String catalog = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlayerButtonSetting.java");
 
         assertTrue(mobileLayout.contains("android:id=\"@+id/multiThreadProxy\""));
         assertTrue(leanbackLayout.contains("android:id=\"@+id/multiThreadProxy\""));
@@ -45,7 +45,7 @@ public class MultiThreadProxyPlayerUiSourceTest {
 
     @Test
     public void multiThreadButtonIsHiddenByDefaultButStillUserConfigurable() throws Exception {
-        String catalog = read("main", "java", "com", "fongmi", "android", "tv", "setting", "PlayerButtonSetting.java");
+        String catalog = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlayerButtonSetting.java");
 
         assertTrue("多线程按钮必须在默认清单中标记为不显示",
                 catalog.contains("new Item(MULTI_THREAD_PROXY, R.string.multi_thread_proxy_button, false)"));
@@ -60,7 +60,7 @@ public class MultiThreadProxyPlayerUiSourceTest {
 
     @Test
     public void dialogExposesExplicitEnableGlobalFallbackAndMultiDomainRules() throws Exception {
-        String dialog = read("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "MultiThreadProxyDialog.java");
+        String dialog = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "MultiThreadProxyDialog.java");
         String layout = read("main", "res", "layout", "dialog_multi_thread_proxy.xml");
 
         assertTrue(layout.contains("android:id=\"@+id/enabled\""));
@@ -78,8 +78,8 @@ public class MultiThreadProxyPlayerUiSourceTest {
 
     @Test
     public void playerManagerRoutesEligiblePlaybackThroughOpaqueRegistrationOnlyWhenEnabled() throws Exception {
-        String player = read("main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java");
-        String server = read("main", "java", "com", "fongmi", "android", "tv", "server", "proxy", "MultiThreadProxyServer.java");
+        String player = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java");
+        String server = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "server", "proxy", "MultiThreadProxyServer.java");
 
         assertTrue(player.contains("ProxyPlaybackPolicy.shouldProxy"));
         assertTrue(player.contains("MultiThreadProxy.register"));
@@ -92,7 +92,7 @@ public class MultiThreadProxyPlayerUiSourceTest {
 
     @Test
     public void internalPlayerRestartsReuseProxyPreparation() throws Exception {
-        String player = read("main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java");
+        String player = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java");
 
         assertTrue(player.contains("private void startWithProxy("));
         assertTrue(player.contains("private void restartWithProxy("));

@@ -128,8 +128,8 @@ public class HomeWebMediaLifecycleTest {
     }
 
     private static String readMainSource(String fileName) throws Exception {
-        Path root = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "web");
-        if (!Files.exists(root)) root = Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "web");
+        Path root = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "web");
+        if (!Files.exists(root)) root = Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "web");
         return Files.readString(root.resolve(fileName), StandardCharsets.UTF_8);
     }
 }

@@ -13,14 +13,14 @@ public class SettingPlaybackDefaultsTest {
 
     @Test
     public void subtitleAutoMatch_defaultsOff() throws Exception {
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
 
         assertTrue(source.contains("Prefers.getBoolean(\"subtitle_auto_match\", false)"));
     }
 
     @Test
     public void subtitleAiConcurrencyDefaultsToTwo() throws Exception {
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
 
         assertTrue(source.contains("Prefers.getInt(\"subtitle_ai_max_concurrency\", 2)"));
         assertTrue(source.contains("Prefers.getInt(\"subtitle_ai_chunk_count\", 2)"));
@@ -83,9 +83,9 @@ public class SettingPlaybackDefaultsTest {
     @Test
     public void dedicatedSettingsNavigationIsWired() throws Exception {
         Path root = moduleRoot();
-        String mobileHome = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java")));
-        String mobileSetting = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingFragment.java")));
-        String leanbackSetting = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingActivity.java")));
+        String mobileHome = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java")));
+        String mobileSetting = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingFragment.java")));
+        String leanbackSetting = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingActivity.java")));
         String leanbackManifest = read(root.resolve(Path.of("src", "leanback", "AndroidManifest.xml")));
 
         assertTrue(mobileHome.contains("case 7 -> SettingTmdbFragment.newInstance()"));
@@ -102,7 +102,7 @@ public class SettingPlaybackDefaultsTest {
 
     @Test
     public void autoSkipIntroOutro_defaultsOff() throws Exception {
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
 
         assertTrue(source.contains("Prefers.getInt(\"intro_skip_mode\", INTRO_SKIP_OFF)"));
     }
@@ -129,9 +129,9 @@ public class SettingPlaybackDefaultsTest {
         Path root = moduleRoot();
         String mobileLayout = read(root.resolve(Path.of("src", "mobile", "res", "layout", "fragment_setting_personal.xml")));
         String leanbackLayout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "activity_setting_personal.xml")));
-        String mobileSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingPersonalFragment.java")));
-        String leanbackSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingPersonalActivity.java")));
-        String utilSource = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "utils", "Util.java")));
+        String mobileSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPersonalFragment.java")));
+        String leanbackSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPersonalActivity.java")));
+        String utilSource = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "utils", "Util.java")));
 
         assertTrue(mobileLayout.contains("@+id/resetApp"));
         assertTrue(leanbackLayout.contains("@+id/resetApp"));
@@ -185,9 +185,9 @@ public class SettingPlaybackDefaultsTest {
     @Test
     public void adSettingsNavigationIsWired() throws Exception {
         Path root = moduleRoot();
-        String mobileHome = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java")));
-        String mobileSetting = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingFragment.java")));
-        String leanbackSetting = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingActivity.java")));
+        String mobileHome = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java")));
+        String mobileSetting = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingFragment.java")));
+        String leanbackSetting = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingActivity.java")));
         String leanbackManifest = read(root.resolve(Path.of("src", "leanback", "AndroidManifest.xml")));
 
         assertTrue(mobileHome.contains("case 9 -> SettingAdFragment.newInstance()"));
@@ -201,17 +201,17 @@ public class SettingPlaybackDefaultsTest {
         Path root = moduleRoot();
         String packageName = classSuffix.equals("Activity") ? "activity" : "fragment";
         assertTrue(read(root.resolve(Path.of("src", flavor, "res", "layout", layoutPrefix + "_setting_ad.xml"))).contains("@+id/autoSkipIntroOutro"));
-        assertTrue(read(root.resolve(Path.of("src", flavor, "java", "com", "fongmi", "android", "tv", "ui", packageName, "SettingAd" + classSuffix + ".java"))).contains("autoSkipIntroOutro"));
+        assertTrue(read(root.resolve(Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", packageName, "SettingAd" + classSuffix + ".java"))).contains("autoSkipIntroOutro"));
         assertFalse(read(root.resolve(Path.of("src", flavor, "res", "layout", layoutPrefix + "_setting_player.xml"))).contains("@+id/autoSkipIntroOutro"));
         assertFalse(read(root.resolve(Path.of("src", flavor, "res", "layout", layoutPrefix + "_setting_personal.xml"))).contains("@+id/autoSkipIntroOutro"));
-        assertFalse(read(root.resolve(Path.of("src", flavor, "java", "com", "fongmi", "android", "tv", "ui", packageName, "SettingPersonal" + classSuffix + ".java"))).contains("autoSkipIntroOutro"));
+        assertFalse(read(root.resolve(Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", packageName, "SettingPersonal" + classSuffix + ".java"))).contains("autoSkipIntroOutro"));
     }
 
     private static void assertPersonalOwnsEpisodeHistory(String flavor, String layoutPrefix, String classSuffix) throws Exception {
         Path root = moduleRoot();
         String packageName = classSuffix.equals("Activity") ? "activity" : "fragment";
         String layout = read(root.resolve(Path.of("src", flavor, "res", "layout", layoutPrefix + "_setting_personal.xml")));
-        String source = read(root.resolve(Path.of("src", flavor, "java", "com", "fongmi", "android", "tv", "ui", packageName, "SettingPersonal" + classSuffix + ".java")));
+        String source = read(root.resolve(Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", packageName, "SettingPersonal" + classSuffix + ".java")));
 
         assertTrue(layout.contains("@+id/episodeHistory"));
         assertTrue(source.contains("Setting.putEpisodeHistory(!Setting.isEpisodeHistory())"));

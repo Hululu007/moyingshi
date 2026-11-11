@@ -71,11 +71,10 @@ public class ExoEofRecoveryWiringSourceTest {
         // Gradle may run from the repository root or the module directory; try both, and normalize
         // line endings so the guards below are not defeated by CRLF.
         Path root = Path.of("").toAbsolutePath();
-        Path relative = Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv",
+        Path relative = Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv",
                 "player", "exo", fileName);
         Path source = root.resolve(relative);
-        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com",
-                "fongmi", "android", "tv", "player", "exo", fileName));
+        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", fileName));
         assertTrue("missing source file: " + source, Files.exists(source));
         return Files.readString(source, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }

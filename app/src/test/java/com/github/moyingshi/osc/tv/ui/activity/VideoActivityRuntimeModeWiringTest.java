@@ -31,7 +31,7 @@ public class VideoActivityRuntimeModeWiringTest {
 
     @Test
     public void detailLoadUsesRuntimePolicyAndLoadsSourceWithoutNetwork() throws Exception {
-        String adapter = Files.readString(root().resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java")), StandardCharsets.UTF_8);
+        String adapter = Files.readString(root().resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java")), StandardCharsets.UTF_8);
         String loadSource = method(adapter, "public void loadSource(TmdbBundle bundle", "private void applySourceBundle");
         String applySource = method(adapter, "private void applySourceBundle", "private void fillInitialSourceGaps");
 
@@ -74,7 +74,7 @@ public class VideoActivityRuntimeModeWiringTest {
     }
 
     private static String read(String flavor) throws Exception {
-        return Files.readString(root().resolve(Path.of("app", "src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")), StandardCharsets.UTF_8);
+        return Files.readString(root().resolve(Path.of("app", "src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")), StandardCharsets.UTF_8);
     }
 
     private static Path root() {

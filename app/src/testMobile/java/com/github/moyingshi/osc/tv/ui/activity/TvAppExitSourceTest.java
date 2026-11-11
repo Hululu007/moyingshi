@@ -14,7 +14,7 @@ public class TvAppExitSourceTest {
     @Test
     public void exitDialogExposesBackgroundAndFullExitActions() throws Exception {
         String layout = read("leanback", "res", "layout", "dialog_exit_confirm.xml");
-        String dialog = read("leanback", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ExitConfirmDialog.java");
+        String dialog = read("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ExitConfirmDialog.java");
 
         assertTrue(layout.contains("@+id/backgroundPlay"));
         assertTrue(layout.contains("@string/exit_confirm_background"));
@@ -25,7 +25,7 @@ public class TvAppExitSourceTest {
 
     @Test
     public void homeRoutesExitThroughExplicitActions() throws Exception {
-        String home = read("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java");
+        String home = read("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java");
 
         assertTrue(home.contains("ExitConfirmDialog.create(PlaybackService.canContinueInBackground())"));
         assertTrue(home.contains("AppExitCoordinator.exit(this)"));
@@ -36,7 +36,7 @@ public class TvAppExitSourceTest {
 
     @Test
     public void fullExitStopsOwnedServicesBeforeRemovingTheTask() throws Exception {
-        String coordinator = read("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "AppExitCoordinator.java");
+        String coordinator = read("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "AppExitCoordinator.java");
 
         assertTrue(coordinator.contains("AudioMiniPlayer.deactivateForFull(service)"));
         assertTrue(coordinator.contains("DLNARendererService.stop(activity)"));
@@ -50,7 +50,7 @@ public class TvAppExitSourceTest {
 
     @Test
     public void delayedServerStopCannotStopARecreatedServer() throws Exception {
-        String server = read("main", "java", "com", "fongmi", "android", "tv", "server", "Server.java");
+        String server = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "server", "Server.java");
 
         assertTrue(server.contains("Nano expected = nano;"));
         assertTrue(server.contains("if (manage || service != null || nano != expected) return;"));
@@ -58,7 +58,7 @@ public class TvAppExitSourceTest {
 
     @Test
     public void stoppedRemoteAgentRejectsQueuedPollsAndLateWebSocketCallbacks() throws Exception {
-        String remote = read("main", "java", "com", "fongmi", "android", "tv", "remote", "RemoteAgent.java");
+        String remote = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "remote", "RemoteAgent.java");
 
         assertTrue(remote.contains("private volatile boolean active;"));
         assertTrue(remote.contains("if (!active || busy) return;"));
@@ -69,11 +69,11 @@ public class TvAppExitSourceTest {
 
     @Test
     public void fullExitStopsAppPulseAndPreservesARecreatedPlaybackService() throws Exception {
-        String app = read("main", "java", "com", "fongmi", "android", "tv", "App.java");
-        String fixer = read("main", "java", "com", "fongmi", "android", "tv", "utils", "DanmakuSearchListFocusFixer.java");
-        String server = read("main", "java", "com", "fongmi", "android", "tv", "server", "Server.java");
-        String playback = read("main", "java", "com", "fongmi", "android", "tv", "service", "PlaybackService.java");
-        String syncer = read("main", "java", "com", "fongmi", "android", "tv", "playback", "PlaybackRemoteSyncer.java");
+        String app = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "App.java");
+        String fixer = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "utils", "DanmakuSearchListFocusFixer.java");
+        String server = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "server", "Server.java");
+        String playback = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "service", "PlaybackService.java");
+        String syncer = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "playback", "PlaybackRemoteSyncer.java");
 
         assertTrue(app.contains("DanmakuSearchListFocusFixer.stop()"));
         assertTrue(app.contains("DanmakuSearchListFocusFixer.start()"));
@@ -86,16 +86,16 @@ public class TvAppExitSourceTest {
 
     @Test
     public void backgroundResumeIsDebouncedAndWorkerStopIsVisible() throws Exception {
-        String app = read("main", "java", "com", "fongmi", "android", "tv", "App.java");
-        String syncer = read("main", "java", "com", "fongmi", "android", "tv", "playback", "PlaybackRemoteSyncer.java");
+        String app = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "App.java");
+        String syncer = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "playback", "PlaybackRemoteSyncer.java");
 
         assertTrue(app.contains("public static void resumeBackgroundServices() {\n        removeCallbacks(get().backgroundServicesStarter);"));
         assertTrue(syncer.contains("private static volatile boolean started;"));
     }
     @Test
     public void deferredStartupWorkIsCancelledOnFullExit() throws Exception {
-        String home = read("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java");
-        String app = read("main", "java", "com", "fongmi", "android", "tv", "App.java");
+        String home = read("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java");
+        String app = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "App.java");
 
         assertTrue(home.contains("App.removeCallbacks(mDelayedInitConfig, mDelayedPermissionRequest, mDelayedDlnaStart)"));
         assertTrue(home.contains("App.resumeBackgroundServices()"));

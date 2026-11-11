@@ -23,7 +23,7 @@ public class TmdbDetailGenerationTest {
     }
 
     private static String loadContentBody() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int start = source.indexOf("private void loadContent(@Nullable TmdbBundle reusableBundle)");
         int end = source.indexOf("private boolean shouldLoadInitialStandaloneTmdbDetailInSinglePass", start);

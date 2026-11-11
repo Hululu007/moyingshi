@@ -14,7 +14,7 @@ public class HistoryDaoTest {
 
     @Test
     public void findReturnsHistoryWithoutTimeOrCountLimits() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "db", "dao", "HistoryDao.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "db", "dao", "HistoryDao.java")));
         String compact = source.replaceAll("\\s+", " ");
         String lower = source.toLowerCase(Locale.ROOT);
 

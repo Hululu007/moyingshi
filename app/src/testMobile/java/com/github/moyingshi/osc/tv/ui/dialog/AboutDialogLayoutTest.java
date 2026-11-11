@@ -14,7 +14,7 @@ public class AboutDialogLayoutTest {
 
     @Test
     public void aboutDialogWindowWrapsItsContentInsteadOfForcingFullHeight() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AboutDialog.java")));
 
         assertTrue("About dialog window height should wrap its content so short text does not float above the buttons",
                 source.contains("params.height = WindowManager.LayoutParams.WRAP_CONTENT;"));
@@ -24,7 +24,7 @@ public class AboutDialogLayoutTest {
 
     @Test
     public void aboutDialogUsesOneScrollableDialogShell() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AboutDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_about.xml")));
 
         assertTrue("About dialog should install its styled content directly into the window",
@@ -42,7 +42,7 @@ public class AboutDialogLayoutTest {
 
     @Test
     public void aboutDialogConstrainsScrollableContentBeforeFinalWindowSizing() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AboutDialog.java")));
 
         int constrainScroll = source.indexOf("binding.contentScroll.setMaxHeight(maxScrollHeight);");
         int remeasureRoot = source.indexOf("binding.getRoot().measure(widthSpec, heightSpec);", constrainScroll);
@@ -79,9 +79,9 @@ public class AboutDialogLayoutTest {
     @Test
     public void githubProxyDialogExposesPersistentEnableSwitch() throws Exception {
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_github_proxy.xml")));
-        String dialog = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));
-        String setting = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java")));
-        String proxy = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "utils", "GithubProxy.java")));
+        String dialog = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AboutDialog.java")));
+        String setting = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
+        String proxy = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "utils", "GithubProxy.java")));
 
         assertTrue(layout.contains("<androidx.appcompat.widget.SwitchCompat"));
         assertFalse(layout.contains("<com.google.android.material.switchmaterial.SwitchMaterial"));
@@ -130,7 +130,7 @@ public class AboutDialogLayoutTest {
 
     @Test
     public void githubProxyDialogFillsTheScreenOnTv() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AboutDialog.java")));
 
         assertTrue(source.contains("configureGithubProxyWindow(activity, githubDialog, binding);"));
         // 电视端改为铺满全屏，不再按屏幕比例手算宽高——手算需要同时算对屏宽高、content
@@ -145,7 +145,7 @@ public class AboutDialogLayoutTest {
 
     @Test
     public void aboutDialogFillsTheScreenOnTvButKeepsWrapContentOnPhones() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AboutDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AboutDialog.java")));
 
         // 电视端走独立的全屏分支，手机端保持原有 wrap_content 行为不变。
         assertTrue("TV should take a dedicated fullscreen path",

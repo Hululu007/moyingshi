@@ -12,7 +12,7 @@ public class ClassParcelableSourceTest {
 
     @Test
     public void classParcelPreservesCategoryFilters() throws Exception {
-        String source = read(findAppPath().resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "bean", "Class.java")));
+        String source = read(findAppPath().resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "bean", "Class.java")));
 
         assertTrue("parcel restore must include category filters",
                 source.contains("this.filters = in.createTypedArrayList(Filter.CREATOR);"));

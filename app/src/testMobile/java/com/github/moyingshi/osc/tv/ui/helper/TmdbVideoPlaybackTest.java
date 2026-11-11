@@ -55,7 +55,7 @@ public class TmdbVideoPlaybackTest {
     @Test
     public void playOpensWindowedPopupInsteadOfTransientActivity() throws Exception {
         Path root = Files.exists(Path.of("src", "main")) ? Path.of("") : Path.of("app");
-        String source = Files.readString(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "helper", "TmdbVideoPlayback.java")), StandardCharsets.UTF_8);
+        String source = Files.readString(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbVideoPlayback.java")), StandardCharsets.UTF_8);
 
         assertTrue(source.contains("if (!(activity instanceof FragmentActivity)) return false;"));
         assertTrue(source.contains("TmdbVideoPlayerDialog.show((FragmentActivity) activity, launch)"));

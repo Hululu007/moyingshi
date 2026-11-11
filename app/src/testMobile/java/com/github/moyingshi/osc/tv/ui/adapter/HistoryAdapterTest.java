@@ -25,15 +25,15 @@ public class HistoryAdapterTest {
     public void historyCardsShowPlaybackProgressAndTime() throws Exception {
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "adapter_vod.xml")));
         String mobileLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_vod.xml")));
-        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "HistoryAdapter.java")));
-        String mobileAdapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "HistoryAdapter.java")));
-        String presenter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "presenter", "HistoryPresenter.java")));
-        String keepAdapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "KeepAdapter.java")));
-        String mobileKeepAdapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "KeepAdapter.java")));
-        String mobileHistoryActivity = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java")));
-        String mobileKeepActivity = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "KeepActivity.java")));
-        String historyBean = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "History.java")));
-        String tmdbDetailActivity = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "HistoryAdapter.java")));
+        String mobileAdapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "HistoryAdapter.java")));
+        String presenter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "presenter", "HistoryPresenter.java")));
+        String keepAdapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "KeepAdapter.java")));
+        String mobileKeepAdapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "KeepAdapter.java")));
+        String mobileHistoryActivity = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HistoryActivity.java")));
+        String mobileKeepActivity = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "KeepActivity.java")));
+        String historyBean = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "bean", "History.java")));
+        String tmdbDetailActivity = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         assertHistoryCardLayout("TV", layout);
         assertHistoryCardLayout("mobile", mobileLayout);
@@ -209,17 +209,17 @@ public class HistoryAdapterTest {
     public void mobileHistoryCardDoesNotRepeatWatchedTimeBelowThePoster() throws Exception {
         assertMobileHistoryDoesNotRenderBelowPosterTime(
                 read(findMobileResPath().resolve(Path.of("layout", "adapter_vod.xml"))),
-                read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "HistoryAdapter.java"))));
+                read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "HistoryAdapter.java"))));
     }
 
     @Test
     public void removedBelowPosterTimeHasNoLeftoverProductionReferences() throws Exception {
-        Path mainJava = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "utils", "HistoryProgressFormatter.java"));
+        Path mainJava = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "utils", "HistoryProgressFormatter.java"));
         assertFalse("mobile-only below-poster time formatter must be gone once its last caller is removed",
                 Files.exists(mainJava));
-        String source = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "HistoryAdapter.java")))
-                + read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "HistoryAdapter.java")))
-                + read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "presenter", "HistoryPresenter.java")));
+        String source = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "HistoryAdapter.java")))
+                + read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "HistoryAdapter.java")))
+                + read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "presenter", "HistoryPresenter.java")));
         assertFalse("no history view may keep the removed below-poster time label",
                 source.contains("historyProgress") || source.contains("history_watched_time"));
         String strings = read(findMainResPath().resolve(Path.of("values", "strings.xml")))

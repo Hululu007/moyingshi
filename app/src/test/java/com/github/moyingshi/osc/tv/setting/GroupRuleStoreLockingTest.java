@@ -13,8 +13,8 @@ public class GroupRuleStoreLockingTest {
 
     @Test
     public void storesInvalidateConfigOnlyAfterLeavingTheirPrivateLock() throws Exception {
-        String aiStore = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "AiGroupRuleStore.java")));
-        String userStore = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "GroupRuleStore.java")));
+        String aiStore = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "AiGroupRuleStore.java")));
+        String userStore = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "GroupRuleStore.java")));
 
         assertFalse(aiStore.contains("public static synchronized"));
         assertFalse(userStore.contains("public static synchronized"));

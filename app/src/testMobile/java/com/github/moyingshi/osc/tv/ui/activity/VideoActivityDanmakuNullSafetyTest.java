@@ -47,7 +47,7 @@ public class VideoActivityDanmakuNullSafetyTest {
     }
 
     private static String readVideoActivity(String flavor) throws Exception {
-        Path relative = Path.of("src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path relative = Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         Path path = Files.exists(relative) ? relative : Path.of("app").resolve(relative);
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }

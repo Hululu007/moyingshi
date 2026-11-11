@@ -178,7 +178,7 @@ public class VideoActivityLayoutTest {
         assertFalse("view_control_vod must not redeclare @id/time (view_widget_vod already owns it)",
                 ids.contains("time"));
 
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int visibility = source.indexOf("mBinding.control.batteryInfo.setVisibility(");
         assertTrue("missing battery visibility wiring in " + sourcePath, visibility >= 0);
@@ -202,7 +202,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVodControlOverlayRoutesBlankTouchesToGestureDetector() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int initEvent = source.indexOf("protected void initEvent()");
         int rootTouch = source.indexOf("mBinding.control.getRoot().setOnTouchListener(this::onPlayerControlTouch);", initEvent);
@@ -216,7 +216,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileOverlayButtonsIgnorePlayerButtonSetting() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         // 悬浮/图标按钮（中间上下集、进度条旁全屏、顶部投屏）只受集数、锁定、功能可用性控制，
@@ -250,8 +250,8 @@ public class VideoActivityLayoutTest {
     @Test
     public void mobilePlayerGesturesUseVideoViewBoundsAfterFullscreen() throws Exception {
         List<Path> gestureFiles = Arrays.asList(
-                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "CustomKeyDown.java")),
-                findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerGesture.java"))
+                findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomKeyDown.java")),
+                findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerGesture.java"))
         );
 
         for (Path gestureFile : gestureFiles) {
@@ -275,7 +275,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoRefreshesDanmakuControlsAfterLateDanmakuLoad() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void refreshDanmakuControls()");
         int action = source.indexOf("mBinding.control.action.danmaku.setVisibility", method);
@@ -292,7 +292,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileEpisodeNameToggleRestoresFallbackArtworkAfterAdapterRecreation() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void toggleEpisodeFileName()");
         int methodEnd = source.indexOf("private void updateEpisodeFileNameButton()", method);
@@ -308,7 +308,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoKeepsParseRowHiddenInEmbeddedPlayerWhenPlaybackStarts() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setPlayer(Result result)");
         int setUseParse = source.indexOf("setUseParse(result.shouldUseParse());", method);
@@ -321,7 +321,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobilePlayerKernelClickOpensChooserBeforeSwitching() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int clickMethod = source.indexOf("private void onPlayerKernel()");
         int clickMethodEnd = source.indexOf("private boolean onPlayerKernelLong()", clickMethod);
@@ -354,7 +354,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackAudioModeReconcilesAfterTracksAndPlayerBecomeReady() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String tracksBody = methodBody(source, "protected void onTracksChanged()", "protected void onTitlesChanged()");
         String stateBody = methodBody(source, "protected void onStateChanged(int state)", "protected void onPlayingChanged(boolean isPlaying)");
@@ -369,7 +369,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackImmersiveAudioRequiresExplicitSessionActivation() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String policyBody = methodBody(source, "private boolean shouldUseImmersiveAudio()", "private void syncAudioStageSurface(boolean visible)");
 
@@ -387,8 +387,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackImmersiveAudioSelectionPersistsForMatchingPlayback() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        Path settingPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "PlayerSetting.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        Path settingPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String setting = new String(Files.readAllBytes(settingPath), StandardCharsets.UTF_8);
         String initBody = methodBody(source, "protected void initView(Bundle savedInstanceState)", "protected void initEvent()");
@@ -427,8 +427,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackImmersiveAudioHighlightReflectsActivePlayback() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String dialog = new String(Files.readAllBytes(dialogPath), StandardCharsets.UTF_8);
         String actionBody = methodBody(source, "private void updateImmersiveAudioAction()", "private void toggleImmersiveAudioMode()");
@@ -452,7 +452,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackAudioStageReconcilesRestoredViewVisibility() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String visibilityBody = methodBody(source, "private void setAudioStageVisible(boolean visible)", "private boolean shouldUseImmersiveAudio()");
 
@@ -464,7 +464,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackVisibleAudioStageReclaimsForegroundOnSongChange() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String visibilityBody = methodBody(source, "private void setAudioStageVisible(boolean visible)", "private boolean shouldUseImmersiveAudio()");
 
@@ -483,7 +483,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackDisabledAudioStageHidesBeforeLyricsControllerEarlyReturn() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String refreshBody = methodBody(source, "private void refreshLyricsNow()", "private void scheduleRefreshKaraoke");
 
@@ -496,10 +496,10 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackAudioStageOverlayIsNotManagedAsContent() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String setupBody = methodBody(source, "private void setupAudioStageOverlay()", "private void setupAudioStageFocusFeedback()");
-        String progress = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "ProgressLayout.java"))), StandardCharsets.UTF_8);
+        String progress = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "ProgressLayout.java"))), StandardCharsets.UTF_8);
 
         int reattach = setupBody.indexOf("addOverlayView(mBinding.audioStage, params);");
         int resetState = setupBody.indexOf("mAudioStageVisible = false;");
@@ -515,7 +515,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackAudioStageRestoreProtectionDoesNotClearActiveSession() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         Element audioStage = findAndroidId(findLeanbackResPath().resolve(Path.of("layout", "activity_video.xml")).toFile(), "audioStage");
 
@@ -533,9 +533,9 @@ public class VideoActivityLayoutTest {
     @Test
     public void videoPlaybackStartKeepsMergedAudioPreparation() throws Exception {
         assertVideoPlaybackStartKeepsMergedAudioPreparation("TV",
-                findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+                findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
         assertVideoPlaybackStartKeepsMergedAudioPreparation("mobile",
-                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+                findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
     }
 
     private static void assertVideoPlaybackStartKeepsMergedAudioPreparation(String label, Path sourcePath) throws Exception {
@@ -554,7 +554,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobilePipAudioActionKeepsBackgroundPlayback() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String audioBody = methodBody(source, "public void onAudio()", "};");
         String pipModeBody = methodBody(source, "public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, @NonNull Configuration newConfig)", "protected void onResume()");
@@ -572,7 +572,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileAudioLifecycleKeepsStageStateInSync() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String tracksBody = methodBody(source, "protected void onTracksChanged()", "protected void onTitlesChanged()");
         String audioStateBody = methodBody(source, "private void updateAudioOnlyState()", "protected void onTitlesChanged()");
@@ -607,7 +607,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoAudioControllersAreReleasedWithTheirActivity() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         String leanbackDestroy = methodBody(leanback, "protected void onDestroy()", "public String getSubtitlePlaybackKey()");
         assertTrue("TV destroy must invalidate lyric work and close lyric sheets",
@@ -617,7 +617,7 @@ public class VideoActivityLayoutTest {
         assertTrue("TV destroy must release lyric and karaoke controllers",
                 leanbackDestroy.contains("mLyrics.release();") && leanbackDestroy.contains("mKaraoke.release();"));
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String mobileDestroy = methodBody(mobile, "protected void onDestroy()", "public String getSubtitlePlaybackKey()");
         assertTrue("mobile destroy must dismiss configuration-owned karaoke UI and cancel pitch generation",
@@ -630,7 +630,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoAudioCallbacksKeepPlaybackStateSynchronized() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         String leanbackError = methodBody(leanback, "protected void onError(String msg)", "protected void onReclaim()");
         String leanbackPlaying = methodBody(leanback, "protected void onPlayingChanged(boolean isPlaying)", "protected void onSizeChanged(VideoSize size)");
@@ -639,7 +639,7 @@ public class VideoActivityLayoutTest {
         assertTrue("TV play/pause changes must update karaoke position and the immersive audio transport",
                 leanbackPlaying.contains("syncKaraokePosition();") && leanbackPlaying.contains("checkAudioPlayImg(isPlaying);"));
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String mobileError = methodBody(mobile, "protected void onError(String msg)", "protected void onReload(String msg)");
         String mobileState = methodBody(mobile, "protected void onStateChanged(int state)", "protected void onPlayingChanged(boolean isPlaying)");
@@ -659,14 +659,14 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoPlayerResultsKeepMergedAudioMetadata() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         String leanbackPlayer = methodBody(leanback, "private void setPlayer(Result result)", "private boolean redirectToContentHandler(Result result)");
         assertTrue("TV results without artwork must restore the selected episode artwork", leanbackPlayer.contains("else applyPlaybackArtwork(getPlaybackEpisode());"));
         assertTrue("TV result descriptions must remain available as inline lyrics", leanbackPlayer.contains("setPlaybackLyrics(result.getDesc());"));
         assertTrue("TV audio queue metadata must be applied before playback starts", leanbackPlayer.contains("applyAudioQueueMetadata(getPlaybackEpisode());"));
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String mobilePlayer = methodBody(mobile, "private void setPlayer(Result result)", "private boolean redirectToAudioIfNeeded(Result result)");
         assertTrue("mobile player results must wait until the playback service is connected",
@@ -678,7 +678,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobilePlaybackServiceConsumesPendingMergedState() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String connected = methodBody(source, "protected void onServiceConnected()", "protected void onPlayerRebuilt()");
         String detail = methodBody(source, "private void setDetail(Vod item)", "private void setText(Vod item)");
@@ -694,9 +694,9 @@ public class VideoActivityLayoutTest {
     @Test
     public void detailSwitchClearsReusableAudioControllersInsteadOfReleasingThem() throws Exception {
         assertDetailSwitchKeepsReusableAudioControllers("TV",
-                findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+                findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
         assertDetailSwitchKeepsReusableAudioControllers("mobile",
-                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+                findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
     }
 
     private static void assertDetailSwitchKeepsReusableAudioControllers(String label, Path sourcePath) throws Exception {
@@ -711,7 +711,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoClockKeepsLyricsAndKaraokeAdvancing() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         String leanbackClock = methodBody(leanback, "public void onTimeChanged(long time)", "private void updatePlaybackHistoryPosition()");
         assertTrue("TV clock ticks must advance lyrics and karaoke state",
@@ -719,7 +719,7 @@ public class VideoActivityLayoutTest {
                         && leanbackClock.contains("mLyrics.update(player());")
                         && leanbackClock.contains("mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());"));
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String mobileClock = methodBody(mobile, "public void onTimeChanged(long time)", "private void updatePlaybackHistoryPosition()");
         assertTrue("mobile clock ticks must learn playlist metadata and advance lyrics and karaoke state",
@@ -731,13 +731,13 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoClockIgnoresTicksBeforeHistoryInitialization() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         String leanbackClock = methodBody(leanback, "public void onTimeChanged(long time)", "private void updatePlaybackHistoryPosition()");
         assertTrue("TV clock ticks can arrive before history initialization",
                 leanbackClock.contains("if (!isOwner() || mHistory == null) return;"));
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String mobileClock = methodBody(mobile, "public void onTimeChanged(long time)", "private void updatePlaybackHistoryPosition()");
         assertTrue("mobile clock ticks can arrive before history initialization",
@@ -747,8 +747,8 @@ public class VideoActivityLayoutTest {
     @Test
     public void playbackHistoryKeepsUnknownDurationUntilMediaReportsOne() throws Exception {
         for (Path sourcePath : List.of(
-                findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")),
-                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")))) {
+                findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")),
+                findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")))) {
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String body = methodBody(source,
                     "private void updatePlaybackHistoryPosition()",
@@ -762,13 +762,13 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoDetailTextKeepsInlineLyricsMetadata() throws Exception {
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         String leanbackText = methodBody(leanback, "private void setText(Vod item)", "private void setText(TextView view");
         assertTrue("TV detail content must remain available as inline lyrics", leanbackText.contains("setDetailLyrics(item.getContent());"));
         assertTrue("TV detail binding must refresh immersive audio labels", leanbackText.contains("updateAudioStageText();"));
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         String mobileText = methodBody(mobile, "private void setText(Vod item)", "private boolean shouldUseTmdbTabletWideLayout()");
         assertTrue("mobile detail content must be captured before TMDB reveal can return early",
@@ -779,7 +779,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileConfigurationRestorePreservesPlaybackAndAudioMetadata() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String init = methodBody(source, "protected void initView(Bundle savedInstanceState)", "private void setupIntroSkipConfirmListener()");
         String checkFlag = methodBody(source, "private void checkFlag(Vod item)", "private boolean checkHistory(Vod item)");
@@ -799,11 +799,11 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackSpeedInitializationUsesPersonalDefaultSpeed() throws Exception {
-        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String mobileControl = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"))), StandardCharsets.UTF_8);
-        String leanbackControl = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"))), StandardCharsets.UTF_8);
-        String playerManager = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java"))), StandardCharsets.UTF_8);
+        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String mobileControl = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"))), StandardCharsets.UTF_8);
+        String leanbackControl = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"))), StandardCharsets.UTF_8);
+        String playerManager = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"))), StandardCharsets.UTF_8);
         String mobileCheckHistory = methodBody(mobile, "private boolean checkHistory(Vod item)", "private void enrichHistoryMeta(Vod item)");
         String mobileSetSpeed = methodBody(mobile, "private void setSpeed()", "private void checkOrientation()");
         String mobilePlaybackSpeed = methodBody(mobile, "private float getPlaybackSpeed()", "private void checkOrientation()");
@@ -849,8 +849,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackSpeedBoostReleaseIsGuarded() throws Exception {
-        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String keyDown = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "CustomKeyDownVod.java"))), StandardCharsets.UTF_8);
+        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String keyDown = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomKeyDownVod.java"))), StandardCharsets.UTF_8);
         String releaseBody = methodBody(keyDown, "public void releaseSpeed()", "public void setFull(boolean full)");
 
         assertTrue("CustomKeyDownVod must expose the guarded speed release state", keyDown.contains("public boolean isChangingSpeed()") && keyDown.contains("public void releaseSpeed()"));
@@ -872,7 +872,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void refreshedPlayerKernelSwitchKeepsManualFailureSemantics() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("public void switchPlayer(int type, Result result");
         int methodEnd = source.indexOf("private void switchPlayer(int type, boolean manual)", method);
@@ -884,11 +884,11 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playerKernelSwitchStaysScopedToCurrentPlayback() throws Exception {
-        String player = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java"))), StandardCharsets.UTF_8);
-        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String tmdb = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"))), StandardCharsets.UTF_8);
-        String history = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "History.java"))), StandardCharsets.UTF_8);
+        String player = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"))), StandardCharsets.UTF_8);
+        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String tmdb = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"))), StandardCharsets.UTF_8);
+        String history = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "bean", "History.java"))), StandardCharsets.UTF_8);
 
         assertFalse("switching cores inside the player must not rewrite the global default kernel", player.contains("PlayerSetting.putPlayer("));
         assertTrue("the running kernel must be published as session state instead", player.contains("PlayerSetting.putActivePlayer("));
@@ -925,11 +925,11 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void videoActivitiesDelegateSharedPlayerUiSetup() throws Exception {
-        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
-        String host = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiHost.java"))), StandardCharsets.UTF_8);
-        String controller = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiController.java"))), StandardCharsets.UTF_8);
-        String chrome = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerChrome.java"))), StandardCharsets.UTF_8);
+        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String host = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerUiHost.java"))), StandardCharsets.UTF_8);
+        String controller = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerUiController.java"))), StandardCharsets.UTF_8);
+        String chrome = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerChrome.java"))), StandardCharsets.UTF_8);
 
         assertVideoActivityDelegatesSharedPlayerUiSetup("leanback VideoActivity", leanback, "VodPlayerChrome.fromVideo(mBinding, mBinding.widget.clock, 14f)");
         assertVideoActivityDelegatesSharedPlayerUiSetup("mobile VideoActivity", mobile, "VodPlayerChrome.fromVideo(mBinding, null, 12f)");
@@ -983,7 +983,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileShortDramaKeepsStandardSettingButtonVisible() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int showControl = source.indexOf("private void showControl()");
         int shortDrama = source.indexOf("boolean shortDrama = isShortDramaSource();", showControl);
@@ -1000,7 +1000,7 @@ public class VideoActivityLayoutTest {
     public void mobileShortDramaDocksChangeSourceAndQuality() throws Exception {
         // 反馈回归：短剧模式把整条 action 栏 GONE 掉，换源与画质只有搬进 dock 才可达，
         // 否则短剧只能在选集里换线路(flag)，无法换站点、无法切画质。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int views = source.indexOf("private View[] getShortDramaControlViews()");
         assertTrue("getShortDramaControlViews must exist", views >= 0);
@@ -1021,7 +1021,7 @@ public class VideoActivityLayoutTest {
         // 反馈回归：换源(getDetail)会改写 intent 的 key，isShortDramaSource() 随之翻转为 false，
         // 同一个竖屏会话中途退回长视频布局（右侧 dock 被拆、横屏 action 栏与全屏按钮露出）。
         // 呈现形态与返回键行为必须读会话态，只有换到新条目(onNewIntent)才重置。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("session flag must latch once the site-based check passes",
@@ -1051,8 +1051,8 @@ public class VideoActivityLayoutTest {
         // 用户反馈：竖屏短剧铺满屏幕，左右 1/4 竖滑调亮度/音量与中间竖滑切集互相误触。
         // 短剧形态改为「整屏上下滑切集 + 长按后上下滑调亮度/音量」，两个手势类同步。
         List<Path> gestureFiles = Arrays.asList(
-                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "CustomKeyDown.java")),
-                findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerGesture.java"))
+                findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomKeyDown.java")),
+                findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerGesture.java"))
         );
 
         for (Path gestureFile : gestureFiles) {
@@ -1101,7 +1101,7 @@ public class VideoActivityLayoutTest {
 
         // 手势轴向必须由「当前是否处于短剧全屏」推导：退出全屏回到内嵌小窗后若仍是短剧那套，
         // 详情页上竖滑就会误切集；换到另一部短剧时形态不变，标记也不该被清掉。
-        String video = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String video = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
         assertTrue("the gesture mode must be derived from the current presentation",
                 video.contains("mKeyDown.setShortDrama(isFullscreen() && isShortDramaSession());"));
         assertFalse("no call site may pin the gesture mode to a literal",
@@ -1114,7 +1114,7 @@ public class VideoActivityLayoutTest {
                     end > start && video.substring(start, end).contains("syncShortDramaGesture();"));
         }
 
-        String tmdb = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"))), StandardCharsets.UTF_8);
+        String tmdb = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"))), StandardCharsets.UTF_8);
         assertTrue("the inline gesture mode must be derived from the current presentation",
                 tmdb.contains("inlineGestureDetector.setShortDrama(inlineFullscreen && shouldUseInlineShortDramaMode());"));
         assertFalse("no inline call site may pin the gesture mode to a literal",
@@ -1142,7 +1142,7 @@ public class VideoActivityLayoutTest {
         // setQualityVisible 有 6 个调用点，其中多处显式传 false（未选中集数、切线路重置），
         // 与 Result.isMulti() 的结论并不一致。dock 图标若自行推导 Result，就会与 action 栏
         // 按钮状态相反。两者必须共用 setQualityVisible 记下的同一个结论。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         String setter = methodBody(source, "private void setQualityVisible(boolean visible)", "private void updateActionQuality");
@@ -1163,7 +1163,7 @@ public class VideoActivityLayoutTest {
         // 同一容器现在有多个搬迁项（cast/keep/换源/画质/选集/设置同属顶部栏）。逐个「摘下并立刻插回」
         // 会让后来者挤掉前者的位置，且 PlayerButtonSetting.applyOrder 可能已重排容器，
         // 声明顺序不等于索引升序。还原必须先全部摘下、再按原始索引升序插回。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int restore = source.indexOf("private void restoreShortDramaControls()");
         assertTrue("restoreShortDramaControls must exist", restore >= 0);
@@ -1181,7 +1181,7 @@ public class VideoActivityLayoutTest {
     public void mobileQualityButtonStaysGatedByMultiUrlResult() throws Exception {
         // 画质入口只在站点返回多个播放地址时出现；短剧同走这条判定，
         // 不能为了让按钮常驻而绕开 isMulti()，否则会弹出只有一个选项的空面板。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         assertTrue("quality visibility must stay driven by Url.isMulti()",
                 source.contains("setQualityVisible(result.getUrl().isMulti());"));
@@ -1189,7 +1189,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileFullscreenButtonRevealsControlsAfterNativeEnhancedLayoutSettles() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         int onFullscreen = source.indexOf("private void onFullscreen()");
@@ -1234,7 +1234,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileFullscreenTransitionsUseStablePlayerSnapshot() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int enter = source.indexOf("private void enterFullscreen()");
         int schedule = source.indexOf("private void scheduleFullscreenControlReveal()", enter);
@@ -1269,7 +1269,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoTmdbMovableViewsKeepQualityBetweenFlagsAndEpisodes() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private View[] getTmdbMovableViews()");
         int flag = source.indexOf("mBinding.flag,", method);
@@ -1292,7 +1292,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileOriginalEnhancedHidesOriginalDetailActionRow() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setNativeDetailInfoVisible(boolean visible)");
         int nextMethod = source.indexOf("private void setText(TextView view", method);
@@ -1309,7 +1309,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileTmdbDetailHidesNativeActionRowInColorfulMode() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setDetail(Vod item)");
 
@@ -1320,7 +1320,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileReadyStateKeepsPlaybackInitializationAfterPendingResumeSeek() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("protected void onStateChanged(int state)");
         int ready = source.indexOf("case Player.STATE_READY:", method);
@@ -1340,7 +1340,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackReadyStateKeepsPlaybackInitializationAfterPendingResumeSeek() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("protected void onStateChanged(int state)");
         int ready = source.indexOf("case Player.STATE_READY:", method);
@@ -1360,7 +1360,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackLoadingIgnoresStaleReadyBeforeNewPlayerStarts() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String getPlayer = methodBody(source, "private void getPlayer(Flag flag, Episode episode)", "private void setPlayer(Result result)");
         String request = methodBody(source, "private void beginPlayerContentRequest(String key, String flag, String episode)", "private boolean isShortDramaSource()");
@@ -1414,8 +1414,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void introSkipCallbackWaitsForReadyBeforeSeeking() throws Exception {
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         assertIntroSkipCallbackWaitsForReady(mobilePath);
         assertIntroSkipCallbackWaitsForReady(leanbackPath);
     }
@@ -1432,7 +1432,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileTmdbImageReadyRebindsDeferredSummaryAndRevealsDetailContent() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int listener = source.indexOf("mTmdbHeaderView.setOnImagesLoadedListener");
         int callback = source.indexOf("onTmdbContentReady();", listener);
@@ -1450,7 +1450,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobilePlaybackReadyAlwaysClearsVideoLoadingOverlay() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int playback = source.indexOf("private void showPlaybackContent()");
         int hide = source.indexOf("hideProgress();", playback);
@@ -1467,7 +1467,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileTmdbContentReadyDoesNotClearVideoLoadingBeforePlaybackReady() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void onTmdbContentReady()");
         int end = source.indexOf("private void showError(String text)", method);
@@ -1482,7 +1482,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileTmdbPlaybackLoadingDoesNotRestartThePageSpinnerAfterSourceDetailLoads() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void showProgress()");
         int end = source.indexOf("private void hideProgress()", method);
@@ -1499,7 +1499,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobilePlaybackStartupDoesNotShowThePlayerSpinnerBeforeAPlayerRequestExists() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int init = source.indexOf("protected void initView(Bundle savedInstanceState)");
         int end = source.indexOf("private void setupIntroSkipConfirmListener()", init);
@@ -1513,7 +1513,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackHistoryPlaybackBindsAndSelectsTheCurrentEpisodeSegment() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int selector = source.indexOf("private int getSelectedEpisodePosition(List<Episode> episodes)");
         int selectorEnd = source.indexOf("private String getDanmakuEpisodeName()", selector);
@@ -1611,7 +1611,7 @@ public class VideoActivityLayoutTest {
                 source.contains("addOnGlobalFocusChangeListener")
                         && source.contains("mManualFocusRedirectPending"));
 
-        Path arrayAdapterPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "ArrayAdapter.java"));
+        Path arrayAdapterPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "ArrayAdapter.java"));
         String arrayAdapter = new String(Files.readAllBytes(arrayAdapterPath), StandardCharsets.UTF_8);
         Path segmentSelectorPath = findLeanbackResPath().resolve(Path.of("drawable", "selector_video_item.xml"));
         String segmentSelector = new String(Files.readAllBytes(segmentSelectorPath), StandardCharsets.UTF_8);
@@ -1631,7 +1631,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobilePlaybackPagesLargeEpisodeListsBeforeTmdbEpisodeMetadataArrives() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int adapter = source.indexOf("private void setEpisodeAdapter(List<Episode> items)");
         int end = source.indexOf("private boolean shouldUseUpstreamNativeEpisodeModule()", adapter);
@@ -1648,7 +1648,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileInitialFlagSelectionBuildsTheEpisodePageOnlyOnce() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int click = source.indexOf("public void onItemClick(Flag item)");
         int end = source.indexOf("public void onItemClick(Episode item)", click);
@@ -1664,7 +1664,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileEpisodeSwitchDoesNotResetLoadedTmdbDetailContent() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void getPlayer(Flag flag, Episode episode)");
         int end = source.indexOf("private void setPlayer(Result result)", method);
@@ -1677,7 +1677,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileDirectPlaybackUsesUpstreamNativeEpisodeModule() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int predicate = source.indexOf("private boolean shouldUseUpstreamNativeEpisodeModule()");
         int bind = source.indexOf("private void setUpstreamNativeEpisodeItems(List<Episode> items)");
@@ -1704,7 +1704,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileDirectPlaybackExposesUnifiedEpisodeToolbar() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int bind = source.indexOf("private void setUpstreamNativeEpisodeItems(List<Episode> items)");
         int setItems = source.indexOf("private void setEpisodeItems(List<Episode> items, boolean useTmdbCard)");
@@ -1729,7 +1729,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileNativeEnhancedEpisodeToolbarDoesNotWaitForTmdbCards() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int bind = source.indexOf("private void setEpisodeAdapter(List<Episode> items)");
         int setItems = source.indexOf("private void setEpisodeItems(List<Episode> items, boolean useTmdbCard)");
@@ -1753,7 +1753,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackDirectPlaybackUsesUpstreamNativeEpisodeModule() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int predicate = source.indexOf("private boolean shouldUseUpstreamNativeEpisodeModule()");
         int setEpisode = source.indexOf("private void setEpisodeAdapter(List<Episode> items, boolean scrollToCurrent)");
@@ -1786,7 +1786,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackNativeEpisodeGridRefreshesDecorationForCurrentSpanCount() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int viewport = source.indexOf("private void updateUpstreamNativeEpisodeGridViewport()");
         int nextMethod = source.indexOf("private int getUpstreamNativeEpisodeGridHeight", viewport);
@@ -1801,7 +1801,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackLeavingNativeEpisodeGridClearsNativeDecoration() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int clear = source.indexOf("private void clearEpisodeGridDecoration()");
         int normalViewport = source.indexOf("private void updateEpisodeGridViewport()");
@@ -1827,7 +1827,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackScrapedEpisodesRenderBeforeTmdbMetadataFinishes() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int setEpisode = source.indexOf("private void setEpisodeAdapter(List<Episode> items, boolean scrollToCurrent)");
         int nextMethod = source.indexOf("private void setUpstreamNativeEpisodeItems", setEpisode);
@@ -1868,7 +1868,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbCardUpgradeHasSingleRefreshPath() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int updateFlag = source.indexOf("private void updateFlag(Flag activated, List<Flag> items)");
         int nextMethod = source.indexOf("\n    private final PlaybackService.NavigationCallback", updateFlag);
@@ -1884,7 +1884,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbEpisodeLoadingTimesOutToNativeFallback() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int timeoutField = source.indexOf("private Runnable mTmdbEpisodeTimeout;");
         int fallbackField = source.indexOf("private boolean mTmdbEpisodeFallbackReleased;");
@@ -1917,7 +1917,7 @@ public class VideoActivityLayoutTest {
     }
     @Test
     public void vodEventPageSuffixStripPreservesLeadingSlashIds() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "VodEventGuard.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "VodEventGuard.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("static String stripPageSuffix(String id)");
         int nextMethod = source.indexOf("private VodEventGuard()", method);
@@ -1932,8 +1932,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackControllerUsesBoundSessionTokenAndSurvivesControllerSetupFailure() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
-        Path servicePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "service", "PlaybackService.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
+        Path servicePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "service", "PlaybackService.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         String service = new String(Files.readAllBytes(servicePath), StandardCharsets.UTF_8);
         String bind = methodBody(activity, "private void bindPlaybackService()", "private void bindPlaybackServiceAfterFirstFrame()");
@@ -1980,7 +1980,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackServiceRegistersDirectSessionForMediaNotificationLifecycle() throws Exception {
-        Path servicePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "service", "PlaybackService.java"));
+        Path servicePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "service", "PlaybackService.java"));
         String service = new String(Files.readAllBytes(servicePath), StandardCharsets.UTF_8);
         String onCreate = methodBody(service, "public void onCreate()", "private PendingIntent buildDefaultIntent()");
         int setupNotification = onCreate.indexOf("setupNotification();");
@@ -1993,7 +1993,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackControllerConnectionDoesNotReplayStaleState() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int handle = source.indexOf("private void handleControllerConnected()");
         int addListener = source.indexOf("mController.addListener(this);", handle);
@@ -2017,8 +2017,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackExitRejectsLateConnectionsAndClearsOnlyItsOwnNavigationCallback() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
-        Path servicePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "service", "PlaybackService.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
+        Path servicePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "service", "PlaybackService.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         String service = new String(Files.readAllBytes(servicePath), StandardCharsets.UTF_8);
         String bind = methodBody(activity, "private void bindPlaybackService()", "private void bindPlaybackServiceAfterFirstFrame()");
@@ -2048,7 +2048,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackActivityKeepsScreenOnFromPlaybackStateTransitions() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int sync = source.indexOf("private void syncKeepScreenOn()");
         int should = source.indexOf("private boolean shouldKeepScreenOn()", sync);
@@ -2088,18 +2088,18 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void playbackLoadingOnlyClearsFromReadyOrTmdbReady() throws Exception {
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         assertNoPrematurePlaybackReveal(mobilePath, mobile);
 
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         assertNoPrematurePlaybackReveal(leanbackPath, leanback);
     }
 
     @Test
     public void seekRequestsShowPlaybackLoadingOverlay() throws Exception {
-        Path playbackPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
+        Path playbackPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
         String playback = new String(Files.readAllBytes(playbackPath), StandardCharsets.UTF_8);
         int hook = playback.indexOf("protected void onSeekStarted()");
         int seekTo = playback.indexOf("protected void seekTo(long time)");
@@ -2110,7 +2110,7 @@ public class VideoActivityLayoutTest {
         int removeControllerListener = playback.indexOf("mController.removeListener(this);", clearSeekPlayer);
         int releaseFuture = playback.indexOf("MediaController.releaseFuture", clearSeekPlayer);
 
-        Path seekPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "CustomSeekView.java"));
+        Path seekPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomSeekView.java"));
         String seek = new String(Files.readAllBytes(seekPath), StandardCharsets.UTF_8);
         int listener = seek.indexOf("public interface SeekListener");
         int setListener = seek.indexOf("public void setSeekListener");
@@ -2121,12 +2121,12 @@ public class VideoActivityLayoutTest {
         int playerSeek = seek.indexOf("commandPlayer.seekTo(positionMs);", notify);
         int playerPlay = seek.indexOf("commandPlayer.play();", playerSeek);
 
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         int mobileOverride = mobile.indexOf("protected void onSeekStarted()");
         int mobileShow = mobile.indexOf("showProgress();", mobileOverride);
 
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         int leanbackOverride = leanback.indexOf("protected void onSeekStarted()");
         int leanbackShow = leanback.indexOf("showProgress();", leanbackOverride);
@@ -2146,18 +2146,18 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void seekLoadingHasReadyStateFallbackWhenPlaybackStateDoesNotChange() throws Exception {
-        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         assertSeekProgressFallback(mobilePath, mobile);
 
-        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         assertSeekProgressFallback(leanbackPath, leanback);
     }
 
     @Test
     public void mobileTmdbVodRefreshDoesNotClearVideoLoadingBeforePlaybackReady() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateVod(Vod item)");
         int loaded = source.indexOf("if (loaded) {", method);
@@ -2175,7 +2175,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileTmdbDetailLoadingHasTimeoutFallback() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int getDetail = source.indexOf("private void getDetail(boolean refresh)");
         int cancelStart = source.indexOf("cancelTmdbDetailFallback();", getDetail);
@@ -2199,7 +2199,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackEpisodeFocusOrderReachesTmdbRowsAfterEpisodes() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int order = source.indexOf("private List<Integer> getEpisodeFocusOrders()");
         int updateFocus = source.indexOf("private void updateFocus()", order);
@@ -2222,7 +2222,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbOmdbRatingChipsUseReadableDarkGlass() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private View createOmdbRatingChip(String platform, String value, String color)");
         int next = source.indexOf("private void setupBackdropSlideshow", method);
@@ -2239,7 +2239,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackEpisodeHeaderToolsTrapHorizontalDpadInsideToolPair() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean onEpisodeHeaderToolKey");
         int nextMethod = source.indexOf("private boolean isEpisodeListFocused()", method);
@@ -2261,7 +2261,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackHorizontalEpisodeRowExposesVerticalFocusFromEveryCard() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int top = source.indexOf("private boolean isTopEdge(int position)");
         int bottom = source.indexOf("private boolean isBottomEdge(int position)");
@@ -2279,7 +2279,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbDetailUsesChangeSourceActionOutsideDirectNative() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setOriginalEnhancedActionVisibility(boolean hide)");
         int event = source.indexOf("protected void initEvent()");
@@ -2309,7 +2309,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackGlobalSearchLongPressCarriesCurrentTitle() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void onGlobalSearch()");
         int methodEnd = source.indexOf("\n    }", method);
@@ -2341,7 +2341,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackOriginalEnhancedRevealsShellInsteadOfStackingASecondLoadingLayer() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void checkCast()");
         int end = source.indexOf("private void checkId()", method);
@@ -2367,7 +2367,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackShellRevealDoesNotStealFocusOnTheLaterTmdbReveal() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String body = methodBody(source, "private void revealTmdbDetail()", "private void applyTmdbDetailFields()");
         String shell = methodBody(source, "private void revealShellWhileTmdbLoads()", "private void finishTmdbDetail()");
@@ -2387,7 +2387,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileOriginalEnhancedRevealsShellWithoutASecondDetailSpinner() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String waitReveal = methodBody(source, "private boolean shouldWaitForTmdbDetailReveal()", "private boolean shouldRevealShellWhileLoading()");
         String shell = methodBody(source, "private boolean shouldRevealShellWhileLoading()", "private void showInitialPreview()");
@@ -2408,7 +2408,7 @@ public class VideoActivityLayoutTest {
         // 漏了 getDetail 这条常走的主路 —— 它无条件 showProgress()，把刚揭开的骨架又压回
         // INVISIBLE，于是原生增强进入播放页依旧是两层加载。这里把进入路径上每一处
         // 整页 showProgress() 都钉住，必须由 shouldRevealShellWhileLoading() 让路。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String cached = methodBody(source, "private boolean setCachedTmdbDetail()", "private void checkLand()");
         String detail = methodBody(source, "private void getDetail(boolean refresh)", "private void prefetchDirectTmdbDetail()");
@@ -2429,7 +2429,7 @@ public class VideoActivityLayoutTest {
         // 原生增强把 root/scroll/swipeLayout/progressLayout 全设成 TRANSPARENT 以便全屏 backdrop 透出，
         // 但 contextWall 初始是 gone、图还要等网络。root 若留透明，这段空窗期会露出
         // Material3 DynamicColors 的窗口底色(设备实测为紫色)。root 必须垫不透明底色。
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String base = methodBody(source, "private int enhancedBackdropBaseColor()", "private void applyOriginalEnhancedBackdropLayout()");
         String surface = methodBody(source, "private void applyFusionThemeSurface()", "private void applyContextWallScrimTheme()");
@@ -2469,7 +2469,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackAudioSurfaceDoesNotRestoreNativeTmdbMetadataOverSynopsis() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setVideoDetailsVisible(boolean visible)");
         int end = source.indexOf("private void updateAudioStageText()", method);
@@ -2495,7 +2495,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackDetailActionButtonsPreferSourceLineBeforeRecommendations() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setDetailButtonsNextFocus(int fallback)");
         int methodEnd = source.indexOf("\n    }", method);
@@ -2523,7 +2523,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbEpisodeDialogUsesFullscreenAdaptiveCards() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int init = source.indexOf("protected void initView()");
         int width = source.indexOf("private int getPanelWidth()");
@@ -2541,7 +2541,7 @@ public class VideoActivityLayoutTest {
                 source.indexOf("binding.getRoot().setBackgroundColor(0x80111820);", init) > init
                         && source.indexOf("binding.getRoot().setPadding(ResUtil.dp2px(24), ResUtil.dp2px(20), ResUtil.dp2px(24), ResUtil.dp2px(16));", init) > init);
 
-        Path activityPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path activityPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int span = activity.indexOf("private int getEpisodeGridSpanCount()");
         int setEpisode = activity.indexOf("private void setEpisodeAdapter(List<Episode> items, boolean scrollToCurrent)");
@@ -2559,11 +2559,11 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackEpisodeRangeButtonsApplyOnFocusAndHandleClick() throws Exception {
-        Path adapterPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "ArrayAdapter.java"));
+        Path adapterPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "ArrayAdapter.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
-        Path activityPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path activityPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
-        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String dialog = new String(Files.readAllBytes(dialogPath), StandardCharsets.UTF_8);
 
         int bind = adapter.indexOf("public void onBindViewHolder");
@@ -2624,7 +2624,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackEpisodeDialogUsesSourceDisplayMode() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void onEpisodes()");
         int nextMethod = source.indexOf("private void onRepeat()", method);
@@ -2638,7 +2638,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackEpisodeDialogFocusesCurrentEpisodeOnOpen() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int selected = source.indexOf("private void scrollToSelectedEpisode()");
         int selectedEnd = source.indexOf("private void scrollToSegment(int episodePosition)", selected);
@@ -2669,7 +2669,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackNativeEnhancedEpisodeGridExpandsWithDetailScroll() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateEpisodeGridViewport()");
         int apply = source.indexOf("private void applyEpisodeViewMode(boolean scrollToCurrent)");
@@ -2694,7 +2694,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbEpisodeCardsAvoidFocusJankHotspots() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int bind = source.indexOf("private void bindCardView(@NonNull ViewHolder holder, Episode item, int position)");
         int next = source.indexOf("private void applyCardSize(AdapterEpisodeCardBinding binding)", bind);
@@ -2710,7 +2710,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackLightweightEpisodeSelectorsKeepTitlesReadable() throws Exception {
-        Path adapterPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java"));
+        Path adapterPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
         int width = adapter.indexOf("private int getWidth()");
         int column = adapter.indexOf("public static int getColumn(List<Episode> items, int maxWidth)");
@@ -2736,7 +2736,7 @@ public class VideoActivityLayoutTest {
                         && adapter.indexOf("textView.setMaxLines(1);", text) > text
                         && adapter.indexOf("TextUtils.TruncateAt.MARQUEE", text) > text);
 
-        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String dialog = new String(Files.readAllBytes(dialogPath), StandardCharsets.UTF_8);
         int textColumn = dialog.indexOf("private int getTextColumn(List<Episode> episodes)");
         int setEpisodes = dialog.indexOf("private void setEpisodes(Flag flag)");
@@ -2758,7 +2758,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbEpisodeDialogAvoidsAlignedCardGridScrolling() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int recycler = source.indexOf("private void setRecyclerView()");
         int key = source.indexOf("private boolean onEpisodeKey(KeyEvent event)");
@@ -2772,7 +2772,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackEpisodeDialogFallsBackToLastCardOnPartialRow() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int key = source.indexOf("private boolean onEpisodeKey(KeyEvent event)");
         int lower = source.indexOf("private boolean focusLowerFromEpisode()");
@@ -2792,7 +2792,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackEpisodeKeyIgnoresMissingFocus() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean onEpisodeKey(KeyEvent event)");
         int directCrashPath = source.indexOf("findContainingViewHolder(getCurrentFocus())", method);
@@ -2809,7 +2809,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackPlaybackEpisodeGridAdvancesOneCardPerHeldRepeat() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean onEpisodeKey(KeyEvent event)");
         int methodEnd = source.indexOf("\n    private ", method + 1);
@@ -2843,7 +2843,7 @@ public class VideoActivityLayoutTest {
     public void leanbackEpisodeDialogLetsHeaderScrollWithEpisodes() throws Exception {
         Path layoutPath = findLeanbackResPath().resolve(Path.of("layout", "dialog_episode_list.xml"));
         String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);
-        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
+        Path dialogPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(dialogPath), StandardCharsets.UTF_8);
         int recycler = source.indexOf("private void setRecyclerView()");
         int setSegmentEpisodes = source.indexOf("private void setSegmentEpisodes(int position)");
@@ -2871,7 +2871,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackFullscreenExitRestoresEmbeddedVideoLayout() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int exit = source.indexOf("private void exitFullscreen()");
         int restore = source.indexOf("private void restoreEmbeddedVideoLayoutAfterFullscreen()");
@@ -2900,7 +2900,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileFullscreenExitRestoresEmbeddedVideoLayout() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int exit = source.indexOf("private void exitFullscreen()");
         int restore = source.indexOf("private void restoreEmbeddedVideoLayoutAfterFullscreen()");
@@ -2929,7 +2929,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void tmdbHeaderKeepsChangeSourceVisibleForEnhancedModes() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateOriginalEnhancedActionVisibility()");
 
@@ -2963,7 +2963,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void updateVodOnlyReplacesHistoryWhenKeyChangesAndAlwaysSyncsAfterReplace() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             int method = source.indexOf("private void updateVod(Vod item)");
             int end = source.indexOf("\n    private ", method + 1);
@@ -2983,7 +2983,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void manualTmdbMatchReloadsCrossSourceHistoryInBothNativePlayers() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             int method = source.indexOf("private void updateVod(Vod item)");
             int end = source.indexOf("\n    private ", method + 1);
@@ -3036,7 +3036,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileDirectTmdbPlaybackUsesCarriedSynopsisForUnmatchedFallback() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int carried = source.indexOf("intent.putExtra(\"tmdb_vod_content\", vod.getContent());");
         int getter = source.indexOf("private String getTmdbVodContent()");
@@ -3053,7 +3053,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoDirectTmdbCarriesDetailThemeIntoPlayback() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("direct TMDB playback must persist the selected detail theme in its intent",
@@ -3066,7 +3066,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoDirectTmdbRevealsDetailAfterHeaderBindWithoutClearingVideoProgress() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateVod(Vod item)");
         int bind = source.indexOf("mTmdbHeaderView.bind(mTmdbUIAdapter);", method);
@@ -3084,7 +3084,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void tmdbDetailThemeDefaultsToDarkWhenPreferenceIsAbsent() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String getter = methodBody(source, "public static int getTmdbDetailTheme()", "public static void putTmdbDetailTheme(int theme)");
 
@@ -3094,7 +3094,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoFusionThemeToggleActuallyChangesThemeMode() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("fusion theme button must switch light to dark and dark to light",
@@ -3105,9 +3105,9 @@ public class VideoActivityLayoutTest {
     public void tmdbHeaderThemeToggleIsHiddenUntilVideoActivityAllowsFusionThemeSwitching() throws Exception {
         Path layoutPath = findMainResPath().resolve(Path.of("layout", "view_tmdb_header.xml"));
         Element themeToggle = findAndroidId(layoutPath.toFile(), "tmdbThemeToggle");
-        Path headerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path headerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String headerSource = new String(Files.readAllBytes(headerPath), StandardCharsets.UTF_8);
-        Path videoPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path videoPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String videoSource = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
         int styleFusion = headerSource.indexOf("private void styleFusionActions()");
         int styleFusionEnd = headerSource.indexOf("private void clearFusionActionStyling()", styleFusion);
@@ -3124,7 +3124,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoFusionPlaybackControlsRefreshAfterBeingMoved() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void moveFlagAndEpisodeToTmdb()");
         int updateVisibility = source.indexOf("updateEpisodeGroupVisibility();", method);
@@ -3139,7 +3139,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoFusionUsesNativePlayerActionButtons() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int move = source.indexOf("private void moveFusionPlayerActionsToTmdb");
         int actionRoot = source.indexOf("mBinding.control.action.getRoot()", move);
@@ -3158,7 +3158,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoFusionPlaybackControlsRetintAfterHeaderBind() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int bind = source.indexOf("mTmdbHeaderView.bind(mTmdbUIAdapter);");
         int sourceStyle = source.indexOf("styleTmdbSourceInFlagTitle();", bind);
@@ -3200,7 +3200,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileVideoEpisodeViewportKeepsItsCapUnlessThePageOwnsTmdbEpisodeScroll() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateEpisodeViewportHeight()");
         int nextMethod = source.indexOf("private boolean usesOuterEpisodePageScroll()", method);
@@ -3230,7 +3230,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileOriginalEnhancedEpisodeViewportUsesOuterPageScrollWithoutHeightCap() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int outerScroll = source.indexOf("private boolean usesOuterEpisodePageScroll()");
         int outerScrollEnd = source.indexOf("private boolean isTmdbEpisodeCardMode()", outerScroll);
@@ -3245,7 +3245,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileBackdropTmdbEpisodeGridLetsTheOuterScrollContentGrowAfterReparenting() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int move = source.indexOf("private void moveFlagAndEpisodeToTmdb()");
         int restore = source.indexOf("private void restoreFlagAndEpisodeFromTmdb()");
@@ -3307,7 +3307,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileTmdbFallbackUsesAppWallpaperSurface() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int fallback = source.indexOf("private void showNativeDetailFallback(Vod item)");
         int surface = source.indexOf("private void applyNativeFallbackWallpaperSurface()");
@@ -3333,7 +3333,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileColorfulAndNativeStyledTmdbDetailUseDynamicBackdropSurface() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int predicate = source.indexOf("private boolean shouldUseTmdbBackdropSurface()");
         int setContextWall = source.indexOf("private void setContextWall(String url, boolean skipLock)");
@@ -3365,7 +3365,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void tmdbPlaybackBackdropSurfaceHidesTopPosterArtwork() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("public void hideNativeHeroBackdrop()");
 
@@ -3400,7 +3400,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbRecommendationPresenterReportsAlreadyFocusedAiCards() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "presenter", "TmdbRecommendationPresenter.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "presenter", "TmdbRecommendationPresenter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("AI recommendation reason must update when a rebound card is already focused",
@@ -3412,7 +3412,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void tmdbHeaderRefreshesThemeEvenWhenModeValueDidNotChange() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("public void setDetailThemeMode(int detailThemeMode)");
         int assign = source.indexOf("detailThemeModeOverride = normalized;", method);
@@ -3428,7 +3428,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void tmdbDetailThemeToggleRestylesExternalLinks() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int cycle = source.indexOf("private void cycleThemeMode()");
         int apply = source.indexOf("applyDetailTheme();", cycle);
@@ -3459,7 +3459,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileFusionBackdropFillsBehindTopChrome() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void applyFusionBackdropLayout()");
 
@@ -3478,8 +3478,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileHistoryEntryRespectsDetailModeAndPreservesExactPlaybackSelection() throws Exception {
-        Path historyPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java"));
-        Path videoPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path historyPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HistoryActivity.java"));
+        Path videoPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String history = new String(Files.readAllBytes(historyPath), StandardCharsets.UTF_8);
         String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
         String compactHistory = history.replaceAll("\\s+", " ");
@@ -3501,8 +3501,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackHistoryEntryRespectsDetailModeAndPreservesExactPlaybackSelection() throws Exception {
-        Path historyPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java"));
-        Path videoPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path historyPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HistoryActivity.java"));
+        Path videoPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String history = new String(Files.readAllBytes(historyPath), StandardCharsets.UTF_8);
         String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
         String compactHistory = history.replaceAll("\\s+", " ");
@@ -3525,7 +3525,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void bothPlaybackModesShareCanonicalEpisodeProgressWhenTmdbAggregationIsEnabled() throws Exception {
         for (Path root : List.of(findLeanbackJavaPath(), findMobileJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String selection = methodBody(source, "private void applyIntentPlaybackSelection(Vod item)", "private Flag findIntentPlaybackFlag");
             String update = methodBody(source, "private void updateHistory(Episode item)", "private void checkKeepImg()");
@@ -3564,7 +3564,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void mobileSaveHistoryKeepsRecordWithoutMergeDeletingSource() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void saveHistory(boolean exit)");
         int end = source.indexOf("private void syncHistory()", method);
@@ -3622,7 +3622,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void duplicateNamedFlagsPreferExactEpisodeUrlInBothPlayers() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String body = methodBody(source, "private Flag findIntentPlaybackFlag", "private Episode findIntentPlaybackEpisode");
 
@@ -3635,7 +3635,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void duplicateNamedFlagsUseIdentitySelectionInBothAdapters() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "FlagAdapter.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "FlagAdapter.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String index = methodBody(source, "public int indexOf(Flag", "public int getPosition()");
             String selected = methodBody(source, "public void setSelected(Flag", "public void toggle(Episode");
@@ -3649,7 +3649,7 @@ public class VideoActivityLayoutTest {
                     selected.contains("setSelected(item)") || selected.contains("setSelected(flag)"));
 
             if (root.equals(findLeanbackJavaPath())) {
-                Path videoPath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+                Path videoPath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
                 String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
                 String fastSelection = methodBody(video,
                         "private void selectFastTmdbPlaybackEpisode(Vod item, Flag selectedFlag, Episode selectedEpisode)",
@@ -3665,7 +3665,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void bothPlayersPersistStableFlagKeyWithHistory() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String body = methodBody(source, "private void setHistoryFlag", "private Episode getEpisode()");
 
@@ -3682,7 +3682,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void bothPlayersResolveHistoryToActualFlagBeforeLoadingEpisodes() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String resolve = methodBody(source, "private Flag resolveHistoryPlaybackFlag", "private Episode getEpisode()");
             String click = methodBody(source, "public void onItemClick(Flag item)", "@Override");
@@ -3700,7 +3700,7 @@ public class VideoActivityLayoutTest {
     @Test
     public void bothPlayersInitializeEpisodesAndPlaybackFromPreselectedCachedFlags() throws Exception {
         for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
-            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = root.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
             String click = methodBody(source, "public void onItemClick(Flag item)", "@Override");
 
@@ -3728,7 +3728,7 @@ public class VideoActivityLayoutTest {
     public void manualPlaybackModeMovesFocusToEpisodesAndShowsCover() throws Exception {
         // 关闭「点播自动播放」= 手动播放模式：进播放页焦点交给选集、预览位显示封面、
         // 点集直接全屏起播。这里把这三条契约钉在 leanback 源码上。
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("manual playback mode must be derived from the user VOD autoplay setting and stay TV-only",
@@ -3777,7 +3777,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void manualPlaybackCoverOnlyShowsWhileNothingIsLoaded() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String cover = methodBody(source, "private void updateVideoCover()", "private String videoCoverUrl()");
 
@@ -3974,7 +3974,7 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbPhotoViewerStartsAtClickedArtwork() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String photoClick = methodBody(source, "private void onTmdbPhotoClick(String url, int position)", "private void onTmdbPosterClick");
         String posterClick = methodBody(source, "private void onTmdbPosterClick(String url, int position)", "private void onTmdbRecommendationClick");
@@ -3987,8 +3987,8 @@ public class VideoActivityLayoutTest {
 
     @Test
     public void leanbackTmdbArtworkSeparatesPostersAndUsesResponsiveBackdropSlides() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        Path presenterPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "presenter", "TmdbPhotoPresenter.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        Path presenterPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "presenter", "TmdbPhotoPresenter.java"));
         Path layoutPath = findLeanbackResPath().resolve(Path.of("layout", "activity_video.xml"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String presenter = new String(Files.readAllBytes(presenterPath), StandardCharsets.UTF_8);
@@ -4119,7 +4119,7 @@ public class VideoActivityLayoutTest {
      */
     @Test
     public void mobileEpisodeListModeStaysHorizontalSingleRow() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         int method = source.indexOf("private void updateEpisodeLayout(List<Episode> items, boolean useTmdbCard)");
@@ -4143,7 +4143,7 @@ public class VideoActivityLayoutTest {
      */
     @Test
     public void mobileEpisodeHoriTextKeepsSymmetricHorizontalPadding() throws Exception {
-        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeHoriHolder.java"));
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeHoriHolder.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue(sourcePath + " must resolve a shared horizontal padding",

@@ -62,7 +62,7 @@ public class SubtitleProviderRegistryLazyInitTest {
     }
 
     private static String readSource() throws Exception {
-        Path moduleRelative = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "subtitle", "SubtitleMatchService.java");
+        Path moduleRelative = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "subtitle", "SubtitleMatchService.java");
         Path path = Files.exists(moduleRelative) ? moduleRelative : Path.of("app").resolve(moduleRelative);
         return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }

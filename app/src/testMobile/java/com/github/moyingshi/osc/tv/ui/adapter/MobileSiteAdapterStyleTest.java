@@ -14,8 +14,8 @@ public class MobileSiteAdapterStyleTest {
     @Test
     public void siteLabelsKeepSelectionDialogContrastAcrossModes() throws Exception {
         Path moduleRoot = findModuleRoot();
-        String adapter = read(moduleRoot.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "adapter", "SiteAdapter.java")));
-        String theme = read(moduleRoot.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "helper", "SiteDialogTheme.java")));
+        String adapter = read(moduleRoot.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "SiteAdapter.java")));
+        String theme = read(moduleRoot.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "helper", "SiteDialogTheme.java")));
 
         assertTrue("Site labels should stay fully opaque in block mode",
                 adapter.contains("holder.binding.text.setAlpha(1.0f);"));

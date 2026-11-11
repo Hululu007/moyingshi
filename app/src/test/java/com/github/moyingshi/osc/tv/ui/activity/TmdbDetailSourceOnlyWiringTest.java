@@ -13,8 +13,8 @@ public class TmdbDetailSourceOnlyWiringTest {
 
     @Test
     public void standaloneRoutesUseConfiguredModeInsteadOfKeyReadiness() throws Exception {
-        String mobile = read("mobile", Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        String leanback = read("leanback", Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String mobile = read("mobile", Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        String leanback = read("leanback", Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
 
         for (String source : new String[]{mobile, leanback}) {
             String method = source.substring(source.indexOf("private static boolean shouldOpenLegacyTmdbDetail"),
@@ -62,7 +62,7 @@ public class TmdbDetailSourceOnlyWiringTest {
         assertTrue(fallback.contains("finish();"));
 
         for (String flavor : new String[]{"mobile", "leanback"}) {
-            String source = read(flavor, Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            String source = read(flavor, Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String start = method(source, "public static void startDirectResolved", "public static void start(Activity activity, String url)");
             assertTrue(start.contains("EXTRA_DETAIL_RUNTIME_MODE, Setting.DETAIL_OPEN_DIRECT"));
             assertTrue(start.contains("putDetailVodCache(intent, vod);"));
@@ -72,7 +72,7 @@ public class TmdbDetailSourceOnlyWiringTest {
     }
 
     private static String readMainActivity() throws Exception {
-        return readMain(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        return readMain(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
     }
 
     private static String method(String source, String startMarker, String endMarker) {

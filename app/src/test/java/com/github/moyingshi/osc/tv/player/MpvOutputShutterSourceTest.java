@@ -103,8 +103,8 @@ public class MpvOutputShutterSourceTest {
 
     private static String readPlayerManager() throws IOException {
         Path root = Path.of("").toAbsolutePath();
-        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
-        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
+        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
+        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
         return Files.readString(source, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 

@@ -12,7 +12,7 @@ public class TmdbSourceDialogLayoutTest {
 
     @Test
     public void tmdbSourceDialogMatchesAiConfigTvChromeAndFocus() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_tmdb_source.xml")));
 
         assertTrue("TMDB source dialog should use the same light panel background as AI config",
@@ -36,10 +36,10 @@ public class TmdbSourceDialogLayoutTest {
 
     @Test
     public void tmdbSeasonChoiceIsSharedAcrossDetailAndPlaybackSurfaces() throws Exception {
-        String choiceDialog = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "ChoiceDialog.java")));
-        String detailActivity = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
-        String mobileActivity = read(findFlavorJavaPath("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String leanbackActivity = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String choiceDialog = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ChoiceDialog.java")));
+        String detailActivity = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String mobileActivity = read(findFlavorJavaPath("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanbackActivity = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
         String sharedHeader = read(findMainResPath().resolve(Path.of("layout", "view_tmdb_header.xml")));
         String detailLayout = read(findMainResPath().resolve(Path.of("layout", "activity_tmdb_detail.xml")));
         String mobileLayout = read(findFlavorResPath("mobile").resolve(Path.of("layout", "activity_video.xml")));
@@ -84,11 +84,11 @@ public class TmdbSourceDialogLayoutTest {
 
     @Test
     public void aiSeasonAnalysisUsesCancellableLoadingOnAllSurfaces() throws Exception {
-        String loadingDialog = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AiAnalysisDialog.java")));
-        String service = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "service", "AiEpisodeSeasonService.java")));
-        String detailActivity = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
-        String mobileActivity = read(findFlavorJavaPath("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String leanbackActivity = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String loadingDialog = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AiAnalysisDialog.java")));
+        String service = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "service", "AiEpisodeSeasonService.java")));
+        String detailActivity = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String mobileActivity = read(findFlavorJavaPath("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanbackActivity = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue("AI analysis must show indeterminate progress and allow back-button cancellation",
                 loadingDialog.contains("progress.setIndeterminate(true)")

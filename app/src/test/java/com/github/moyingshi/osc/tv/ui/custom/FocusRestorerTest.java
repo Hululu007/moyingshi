@@ -77,7 +77,7 @@ public class FocusRestorerTest {
     @Test
     public void restoreGuardsAgainstHiddenListsAndScrollsToUnlaidOutTargets() throws Exception {
         String source = read(findMainJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "custom", "FocusRestorer.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "custom", "FocusRestorer.java")));
         assertTrue("恢复焦点前必须确认列表可见，否则 requestFocus 会被 INVISIBLE 的祖先拒绝",
                 source.contains("!recycler.isShown()"));
         assertTrue("目标行未 layout 时必须先滚动，并再等一次 pre-draw 才能拿到 holder（post 会跑在 layout 之前）",
@@ -99,7 +99,7 @@ public class FocusRestorerTest {
     @Test
     public void leanbackHistoryPageRestoresFocusByItemIdentityAndCancelsOnExit() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HistoryActivity.java")));
         assertTrue("删除单条后必须按网格规则恢复焦点，而不是一维 clamp",
                 source.contains("FocusRestorer.nextPosition(target, mAdapter.getItemCount(), Product.getColumn())"));
         assertFalse("不能对网格下标做一维 clamp——列删空时会把焦点甩到上一行另一端",
@@ -123,7 +123,7 @@ public class FocusRestorerTest {
     @Test
     public void leanbackHistoryAdapterPassesTheBoundPositionOnDelete() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "adapter", "HistoryAdapter.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "HistoryAdapter.java")));
         assertTrue("删除回调必须带上 holder 的绑定下标",
                 source.contains("void onItemDelete(History item, int position);")
                         && source.contains("listener.onItemDelete(item, holder.getBindingAdapterPosition());"));

@@ -71,7 +71,7 @@ public class TmdbDetailActivityHantMatchTest {
     }
 
     private static String readMainActivity() throws Exception {
-        return readMain(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        return readMain(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
     }
 
     private static String method(String source, String startMarker, String endMarker) {

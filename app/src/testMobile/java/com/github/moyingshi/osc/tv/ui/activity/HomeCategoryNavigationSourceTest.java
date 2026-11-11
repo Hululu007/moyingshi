@@ -50,9 +50,9 @@ public class HomeCategoryNavigationSourceTest {
     @Test
     public void inlineCategoryEdgesAlwaysFocusAdjacentCategoryButton() throws Exception {
         String home = homeActivity();
-        String folder = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "FolderFragment.java"));
-        String type = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "TypeFragment.java"));
-        String row = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "custom", "CustomRowPresenter.java"));
+        String folder = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "FolderFragment.java"));
+        String type = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "TypeFragment.java"));
+        String row = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomRowPresenter.java"));
         String forwardEdge = method(folder, "public void onContentHorizontalEdge(int contentRow, boolean towardEnd)", "public boolean requestContentFocus()");
         String edge = method(home, "public void onCategoryContentHorizontalEdge(Class item, int contentRow, boolean towardEnd)", "private Class getAdjacentCategory(Class item, boolean towardEnd)");
         String adjacent = method(home, "private Class getAdjacentCategory(Class item, boolean towardEnd)", "private void showHomeContent()");
@@ -95,8 +95,8 @@ public class HomeCategoryNavigationSourceTest {
     @Test
     public void homeCategoryFocusCallbacksCarryGenerationAndCancelOnInvalidation() throws Exception {
         String home = homeActivity();
-        String folder = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "FolderFragment.java"));
-        String type = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "TypeFragment.java"));
+        String folder = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "FolderFragment.java"));
+        String type = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "TypeFragment.java"));
         String focus = method(home, "private void focusCategoryButton(Class item)", "private void invalidatePendingFocusRequests()");
         String invalidate = method(home, "private void invalidatePendingFocusRequests()", "private void showHomeContent()");
         String pause = method(home, "protected void onPause()", "protected void onBackInvoked()");
@@ -116,7 +116,7 @@ public class HomeCategoryNavigationSourceTest {
 
     @Test
     public void firstCategoryContentRowMovesUpToSelectedCategoryHeader() throws Exception {
-        String grid = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "custom", "CustomVerticalGridView.java"));
+        String grid = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomVerticalGridView.java"));
         String dispatch = method(grid, "public boolean dispatchKeyEvent(@NonNull KeyEvent event)", "private boolean focusHeader()");
         String focusHeader = method(grid, "private boolean focusHeader()", "public boolean moveToTop()");
 
@@ -129,7 +129,7 @@ public class HomeCategoryNavigationSourceTest {
     @Test
     public void quickOkAppliesFilterOnlyAfterTheFocusedCategoryBecomesCurrent() throws Exception {
         String source = homeActivity();
-        String folder = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "FolderFragment.java"));
+        String folder = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "FolderFragment.java"));
         String click = method(source, "public void onItemClick(Class item)", "public void onRefresh(Class item)");
         String showCategory = method(source, "private void showCategoryContent(Class item, boolean toggleFilter)", "private void restoreTypeFocus(boolean keepTypeFocus, Class item)");
         String updateFilter = method(source, "private void updateFilter(Class item)", "public void closeFilter()");
@@ -174,7 +174,7 @@ public class HomeCategoryNavigationSourceTest {
     @Test
     public void inlineCategoryPagesDoNotStealFocusFromTheTypeRow() throws Exception {
         String home = homeActivity();
-        String type = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "TypeFragment.java"));
+        String type = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "TypeFragment.java"));
         String showCategory = method(home, "private void showCategoryContent(Class item)", "private void restoreTypeFocus(boolean keepTypeFocus, Class item)");
         String restoreFocus = method(home, "private void restoreTypeFocus(boolean keepTypeFocus, Class item)", "private void syncCategorySite()");
         String clearCategory = method(home, "private void clearCategoryContent()", "private void updateToolbarVisibility(boolean visible)");
@@ -195,9 +195,9 @@ public class HomeCategoryNavigationSourceTest {
     @Test
     public void inlineCategoryPagingCollapsesTheVisibleHomeHeader() throws Exception {
         String home = homeActivity();
-        String folder = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "FolderFragment.java"));
-        String type = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "TypeFragment.java"));
-        String grid = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "custom", "CustomVerticalGridView.java"));
+        String folder = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "FolderFragment.java"));
+        String type = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "TypeFragment.java"));
+        String grid = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomVerticalGridView.java"));
         String headerChanged = method(home, "public void onScrollHeaderVisibilityChanged(boolean visible)", "private void openCategory(Class item)");
         String updateToolbar = method(home, "private void updateToolbarVisibility(boolean visible)", "private void syncNativeContentInset()");
         String folderHeaderChanged = method(folder, "public void onScrollHeaderVisibilityChanged(boolean visible)", "public boolean requestContentFocus()");
@@ -228,9 +228,9 @@ public class HomeCategoryNavigationSourceTest {
 
     @Test
     public void folderFragmentDependsOnAHostContractInsteadOfVodActivity() throws Exception {
-        String folder = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "FolderFragment.java"));
+        String folder = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "FolderFragment.java"));
         String home = homeActivity();
-        String vod = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VodActivity.java"));
+        String vod = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VodActivity.java"));
 
         assertTrue("folder fragment must define the minimal filter-host contract", folder.contains("public interface FilterHost"));
         assertTrue("folder fragment must resolve the host by capability", folder.contains("instanceof FilterHost"));
@@ -276,7 +276,7 @@ public class HomeCategoryNavigationSourceTest {
     }
 
     private static String homeActivity() throws Exception {
-        return read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java"));
+        return read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java"));
     }
 
     private static String method(String source, String start, String end) {

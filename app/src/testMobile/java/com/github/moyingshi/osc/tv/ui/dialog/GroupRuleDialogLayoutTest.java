@@ -12,7 +12,7 @@ public class GroupRuleDialogLayoutTest {
 
     @Test
     public void groupRuleDialogMatchesAiConfigTvChromeAndFocus() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "GroupRuleDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "GroupRuleDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_group_rule_edit.xml")));
         String previewLayout = read(findMainResPath().resolve(Path.of("layout", "dialog_ai_group_rule_preview.xml")));
 

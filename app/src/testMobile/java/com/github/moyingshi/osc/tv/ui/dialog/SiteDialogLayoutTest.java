@@ -68,7 +68,7 @@ public class SiteDialogLayoutTest {
     }
 
     private static String readLeanbackJava(String fileName) throws Exception {
-        return read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", fileName)));
+        return read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", fileName)));
     }
 
     /**

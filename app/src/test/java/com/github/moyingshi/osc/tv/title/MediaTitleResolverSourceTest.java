@@ -12,7 +12,7 @@ public class MediaTitleResolverSourceTest {
 
     @Test
     public void resolverSkipsTmdbCacheWhenItConflictsWithRuleTitle() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "title", "MediaTitleResolver.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "title", "MediaTitleResolver.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int apply = source.indexOf("private void applyTmdbCache");
         int compatible = source.indexOf("private boolean isTmdbCacheCompatible");

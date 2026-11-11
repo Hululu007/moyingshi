@@ -69,7 +69,7 @@ public class SubtitleManualSearchDialogTest {
     }
 
     private static String readManualSearchDialogSource() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "SubtitleManualSearchDialog.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "SubtitleManualSearchDialog.java"));
         return new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
     }
 

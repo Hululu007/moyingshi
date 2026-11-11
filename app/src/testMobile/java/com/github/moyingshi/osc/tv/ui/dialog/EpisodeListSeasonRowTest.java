@@ -18,7 +18,7 @@ public class EpisodeListSeasonRowTest {
     @Test
     public void seasonRowIsWiredIntoBothFocusMechanisms() throws IOException {
         String dialog = read(findLeanbackJavaPath().resolve(
-                Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java")));
+                Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java")));
 
         assertTrue("季度行必须有独立的按键处理，否则上下键会被吞掉",
                 dialog.contains("private boolean onSeasonKey(KeyEvent event)")
@@ -41,7 +41,7 @@ public class EpisodeListSeasonRowTest {
     @Test
     public void seasonRowReusesSegmentLabelsAndGlobalEpisodeNumbers() throws IOException {
         String dialog = read(findLeanbackJavaPath().resolve(
-                Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java")));
+                Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java")));
 
         assertTrue("分段标签必须加季偏移，与详情页的全局集号一致",
                 dialog.contains("int offset = seasonOffset();")
@@ -71,7 +71,7 @@ public class EpisodeListSeasonRowTest {
     @Test
     public void mobileSeasonOffsetLabelsRespectReverseOrder() throws IOException {
         String dialog = read(findMobileJavaPath().resolve(
-                Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java")));
+                Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java")));
 
         assertTrue("季偏移标签必须按 reverse 分别换算，且需要 size 参与倒序计算",
                 dialog.contains("int labelStart = offset + (reverse ? size - group.start : group.start + 1);")
@@ -87,9 +87,9 @@ public class EpisodeListSeasonRowTest {
     @Test
     public void fallbackToFullListAlsoClearsSelectedSeason() throws IOException {
         String mobile = read(findMobileJavaPath().resolve(
-                Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java")));
+                Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java")));
         String leanback = read(findLeanbackJavaPath().resolve(
-                Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java")));
+                Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeListDialog.java")));
 
         for (String source : new String[]{mobile, leanback}) {
             assertTrue("回退完整列表时必须重置选中季，避免偏移与内容错位",

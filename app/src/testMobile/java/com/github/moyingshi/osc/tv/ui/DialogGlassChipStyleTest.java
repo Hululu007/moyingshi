@@ -313,7 +313,7 @@ public class DialogGlassChipStyleTest {
 
     @Test
     public void trackAdapterUsesActivatedStateForPersistentSelection() throws Exception {
-        String adapter = read(findAppPath().resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "adapter", "TrackAdapter.java")));
+        String adapter = read(findAppPath().resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TrackAdapter.java")));
 
         assertTrue("track selection must use activated state so focus cannot erase the selected text color",
                 adapter.contains("holder.binding.text.setActivated(item.isSelected());"));

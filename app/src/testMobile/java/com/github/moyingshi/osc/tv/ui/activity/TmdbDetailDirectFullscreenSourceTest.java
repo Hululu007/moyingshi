@@ -36,7 +36,7 @@ public class TmdbDetailDirectFullscreenSourceTest {
     }
 
     private static String source() throws Exception {
-        Path path = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        Path path = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         if (!Files.isRegularFile(path)) path = Path.of("app").resolve(path);
         return Files.readString(path, StandardCharsets.UTF_8);
     }

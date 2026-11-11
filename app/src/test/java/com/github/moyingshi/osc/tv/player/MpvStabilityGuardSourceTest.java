@@ -89,21 +89,21 @@ public class MpvStabilityGuardSourceTest {
     }
     private static String readMpvPlayerEngine() throws IOException {
         Path root = Path.of("").toAbsolutePath();
-        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "player", "engine", "MpvPlayerEngine.java"));
-        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "player", "engine", "MpvPlayerEngine.java"));
+        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "engine", "MpvPlayerEngine.java"));
+        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "engine", "MpvPlayerEngine.java"));
         return Files.readString(source, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
     private static String readMpvPerformanceSetting() throws IOException {
         Path root = Path.of("").toAbsolutePath();
-        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "setting", "MpvPerformanceSetting.java"));
-        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "setting", "MpvPerformanceSetting.java"));
+        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "MpvPerformanceSetting.java"));
+        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "MpvPerformanceSetting.java"));
         return Files.readString(source, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 
     private static String readPlayerManager() throws IOException {
         Path root = Path.of("").toAbsolutePath();
-        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
-        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
+        Path source = root.resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
+        if (!Files.exists(source)) source = root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
         return Files.readString(source, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 

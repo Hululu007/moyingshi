@@ -12,7 +12,7 @@ public class RecommendationFeedbackManagementLayoutTest {
 
     @Test
     public void aiSettingsExposeFeedbackManagementAndCount() throws Exception {
-        String activity = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingAiActivity.java")));
+        String activity = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingAiActivity.java")));
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "activity_setting_ai.xml")));
 
         assertTrue(layout.contains("@+id/recommendationFeedback")
@@ -25,8 +25,8 @@ public class RecommendationFeedbackManagementLayoutTest {
 
     @Test
     public void managementDialogSupportsRemoteRestoreClearAndClose() throws Exception {
-        String dialog = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "RecommendationFeedbackDialog.java")));
-        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "RecommendationFeedbackAdapter.java")));
+        String dialog = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "RecommendationFeedbackDialog.java")));
+        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "RecommendationFeedbackAdapter.java")));
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "dialog_recommendation_feedback.xml")));
         String item = read(findLeanbackResPath().resolve(Path.of("layout", "adapter_recommendation_feedback.xml")));
 
@@ -46,9 +46,9 @@ public class RecommendationFeedbackManagementLayoutTest {
 
     @Test
     public void mobileAiSettingsExposeFeedbackManagementAndDialog() throws Exception {
-        String fragment = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SettingAiFragment.java")));
+        String fragment = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingAiFragment.java")));
         String layout = read(findMobileResPath().resolve(Path.of("layout", "fragment_setting_ai.xml")));
-        String dialog = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "RecommendationFeedbackDialog.java")));
+        String dialog = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "RecommendationFeedbackDialog.java")));
         String dialogLayout = read(findMobileResPath().resolve(Path.of("layout", "dialog_recommendation_feedback.xml")));
         String item = read(findMobileResPath().resolve(Path.of("layout", "adapter_recommendation_feedback.xml")));
 

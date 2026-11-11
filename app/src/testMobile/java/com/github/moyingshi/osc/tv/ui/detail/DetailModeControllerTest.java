@@ -27,7 +27,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void fusionDetailController_hasCorrectVisibilityLogic() throws Exception {
-        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "FusionDetailController.java"));
+        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "FusionDetailController.java"));
         String source = new String(Files.readAllBytes(controllerPath), StandardCharsets.UTF_8);
 
         // 沉浸融合模式应显示 playerPanel 和 fusionActions，隐藏 heroSpacer 和 detailActions
@@ -43,7 +43,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void enhancedDetailController_hasCorrectVisibilityLogic() throws Exception {
-        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "EnhancedDetailController.java"));
+        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "EnhancedDetailController.java"));
         String source = new String(Files.readAllBytes(controllerPath), StandardCharsets.UTF_8);
 
         // 炫彩详情模式应隐藏 playerPanel 和 fusionActions，显示 heroSpacer 和 detailActions
@@ -59,9 +59,9 @@ public class DetailModeControllerTest {
 
     @Test
     public void enhancedDetailController_keepsThemeControlOfCinemaPresentation() throws Exception {
-        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "EnhancedDetailController.java"));
-        Path hostPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "DetailModeHost.java"));
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "EnhancedDetailController.java"));
+        Path hostPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "DetailModeHost.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String controller = new String(Files.readAllBytes(controllerPath), StandardCharsets.UTF_8);
         String host = new String(Files.readAllBytes(hostPath), StandardCharsets.UTF_8);
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
@@ -78,7 +78,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailController_hasCorrectVisibilityLogic() throws Exception {
-        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "PlayerDetailController.java"));
+        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "PlayerDetailController.java"));
         String source = new String(Files.readAllBytes(controllerPath), StandardCharsets.UTF_8);
 
         // 详情直放模式应隐藏 playerPanel 和 fusionActions，显示 heroSpacer 和 detailActions（与炫彩相同）
@@ -94,7 +94,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailController_bindsPlaybackServiceWithoutAutoPlay() throws Exception {
-        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "PlayerDetailController.java"));
+        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "PlayerDetailController.java"));
         String source = Files.readString(controllerPath, StandardCharsets.UTF_8);
 
         assertTrue("detail direct-play must bind PlaybackService before the explicit play click",
@@ -107,7 +107,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailController_followsSelectedCinemaTheme() throws Exception {
-        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "detail", "PlayerDetailController.java"));
+        Path controllerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "PlayerDetailController.java"));
         String source = new String(Files.readAllBytes(controllerPath), StandardCharsets.UTF_8);
 
         // 详情直放模式与炫彩详情一样，必须跟随设置选中的光影剧幕主题，而不是固定满透流彩
@@ -119,7 +119,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void tmdbDetailActivity_delegatesToModeController() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         // Activity 应创建三种 Controller 并调用它们的 applyInitialLayout
@@ -153,7 +153,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void modeController_isInitializedBeforeModeDependentViewSetup() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(activityPath, StandardCharsets.UTF_8);
         String initViewBody = methodBody(source, "protected void initView(Bundle savedInstanceState)");
 
@@ -167,7 +167,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailMode_keepsFullscreenInlinePlayback() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(activityPath, StandardCharsets.UTF_8);
         String onPlayBody = methodBody(source, "private void onPlay()");
         String detailModeBody = methodBody(source, "private int getDetailMode()");
@@ -184,7 +184,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailMode_entersFullscreenBeforeStartingPlayback() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(activityPath, StandardCharsets.UTF_8);
         String playBody = methodBody(source, "private void playDetailFullscreen()");
 
@@ -199,7 +199,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailMode_reusesCurrentPlaybackWithoutReloading() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(activityPath, StandardCharsets.UTF_8);
         String playBody = methodBody(source, "private void playDetailFullscreen()");
         String inlineBody = methodBody(source, "private void playInline(long resumePosition, String failedUrl, String failureMessage)");
@@ -214,7 +214,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playerDetailMode_waitsForExplicitPlaybackAction() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(activityPath, StandardCharsets.UTF_8);
         String autoPlayBody = methodBody(source, "private void maybeAutoPlayInline()");
 
@@ -228,7 +228,7 @@ public class DetailModeControllerTest {
 
     @Test
     public void playbackHistoryPublishing_isDelegatedToModeController() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(activityPath, StandardCharsets.UTF_8);
         String body = methodBody(source, "private void updateInlineHistory(Episode item)");
 

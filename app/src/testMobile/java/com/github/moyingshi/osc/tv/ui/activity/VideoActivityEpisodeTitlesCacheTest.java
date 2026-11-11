@@ -70,7 +70,7 @@ public class VideoActivityEpisodeTitlesCacheTest {
     }
 
     private static String readSource() throws Exception {
-        Path moduleRelative = Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path moduleRelative = Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         Path path = Files.exists(moduleRelative) ? moduleRelative : Path.of("app").resolve(moduleRelative);
         return Files.readString(path, StandardCharsets.UTF_8).replace("\r\n", "\n");
     }

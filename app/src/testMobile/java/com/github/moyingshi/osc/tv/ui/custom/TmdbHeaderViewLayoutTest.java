@@ -12,7 +12,7 @@ public class TmdbHeaderViewLayoutTest {
 
     @Test
     public void headerShowsSmartRecommendationReasonOnCardFocus() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("Smart recommendation row must listen for focus changes",
@@ -40,7 +40,7 @@ public class TmdbHeaderViewLayoutTest {
 
     @Test
     public void recommendationAdapterDispatchesFocusForAlreadyFocusedCards() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbRecommendationAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbRecommendationAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
 
         assertTrue("Recommendation adapter must dispatch focus when a focused card is rebound",
@@ -49,7 +49,7 @@ public class TmdbHeaderViewLayoutTest {
 
     @Test
     public void fusionPlaybackControlsRethemeMovedTextAndIcons() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int refreshMethod = source.indexOf("public void refreshTheme()");
         int tintMethod = source.indexOf("private void tintTree(View view, int color)");
@@ -74,7 +74,7 @@ public class TmdbHeaderViewLayoutTest {
 
     @Test
     public void cinemaLightPlaybackActionsUseReadableLightPalette() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int tintMethod = source.indexOf("private void tintAction(int id, int style)");
         int lightCinemaBranch = source.indexOf("if (cinema && resolveLightTheme())", tintMethod);
@@ -95,7 +95,7 @@ public class TmdbHeaderViewLayoutTest {
 
     @Test
     public void ratingChipsUseReadableLightAndBackdropSurfaces() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int applyTheme = source.indexOf("private void applyTheme()");
         int createRating = source.indexOf("private com.google.android.material.textview.MaterialTextView createRatingChip");

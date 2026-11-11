@@ -14,7 +14,7 @@ public class SettingPlaybackOverlayTest {
     @Test
     public void playbackOverlayDefaultsOnAndPersistsChanges() throws Exception {
         Path root = moduleRoot();
-        String settingSource = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "setting", "Setting.java")));
+        String settingSource = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
 
         assertTrue(settingSource.contains("Prefers.getBoolean(\"playback_overlay_enabled\", true)"));
         assertTrue(settingSource.contains("Prefers.put(\"playback_overlay_enabled\", enabled)"));
@@ -24,9 +24,9 @@ public class SettingPlaybackOverlayTest {
     public void mobileSettingsAndPlayersSharePlaybackOverlayPreference() throws Exception {
         Path root = moduleRoot();
         String personalLayout = read(root.resolve(Path.of("src", "mobile", "res", "layout", "fragment_setting_personal.xml")));
-        String personalSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingPersonalFragment.java")));
-        String videoSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String liveSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
+        String personalSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPersonalFragment.java")));
+        String videoSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String liveSource = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java")));
 
         assertTrue(personalLayout.contains("@+id/playbackOverlay"));
         assertTrue(personalLayout.contains("@string/setting_playback_overlay"));
@@ -45,9 +45,9 @@ public class SettingPlaybackOverlayTest {
     public void leanbackSettingsAndPlayersSharePlaybackOverlayPreference() throws Exception {
         Path root = moduleRoot();
         String personalLayout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "activity_setting_personal.xml")));
-        String personalSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingPersonalActivity.java")));
-        String videoSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String liveSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
+        String personalSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPersonalActivity.java")));
+        String videoSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String liveSource = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java")));
 
         assertTrue(personalLayout.contains("@+id/playbackOverlay"));
         assertTrue(personalLayout.contains("@string/setting_playback_overlay"));

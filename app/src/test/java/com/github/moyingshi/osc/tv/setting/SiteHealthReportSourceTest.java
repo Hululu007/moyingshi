@@ -14,11 +14,11 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void siteHealthStoreExposesFourStageReportWithoutChangingSortScore() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "SiteHealthStore.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "SiteHealthStore.java")));
 
         assertTrue(source.contains("public static void recordHome"));
         assertTrue(source.contains("public static void recordCategory"));
-        String api = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "api", "SiteApi.java")));
+        String api = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "api", "SiteApi.java")));
         assertTrue(api.contains("SiteHealthStore.recordHome(site, true"));
         assertTrue(api.contains("SiteHealthStore.recordHome(site, false"));
         assertTrue(api.contains("SiteHealthStore.recordCategory(key, true"));
@@ -48,7 +48,7 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void playerManagerRecordsParseHealthForSuccessAndFailure() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java")));
 
         assertTrue(source.contains("import com.github.moyingshi.osc.tv.setting.SiteHealthStore;"));
         assertTrue(source.contains("private long parseHealthStartedAt;"));
@@ -60,8 +60,8 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void siteHealthDialogProvidesReportEntry() throws Exception {
-        String dialogSource = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "SiteHealthDialog.java")));
-        String reportSource = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
+        String dialogSource = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "SiteHealthDialog.java")));
+        String reportSource = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
         String dialogLayout = read(mainResPath().resolve(Path.of("layout", "dialog_site_health.xml")));
         String reportLayout = read(mainResPath().resolve(Path.of("layout", "dialog_site_health_report.xml")));
         String strings = read(mainResPath().resolve(Path.of("values", "strings.xml")));
@@ -82,7 +82,7 @@ public class SiteHealthReportSourceTest {
         assertTrue(reportSource.contains("SiteHealthStore.clear(row.siteKey)"));
         assertTrue(reportSource.contains("confirmClearAll()"));
         assertTrue(reportSource.contains("SiteHealthStore.clear()"));
-        String m3u8Source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "server", "process", "M3u8.java")));
+        String m3u8Source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "server", "process", "M3u8.java")));
         String mpvProxySource = read(mainJavaPath().resolve(Path.of("androidx", "media3", "mpvplayer", "MpvHlsProxy.java")));
         assertTrue(m3u8Source.contains("AdBlockStatsStore.recordBlocks("));
         assertTrue(m3u8Source.contains("clean.ruleCounts()"));
@@ -91,7 +91,7 @@ public class SiteHealthReportSourceTest {
         assertTrue(mpvProxySource.contains("HlsAdblockNotice.shouldNotify("));
         assertTrue(mpvProxySource.contains("Notify.show("));
         assertTrue(m3u8Source.contains("Notify.show("));
-        String statsStoreSource = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "api", "config", "AdBlockStatsStore.java")));
+        String statsStoreSource = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "api", "config", "AdBlockStatsStore.java")));
         assertTrue(statsStoreSource.contains("HlsRuleConfig.getEntries()"));
         assertTrue(statsStoreSource.contains("hls.legacy-fallback"));
         assertTrue(statsStoreSource.contains("内置兜底规则"));
@@ -135,7 +135,7 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void healthReportUsesAdStatsStyleNearFullScreenSizing() throws Exception {
-        String dialog = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
+        String dialog = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
 
         assertTrue(dialog.contains("int margin = ResUtil.dp2px(ResUtil.isLand(requireContext()) ? 24 : 16);"));
         // The window is sized from the system-bar-safe area, not from the raw display: sizing from
@@ -150,8 +150,8 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void healthReportExposesSiteRuleAndPipelineAdDimensions() throws Exception {
-        String store = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "SiteHealthStore.java")));
-        String dialog = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
+        String store = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "SiteHealthStore.java")));
+        String dialog = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
 
         assertTrue(store.contains("public final Map<String, Long> adBlockedBySite;"));
         assertTrue(store.contains("public final Map<String, Long> adBlockedByRule;"));
@@ -165,7 +165,7 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void playbackActivityBridgesExoFirstFrameToGenericFirstFrameHook() throws Exception {
-        String playback = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java")));
+        String playback = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java")));
         String exoFirstFrame = methodBody(playback, "public void onExoFirstFrame()");
 
         assertTrue(exoFirstFrame.contains("PlaybackActivity.this.onExoFirstFrame()"));
@@ -174,8 +174,8 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void playbackHealthCountsSuccessOnlyAfterFirstFrame() throws Exception {
-        String leanback = read(sourcePath("leanback", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(sourcePath("mobile", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(sourcePath("leanback", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(sourcePath("mobile", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         for (String source : new String[] {leanback, mobile}) {
             String firstFrame = methodBody(source, "protected void onFirstFrameRendered()");
@@ -187,8 +187,8 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void playbackHealthRecordsTerminalErrorsAndReloadFailures() throws Exception {
-        String leanback = read(sourcePath("leanback", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(sourcePath("mobile", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(sourcePath("leanback", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(sourcePath("mobile", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         for (String source : new String[] {leanback, mobile}) {
             String error = methodBody(source, "protected void onError(String msg)");
@@ -200,7 +200,7 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void terminalPlayerFailureReachesHostAfterFallbacksAreExhausted() throws Exception {
-        String player = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java")));
+        String player = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java")));
         String onPlayerError = methodBody(player, "public void onPlayerError(@NonNull PlaybackException e)");
 
         int fallback = onPlayerError.indexOf("if (fallbackPlayback(e)) return;");
@@ -211,10 +211,10 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void playbackAttemptsUseIndependentCounterForAdBlockRatio() throws Exception {
-        String store = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "SiteHealthStore.java")));
-        String dialog = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
-        String leanback = read(sourcePath("leanback", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(sourcePath("mobile", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String store = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "SiteHealthStore.java")));
+        String dialog = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "SiteHealthReportDialog.java")));
+        String leanback = read(sourcePath("leanback", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(sourcePath("mobile", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue(store.contains("public static void recordPlayAttempt(String key)"));
         assertTrue(store.contains("public final int playAttempts"));
@@ -228,7 +228,7 @@ public class SiteHealthReportSourceTest {
 
     @Test
     public void tmdbDetailInlinePlaybackRecordsAttemptsAndTerminalHealth() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
         String start = methodBody(source, "private void startInlinePlayer(Result result, long resumePosition)");
         String firstFrame = methodBody(source, "protected void onFirstFrameRendered()");
         String error = methodBody(source, "protected void onError(String msg)");

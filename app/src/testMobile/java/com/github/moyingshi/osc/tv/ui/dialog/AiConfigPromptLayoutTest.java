@@ -12,7 +12,7 @@ public class AiConfigPromptLayoutTest {
 
     @Test
     public void promptEditorIncludesGroupRulePromptWithResetAndFocusWiring() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AiConfigDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AiConfigDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_ai_prompt_config.xml")));
 
         assertTrue(layout.contains("@+id/groupRulePrompt"));

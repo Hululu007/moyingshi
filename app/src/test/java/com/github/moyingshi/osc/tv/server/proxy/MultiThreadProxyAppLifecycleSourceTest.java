@@ -12,7 +12,7 @@ public class MultiThreadProxyAppLifecycleSourceTest {
 
     @Test
     public void appStartsAndStopsProcessProxyWithBackgroundServices() throws Exception {
-        String app = read("main", "java", "com", "fongmi", "android", "tv", "App.java");
+        String app = read("main", "java", "com", "github", "moyingshi", "osc", "tv", "App.java");
 
         assertTrue(app.contains("MultiThreadProxy.applyStored()"));
         assertTrue(app.contains("MultiThreadProxy.stop()"));

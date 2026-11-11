@@ -13,8 +13,8 @@ public class AppCacheStorageTest {
 
     @Test
     public void tmdbMatchAndTitleLearningUseClearableAppCache() throws Exception {
-        String setting = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java")));
-        String learning = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "title", "MediaTitleLearningStore.java")));
+        String setting = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
+        String learning = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "title", "MediaTitleLearningStore.java")));
 
         assertTrue(setting.contains("AppCache.get(AppCache.KEY_TMDB_MATCH)"));
         assertTrue(setting.contains("AppCache.put(AppCache.KEY_TMDB_MATCH"));
@@ -32,8 +32,8 @@ public class AppCacheStorageTest {
 
     @Test
     public void exposedCacheApisUseAppCacheFiles() throws Exception {
-        String bridge = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "web", "HomeWebBridge.java")));
-        String process = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "server", "process", "Cache.java")));
+        String bridge = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "web", "HomeWebBridge.java")));
+        String process = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "server", "process", "Cache.java")));
 
         assertTrue(bridge.contains("case \"cache.get\" -> quote(AppCache.get(cacheKey(payload)))"));
         assertTrue(bridge.contains("AppCache.put(cacheKey(payload), Json.safeString(payload, \"value\"))"));
@@ -52,8 +52,8 @@ public class AppCacheStorageTest {
 
     @Test
     public void clearCacheRemovesLegacyPreferenceCacheKeys() throws Exception {
-        String fileUtil = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "utils", "FileUtil.java")));
-        String appCache = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "utils", "AppCache.java")));
+        String fileUtil = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "utils", "FileUtil.java")));
+        String appCache = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "utils", "AppCache.java")));
 
         assertTrue(fileUtil.contains("Path.clear(Path.cache())"));
         assertTrue(fileUtil.contains("AppCache.clearLegacyPreferences()"));
@@ -65,7 +65,7 @@ public class AppCacheStorageTest {
 
     @Test
     public void backupDoesNotTreatCacheAsSettings() throws Exception {
-        String backup = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "Backup.java")));
+        String backup = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "bean", "Backup.java")));
 
         assertFalse(backup.contains("\"tmdb_match_cache\""));
         assertFalse(backup.contains("\"tmdb_season_match_cache\""));

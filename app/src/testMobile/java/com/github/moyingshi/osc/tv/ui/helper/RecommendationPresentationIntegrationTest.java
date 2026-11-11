@@ -12,9 +12,9 @@ public class RecommendationPresentationIntegrationTest {
 
     @Test
     public void guessYouLikeRowsRenderBeforeAsynchronousDoubanRatingEnrichment() throws Exception {
-        String adapter = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java")));
-        String detail = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
-        String service = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "service", "PersonalRecommendationService.java")));
+        String adapter = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java")));
+        String detail = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String service = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "service", "PersonalRecommendationService.java")));
 
         assertTrue("Initial and paged shared recommendations should enrich ratings without delaying first display",
                 occurrences(adapter, "enrichTmdbRatingsAsync(") >= 2);
@@ -29,8 +29,8 @@ public class RecommendationPresentationIntegrationTest {
 
     @Test
     public void cachedAiRowsReceiveTheSameAsynchronousDoubanEnrichmentAfterFirstDisplay() throws Exception {
-        String adapter = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java")));
-        String detail = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String adapter = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java")));
+        String detail = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         assertTrue("Shared AI recommendation pages should update cached source ratings asynchronously",
                 adapter.contains("service.enrichTmdbPageRatingsAsync(")
@@ -42,9 +42,9 @@ public class RecommendationPresentationIntegrationTest {
 
     @Test
     public void everyRecommendationCardKeepsTmdbAndDoubanSlotsAligned() throws Exception {
-        String recommendation = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbRecommendationAdapter.java")));
-        String rail = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbRailAdapter.java")));
-        String presenter = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "presenter", "TmdbRecommendationPresenter.java")));
+        String recommendation = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbRecommendationAdapter.java")));
+        String rail = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbRailAdapter.java")));
+        String presenter = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "presenter", "TmdbRecommendationPresenter.java")));
 
         assertTrue(recommendation.contains("TmdbRatingFormatter.completeRatings(item)"));
         assertTrue(rail.contains("TmdbRatingFormatter.completeRatings(item"));
@@ -53,9 +53,9 @@ public class RecommendationPresentationIntegrationTest {
 
     @Test
     public void guessYouLikeRowsExposeLongPressDetailsAndImmediateRemovalEverywhere() throws Exception {
-        String leanback = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String sharedHeader = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java")));
-        String standaloneDetail = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String leanback = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String sharedHeader = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java")));
+        String standaloneDetail = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         assertTrue("Leanback 猜你喜欢 cards should open the shared detail dialog on long press",
                 leanback.contains("row == RecommendationRow.RECOMMENDATIONS")
@@ -74,9 +74,9 @@ public class RecommendationPresentationIntegrationTest {
 
     @Test
     public void everyRecommendationCardTriesTheOppositeImageOrientationBeforeTextPlaceholder() throws Exception {
-        String recommendation = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbRecommendationAdapter.java")));
-        String rail = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbRailAdapter.java")));
-        String presenter = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "presenter", "TmdbRecommendationPresenter.java")));
+        String recommendation = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbRecommendationAdapter.java")));
+        String rail = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbRailAdapter.java")));
+        String presenter = read(findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "presenter", "TmdbRecommendationPresenter.java")));
 
         assertTrue(recommendation.contains("TmdbImageSelector.cardImage(item, cinema)")
                 && recommendation.contains("TmdbImageSelector.cardImage(item, !cinema)"));

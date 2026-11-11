@@ -49,8 +49,8 @@ public class EpisodeAdapterTest {
 
     @Test
     public void mobileEpisodeCardsAndNativeFallbackBindFileSizeBadges() throws Exception {
-        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeGridHolder.java")));
-        String horiHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeHoriHolder.java")));
+        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeGridHolder.java")));
+        String horiHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeHoriHolder.java")));
         String gridLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_episode_grid.xml")));
         String horiLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_episode_hori.xml")));
 
@@ -75,7 +75,7 @@ public class EpisodeAdapterTest {
     @Test
     public void mobileNativeEpisodeGridPreservesUpstreamTextWidth() throws Exception {
         String gridLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_episode_grid.xml")));
-        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeGridHolder.java")));
+        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeGridHolder.java")));
         Element root = parseLayout(gridLayout);
 
         assertTrue("native episode rows must not inherit the TMDB card margin",
@@ -89,7 +89,7 @@ public class EpisodeAdapterTest {
 
     @Test
     public void leanbackEpisodeCardsAndNativeFallbackBindFileSizeBadges() throws Exception {
-        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "adapter_episode_card.xml")));
         String nativeLayout = read(findLeanbackResPath().resolve(Path.of("layout", "adapter_episode.xml")));
 
@@ -114,7 +114,7 @@ public class EpisodeAdapterTest {
 
     @Test
     public void leanbackEpisodeGridKeepsOneUniformViewTypePerMode() throws Exception {
-        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String adapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
 
         assertTrue("TV episode view type must depend only on the card mode, never on per-episode TMDB data;"
                         + " EpisodeListDialog sizes rows from a single mode-wide height, so mixing card and text"
@@ -142,7 +142,7 @@ public class EpisodeAdapterTest {
     @Test
     public void detailEpisodeNamesAndLabelsMarqueeWhenActive() throws Exception {
         String detailLayout = read(findMainResPath().resolve(Path.of("layout", "adapter_tmdb_episode.xml")));
-        String detailAdapter = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java")));
+        String detailAdapter = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java")));
         assertMarquee("detail episode name", detailLayout, "@+id/index");
         assertConstrainedMarquee("detail episode date", detailLayout, "@+id/date");
         assertConstrainedMarquee("detail episode badge", detailLayout, "@+id/badge");
@@ -157,9 +157,9 @@ public class EpisodeAdapterTest {
     @Test
     public void mobileOriginalEnhancedFallbackShowsTwoLineNativeTitlesWithoutChangingDirectMode() throws Exception {
         String gridLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_episode_grid.xml")));
-        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
-        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeGridHolder.java")));
-        String activity = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeGridHolder.java")));
+        String activity = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
         Element text = findById(parseLayout(gridLayout), "@+id/text");
 
         assertEquals("40dp", androidAttribute(text, "layout_height"));
@@ -216,8 +216,8 @@ public class EpisodeAdapterTest {
     public void mobilePlaybackEpisodeNamesAndLabelsMarqueeWhenActive() throws Exception {
         String mobileGridLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_episode_grid.xml")));
         String mobileHoriLayout = read(findMobileResPath().resolve(Path.of("layout", "adapter_episode_hori.xml")));
-        String mobileGridHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeGridHolder.java")));
-        String mobileHoriHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeHoriHolder.java")));
+        String mobileGridHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeGridHolder.java")));
+        String mobileHoriHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeHoriHolder.java")));
         assertMarquee("mobile grid episode name", mobileGridLayout, "@+id/cardTitle");
         assertConstrainedMarquee("mobile grid episode meta", mobileGridLayout, "@+id/meta");
         assertConstrainedMarquee("mobile grid episode file size", mobileGridLayout, "@+id/fileSize");
@@ -244,7 +244,7 @@ public class EpisodeAdapterTest {
     public void tvPlaybackEpisodeNamesAndLabelsMarqueeWhenActive() throws Exception {
         String leanbackTextLayout = read(findLeanbackResPath().resolve(Path.of("layout", "adapter_episode.xml")));
         String leanbackCardLayout = read(findLeanbackResPath().resolve(Path.of("layout", "adapter_episode_card.xml")));
-        String leanbackAdapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String leanbackAdapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
         assertMarquee("TV episode text", leanbackTextLayout, "@+id/text");
         assertMarquee("TV episode name", leanbackCardLayout, "@+id/cardTitle");
         assertConstrainedMarquee("TV episode date", leanbackCardLayout, "@+id/dateBadge");
@@ -262,7 +262,7 @@ public class EpisodeAdapterTest {
         assertConstrainedMarquee("mobile TMDB source label", read(findMobileResPath().resolve(Path.of("layout", "adapter_flag_tmdb.xml"))), "@+id/text");
         assertConstrainedMarquee("TV source label", read(findLeanbackResPath().resolve(Path.of("layout", "adapter_flag.xml"))), "@+id/text");
 
-        String detailActivity = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String detailActivity = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
         assertTrue("programmatic detail labels must be width-constrained marquees",
                 detailActivity.contains("button.setMaxWidth(ResUtil.dp2px(CHIP_MAX_WIDTH_DP));")
                         && detailActivity.contains("button.setEllipsize(TextUtils.TruncateAt.MARQUEE);")
@@ -275,8 +275,8 @@ public class EpisodeAdapterTest {
 
     @Test
     public void mobilePlaybackCompactsEpisodeTitlesOffMainThread() throws Exception {
-        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
-        String activity = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String activity = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
         int spanStart = activity.indexOf("private int getEpisodeSpan(List<Episode> items, boolean useTmdbCard)");
         int spanEnd = activity.indexOf("private List<Episode> getEpisodeDisplayItems", spanStart);
 
@@ -294,7 +294,7 @@ public class EpisodeAdapterTest {
 
     @Test
     public void mobilePlaybackCoalescesIdenticalTitleRequests() throws Exception {
-        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
         int requestStart = adapter.indexOf("private void requestTitleCompaction");
         int finishStart = adapter.indexOf("private void finishTitleCompaction", requestStart);
         String request = adapter.substring(requestStart, finishStart);
@@ -306,7 +306,7 @@ public class EpisodeAdapterTest {
 
     @Test
     public void mobilePlaybackRefreshesTmdbMetadataWithoutRecompactingTitles() throws Exception {
-        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java")));
+        String adapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java")));
         int refresh = adapter.indexOf("public void refreshMetadata(List<Episode> items)");
         int next = adapter.indexOf("private void requestTitleCompaction", refresh);
         String body = refresh >= 0 && next > refresh ? adapter.substring(refresh, next) : "";
@@ -325,11 +325,11 @@ public class EpisodeAdapterTest {
     @Test
     public void mobileEpisodeDetailPhotosOpenOnFirstTapAcrossEpisodeModes() throws Exception {
         String photoLayout = read(findMainResPath().resolve(Path.of("layout", "adapter_tmdb_photo.xml")));
-        String stillAdapter = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeStillAdapter.java")));
-        String detailDialog = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
-        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeGridHolder.java")));
-        String horiHolder = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "holder", "EpisodeHoriHolder.java")));
-        String tvAdapter = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "EpisodePhotoAdapter.java")));
+        String stillAdapter = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeStillAdapter.java")));
+        String detailDialog = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+        String gridHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeGridHolder.java")));
+        String horiHolder = read(findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "holder", "EpisodeHoriHolder.java")));
+        String tvAdapter = read(findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodePhotoAdapter.java")));
 
         assertTrue("shared photo cards may remain touch-focusable for TV navigation",
                 photoLayout.contains("android:focusable=\"true\"")

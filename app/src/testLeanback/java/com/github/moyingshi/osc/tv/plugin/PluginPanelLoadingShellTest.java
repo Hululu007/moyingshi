@@ -326,8 +326,7 @@ public class PluginPanelLoadingShellTest {
 
     private static String dialogSource() throws Exception {
         Path root = Files.exists(Path.of("src", "main")) ? Path.of("") : Path.of("app");
-        return Files.readString(root.resolve(Path.of("", "src", "main", "java", "com", "fongmi", "android",
-                "tv", "ui", "dialog", "PluginPanelDialog.java")), StandardCharsets.UTF_8);
+        return Files.readString(root.resolve(Path.of("", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PluginPanelDialog.java")), StandardCharsets.UTF_8);
     }
 
     private static String body(String source, String signature) {

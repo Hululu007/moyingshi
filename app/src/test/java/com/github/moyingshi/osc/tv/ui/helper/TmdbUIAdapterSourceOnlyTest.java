@@ -66,7 +66,7 @@ public class TmdbUIAdapterSourceOnlyTest {
     }
 
     private static String readAdapter() throws Exception {
-        return Files.readString(root().resolve(Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java")), StandardCharsets.UTF_8);
+        return Files.readString(root().resolve(Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java")), StandardCharsets.UTF_8);
     }
 
     private static String method(String source, String startMarker, String endMarker) {

@@ -61,7 +61,7 @@ public class VideoActivitySeekProgressSourceTest {
     }
 
     private static String readActivity() throws Exception {
-        Path path = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path path = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (!Files.isRegularFile(path)) path = Path.of("app").resolve(path);
         return Files.readString(path, StandardCharsets.UTF_8);
     }

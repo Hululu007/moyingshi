@@ -14,7 +14,7 @@ public class TmdbSourceDialogInflationContractTest {
     @Test
     public void materialButtonLabelsAreAppliedAfterInflation() throws Exception {
         String layout = read(sourcePath().resolve(Path.of("..", "..", "main", "res", "layout", "dialog_tmdb_source.xml")));
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
 
         assertFalse("TMDB dialog buttons must not resolve text from binary XML on API 25",
                 buttonBlock(layout, "add").contains("android:text=")
@@ -30,7 +30,7 @@ public class TmdbSourceDialogInflationContractTest {
     @Test
     public void apiAndImageRoutesUseSeparateDropdownInputs() throws Exception {
         String layout = read(sourcePath().resolve(Path.of("..", "..", "main", "res", "layout", "dialog_tmdb_source.xml")));
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
         assertTrue(layout.contains("@+id/apiHostInput"));
         assertTrue(layout.contains("@+id/imageHostInput"));
         assertTrue(layout.contains("MaterialAutoCompleteTextView"));
@@ -64,7 +64,7 @@ public class TmdbSourceDialogInflationContractTest {
     @Test
     public void routeDropdownsSupportCustomOption() throws Exception {
         String layout = read(sourcePath().resolve(Path.of("..", "..", "main", "res", "layout", "dialog_tmdb_source.xml")));
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbSourceDialog.java")));
         assertTrue(layout.contains("@+id/apiCustomInput"));
         assertTrue(layout.contains("@+id/imageCustomInput"));
         assertTrue(source.contains("private String[] withCustomLabel(String[] labels)"));

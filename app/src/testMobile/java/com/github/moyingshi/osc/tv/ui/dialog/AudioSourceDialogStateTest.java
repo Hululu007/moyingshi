@@ -13,7 +13,7 @@ public class AudioSourceDialogStateTest {
 
     @Test
     public void deletingEveryRuleKeepsTheExplicitEmptySelection() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AudioSourceDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AudioSourceDialog.java")));
 
         assertTrue("Unconfigured audio settings should materialize the built-in defaults into the editable list",
                 source.contains("config.isConfigured() ? config.getEnabledSites() : defaultRules()"));
@@ -25,7 +25,7 @@ public class AudioSourceDialogStateTest {
 
     @Test
     public void resetButtonExplicitlyRestoresBuiltInDefaults() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AudioSourceDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AudioSourceDialog.java")));
 
         assertTrue("Reset should repopulate the editable list instead of using empty as a default sentinel",
                 source.contains("tempEnabledRules.addAll(defaultRules())"));
@@ -33,7 +33,7 @@ public class AudioSourceDialogStateTest {
 
     @Test
     public void playbackStyleSelectorDefaultsToImmersiveAndSavesWithAudioRules() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AudioSourceDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AudioSourceDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_audio_source.xml")));
 
         assertTrue("Audio source dialog must expose the playback style group",

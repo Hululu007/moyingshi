@@ -28,28 +28,28 @@ public class VideoAspectUiSourceTest {
 
     @Test
     public void playbackEntryPointsUseSharedSingleChoicePicker() throws Exception {
-        String playback = read(source("main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
+        String playback = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
         assertTrue(playback.contains("VideoAspectModeDialog.show("));
         assertFalse(playback.contains("selectResizeMode("));
 
-        assertPickerEntry(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"));
-        assertPickerEntry(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"));
-        assertDisplayedModeLookup(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"));
-        assertDisplayedModeLookup(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"));
-        assertPickerEntry(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "LiveControlDialog.java"));
+        assertPickerEntry(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
+        assertPickerEntry(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
+        assertDisplayedModeLookup(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
+        assertDisplayedModeLookup(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
+        assertPickerEntry(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "LiveControlDialog.java"));
     }
 
     @Test
     public void playerSettingsUseSharedSingleChoicePicker() throws Exception {
-        String mobile = read(source("mobile", "java", "com", "fongmi", "android", "tv", "ui", "fragment", "SettingPlayerFragment.java"));
-        String leanback = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingPlayerActivity.java"));
+        String mobile = read(source("mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPlayerFragment.java"));
+        String leanback = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPlayerActivity.java"));
         assertTrue(mobile.contains("VideoAspectModeDialog.show("));
         assertTrue(leanback.contains("VideoAspectModeDialog.show("));
     }
 
     @Test
     public void customRatioDialogDefinesTvFocusNavigation() throws Exception {
-        String dialog = read(source("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "VideoAspectRatioDialog.java"));
+        String dialog = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "VideoAspectRatioDialog.java"));
         assertTrue(dialog.contains("setNextFocusRightId"));
         assertTrue(dialog.contains("setNextFocusDownId"));
         assertTrue(dialog.contains("KeyEvent.KEYCODE_DPAD_DOWN"));
@@ -60,7 +60,7 @@ public class VideoAspectUiSourceTest {
 
     @Test
     public void choiceDialogAdaptsHeightForMobileAndKeepsSequentialDpadFocus() throws Exception {
-        String dialog = read(source("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ChoiceDialog.java"));
+        String dialog = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ChoiceDialog.java"));
         int adaptation = dialog.indexOf("adaptListHeight(window);");
         int leanbackFocus = dialog.indexOf("if (Util.isLeanback())");
         assertTrue("choice list height must adapt inside the post-layout callback", dialog.contains("window.getDecorView().post(() -> {"));
@@ -90,7 +90,7 @@ public class VideoAspectUiSourceTest {
 
     @Test
     public void playbackAndMpvApplyNativeAspectPolicy() throws Exception {
-        String playback = read(source("main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java"));
+        String playback = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java"));
         assertTrue(playback.contains("VideoAspectMode.resolve("));
         assertTrue(playback.contains("player().setVideoAspect("));
 
@@ -101,7 +101,7 @@ public class VideoAspectUiSourceTest {
 
     @Test
     public void backupIncludesCustomAspectPreferences() throws Exception {
-        String backup = read(source("main", "java", "com", "fongmi", "android", "tv", "bean", "Backup.java"));
+        String backup = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "bean", "Backup.java"));
         assertTrue(backup.contains("\"custom_aspect_width\""));
         assertTrue(backup.contains("\"custom_aspect_height\""));
     }

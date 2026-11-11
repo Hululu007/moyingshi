@@ -13,7 +13,7 @@ public class UpdateChannelTest {
 
     @Test
     public void updaterShortCircuitsOnStaticChannelManifestBeforeGithubApi() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "Updater.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "Updater.java")));
         String method = between(source, "private Update getUpdate", "private Update getGithubStableUpdate");
 
         int channelAsset = method.indexOf("Github.getChannelAsset");
@@ -27,7 +27,7 @@ public class UpdateChannelTest {
 
     @Test
     public void betaKeepsCnbManifestAsMigrationFallbackBeforeGithubApi() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "Updater.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "Updater.java")));
         String method = between(source, "private Update getUpdate", "private Update getGithubStableUpdate");
 
         int cnbFallback = method.indexOf("Github.getCnbMirrorAsset");

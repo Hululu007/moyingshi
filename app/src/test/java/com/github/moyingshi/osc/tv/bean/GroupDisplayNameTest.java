@@ -121,8 +121,8 @@ public class GroupDisplayNameTest {
         // 浏览树的 id 必须用身份名（要能长期持久化、并和 Live.keep 写的那一套对齐），
         // 标题必须用展示名，否则 Group.trans() 改为只写 displayName 后，繁体界面下的
         // 直播分组名会回退成未翻译的原文（可见回退）。
-        java.nio.file.Path moduleRelative = java.nio.file.Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "browse", "LiveBrowse.java");
-        java.nio.file.Path path = java.nio.file.Files.exists(moduleRelative) ? moduleRelative : java.nio.file.Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "browse", "LiveBrowse.java");
+        java.nio.file.Path moduleRelative = java.nio.file.Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "browse", "LiveBrowse.java");
+        java.nio.file.Path path = java.nio.file.Files.exists(moduleRelative) ? moduleRelative : java.nio.file.Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "browse", "LiveBrowse.java");
         String source = new String(java.nio.file.Files.readAllBytes(path), java.nio.charset.StandardCharsets.UTF_8);
 
         assertTrue("浏览树 id 必须继续用身份名 group.getName()",

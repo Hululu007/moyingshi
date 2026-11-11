@@ -74,7 +74,7 @@ public class EpisodeCardImagePolicyTest {
     }
 
     private static String readActivity(Path javaRoot, String fileName) throws IOException {
-        Path path = javaRoot.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", fileName));
+        Path path = javaRoot.resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", fileName));
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 

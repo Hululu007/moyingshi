@@ -23,7 +23,7 @@ public class CustomWallViewSourceTest {
 
     private static String readMainSource(String file) throws Exception {
         Path app = Files.exists(Path.of("src", "main")) ? Path.of(".") : Path.of("app");
-        Path path = app.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", file));
+        Path path = app.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", file));
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 }

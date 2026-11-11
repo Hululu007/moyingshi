@@ -13,8 +13,8 @@ public class TmdbVideoPopupWiringTest {
 
     @Test
     public void playbackActivitySupportsOverlayPlaybackWithoutTransientLifecycle() throws Exception {
-        String playback = read("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java");
-        String policy = read("src", "main", "java", "com", "fongmi", "android", "tv", "player", "PlaybackServiceReleasePolicy.java");
+        String playback = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java");
+        String policy = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlaybackServiceReleasePolicy.java");
 
         assertTrue(playback.contains("public final boolean pauseForOverlayPlayback()"));
         assertTrue(playback.contains("public final void resumeAfterOverlayPlayback(boolean shouldResume)"));
@@ -38,14 +38,14 @@ public class TmdbVideoPopupWiringTest {
     public void obsoleteTransientActivityChainIsRemoved() throws Exception {
         String mobileManifest = read("src", "mobile", "AndroidManifest.xml");
         String leanbackManifest = read("src", "leanback", "AndroidManifest.xml");
-        String mobile = read("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String leanback = read("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String viewModel = read("src", "main", "java", "com", "fongmi", "android", "tv", "model", "SiteViewModel.java");
+        String mobile = read("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = read("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String viewModel = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "model", "SiteViewModel.java");
 
-        assertFalse(exists("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TransientVideoActivity.java"));
-        assertFalse(exists("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TransientVideoActivity.java"));
-        assertFalse(exists("src", "main", "java", "com", "fongmi", "android", "tv", "player", "TransientPlaybackCoordinator.java"));
-        assertFalse(exists("src", "main", "java", "com", "fongmi", "android", "tv", "player", "TransientPlaybackSnapshot.java"));
+        assertFalse(exists("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TransientVideoActivity.java"));
+        assertFalse(exists("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TransientVideoActivity.java"));
+        assertFalse(exists("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "TransientPlaybackCoordinator.java"));
+        assertFalse(exists("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "TransientPlaybackSnapshot.java"));
         assertFalse(mobileManifest.contains("TransientVideoActivity"));
         assertFalse(leanbackManifest.contains("TransientVideoActivity"));
         assertFalse(mobile.contains("createTransientIntent"));
@@ -57,12 +57,12 @@ public class TmdbVideoPopupWiringTest {
 
     @Test
     public void relatedVideoUsesIsolatedWindowedPopupAndRestoresHostPlayback() throws Exception {
-        String helper = read("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "helper", "TmdbVideoPlayback.java");
-        assertTrue(exists("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "TmdbVideoPlayerDialog.java"));
+        String helper = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbVideoPlayback.java");
+        assertTrue(exists("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbVideoPlayerDialog.java"));
         assertTrue(exists("src", "main", "res", "layout", "dialog_tmdb_video_player.xml"));
-        String dialog = read("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "TmdbVideoPlayerDialog.java");
+        String dialog = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbVideoPlayerDialog.java");
         String layout = read("src", "main", "res", "layout", "dialog_tmdb_video_player.xml");
-        String siteApi = read("src", "main", "java", "com", "fongmi", "android", "tv", "api", "SiteApi.java");
+        String siteApi = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "api", "SiteApi.java");
 
         assertTrue(helper.contains("if (!(activity instanceof FragmentActivity)) return false;"));
         assertTrue(helper.contains("TmdbVideoPlayerDialog.show((FragmentActivity) activity, launch)"));
@@ -117,7 +117,7 @@ public class TmdbVideoPopupWiringTest {
         String leanback = read("src", "leanback", "res", "layout", "activity_video.xml");
         assertOrder(leanback, "android:id=\"@+id/tmdbPhotos\"", "android:id=\"@+id/tmdbRelatedVideosLabel\"", "android:id=\"@+id/tmdbRelatedVideos\"", "android:id=\"@+id/tmdbCrewLabel\"", "android:id=\"@+id/tmdbRecommendationsLabel\"");
 
-        String leanbackActivity = read("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String leanbackActivity = read("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         assertOrderAfter(leanbackActivity, "private void bindTmdbData()", "java.util.List<String> photos", "java.util.List<TmdbVideo> relatedVideos", "java.util.List<com.github.moyingshi.osc.tv.bean.TmdbPerson> creators", "java.util.List<com.github.moyingshi.osc.tv.bean.TmdbItem> recommendations");
         String bindTmdbData = methodBody(leanbackActivity, "private void bindTmdbData()");
         assertOrder(bindTmdbData, "lastVisibleGrid = mBinding.tmdbPhotos", "lastVisibleGrid = mBinding.tmdbRelatedVideos", "lastVisibleGrid = mBinding.tmdbCrew", "lastVisibleGrid = mBinding.tmdbRecommendations");

@@ -237,7 +237,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbDetailPlaybackHistoryUsesSourceAwareTitle() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int method = source.indexOf("private String playbackHistoryName()");
         int end = source.indexOf("private String matchedTmdbTitle()", method);
@@ -304,7 +304,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void episodeMetadataBindingIndexesTmdbEpisodesOnce() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean applyEpisodeTitles(Vod vod, TmdbItem item, int selectedSeason, int generation, int metadataGeneration)");
         int end = source.indexOf("static boolean shouldUseEpisodePosition", method);
@@ -358,7 +358,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void autoMatchSkipsCachedSplitSeasonVariantBeforeSearching() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int cacheHit = source.indexOf("auto match cache hit");
         int skipCheck = source.indexOf("isCachedSplitSeasonMismatch(videoName, vod, matched)", cacheHit);
@@ -372,7 +372,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void autoMatchTriesCleanedTitleCandidatesBeforeAiFallback() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int helper = source.indexOf("private TmdbItem searchResolvedMatch(String videoName, Vod vod, String searchKeyword)");
         int originalSearch = source.indexOf("tmdbMatcher.searchAndMatch(title, vod)", helper);
@@ -388,7 +388,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void autoMatchUsesSearchKeywordAfterCardNameBeforeCleaningAndAi() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int helper = source.indexOf("private TmdbItem searchResolvedMatch(String videoName, Vod vod, String searchKeyword)");
         int cardName = source.indexOf("for (String title : resolution.queryTitles())", helper);
@@ -410,7 +410,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void autoMatchDoesNotInvokeAiBeforeSearchKeywordAndCleaningStages() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int helper = source.indexOf("private TmdbItem searchResolvedMatch(String videoName, Vod vod, String searchKeyword)");
         int initialRequest = source.indexOf("buildTitleRequest(videoName, vod, searchKeyword, false)", helper);
@@ -430,7 +430,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void autoMatchExceptionsAlwaysReleaseEpisodePlaceholder() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("public void autoMatch(String videoName, Vod vod)");
         int task = source.indexOf("backgroundTasks.submit(() -> {", method);
@@ -447,7 +447,7 @@ public class TmdbUIAdapterTest {
     }
     @Test
     public void loadDetailNormalizesCachedOrPassedTitleFromTmdbDetail() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void loadDetailSync");
         int detail = source.indexOf("tmdbService.detail(item, tmdbConfig, false)", method);
@@ -464,7 +464,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void directTmdbLoadConsumesMemoryDetailCacheBeforeServiceRequest() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int load = source.indexOf("public void load(TmdbItem item, Vod vod)");
         int call = source.indexOf("TmdbDetailCache.Entry cached = takeTmdbDetailCache(item);", load);
@@ -482,7 +482,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbRefreshEventsAlignIdentityLessCachedVodToCurrentPlayback() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int helper = source.indexOf("private Vod alignCachedVodIdentity(Vod vod)");
         int identity = source.indexOf("VodEventGuard.alignCachedIdentity", helper);
@@ -495,7 +495,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbVodRefreshesAreCoalescedAndStartupWorkIsDeferred() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int constants = source.indexOf("VOD_REFRESH_COALESCE_MS");
         int backgroundDelay = source.indexOf("TMDB_STARTUP_BACKGROUND_DELAY_MS", constants);
@@ -553,7 +553,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void episodeLoadsUseTheirOwnWidePoolAndCacheIsScopedToOneDetailRequest() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         // recommendationExecutor 只有 3 条线程，推荐 / 个性化 / AI 推荐都在里面。选集不再延迟后
         // 若继续共用会排在推荐后面，反而更慢，所以必须走 largeExecutor。
@@ -589,7 +589,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void episodeMetadataCompletionIsTrackedSeparatelyFromCoreDetail() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int field = source.indexOf("private volatile boolean episodeMetadataLoaded;");
         int getter = source.indexOf("public boolean isEpisodeMetadataLoaded()");
@@ -623,7 +623,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackDirectTmdbPlaybackStartsBeforeFullCachedDetailBind() throws Exception {
-        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean setCachedTmdbDetail()");
         int fastBranch = source.indexOf("if (tryStartFastTmdbPlayback(cached))", method);
@@ -680,8 +680,8 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackDirectTmdbPlaybackReusesCachedDetailForMetadataBind() throws Exception {
-        Path videoPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path videoPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
         int setDetail = video.indexOf("private void setDetail(Vod item)");
@@ -709,7 +709,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackDirectTmdbPlaybackKeepsDetailPageTextStableDuringTmdbBind() throws Exception {
-        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int apply = source.indexOf("private void applyTmdbDetailFields()");
         int applyEnd = source.indexOf("private void updateTmdbOverviewButton()", apply);
@@ -739,7 +739,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackDirectTmdbPlaybackHydratesSynopsisWithoutFullDetailBind() throws Exception {
-        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int startPending = source.indexOf("private void startPendingFastTmdbPlayback()");
         int prepareItem = source.indexOf("prepareFastTmdbPlaybackItem(item);", startPending);
@@ -788,7 +788,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackVideoActivityReusesBackdropSlideshowForSamePhotos() throws Exception {
-        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int field = source.indexOf("private String mBackdropSignature");
         int method = source.indexOf("private void setupBackdropSlideshow");
@@ -805,7 +805,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackVideoActivityDefersInitialTmdbBindUntilContentReveal() throws Exception {
-        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int revealDelay = source.indexOf("TMDB_BIND_AFTER_REVEAL_DELAY_MS");
         int pending = source.indexOf("private final Runnable mPendingTmdbBind");
@@ -848,7 +848,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbDetailActivityPassesMemoryDetailCacheKeyToDirectPlayback() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void playDefaultPlayback()");
         // The cache key carries the request language, so match the call prefix and
@@ -869,7 +869,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbDetailActivityProfilesStandaloneSinglePassLoading() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int loadContent = source.indexOf("private void loadContent(@Nullable TmdbBundle reusableBundle)");
         int loadStart = source.indexOf("load start mode=%d", loadContent);
@@ -899,7 +899,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbDetailActivityIgnoresPlaybackCallbacksOutsideInlineMode() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int playing = source.indexOf("protected void onPlayingChanged(boolean isPlaying)");
         int playingGuard = source.indexOf("if (!isInlinePlayerMode() || !inlineStarted || !isOwner()) return;", playing);
@@ -917,7 +917,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbDetailActivityRefreshesCurrentEpisodeForSelectedPlayerKernel() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int switchMethod = source.indexOf("private void switchInlinePlayer(int playerType)");
         int refreshCall = source.indexOf("refreshAndSwitchInlinePlayer(playerType)", switchMethod);
@@ -963,7 +963,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbDetailActivityGatesInlineSystemPipUpdatesOnMobileCapability() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int canUse = source.indexOf("private boolean canUseInlineSystemPiP()");
         int mobileGate = source.indexOf("return Util.isMobile() && !PiP.noPiP();", canUse);
@@ -993,7 +993,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbAdapterConsumesPrefetchWithoutTemporaryVod() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int prefetchMethod = source.indexOf("public void prefetch(TmdbItem item)");
         int prefetchStart = source.indexOf("detailPrefetch.start(item", prefetchMethod);
@@ -1010,7 +1010,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void detailSwitchInvalidatesTmdbBeforeCachedDetailCanApply() throws Exception {
-        Path leanbackPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = new String(Files.readAllBytes(leanbackPath), StandardCharsets.UTF_8);
         int leanbackNewIntent = leanback.indexOf("protected void onNewIntent(Intent intent)");
         int leanbackResetCall = leanback.indexOf("resetDetailForNewIntent();", leanbackNewIntent);
@@ -1019,7 +1019,7 @@ public class TmdbUIAdapterTest {
         int leanbackInvalidate = leanback.indexOf("mTmdbUIAdapter.beginDetailRequest();", leanbackReset);
         int leanbackResetEnd = leanback.indexOf("private void clearDetailAdapters()", leanbackReset);
 
-        Path mobilePath = findFlavorJavaPath("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path mobilePath = findFlavorJavaPath("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String mobile = new String(Files.readAllBytes(mobilePath), StandardCharsets.UTF_8);
         int mobileNewIntent = mobile.indexOf("protected void onNewIntent(Intent intent)");
         int mobileOldKey = mobile.indexOf("String oldKey = getKey();", mobileNewIntent);
@@ -1041,7 +1041,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void mobileDropsStaleVodEventsBeforeUpdatingCurrentPage() throws Exception {
-        Path sourcePath = findFlavorJavaPath("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int observer = source.indexOf("public void onRefreshEvent(RefreshEvent event)");
         int vodBranch = source.indexOf("event.getType() == RefreshEvent.Type.VOD", observer);
@@ -1058,7 +1058,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void leanbackGuardsTmdbEventsWithNavigationAndLoadedVodIdentities() throws Exception {
-        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int helper = source.indexOf("private boolean isCurrentVodEvent(Vod item)");
         int sharedGuard = source.indexOf("VodEventGuard.matches(item, getKey(), getId(), mVod == null ? \"\" : mVod.getId())", helper);
@@ -1069,7 +1069,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void mobileVideoActivityUsesFineGrainedTmdbRefreshHandlers() throws Exception {
-        Path activityPath = findFlavorJavaPath("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path activityPath = findFlavorJavaPath("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String activity = Files.readString(activityPath, StandardCharsets.UTF_8);
         int observer = activity.indexOf("public void onRefreshEvent(RefreshEvent event)");
         int coreBranch = activity.indexOf("event.getType() == RefreshEvent.Type.VOD_CORE", observer);
@@ -1122,7 +1122,7 @@ public class TmdbUIAdapterTest {
         assertTrue("core enrichment of the current Vod must retain the existing source-season cache",
                 updateVodBody.contains("if (mVod != item) mSourceEpisodeSeasonCache.clear();"));
 
-        Path headerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path headerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String header = Files.readString(headerPath, StandardCharsets.UTF_8);
         assertTrue("mobile header must expose lightweight row and episode metadata refresh methods",
                 header.contains("public void refreshRecommendations()")
@@ -1139,7 +1139,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbAdapterTracksAndCancelsAttachedPrefetchAndLogsReuseState() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int activeField = source.indexOf("ListenableFuture<TmdbDetailPrefetch.Result> activePrefetch");
         int attach = source.indexOf("setActivePrefetch(prefetched)");
@@ -1156,7 +1156,7 @@ public class TmdbUIAdapterTest {
     }
 
     private static void assertDirectTmdbPrefetchOrder(String flavor) throws Exception {
-        Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int getDetail = source.indexOf("private void getDetail(boolean refresh)");
         String crawlerCall = "mViewModel.detailContent(getKey(), getId(), refresh);";
@@ -1214,7 +1214,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void tmdbRatingRequestsAreSharedAndLifecycleScoped() throws Exception {
-        Path headerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path headerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String header = Files.readString(headerPath, StandardCharsets.UTF_8);
         assertTrue("TMDB header must own cancellable rating work",
                 header.contains("private final Task.Scope backgroundTasks = new Task.Scope(Task.recommendationExecutor());"));
@@ -1229,7 +1229,7 @@ public class TmdbUIAdapterTest {
         assertFalse("header ratings must not create one OkHttp client per request",
                 header.contains("new okhttp3.OkHttpClient.Builder()"));
 
-        Path leanbackPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path leanbackPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String leanback = Files.readString(leanbackPath, StandardCharsets.UTF_8);
         int fetch = leanback.indexOf("private void fetchTmdbOmdbRatings");
         int next = leanback.indexOf("private void hideTmdbRatingChips", fetch);
@@ -1241,7 +1241,7 @@ public class TmdbUIAdapterTest {
                 fetchBody.contains("new okhttp3.OkHttpClient.Builder()"));
 
         for (String flavor : List.of("mobile", "leanback")) {
-            Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
             assertTrue(sourcePath + " must destroy TMDB header background work on exit",
                     source.contains("mTmdbHeaderView.onDestroy();"));
@@ -1250,7 +1250,7 @@ public class TmdbUIAdapterTest {
     @Test
     public void videoActivitiesCancelNativeRecommendationsOnSwitchAndExit() throws Exception {
         for (String flavor : List.of("mobile", "leanback")) {
-            Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
             assertTrue(sourcePath + " must own a cancellable recommendation scope", source.contains("Task.Scope mPersonalRecommendationTasks"));
             assertTrue(sourcePath + " must cancel old recommendation work before a new detail", source.contains("mPersonalRecommendationTasks.cancelAll();"));
@@ -1261,7 +1261,7 @@ public class TmdbUIAdapterTest {
 
     @Test
     public void episodeMetadataUsesStructuredSeasonResolutionWithoutBlindFallback() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int resolve = source.indexOf("TmdbSeasonResolver.resolve(");
         int snapshot = source.indexOf("private Integer currentEpisodeMetadataSeason()");
@@ -1288,7 +1288,7 @@ public class TmdbUIAdapterTest {
     }
 
     private static void assertEpisodeMetadataEventMerge(String flavor) throws Exception {
-        Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int observer = source.indexOf("public void onRefreshEvent(RefreshEvent event)");
         int branch = source.indexOf("event.getType() == RefreshEvent.Type.VOD_EPISODE_TITLES", observer);
@@ -1301,7 +1301,7 @@ public class TmdbUIAdapterTest {
                 observer >= 0 && branch > observer && merge > branch && refresh > merge && helper >= 0 && mergeEpisodes > helper);
     }
     private static void assertVideoActivityDefersCachedDetail(String flavor) throws Exception {
-        Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path sourcePath = findFlavorJavaPath(flavor).resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean setCachedTmdbDetail()");
         int take = source.indexOf("VodDetailCache.take(getTmdbVodCacheKey())", method);

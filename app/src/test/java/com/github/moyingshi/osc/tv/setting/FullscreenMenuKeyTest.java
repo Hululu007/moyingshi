@@ -31,7 +31,7 @@ public class FullscreenMenuKeyTest {
 
     @Test
     public void storedValueIsClampedToKnownOptions() throws Exception {
-        String setting = read(main("java", "com", "fongmi", "android", "tv", "setting", "Setting.java"));
+        String setting = read(main("java", "com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java"));
 
         assertTrue(setting.contains("public static final int FULLSCREEN_MENU_KEY_CONTROL = 0;"));
         assertTrue(setting.contains("public static final int FULLSCREEN_MENU_KEY_EPISODES = 1;"));
@@ -42,7 +42,7 @@ public class FullscreenMenuKeyTest {
 
     @Test
     public void leanbackMenuKeyAdvancesThroughTheExistingNextEpisodePath() throws Exception {
-        String source = read(leanback("java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = read(leanback("java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
 
         String branch = window(source, "if (isFullscreen() && KeyUtil.isMenuKey(event)) {", 500);
         assertTrue("the menu key must dispatch the new option", branch.contains("FULLSCREEN_MENU_KEY_NEXT_EPISODE"));
@@ -59,7 +59,7 @@ public class FullscreenMenuKeyTest {
 
     @Test
     public void inlinePlayerHonoursTheSameOption() throws Exception {
-        String source = read(main("java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = read(main("java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
 
         String branch = window(source,
                 "if (KeyUtil.isMenuKey(event) && (inlineFullscreen || isInlineControlsVisible())) {", 600);

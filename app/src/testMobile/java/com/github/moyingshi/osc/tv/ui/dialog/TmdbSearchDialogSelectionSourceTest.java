@@ -12,9 +12,9 @@ public class TmdbSearchDialogSelectionSourceTest {
 
     @Test
     public void manualTmdbDialogHighlightsAndFocusesCurrentMatch() throws Exception {
-        String activity = readMainJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String dialog = readMainJava("com", "fongmi", "android", "tv", "ui", "dialog", "TmdbSearchDialog.java");
-        String adapter = readMainJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbAdapter.java");
+        String activity = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String dialog = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbSearchDialog.java");
+        String adapter = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbAdapter.java");
         String layout = readMainRes("layout", "adapter_tmdb_item.xml");
         String selector = readMainResIfExists("drawable", "selector_tmdb_search_item.xml");
 
@@ -45,7 +45,7 @@ public class TmdbSearchDialogSelectionSourceTest {
 
     @Test
     public void leanbackTmdbDialogUsesScreenRelativeSizingAndReadableRows() throws Exception {
-        String dialog = readMainJava("com", "fongmi", "android", "tv", "ui", "dialog", "TmdbSearchDialog.java");
+        String dialog = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TmdbSearchDialog.java");
         String dialogLayout = readMainRes("layout", "dialog_result_list.xml");
         Path root = Path.of("").toAbsolutePath();
         Path leanbackItemPath = root.resolve(Path.of("app", "src", "leanback", "res", "layout", "adapter_tmdb_item.xml"));

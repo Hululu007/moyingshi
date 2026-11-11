@@ -181,8 +181,8 @@ public class WebThemeRuntimeWiringTest {
     }
 
     private static String read(String name) throws Exception {
-        Path root = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "web");
-        if (!Files.exists(root)) root = Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "web");
+        Path root = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "web");
+        if (!Files.exists(root)) root = Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "web");
         return Files.readString(root.resolve(name), StandardCharsets.UTF_8).replace("\r\n", "\n");
     }
 }

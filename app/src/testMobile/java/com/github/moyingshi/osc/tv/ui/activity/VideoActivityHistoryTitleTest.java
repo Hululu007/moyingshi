@@ -75,7 +75,7 @@ public class VideoActivityHistoryTitleTest {
 
     @Test
     public void allDetailPlaybackModesKeepTheirScrapedHistoryPath() throws Exception {
-        Path sourcePath = mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         String initHistory = methodBody(source, "private void initHistory()");
         String onPlay = methodBody(source, "private void onPlay()");
@@ -124,7 +124,7 @@ public class VideoActivityHistoryTitleTest {
 
     @Test
     public void originalEnhancedCarriesSeasonContextIntoEpisodeHeaderAndPlaybackIdentity() throws Exception {
-        Path cachePath = mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "SourceEpisodeSeasonCache.java"));
+        Path cachePath = mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "SourceEpisodeSeasonCache.java"));
         String cacheSource = Files.readString(cachePath, StandardCharsets.UTF_8);
         String episodeResolution = methodBody(cacheSource, "private static int resolveEpisodeSeason(Episode episode)");
         for (Path sourcePath : List.of(videoActivity("mobile"), videoActivity("leanback"))) {
@@ -173,7 +173,7 @@ public class VideoActivityHistoryTitleTest {
 
     @Test
     public void tmdbEnrichmentUsesCapturedSourceSeasonInsteadOfAlwaysBindingSeasonOne() throws Exception {
-        Path sourcePath = mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        Path sourcePath = mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         assertTrue("TMDB adapter must expose the captured source season", source.contains("getSourceSeasonNumber()"));
         assertTrue("TMDB adapter must keep exactly one volatile source-season field",
@@ -202,7 +202,7 @@ public class VideoActivityHistoryTitleTest {
                         && captureActiveFlag.contains("addExplicitSeason(metadata, tmdbEpisode.getSeasonNumber());")
                         && captureActiveFlag.contains("explicitSourceSeasons = List.copyOf(explicit);")
                         && captureActiveFlag.contains("metadata.size() == 1 ? metadata.get(0) : -1"));
-        Path detailPath = mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path detailPath = mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String detailSource = Files.readString(detailPath, StandardCharsets.UTF_8);
         String detailExplicitSeason = methodBody(detailSource, "private int explicitSourceSeasonNumber(Episode episode)");
         String detailEpisodeSeason = methodBody(detailSource, "private int sourceSeasonNumber(Episode episode)");
@@ -223,7 +223,7 @@ public class VideoActivityHistoryTitleTest {
         assertTrue("TMDB adapter must not hard-code season 1 for every source", !source.contains("tmdbService.season(item, 1,"));
     }
     private static Path videoActivity(String sourceSet) {
-        Path moduleRelative = Path.of("src", sourceSet, "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path moduleRelative = Path.of("src", sourceSet, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (Files.exists(moduleRelative)) return moduleRelative;
         return Path.of("app").resolve(moduleRelative);
     }

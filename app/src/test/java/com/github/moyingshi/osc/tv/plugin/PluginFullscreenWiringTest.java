@@ -153,7 +153,7 @@ public class PluginFullscreenWiringTest {
 
     @Test
     public void rowChipBackgroundFollowsFocus() throws Exception {
-        String factory = read("src", "main", "java", "com", "fongmi", "android", "tv", "plugin", "PluginChipFactory.java");
+        String factory = read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "plugin", "PluginChipFactory.java");
 
         assertTrue("ROW chip 必须挂焦点态背景切换",
                 factory.contains("chip.setOnFocusChangeListener((view, focused) -> view.setBackground(rowBackground(context, focused)))"));
@@ -172,11 +172,11 @@ public class PluginFullscreenWiringTest {
     }
 
     private static String videoActivity() throws Exception {
-        return read("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", VIDEO_ACTIVITY);
+        return read("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", VIDEO_ACTIVITY);
     }
 
     private static String detailActivity() throws Exception {
-        return read("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", DETAIL_ACTIVITY);
+        return read("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", DETAIL_ACTIVITY);
     }
 
     /** 取 {@code super.xxx(...);} 之后的正文：用来钉"回调第一句就刷新判据"。 */

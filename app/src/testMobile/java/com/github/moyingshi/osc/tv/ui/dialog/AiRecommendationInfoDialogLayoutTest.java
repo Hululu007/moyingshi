@@ -14,8 +14,8 @@ public class AiRecommendationInfoDialogLayoutTest {
 
     @Test
     public void recommendationDialogUsesScrollableDetailsAndExplicitTvFocus() throws Exception {
-        String source = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "AiRecommendationInfoDialog.java")));
-        String lightDialog = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "LightDialog.java")));
+        String source = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "AiRecommendationInfoDialog.java")));
+        String lightDialog = read(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "LightDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of("layout", "dialog_ai_recommendation_info.xml")));
 
         assertTrue("Recommendation dialog should use the shared compact light-dialog shell",

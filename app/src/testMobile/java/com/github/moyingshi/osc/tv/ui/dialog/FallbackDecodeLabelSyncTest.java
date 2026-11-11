@@ -112,18 +112,15 @@ public class FallbackDecodeLabelSyncTest {
     }
 
     private static Path dialog(String flavor) {
-        return moduleRoot().resolve(Path.of("src", flavor, "java", "com", "fongmi",
-                "android", "tv", "ui", "dialog", "ControlDialog.java"));
+        return moduleRoot().resolve(Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java"));
     }
 
     private static Path videoActivity(String flavor) {
-        return moduleRoot().resolve(Path.of("src", flavor, "java", "com", "fongmi",
-                "android", "tv", "ui", "activity", "VideoActivity.java"));
+        return moduleRoot().resolve(Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
     }
 
     private static Path tmdbDetailActivity() {
-        return moduleRoot().resolve(Path.of("src", "main", "java", "com", "fongmi",
-                "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        return moduleRoot().resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
     }
 
     private static String read(Path path) throws Exception {

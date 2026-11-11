@@ -41,7 +41,7 @@ public class ControlDialogOsdSettingsTest {
     public void mobileNativePlayerRemovesTheSeparateDisplayEntry() throws Exception {
         Path root = moduleRoot();
         String controls = read(root.resolve(Path.of("src", "mobile", "res", "layout", "view_control_vod.xml")));
-        String activity = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String activity = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertFalse("the player toolbar must not keep a duplicate screen-display button", controls.contains("@+id/display"));
         assertFalse("the player toolbar must no longer open the display-only dialog", activity.contains("DisplayDialog.showPlayerOsd"));
@@ -51,9 +51,9 @@ public class ControlDialogOsdSettingsTest {
     public void tmdbLeanbackPlayerKeepsACompleteOsdSettingsEntry() throws Exception {
         Path root = moduleRoot();
         String fusionLayout = read(root.resolve(Path.of("src", "main", "res", "layout", "activity_tmdb_detail.xml")));
-        String activity = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String activity = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
         String dialogLayout = read(root.resolve(Path.of("src", "main", "res", "layout", "dialog_display.xml")));
-        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "DisplayDialog.java")));
+        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "DisplayDialog.java")));
 
         int fusionDisplay = fusionLayout.indexOf("android:id=\"@+id/playerDisplay\"");
         int fusionDisplayEnd = fusionLayout.indexOf("/>", fusionDisplay);
@@ -75,7 +75,7 @@ public class ControlDialogOsdSettingsTest {
     private static void assertControlDialogEmbedsOsdSettings(String flavor) throws Exception {
         Path root = moduleRoot();
         String layout = read(root.resolve(Path.of("src", flavor, "res", "layout", "dialog_control.xml")));
-        String source = read(root.resolve(Path.of("src", flavor, "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java")));
+        String source = read(root.resolve(Path.of("src", flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java")));
 
         assertTrue(flavor + " control dialog must label the embedded section as player OSD settings",
                 layout.contains("android:text=\"@string/player_osd\""));
@@ -91,10 +91,10 @@ public class ControlDialogOsdSettingsTest {
     @Test
     public void nativeAndFusionPlayersRefreshOsdAfterASettingChanges() throws Exception {
         Path root = moduleRoot();
-        String mobileActivity = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String leanbackActivity = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobileDialog = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java")));
-        String tmdbActivity = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String mobileActivity = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanbackActivity = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobileDialog = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java")));
+        String tmdbActivity = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         assertTrue("mobile native playback must restart the OSD renderer", mobileActivity.contains("public void onDisplayChanged()") && mobileActivity.contains("mOsd.start();"));
         assertTrue("leanback native playback must restart the OSD renderer", leanbackActivity.contains("public void onDisplayChanged()") && leanbackActivity.contains("mOsd.start();"));
@@ -105,9 +105,9 @@ public class ControlDialogOsdSettingsTest {
     @Test
     public void displayChangeCallbacksApplyThePlayParamsPreference() throws Exception {
         Path root = moduleRoot();
-        String mobileActivity = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String leanbackActivity = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String tmdbActivity = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String mobileActivity = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanbackActivity = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String tmdbActivity = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         assertMethodContains(mobileActivity, "public void onDisplayChanged()", "mOsd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());");
         assertMethodContains(mobileActivity, "public void onDisplayChanged()", "setPlayParamsState();");
@@ -120,8 +120,8 @@ public class ControlDialogOsdSettingsTest {
     public void mobileLivePlayerSettingsEmbedOsdSettingsAndRefreshTheRenderer() throws Exception {
         Path root = moduleRoot();
         String layout = read(root.resolve(Path.of("src", "mobile", "res", "layout", "dialog_live_control.xml")));
-        String dialog = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "LiveControlDialog.java")));
-        String activity = read(root.resolve(Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
+        String dialog = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "LiveControlDialog.java")));
+        String activity = read(root.resolve(Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java")));
 
         assertTrue("live player settings must label the embedded section as player OSD settings",
                 layout.contains("android:text=\"@string/player_osd\""));
@@ -143,7 +143,7 @@ public class ControlDialogOsdSettingsTest {
     public void leanbackLiveControlsExposeOsdSettingsAndRefreshTheRenderer() throws Exception {
         Path root = moduleRoot();
         String layout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "view_control_live_action.xml")));
-        String activity = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
+        String activity = read(root.resolve(Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java")));
 
         assertTrue("leanback live controls must expose an OSD settings action", layout.contains("android:id=\"@+id/osdSettings\""));
         assertTrue("leanback live controls must label the action as player OSD settings", layout.contains("android:text=\"@string/player_osd\""));
@@ -167,7 +167,7 @@ public class ControlDialogOsdSettingsTest {
     @Test
     public void liveOsdSettingsMapOnlySupportedGlobalOptions() throws Exception {
         Path root = moduleRoot();
-        String settings = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "setting", "PlayerSetting.java")));
+        String settings = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java")));
 
         assertTrue("live OSD reads must omit progress-only options",
                 settings.contains("return new boolean[]{isDisplayTime(), isDisplayTraffic(), isDisplaySize(), isDisplayTitle(), isOsdDiagnostics()};"));

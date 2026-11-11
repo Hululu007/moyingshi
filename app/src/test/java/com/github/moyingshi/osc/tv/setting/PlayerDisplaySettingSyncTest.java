@@ -13,8 +13,8 @@ public class PlayerDisplaySettingSyncTest {
 
     @Test
     public void settingPagesUsePlaybackDisplayPreferences() throws Exception {
-        assertSettingPageUsesDisplayPreferences(read(sourcePath("mobile", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SettingPlayerFragment.java"))));
-        assertSettingPageUsesDisplayPreferences(read(sourcePath("leanback", "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingPlayerActivity.java"))));
+        assertSettingPageUsesDisplayPreferences(read(sourcePath("mobile", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPlayerFragment.java"))));
+        assertSettingPageUsesDisplayPreferences(read(sourcePath("leanback", "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPlayerActivity.java"))));
     }
 
     @Test
@@ -28,7 +28,7 @@ public class PlayerDisplaySettingSyncTest {
     public void tvScreenDisplayDialogRowsUseTheThemeAwareContrastWiring() throws Exception {
         for (String flavor : new String[]{"leanback", "mobile"}) {
             String layout = read(sourcePath(flavor, "res").resolve(Path.of("layout", "adapter_player_osd.xml")));
-            String dialog = read(sourcePath(flavor, "java").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "PlayerOsdDialog.java")));
+            String dialog = read(sourcePath(flavor, "java").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PlayerOsdDialog.java")));
             assertTrue(flavor + " 屏显行必须使用主题化行背景", layout.contains("@drawable/selector_player_settings_row"));
             assertTrue(flavor + " 屏显眼睛按钮必须使用主题化按钮背景", layout.contains("@drawable/selector_player_settings_switch"));
             assertTrue(flavor + " 屏显眼睛图标必须使用主题化前景", layout.contains("@color/player_settings_icon_tint"));
@@ -40,7 +40,7 @@ public class PlayerDisplaySettingSyncTest {
 
     @Test
     public void playerOsdControllerHonorsResolutionDisplayToggle() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
         int method = source.indexOf("private void setTopLeft(PlayerManager player)");
         assertTrue("PlayerOsdController is missing setTopLeft", method >= 0);
         int methodEnd = source.indexOf("\n    }", method);
@@ -51,7 +51,7 @@ public class PlayerDisplaySettingSyncTest {
 
     @Test
     public void playerOsdControllerForcesPersistentTextWhite() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
         int method = source.indexOf("private void setTextSize(float sp)");
         assertTrue("PlayerOsdController is missing setTextSize", method >= 0);
         int methodEnd = source.indexOf("\n    }", method);
@@ -65,7 +65,7 @@ public class PlayerDisplaySettingSyncTest {
 
     @Test
     public void playerOsdControllerCanSuppressPersistentCornerLabels() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
         int method = source.indexOf("public void setPersistentSuppressed(boolean persistentSuppressed)");
         int render = source.indexOf("private boolean render()");
 
@@ -85,7 +85,7 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void playerOsdDiagnosticsReadRebufferCountPerEngine() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
 
         int count = source.indexOf("int rebufferCount =");
         int total = source.indexOf("long rebufferTotalMs =");
@@ -110,7 +110,7 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void mediaBadgesAreGatedByTheMediaInfoSwitchOnEveryPath() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
         int method = source.indexOf("private void setMediaBadges(PlayerManager player)");
         assertTrue("PlayerOsdController is missing setMediaBadges", method >= 0);
         int methodEnd = source.indexOf("\n    }", method);
@@ -163,7 +163,7 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void mediaBadgePositionChoiceKeepsTheLastCornerAcrossOff() throws Exception {
-        String setting = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "PlayerSetting.java")));
+        String setting = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java")));
         assertTrue("the Off choice must be the 5th item of the position list",
                 setting.contains("MEDIA_BADGE_POSITION_OFF = 4"));
 
@@ -185,8 +185,8 @@ public class PlayerDisplaySettingSyncTest {
         assertTrue("choosing a corner must turn the media info master switch on so the woken control bar shows badges",
                 applyBody.contains("putMediaBadgePosition(which)") && applyBody.contains("putDisplayMediaBadges(true)"));
 
-        Path mobileSettingPage = Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SettingPlayerFragment.java");
-        Path leanbackSettingPage = Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingPlayerActivity.java");
+        Path mobileSettingPage = Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPlayerFragment.java");
+        Path leanbackSettingPage = Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPlayerActivity.java");
         String[] flavors = {"mobile", "leanback"};
         Path[] settingPages = {mobileSettingPage, leanbackSettingPage};
         for (int i = 0; i < flavors.length; i++) {
@@ -219,25 +219,25 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void mediaBadgesOnlyShowInFullscreenPlayback() throws Exception {
-        String controller = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String controller = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
         int sourceIface = controller.indexOf("public interface Source");
         String sourceBody = controller.substring(sourceIface, controller.indexOf("private static volatile", sourceIface));
         assertTrue("the OSD source must expose the fullscreen state", sourceBody.contains("default boolean isFullscreen()"));
 
-        String host = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiHost.java")));
+        String host = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerUiHost.java")));
         assertTrue("the shared player host must forward the fullscreen state", host.contains("default boolean isFullscreen()"));
 
-        String ui = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiController.java")));
+        String ui = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerUiController.java")));
         assertTrue("the OSD controller must be fed the host fullscreen state",
                 ui.contains("public boolean isFullscreen()") && ui.contains("return host.isFullscreen();"));
 
-        Path videoActivity = Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path videoActivity = Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         for (String flavor : new String[]{"mobile", "leanback"}) {
             String page = read(sourcePath(flavor, "java").resolve(videoActivity));
             assertTrue(flavor + " 全屏状态必须传给 OSD", page.contains("return VideoActivity.this.isFullscreen();"));
         }
 
-        String tmdb = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String tmdb = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
         assertTrue("详情页内嵌小窗只有真正全屏后才显示媒体信息", tmdb.contains("return inlineFullscreen;"));
     }
 
@@ -247,7 +247,7 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void mediaInfoMasterSwitchIsIndependentFromThePersistentToggle() throws Exception {
-        String setting = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "PlayerSetting.java")));
+        String setting = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java")));
         assertTrue("the persistent toggle needs its own key",
                 setting.contains("player_osd_media_badges_persist"));
         assertTrue("the persistent toggle must have its own accessors",
@@ -267,11 +267,11 @@ public class PlayerDisplaySettingSyncTest {
         assertTrue("ticking the display item must also turn the master switch on",
                 putBody.contains("if (persistent) putDisplayMediaBadges(true)"));
 
-        String dialog = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "DisplayDialog.java")));
+        String dialog = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "DisplayDialog.java")));
         assertTrue("the chip must write the persistent toggle", dialog.contains("putDisplayMediaBadgesPersistent(selected)"));
         assertTrue("the chip must also enable the master switch when ticked", dialog.contains("if (selected) PlayerSetting.putDisplayMediaBadges(true)"));
 
-        String backup = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "Backup.java")));
+        String backup = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "bean", "Backup.java")));
         assertTrue("the persistent toggle must be part of the backup set", backup.contains("player_osd_media_badges_persist"));
     }
 
@@ -282,7 +282,7 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void legacyBadgeUpgradeKeepsPersistentDisplayAndReleasesTheBarListener() throws Exception {
-        String setting = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "PlayerSetting.java")));
+        String setting = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerSetting.java")));
         int persistent = setting.indexOf("public static boolean isDisplayMediaBadgesPersistent()");
         assertTrue("PlayerSetting 缺少 isDisplayMediaBadgesPersistent()", persistent >= 0);
         String persistentBody = setting.substring(persistent, setting.indexOf("\n    }", persistent));
@@ -306,7 +306,7 @@ public class PlayerDisplaySettingSyncTest {
         String prefs = read(prefers);
         assertTrue("迁移需要「键是否存在」的只读判定", prefs.contains("public static boolean contains(String key)"));
 
-        String controller = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerOsdController.java")));
+        String controller = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "PlayerOsdController.java")));
         assertTrue("控制栏布局监听必须可注销", controller.contains("removeOnLayoutChangeListener"));
         int release = controller.indexOf("public void release()");
         assertTrue("PlayerOsdController 缺少 release()", release >= 0);
@@ -354,7 +354,7 @@ public class PlayerDisplaySettingSyncTest {
      */
     @Test
     public void mobileLiveOsdSourceGatesMediaBadgesOnTheEmbeddedShelf() throws Exception {
-        Path liveActivity = Path.of("com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java");
+        Path liveActivity = Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java");
 
         String mobileLive = read(sourcePath("mobile", "java").resolve(liveActivity));
         assertTrue("手机直播的 OSD Source 必须覆写 isFullscreen()", mobileLive.contains("public boolean isFullscreen()"));
@@ -383,7 +383,7 @@ public class PlayerDisplaySettingSyncTest {
 
     @Test
     public void backupIncludesPlaybackDisplayPreferences() throws Exception {
-        String source = read(mainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "bean", "Backup.java")));
+        String source = read(mainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "bean", "Backup.java")));
         assertTrue(source.contains("\"display_time\""));
         assertTrue(source.contains("\"display_traffic\""));
         assertTrue(source.contains("\"display_size\""));

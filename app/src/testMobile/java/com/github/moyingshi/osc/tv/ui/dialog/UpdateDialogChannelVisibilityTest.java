@@ -17,7 +17,7 @@ public class UpdateDialogChannelVisibilityTest {
     }
 
     private static void assertDualChannelSelectionStartsCollapsed(String flavor) throws Exception {
-        String source = read(findFlavorJavaPath(flavor).resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "UpdateDialog.java")));
+        String source = read(findFlavorJavaPath(flavor).resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "UpdateDialog.java")));
         String method = between(source, "public UpdateDialog selected", "public UpdateDialog listener");
 
         assertTrue(flavor + " should detect whether the beta channel is available before choosing the initial expansion state",

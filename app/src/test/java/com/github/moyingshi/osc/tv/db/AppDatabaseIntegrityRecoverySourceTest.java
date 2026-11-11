@@ -69,7 +69,7 @@ public class AppDatabaseIntegrityRecoverySourceTest {
     }
 
     private static String source() throws Exception {
-        return new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "db", "AppDatabase.java"))), StandardCharsets.UTF_8);
+        return new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "db", "AppDatabase.java"))), StandardCharsets.UTF_8);
     }
 
     private static Path findMainJavaPath() {

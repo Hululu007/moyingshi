@@ -13,7 +13,7 @@ public class PlaybackPerformanceSettingSourceTest {
 
     @Test
     public void consolidatedProfileIdsKeepCustomValueStable() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "PlaybackPerformanceSetting.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlaybackPerformanceSetting.java"));
         String method = methodBody(source, "public static void applyAuto()", "public static void applyRecommended()");
 
         assertTrue(source.contains("PROFILE_CUSTOM = 2"));
@@ -25,10 +25,10 @@ public class PlaybackPerformanceSettingSourceTest {
 
     @Test
     public void consolidatedPresetsApplyAutoAndLightweightDefaults() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "PlaybackPerformanceSetting.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlaybackPerformanceSetting.java"));
         String auto = methodBody(source, "public static void applyAuto()", "public static void applyRecommended()");
         String lightweight = methodBody(source, "public static void applyLightweight()", "private static void applyLightweightProfile");
-        String kernelSource = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "KernelPerformanceSetting.java"));
+        String kernelSource = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "KernelPerformanceSetting.java"));
         String kernelPreset = methodBody(kernelSource, "public static void applyPreset(int kernel, int profile)", "static void applyPreloadPreset");
 
         assertContainsAll(auto,
@@ -47,21 +47,21 @@ public class PlaybackPerformanceSettingSourceTest {
 
     @Test
     public void performanceDialogExposesConsolidatedPresets() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "PlaybackPerformanceDialog.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PlaybackPerformanceDialog.java"));
 
         assertTrue(source.contains("PlaybackPerformanceSetting.applyAuto()"));
         assertTrue(source.contains("PlaybackPerformanceSetting.applyLightweight()"));
         assertTrue(source.contains("PlaybackProfileMergePolicy.selectableProfiles"));
         assertFalse(source.contains("PlaybackPerformanceSetting.applyOriginal()"));
 
-        String catalog = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "PlaybackPerformanceCatalog.java"));
+        String catalog = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlaybackPerformanceCatalog.java"));
         assertTrue(catalog.contains("profileDescription(kernel, recommendedMerged)"));
         assertTrue(catalog.contains("自动档"));
     }
 
     @Test
     public void consolidatedProfilesUseShortChineseLabels() throws Exception {
-        String setting = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "PlaybackPerformanceSetting.java"));
+        String setting = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlaybackPerformanceSetting.java"));
         String strings = read(sourcePath("main", "res", "values-zh-rCN", "strings.xml"));
 
         assertTrue(setting.contains("yield count == 0 ? \"自动\""));
@@ -72,7 +72,7 @@ public class PlaybackPerformanceSettingSourceTest {
 
     @Test
     public void performanceDialogHighlightsSelectedProfile() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "PlaybackPerformanceDialog.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PlaybackPerformanceDialog.java"));
         String createView = methodBody(source, "private View createView", "private void showHelpDialog");
         String refresh = methodBody(source, "private void refresh()", "private void reset()");
         String sync = methodBody(source, "private void syncProfileTabs(TabLayout tabs)", "private boolean profileTabsMatch");
@@ -90,7 +90,7 @@ public class PlaybackPerformanceSettingSourceTest {
 
     @Test
     public void performanceDialogButtonsKeepLabelsVisible() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "PlaybackPerformanceDialog.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "PlaybackPerformanceDialog.java"));
         String actionButton = methodBody(source, "private MaterialButton actionButton", "private MaterialButton closeButton");
 
         assertContainsAll(actionButton,
@@ -103,7 +103,7 @@ public class PlaybackPerformanceSettingSourceTest {
 
     @Test
     public void exoNonEnhancedProfilesKeepMedia3DefaultLoadControl() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoUtil.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoUtil.java"));
         String buildPlayer = methodBody(source, "public static ExoPlayer buildPlayer", "public static MediaItem getMediaItem");
 
         assertTrue(buildPlayer.contains("if (PlaybackPerformanceSetting.isHighBufferEnabled()) builder.setLoadControl(buildEnhancedLoadControl());"));
@@ -115,8 +115,8 @@ public class PlaybackPerformanceSettingSourceTest {
         // media3 defaults lateThresholdToDropDecoderInputUs to 15 ms, which is exactly the value
         // this build passes when the switch is on. If the wiring skipped the setter when the
         // switch is off, the default would keep dropping input frames and the switch would lie.
-        String util = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoUtil.java"));
-        String renderer = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoRuntimeAwareVideoRenderer.java"));
+        String util = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoUtil.java"));
+        String renderer = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoRuntimeAwareVideoRenderer.java"));
 
         assertContainsAll(util,
                 "ENHANCED_LATE_THRESHOLD_TO_DROP_INPUT_US = 15_000L",
@@ -131,9 +131,9 @@ public class PlaybackPerformanceSettingSourceTest {
     public void frameSchedulingConfigurationReachesTheDiagnosticLog() throws Exception {
         // A dropped-frame report is unattributable while exported logs carry no configuration,
         // so the player build must emit one line naming what actually reached the factory.
-        String util = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoUtil.java"));
-        String diagnostics = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoPlaybackDiagnostics.java"));
-        String settings = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoFrameSchedulingRendererSettings.java"));
+        String util = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoUtil.java"));
+        String diagnostics = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoPlaybackDiagnostics.java"));
+        String settings = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoFrameSchedulingRendererSettings.java"));
 
         assertContainsAll(util,
                 "long lateDropThresholdUs = effectiveLateDropThresholdUs();",
@@ -155,7 +155,7 @@ public class PlaybackPerformanceSettingSourceTest {
         // The 「输入丢帧阈值」 switch drops decoder input frames before they are decoded. Reporting
         // only the output counters let that happen invisibly, which is the one question a
         // dropped-frame report has to answer.
-        String collector = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoDiagnosticCollector.java"));
+        String collector = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoDiagnosticCollector.java"));
 
         assertContainsAll(collector,
                 "droppedInputBufferCount",
@@ -170,8 +170,8 @@ public class PlaybackPerformanceSettingSourceTest {
         // the frame-scheduling A/B experiment, so an ordinary report could not say how late frames
         // were. Diagnostics-on must be enough, and stop-only delivery must not be the only trigger:
         // media3 reports the offset from onStopped() alone.
-        String listener = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "PlaybackAnalyticsListener.java"));
-        String collector = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "exo", "ExoDiagnosticCollector.java"));
+        String listener = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "PlaybackAnalyticsListener.java"));
+        String collector = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "exo", "ExoDiagnosticCollector.java"));
 
         assertContainsAll(listener,
                 "frameSchedulingExperimentActive || SpiderDebug.isEnabled()",
@@ -185,14 +185,14 @@ public class PlaybackPerformanceSettingSourceTest {
     public void telemetryNamesTheRenderedFpsScope() throws Exception {
         // 58.824 in the telemetry line is a presentation-timestamp cadence, not rendered
         // throughput; a stuttering 60 fps stream still reports it. Name the scope in the line.
-        String mapper = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "PlaybackTelemetryMapper.java"));
+        String mapper = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlaybackTelemetryMapper.java"));
 
         assertContainsAll(mapper, "renderedFpsScope=pts-cadence-estimate;not-throughput");
     }
 
     @Test
     public void durationProgressKeepsUpstreamDefaultUntilMigrated() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "PlaybackPerformanceSetting.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "PlaybackPerformanceSetting.java"));
         String getter = methodBody(source, "public static boolean isVideoDurationProgressEnabled()", "public static void putVideoDurationProgressEnabled");
         String recommended = methodBody(source, "private static void putRecommendedFlags()", "private static int clampProfile(int profile)");
         String init = methodBody(source, "public static void ensureInitialized()", "public static int getProfile()");

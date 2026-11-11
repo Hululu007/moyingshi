@@ -103,7 +103,7 @@ public class TrackDialogTest {
     @Test
     public void aiRegenerateButton_bypassesCacheAndSharesBusyState() throws Exception {
         Path root = moduleRoot();
-        String source = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "TrackDialog.java")));
+        String source = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TrackDialog.java")));
 
         assertTrue("track dialog must wire an AI regenerate action that is only visible for selected AI subtitles",
                 source.contains("binding.aiRegenerate.setVisibility(hasAiRegenerate() ? View.VISIBLE : View.GONE)")
@@ -122,8 +122,8 @@ public class TrackDialogTest {
     @Test
     public void realtimeLanguageCanBeChangedFromTrackDialogWithoutRebuildingPlayback() throws Exception {
         Path root = moduleRoot();
-        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "TrackDialog.java")));
-        String controller = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "subtitle", "RealtimeSubtitleController.java")));
+        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TrackDialog.java")));
+        String controller = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "subtitle", "RealtimeSubtitleController.java")));
         String mobileLayout = read(root.resolve(Path.of("src", "mobile", "res", "layout", "dialog_track.xml")));
         String leanbackLayout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "dialog_track.xml")));
 
@@ -189,8 +189,8 @@ public class TrackDialogTest {
     @Test
     public void appliedAiSubtitleIsPrependedWithoutRemovingExistingTrackOptions() throws Exception {
         Path root = moduleRoot();
-        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "TrackDialog.java")));
-        String adapter = read(root.resolve(Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "ui", "adapter", "TrackAdapter.java")));
+        String dialog = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "TrackDialog.java")));
+        String adapter = read(root.resolve(Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TrackAdapter.java")));
 
         assertTrue("applying an AI subtitle must update the open track dialog with the new selected item",
                 dialog.contains("showAppliedSubtitleTrack(sub)") && dialog.contains("adapter.prependSelected(item)"));

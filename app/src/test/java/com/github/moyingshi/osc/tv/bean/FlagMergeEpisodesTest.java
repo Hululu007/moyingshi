@@ -16,8 +16,8 @@ public class FlagMergeEpisodesTest {
 
     @Test
     public void mergeEpisodesUsesSharedListFastPathAndIndexedLookup() throws Exception {
-        Path sourcePath = Path.of("app", "src", "main", "java", "com", "fongmi", "android", "tv", "bean", "Flag.java");
-        if (!Files.exists(sourcePath)) sourcePath = Path.of("src", "main", "java", "com", "fongmi", "android", "tv", "bean", "Flag.java");
+        Path sourcePath = Path.of("app", "src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "bean", "Flag.java");
+        if (!Files.exists(sourcePath)) sourcePath = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "bean", "Flag.java");
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int start = source.indexOf("public void mergeEpisodes(List<Episode> items, boolean rev)");
         int end = source.indexOf("private void mergeEpisode", start);

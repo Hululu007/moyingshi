@@ -13,8 +13,8 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void autoLineFallbackRebuildsRememberedPlayerBeforeFetchingNextLine() throws Exception {
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String leanback = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
 
         assertAutoLineFallbackRebuildsPlayer("mobile", mobile);
         assertAutoLineFallbackRebuildsPlayer("leanback", leanback);
@@ -38,7 +38,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void automaticLineFallbackForcePreparesEvenForTheRememberedKernel() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "player", "PlayerManager.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java");
         int method = source.indexOf("public void preparePlayer(int type, boolean force)");
         int methodEnd = source.indexOf("public void switchPlayer(int type, PlaySpec", method);
         assertTrue("PlayerManager preparePlayer force overload must exist", method >= 0 && methodEnd > method);
@@ -56,7 +56,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void episodeNavigationUsesTheFullFlagListAcrossRangePages() throws Exception {
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         int adjacent = mobile.indexOf("private Episode getAdjacentEpisode(int offset)");
         int adjacentEnd = mobile.indexOf("\n    private ", adjacent + 1);
         String adjacentBlock = mobile.substring(adjacent, adjacentEnd);
@@ -69,7 +69,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void customPlayerButtonOrderPreservesSpacerAndRefreshesVisibleFocusChain() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "setting", "PlayerButtonSetting.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerButtonSetting.java");
         int applyOrder = source.indexOf("public static void applyOrder(ViewGroup container, Map<String, View> views)");
         int applyVisibility = source.indexOf("public static void applyVisibility(Map<String, View> views)");
         int reorder = source.indexOf("private static void reorderViewsPreservingUnmanagedChildren");
@@ -94,8 +94,8 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void runtimePlayerActionsRefreshFocusAfterVisibilityChanges() throws Exception {
-        String leanback = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
 
         assertFocusRefreshAfter(leanback,
                 "private void setEpisodeAdapter(List<Episode> items, boolean scrollToCurrent)",
@@ -127,7 +127,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void panDiagnosticRespectsTheConfiguredPlayerButtonOrder() throws Exception {
-        String leanback = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         int setup = leanback.indexOf("private void setupActionButtons()");
         int applyOrder = leanback.indexOf("PlayerButtonSetting.applyOrder(mBinding.control.action.container, mActionButtons);", setup);
 
@@ -143,10 +143,10 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void allPlayerActionButtonsUseTheSharedSettingsCatalog() throws Exception {
-        String settings = readMainJava("com", "fongmi", "android", "tv", "setting", "PlayerButtonSetting.java");
-        String leanback = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String tmdb = readMainJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String settings = readMainJava("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerButtonSetting.java");
+        String leanback = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String tmdb = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
 
         String[] catalog = {
                 "new Item(QUALITY, R.string.detail_quality)",
@@ -203,7 +203,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void mediaSessionStopStopsPlaybackWithoutExitingThePlaybackScreen() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "service", "PlaybackService.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "service", "PlaybackService.java");
         int wrap = source.indexOf("private ForwardingPlayer wrap(Player base)");
         int stop = source.indexOf("public void stop()", wrap);
         int nextOverride = source.indexOf("@NonNull", stop);
@@ -219,7 +219,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void mobileRotateButtonRequestsOrientationFromTheToggledState() throws Exception {
-        String source = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String source = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         int rotate = source.indexOf("private void onRotate()");
         int rotateEnd = source.indexOf("\n    private ", rotate + 1);
         int toggle = source.indexOf("setRotate(!isRotate());", rotate);
@@ -237,7 +237,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void mobileManualRotateSurvivesEpisodeSwitchInsteadOfBeingAutoCorrected() throws Exception {
-        String source = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String source = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         int rotate = source.indexOf("private void onRotate()");
         int rotateEnd = source.indexOf("\n    private ", rotate + 1);
         int check = source.indexOf("private void checkOrientation()");
@@ -270,7 +270,7 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void mobileFullscreenExitRebindsEpisodesAfterOrientationSettles() throws Exception {
-        String source = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String source = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         int restore = source.indexOf("private void restoreEmbeddedVideoLayoutAfterFullscreen()");
         int refresh = source.indexOf("private void refreshEpisodeLayoutAfterFullscreen()");
         int configuration = source.indexOf("public void onConfigurationChanged(@NonNull Configuration newConfig)");
@@ -291,8 +291,8 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void playbackNavigationCallbackCleanupCannotClearNewOwnerOrLeakStaleOwner() throws Exception {
-        String service = readMainJava("com", "fongmi", "android", "tv", "service", "PlaybackService.java");
-        String activity = readMainJava("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java");
+        String service = readMainJava("com", "github", "moyingshi", "osc", "tv", "service", "PlaybackService.java");
+        String activity = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java");
 
         int clear = service.indexOf("public void clearNavigationCallback(NavigationCallback expected)");
         int clearEnd = service.indexOf("\n    private ", clear + 1);
@@ -318,8 +318,8 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void mobileExoStartupPassesResumePositionAndSkipsTheSecondRestoreSeek() throws Exception {
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String playback = readMainJava("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String playback = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java");
         int setPlayer = mobile.indexOf("private void setPlayer(Result result)");
         int setPlayerEnd = mobile.indexOf("\n    private ", setPlayer + 1);
         int setPosition = mobile.indexOf("private void setPosition()");
@@ -346,9 +346,9 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void livePlaybackAlwaysAutoplaysWhileVodUsesTheConfiguredPolicy() throws Exception {
-        String playback = readMainJava("com", "fongmi", "android", "tv", "ui", "activity", "PlaybackActivity.java");
-        String mobileLive = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java");
-        String leanbackLive = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java");
+        String playback = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "PlaybackActivity.java");
+        String mobileLive = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java");
+        String leanbackLive = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "LiveActivity.java");
 
         assertTrue("VOD playback must keep the user-configured autoplay policy",
                 playback.contains("protected boolean shouldAutoPlay() {\n        return PlayerSetting.isAutoPlay();\n    }")
@@ -360,8 +360,8 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void episodeSwitchOverwritesPreviousHistoryPositionBeforeStartingTheNewEpisode() throws Exception {
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String leanback = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
 
         assertEpisodeSwitchRestoresOnlyTargetEpisodePosition(mobile, "mobile");
         assertEpisodeSwitchRestoresOnlyTargetEpisodePosition(leanback, "leanback");

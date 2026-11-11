@@ -13,7 +13,7 @@ public class SettingTmdbSourceOnlyWiringTest {
 
     @Test
     public void configuredModeDoesNotRequireOnlineTmdbKey() throws Exception {
-        String source = readMain(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java"));
+        String source = readMain(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java"));
         int methodStart = source.indexOf("public static int getDetailOpenMode()");
         int methodEnd = source.indexOf("public static void putDetailOpenMode", methodStart);
         String method = source.substring(methodStart, methodEnd);
@@ -28,7 +28,7 @@ public class SettingTmdbSourceOnlyWiringTest {
 
     @Test
     public void mobileSettingsSavesTmdbModeWithoutKeyPrompt() throws Exception {
-        String source = readFlavor("mobile", Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SettingTmdbFragment.java"));
+        String source = readFlavor("mobile", Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingTmdbFragment.java"));
         String method = method(source, "private void setDetailOpenMode(View view)", "private int getDetailOpenModeIndex()");
 
         assertTrue(method.contains("Setting.putDetailOpenMode(mode);"));
@@ -39,7 +39,7 @@ public class SettingTmdbSourceOnlyWiringTest {
 
     @Test
     public void leanbackSettingsSavesTmdbModeWithoutKeyPrompt() throws Exception {
-        String source = readFlavor("leanback", Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingTmdbActivity.java"));
+        String source = readFlavor("leanback", Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingTmdbActivity.java"));
         String method = method(source, "private void setDetailOpenMode(View view)", "private int getDetailOpenModeIndex()");
 
         assertTrue(method.contains("Setting.putDetailOpenMode(mode);"));

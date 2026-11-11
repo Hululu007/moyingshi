@@ -78,7 +78,7 @@ public class PythonStartIdempotenceSourceTest {
      * runners that start from the repository root.
      */
     private static String readSource() throws Exception {
-        Path moduleRelative = Path.of("src", "main", "java", "com", "fongmi", "chaquo", "Loader.java");
+        Path moduleRelative = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "chaquo", "Loader.java");
         Path[] candidates = {
                 Path.of("..", "chaquo").resolve(moduleRelative),
                 Path.of("chaquo").resolve(moduleRelative),

@@ -12,7 +12,7 @@ public class DanmakuApiSourceTest {
 
     @Test
     public void autoSearchTriesCleanedTitlesBeforeAiFallback() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "api", "DanmakuApi.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "api", "DanmakuApi.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("public static void search(MediaTitleRequest request");
         int original = source.indexOf("resolver.queryTitles(request, 3)", method);
@@ -28,7 +28,7 @@ public class DanmakuApiSourceTest {
 
     @Test
     public void manualKeywordPrecedesResolverAndSiteMemoryPrecedesTmdbMemory() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "api", "DanmakuApi.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "api", "DanmakuApi.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("public static void search(MediaTitleRequest request");
         int manual = source.indexOf("manualSearchTitles(request, cache)", method);

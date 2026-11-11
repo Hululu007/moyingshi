@@ -15,7 +15,7 @@ public class DanmakuBundleEndpointSourceTest {
     public void searchApiFallsBackToBundleDanmakuService() throws Exception {
         // 本地包自带弹幕服务，但 index.config.js 没有 danmaku 字段，订阅也没有。回退必须排在
         // 用户手填和订阅配置之后：用户显式配置永远优先，本地包只是「没配时也能用」。
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "DanmakuSetting.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "DanmakuSetting.java"));
         String configured = methodBody(source, "public static String getConfiguredApiUrl()", "public static String getEffectiveApiUrl()");
         String effective = methodBody(source, "public static String getEffectiveApiUrl()", "public static String getValidApiUrl()");
 
@@ -30,7 +30,7 @@ public class DanmakuBundleEndpointSourceTest {
     public void bundleFallbackStopsWhenTheActiveSourceIsNoLongerTheCatBundle() throws Exception {
         // 切到普通订阅时 VodConfig 不停 node，:node 进程与端口都还在；只判存活会把本地包地址
         // 继续用在普通线路上——切源后仍「有接口」且能搜到弹幕，要重启 APP 才恢复。
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "setting", "DanmakuSetting.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "DanmakuSetting.java"));
         String bundleSource = methodBody(source, "public static boolean isBundleSource()", "private static String bundleApiUrl()");
         String fallback = methodBody(source, "private static String bundleApiUrl()", "public static String getValidApiUrl()");
         assertContainsAll(bundleSource, "CatSource.isBundle(VodConfig.get().getConfig().getUrl())");
@@ -42,7 +42,7 @@ public class DanmakuBundleEndpointSourceTest {
         // 输入框回填若用 getEffectiveApiUrl()，用户不改直接确定，putApiUrl 会把运行时的本机
         // 回环地址固化进 prefs——换包后就是一个死地址，且再也不回退。
         for (String flavor : new String[]{"leanback", "mobile"}) {
-            String source = read(sourcePath(flavor, "java", "com", "fongmi", "android", "tv", "ui", "dialog", "DanmakuApiDialog.java"));
+            String source = read(sourcePath(flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "DanmakuApiDialog.java"));
             String initView = methodBody(source, "protected void initView()", "protected void initEvent()");
             // 只看真正回填的那一行；方法体里的注释会提到被排除的方法名。
             String prefill = initView.lines().filter(line -> line.contains("binding.text.setText(")).findFirst().orElse("");
@@ -55,7 +55,7 @@ public class DanmakuBundleEndpointSourceTest {
     public void runtimeProbesTheBundleDanmakuPortOutsideTheCatSourcePort() throws Exception {
         // 猫源本体端口与弹幕服务端口一起写在 files/node/bundle/port 里（实测 9988,9321）。
         // 只能靠 GET /danmaku 区分：本体回 404，弹幕服务回 200 且 body 是 JSON。
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "node", "NodeRuntime.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "node", "NodeRuntime.java"));
         String probe = methodBody(source, "private static void resolveDanmakuPort(int catPort, long generation)", "private static boolean isDanmakuService(okhttp3.OkHttpClient client, int candidate)");
         int serviceAt = source.indexOf("private static boolean isDanmakuService(okhttp3.OkHttpClient client, int candidate)");
         assertTrue(serviceAt > 0);
@@ -91,7 +91,7 @@ public class DanmakuBundleEndpointSourceTest {
 
     @Test
     public void runtimeExposesTheProbedEndpointAndClearsItWithTheCatSourcePort() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "node", "NodeRuntime.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "node", "NodeRuntime.java"));
         String accessor = methodBody(source, "public static String danmakuApiUrl()", "public static boolean ownsLoopbackPort(String url)");
         String clear = methodBody(source, "private static void clearPort()", "public static synchronized void start(");
         String owns = methodBody(source, "public static boolean ownsLoopbackPort(String url)", "private static void clearPort()");
@@ -117,7 +117,7 @@ public class DanmakuBundleEndpointSourceTest {
 
     @Test
     public void playerDropsAStaleBundleDanmakuSourceAfterTheSourceSwitch() throws Exception {
-        String source = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
+        String source = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
         String guard = methodBody(source, "private static boolean isStaleBundleDanmaku(", "private void clearDanmaku(");
         String setter = methodBody(source, "String url = DanmakuUrlPolicy.normalize(", "DanmakuUrlPolicy.SourceType sourceType");
         String restore = methodBody(source, "private void restoreDanmakuDataSource()", "public void setDanmakuConfig(");
@@ -138,11 +138,11 @@ public class DanmakuBundleEndpointSourceTest {
 
     @Test
     public void sourceSwitchClearsTheDanmakuLeftByTheBundle() throws Exception {
-        String player = read(sourcePath("main", "java", "com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
+        String player = read(sourcePath("main", "java", "com", "github", "moyingshi", "osc", "tv", "player", "PlayerManager.java"));
         String drop = methodBody(player, "public void dropStaleBundleDanmaku()", "private static boolean isStaleBundleDanmaku(");
         assertContainsAll(drop, "isStaleBundleDanmaku(currentDanmakuUrl)", "clearDanmaku(\"stale_bundle_source\")");
         for (String flavor : new String[]{"leanback", "mobile"}) {
-            String activity = read(sourcePath(flavor, "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            String activity = read(sourcePath(flavor, "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java"));
             String event = methodBody(activity, "public void onConfigEvent(ConfigEvent event) {", "@Subscribe");
             assertContainsAll(event, "player().dropStaleBundleDanmaku();");
         }

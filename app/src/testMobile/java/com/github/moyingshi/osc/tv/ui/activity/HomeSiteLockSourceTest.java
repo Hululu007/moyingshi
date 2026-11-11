@@ -12,7 +12,7 @@ public class HomeSiteLockSourceTest {
 
     @Test
     public void settingDefaultsToUnlockedAndPersistsThePreference() throws Exception {
-        String setting = read(source("main", "java", "com", "fongmi", "android", "tv", "setting", "Setting.java"));
+        String setting = read(source("main", "java", "com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java"));
 
         assertTrue(setting.contains("public static boolean isHomeSiteLock()"));
         assertTrue(setting.contains("return Prefers.getBoolean(\"home_site_lock\", false);"));
@@ -22,7 +22,7 @@ public class HomeSiteLockSourceTest {
 
     @Test
     public void personalSettingsExposeTheHomeSiteLockSwitch() throws Exception {
-        String activity = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "SettingPersonalActivity.java"));
+        String activity = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPersonalActivity.java"));
         String layout = read(source("leanback", "res", "layout", "activity_setting_personal.xml"));
 
         assertTrue(activity.contains("mBinding.homeSiteLock.setOnClickListener(this::setHomeSiteLock);"));
@@ -39,7 +39,7 @@ public class HomeSiteLockSourceTest {
 
     @Test
     public void lockConsumesBothHorizontalKeysWithoutSwitchingSites() throws Exception {
-        String title = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "custom", "CustomTitleView.java"));
+        String title = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomTitleView.java"));
         String hasEvent = method(title, "private boolean hasEvent(KeyEvent event)", "@Override\n    protected void onFocusChanged");
         String dispatch = method(title, "public boolean dispatchKeyEvent(KeyEvent event)", "private void onKeyDown");
 
@@ -55,8 +55,8 @@ public class HomeSiteLockSourceTest {
 
     @Test
     public void homeTitleShowsAndRefreshesTheLockIndicator() throws Exception {
-        String title = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "custom", "CustomTitleView.java"));
-        String home = read(source("leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "HomeActivity.java"));
+        String title = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "custom", "CustomTitleView.java"));
+        String home = read(source("leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "HomeActivity.java"));
         String layout = read(source("leanback", "res", "layout", "activity_home.xml"));
         String icon = read(source("leanback", "res", "drawable", "ic_home_lock.xml"));
 

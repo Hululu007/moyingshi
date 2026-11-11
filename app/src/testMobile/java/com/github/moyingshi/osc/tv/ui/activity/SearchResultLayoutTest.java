@@ -16,7 +16,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void collectActivityUsesSearchLayoutSettingForCardRatio() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java"));
         String source = read(sourcePath);
         Path layoutPath = findLeanbackResPath().resolve(Path.of("layout", "activity_collect.xml"));
         String layout = read(layoutPath);
@@ -43,7 +43,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void tvSearchDefaultsFocusToAllSourceAfterStartingSearch() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java"));
         String source = read(sourcePath);
         int newIntentStart = source.indexOf("protected void onNewIntent(Intent intent)");
         int initViewStart = source.indexOf("protected void initView(Bundle savedInstanceState)");
@@ -72,7 +72,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void gridModeUsesGlobalImageSizeForColumnCount() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java"));
         String source = read(sourcePath);
 
         assertTrue("TV search grid must use the global image-size setting",
@@ -83,9 +83,9 @@ public class SearchResultLayoutTest {
 
     @Test
     public void mobileSearchLayoutSettingControlsSourcePlacement() throws Exception {
-        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java"));
+        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java"));
         String fragment = read(fragmentPath);
-        Path adapterPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "CollectAdapter.java"));
+        Path adapterPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "CollectAdapter.java"));
         String adapter = read(adapterPath);
         Path layoutPath = findMobileResPath().resolve(Path.of("layout", "fragment_collect.xml"));
         String layout = read(layoutPath);
@@ -112,7 +112,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void mobileSearchLayoutKeepsSourceScrollAndStableRowHeight() throws Exception {
-        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java"));
+        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java"));
         String fragment = read(fragmentPath);
 
         assertTrue("Horizontal source row must use a stable fixed height",
@@ -129,7 +129,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void mobileSearchGridUsesImageSizeOnPhoneAndWideWindows() throws Exception {
-        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java"));
+        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java"));
         String fragment = read(fragmentPath);
 
         assertTrue("Mobile search grid must derive its target card width from the global image-size setting",
@@ -142,7 +142,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void mobileSearchGridKeepsSmallCardsInsideTheirGridCells() throws Exception {
-        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java"));
+        Path fragmentPath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java"));
         String fragment = read(fragmentPath);
 
         assertTrue("Mobile search must cap the span count using the minimum readable card width",
@@ -157,9 +157,9 @@ public class SearchResultLayoutTest {
 
     @Test
     public void listModeUsesCompactSearchRowsInsteadOfPosterHeight() throws Exception {
-        Path collectPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java"));
+        Path collectPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java"));
         String collect = read(collectPath);
-        Path adapterPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "SearchAdapter.java"));
+        Path adapterPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "SearchAdapter.java"));
         String adapter = read(adapterPath);
         Path listLayoutPath = findLeanbackResPath().resolve(Path.of("layout", "adapter_search_list.xml"));
         String listLayout = read(listLayoutPath);
@@ -180,7 +180,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void tvDeferredSourceActivationUsesStableSiteKey() throws Exception {
-        Path activityPath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java"));
+        Path activityPath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java"));
         String activity = read(activityPath);
 
         assertTrue("Delayed source activation must track the selected site instead of a movable adapter position",
@@ -199,7 +199,7 @@ public class SearchResultLayoutTest {
 
     @Test
     public void personalSettingsExposeSearchLayoutSwitch() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingPersonalActivity.java"));
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPersonalActivity.java"));
         String source = read(sourcePath);
         Path layoutPath = findLeanbackResPath().resolve(Path.of("layout", "activity_setting_personal.xml"));
         String layout = read(layoutPath);
@@ -217,11 +217,11 @@ public class SearchResultLayoutTest {
 
     @Test
     public void personalSettingsExposePlaybackSpeedControlsOnTvAndMobile() throws Exception {
-        Path tvSourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "SettingPersonalActivity.java"));
+        Path tvSourcePath = findLeanbackJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "SettingPersonalActivity.java"));
         String tvSource = read(tvSourcePath);
         Path tvLayoutPath = findLeanbackResPath().resolve(Path.of("layout", "activity_setting_personal.xml"));
         String tvLayout = read(tvLayoutPath);
-        Path mobileSourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "fragment", "SettingPersonalFragment.java"));
+        Path mobileSourcePath = findMobileJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "SettingPersonalFragment.java"));
         String mobileSource = read(mobileSourcePath);
         Path mobileLayoutPath = findMobileResPath().resolve(Path.of("layout", "fragment_setting_personal.xml"));
         String mobileLayout = read(mobileLayoutPath);

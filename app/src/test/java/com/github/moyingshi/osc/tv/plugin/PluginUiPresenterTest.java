@@ -212,7 +212,7 @@ public class PluginUiPresenterTest {
      */
     @Test
     public void attachPassesLeanbackIntoScopesOf() throws Exception {
-        String body = methodBody(source("src", "main", "java", "com", "fongmi", "android", "tv", "plugin",
+        String body = methodBody(source("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "plugin",
                 "PluginUiPresenter.java"), "public void attach(");
 
         assertTrue("attach 必须走集合判定 scopesOf", body.contains("PluginSurface.scopesOf("));
@@ -348,7 +348,7 @@ public class PluginUiPresenterTest {
     }
 
     private static String controllerSource() throws Exception {
-        return source("src", "main", "java", "com", "fongmi", "android", "tv", "plugin", "PluginController.java");
+        return source("src", "main", "java", "com", "github", "moyingshi", "osc", "tv", "plugin", "PluginController.java");
     }
 
     /** 读源码：工作目录可能是 app/ 也可能是仓库根，两种都要能读到。 */

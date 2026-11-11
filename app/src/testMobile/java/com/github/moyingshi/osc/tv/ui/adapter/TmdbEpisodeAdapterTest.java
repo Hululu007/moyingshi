@@ -183,7 +183,7 @@ public class TmdbEpisodeAdapterTest {
 
     @Test
     public void episodeFileNameToggleAfterEpisodeDialogPostsVisibleItemRefresh() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void toggleEpisodeFileName()");
         int methodEnd = source.indexOf("private void updateEpisodeViewModeButton", method);
@@ -204,7 +204,7 @@ public class TmdbEpisodeAdapterTest {
     @Test
     public void themeRefreshUpdatesLightAndAccentWithSingleRebind() throws Exception {
         String adapter = tmdbEpisodeAdapterSource();
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int method = adapter.indexOf("public void setTheme(boolean light, int activeStrokeColor)");
         int methodEnd = adapter.indexOf("public void setFallbackStillUrl", method);
@@ -244,7 +244,7 @@ public class TmdbEpisodeAdapterTest {
     }
 
     private static String tmdbEpisodeAdapterSource() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
         return new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
     }
 

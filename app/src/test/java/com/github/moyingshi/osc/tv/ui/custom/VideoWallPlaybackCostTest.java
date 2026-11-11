@@ -162,7 +162,7 @@ public class VideoWallPlaybackCostTest {
 
     private static String readSource(String sourceSet, String file) throws Exception {
         Path app = Files.exists(Path.of("src", "main")) ? Path.of(".") : Path.of("app");
-        Path path = app.resolve(Path.of("src", sourceSet, "java", "com", "fongmi", "android", "tv", file));
+        Path path = app.resolve(Path.of("src", sourceSet, "java", "com", "github", "moyingshi", "osc", "tv", file));
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 }

@@ -17,7 +17,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void returningFromExternalPlaybackRefreshesTheSelectedEpisodeFromHistory() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String onResume = javaBlockAt(source, "protected void onResume()");
         String refresh = javaBlockAt(source, "private void refreshSelectionAfterExternalPlayback()");
 
@@ -33,7 +33,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void defaultPosterRailLeavesRoomForTheFullRoundedPosterCard() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String defaultTemplate = javaBlockAt(source, "private void applyDefaultDetailTemplate()");
 
         assertTrue("default detail modes must leave room for the full 222dp rounded card and focus scaling",
@@ -44,7 +44,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void cinemaPosterRailLeavesRoomForTheFullRoundedPosterCard() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String cinemaTemplate = javaBlockAt(source, "private void applyCinemaDetailTemplate()");
 
         assertTrue("the poster rail must leave room for the full 222dp rounded card and focus scaling",
@@ -55,7 +55,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void cinemaEpisodeGridStartsAtTheSameLogicalStartEdgeAsOtherDetailRails() throws Exception {
-        String adapter = readJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java");
+        String adapter = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java");
         String cardSize = javaBlockAt(adapter, "private void applyCardSize(");
 
         assertTrue("the episode grid must distribute column margins like the playback grid so both outer edges align and cards keep equal widths",
@@ -67,7 +67,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void cinemaPhotoRailMatchesItsCardHeightSoFollowingRailsKeepTheSharedSectionGap() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String cinemaTemplate = javaBlockAt(source, "private void applyCinemaDetailTemplate()");
 
         assertTrue("cinema still cards are 124dp high, so their rail must not reserve a larger empty bottom area before posters",
@@ -76,7 +76,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void directPlayClearThemeUsesCompactSharedTmdbSectionGap() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String refresh = javaBlockAt(source, "private void bindTmdbSection()");
 
         assertTrue("direct-play clear theme must compact every populated TMDB rail gap while other themes retain the standard spacing",
@@ -93,7 +93,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void seasonSourceRoutesRefreshAndCarrySnapshotSelection() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
 
         assertTrue(source.contains("refreshSeasonSourceRoutes();"));
@@ -106,7 +106,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void seasonSourceSwitchReplacesThePreviousSeasonResumePayload() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int sourceOverload = source.indexOf("private void switchSourceDetail(SourceMatch");
         int switchStart = source.indexOf("private void switchSourceDetail(", sourceOverload + 1);
         String switchBody = source.substring(switchStart, source.indexOf("private String sourceSwitchMark"));
@@ -122,7 +122,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void automaticTmdbMatchUsesResolvedMediaTitleBeforeSearching() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int load = source.indexOf("private TmdbLoadResult loadTmdbResult()");
         int helper = source.indexOf("private AutoTmdbMatch searchResolvedTmdbMatch()");
@@ -147,20 +147,20 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void searchResultKeywordFlowsIntoBothTmdbAutoMatchPaths() throws Exception {
-        String collect = readFlavorJava("leanback", "com", "fongmi", "android", "tv", "ui", "activity", "CollectActivity.java");
+        String collect = readFlavorJava("leanback", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "CollectActivity.java");
         assertTrue("search result cards must pass the original search keyword to VideoActivity",
                 collect.contains("VideoActivity.collect(this, item.getSiteKey(), item.getId(), item.getName(), pic, getWallPic(), getKeyword());"));
 
-        String mobileFragment = readFlavorJava("mobile", "com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java");
+        String mobileFragment = readFlavorJava("mobile", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java");
         assertTrue("mobile search result cards must pass the original search keyword to VideoActivity",
                 mobileFragment.contains("VideoActivity.collect(requireActivity(), item.getSiteKey(), item.getId(), item.getName(), pic, getWallPic(), getKeyword());"));
 
-        String leanbackFragment = readFlavorJava("leanback", "com", "fongmi", "android", "tv", "ui", "fragment", "CollectFragment.java");
+        String leanbackFragment = readFlavorJava("leanback", "com", "github", "moyingshi", "osc", "tv", "ui", "fragment", "CollectFragment.java");
         assertTrue("leanback search result cards must pass the original search keyword to VideoActivity",
                 leanbackFragment.contains("VideoActivity.collect(requireActivity(), item.getSiteKey(), item.getId(), item.getName(), item.getPic(), null, getKeyword());"));
 
         for (String flavor : List.of("leanback", "mobile")) {
-            String source = readFlavorJava(flavor, "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+            String source = readFlavorJava(flavor, "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
             int keywordGetter = source.indexOf("getSearchKeyword()");
             int autoMatch = source.indexOf("mTmdbUIAdapter.autoMatch(item.getName(), item, getSearchKeyword())");
             int extra = source.indexOf("search_keyword");
@@ -172,7 +172,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void independentTmdbDetailUsesSearchKeywordAfterCardNameAndBeforeCleanedAiFallback() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int getter = source.indexOf("private String getTmdbSearchKeyword()");
         int match = source.indexOf("private AutoTmdbMatch searchResolvedTmdbMatch(String rawTitle, @Nullable Vod sourceVod)");
         int card = source.indexOf("searchResolvedTmdbMatch(rawTitle, resolution, attempted)", match);
@@ -189,7 +189,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void automaticTmdbMatchSkipsStaleCacheWhenParsedTitleDiffers() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int cached = source.indexOf("private TmdbItem getCachedTmdbMatch()");
         int compatible = source.indexOf("private boolean isCachedTmdbMatchCompatible");
@@ -204,7 +204,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void playbackTmdbItemKeepsMatchedTitleForNativeEnhancedHeader() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("private TmdbItem playbackTmdbItem()");
         int end = source.indexOf("private Vod playbackTmdbVod()", method);
         String body = source.substring(method, end);
@@ -217,7 +217,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void tmdbDetailNormalizesCachedTitleBeforeNativeEnhancedPlayback() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int loadBundle = source.indexOf("private TmdbBundle loadTmdbBundle(TmdbItem item)");
         int normalize = source.indexOf("private TmdbItem normalizeTmdbItemTitle", loadBundle);
         int detailTitle = source.indexOf("private String tmdbDetailTitle", normalize);
@@ -243,7 +243,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void manualTmdbReplacementUsesCompleteResultRefreshPipeline() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int manual = source.indexOf("private void applyManualTmdb(TmdbItem item)");
         int manualEnd = source.indexOf("private void resetManualTmdbPresentation()", manual);
         int reset = manualEnd;
@@ -295,7 +295,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void manualTmdbMatchReloadsCrossSourceHistoryBeforeRenderingEpisodes() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int canonical = source.indexOf("private void applyTmdbResultNow(TmdbLoadResult result)");
         int canonicalEnd = source.indexOf("private TmdbBundle loadTmdbBundle", canonical);
         assertTrue("canonical TMDB refresh must exist", canonical >= 0 && canonicalEnd > canonical);
@@ -314,7 +314,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void tmdbHistoryReloadReappliesUntouchedPlaybackSelection() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int canonical = source.indexOf("private void applyTmdbResultNow(TmdbLoadResult result)");
         int canonicalEnd = source.indexOf("private TmdbBundle loadTmdbBundle", canonical);
         String canonicalBody = source.substring(canonical, canonicalEnd);
@@ -343,7 +343,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void asyncSeasonLoadForcesEpisodeRebindAfterLayoutSettles() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int fetch = source.indexOf("private void fetchSeasonIfNeeded(int seasonNumber, boolean refresh)");
         int fetchEnd = source.indexOf("private void refreshFirstSeasonIfStaleSplit", fetch);
 
@@ -362,7 +362,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void manualTmdbEpisodeRebindWaitsForWindowFocusBeforeNextFrame() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int schedule = source.indexOf("private void scheduleManualTmdbEpisodeRebind(int generation, TmdbItem item)");
         int flush = source.indexOf("private void flushPendingManualTmdbEpisodeRebind()", schedule);
         int applyManual = source.indexOf("private void applyManualTmdb(TmdbItem item)", flush);
@@ -395,7 +395,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionDetailBackdropDrawsBehindSystemBars() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void applyDetailEdgeToEdge()");
         int init = source.indexOf("protected void initView(Bundle savedInstanceState)");
@@ -418,7 +418,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionInlinePlayerButtonsUsePlayerButtonSettings() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void applyInlinePlayerButtonSettings()");
         int update = source.indexOf("private void updateInlineButtons(boolean playing)");
@@ -438,7 +438,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionOverlayButtonsDoNotFollowPlayerButtonSettings() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         // 融合模式全屏播放器的悬浮/图标按钮只根据集数、锁定、功能可用性显示，不受「播放器按钮设置」控制
         // （PlayerButtonSetting 只控制 playerActionRow 的横向文字按钮）。这些按钮的可见性行在
         // updateInlineButtons(...) 中，用 detailControlView(R.id.X).setVisibility(...) 更新。
@@ -453,7 +453,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionInlineSettingsButtonOpensFullPlayerControls() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int setup = source.indexOf("private void setupMobileInlineControl()");
         int setupEnd = source.indexOf("private void setupMobileInlineParse()", setup);
         String body = source.substring(setup, setupEnd);
@@ -463,7 +463,7 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("fusion settings button must not open the display-only dialog",
                 !body.contains("detailControlView(R.id.setting, View.class).setOnClickListener(guarded(this::showInlineDisplay));"));
 
-        Path dialogPath = Path.of("src", "mobile", "java", "com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java");
+        Path dialogPath = Path.of("src", "mobile", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java");
         if (!Files.exists(dialogPath)) dialogPath = Path.of("app").resolve(dialogPath);
         String dialog = new String(Files.readAllBytes(dialogPath), StandardCharsets.UTF_8);
         int inline = dialog.indexOf("public ControlDialog inline(TmdbDetailActivity activity)");
@@ -491,7 +491,7 @@ public class TmdbDetailActivityLayoutTest {
             assertFalse("fusion layout must not expose unsupported action " + id, fusionLayout.contains("@+id/" + id));
         }
 
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("private void setupHorizontalFocusChain()");
         int scale = source.indexOf("binding.playerScale", method);
         int quality = source.indexOf("binding.playerQuality", method);
@@ -505,7 +505,7 @@ public class TmdbDetailActivityLayoutTest {
     public void inlinePlayerExposesAdFeedbackAcrossDetailPlaybackModes() throws Exception {
         String layout = readLayout("activity_tmdb_detail.xml");
         String mobileAction = readLayout("view_control_vod_action_tmdb.xml");
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
 
         assertAndroidIdHasAttribute("fusion inline ad feedback action", layout, "playerAdFeedback", "android:text=\"@string/play_ad_feedback\"");
         assertAndroidIdHasAttribute("mobile inline ad feedback action", mobileAction, "adFeedback", "android:text=\"@string/play_ad_feedback\"");
@@ -537,7 +537,7 @@ public class TmdbDetailActivityLayoutTest {
      */
     @Test
     public void inlineQuickSearchReflectionTargetsExistInBothFlavors() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
 
         assertTrue("inline search must reuse the native incremental search stream, not a one-shot dialog",
                 source.contains("inlineSearchModel().searchContent(sites, keyword, true);")
@@ -545,7 +545,7 @@ public class TmdbDetailActivityLayoutTest {
                         && source.contains("inlineSearchModel().getSearchProgress().observe(this, progress ->"));
 
         for (String flavor : List.of("leanback", "mobile")) {
-            String dialog = readFlavorJava(flavor, "com", "fongmi", "android", "tv", "ui", "dialog", "QuickSearchDialog.java");
+            String dialog = readFlavorJava(flavor, "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "QuickSearchDialog.java");
             assertTrue(flavor + " QuickSearchDialog must keep create() for inline search reflection",
                     dialog.contains("public static QuickSearchDialog create()"));
             assertTrue(flavor + " QuickSearchDialog must keep listener(QuickAdapter.OnClickListener) for inline search reflection",
@@ -557,16 +557,16 @@ public class TmdbDetailActivityLayoutTest {
             assertTrue(flavor + " QuickSearchDialog must keep addAll(List<Vod>) for incremental inline search results",
                     dialog.contains("public void addAll(List<Vod> items)"));
 
-            String adapter = readFlavorJava(flavor, "com", "fongmi", "android", "tv", "ui", "adapter", "QuickAdapter.java");
+            String adapter = readFlavorJava(flavor, "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "QuickAdapter.java");
             assertTrue(flavor + " QuickAdapter must keep OnClickListener.onItemClick(Vod) for the inline search proxy",
                     adapter.contains("public interface OnClickListener") && adapter.contains("void onItemClick(Vod item);"));
         }
 
-        String leanbackDialog = readFlavorJava("leanback", "com", "fongmi", "android", "tv", "ui", "dialog", "QuickSearchDialog.java");
+        String leanbackDialog = readFlavorJava("leanback", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "QuickSearchDialog.java");
         assertTrue("leanback QuickSearchDialog must keep setProgress for the TV site-progress readout",
                 leanbackDialog.contains("public void setProgress(int current, int total, boolean finished)"));
 
-        String mobileDialog = readFlavorJava("mobile", "com", "fongmi", "android", "tv", "ui", "dialog", "QuickSearchDialog.java");
+        String mobileDialog = readFlavorJava("mobile", "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "QuickSearchDialog.java");
         assertTrue("mobile QuickSearchDialog must keep the in-sheet re-search hooks used by inline search",
                 mobileDialog.contains("public interface OnSearchListener")
                         && mobileDialog.contains("public QuickSearchDialog searchListener(OnSearchListener listener)")
@@ -624,7 +624,7 @@ public class TmdbDetailActivityLayoutTest {
     public void themeActionButtonsHaveFallbackTextBeforeRuntimeThemeRefresh() throws Exception {
         String detailLayout = readLayout("activity_tmdb_detail.xml");
         String headerLayout = readLayout("view_tmdb_header.xml");
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int init = source.indexOf("private void initPage()");
         int labelRefresh = source.indexOf("updateThemeModeButtonLabels();", init);
         int visibilityRefresh = source.indexOf("updateDetailThemeButtonVisibility();", init);
@@ -639,7 +639,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void defaultDetailPlaybackDefersLaunchUntilAfterCurrentInputDispatch() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("private void playDefaultPlayback()");
         int methodEnd = source.indexOf("private ", method + 1);
         String body = source.substring(method, methodEnd);
@@ -652,7 +652,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void colorfulDetailDoesNotKeepPlaybackServiceBoundBetweenEpisodeLaunches() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("protected boolean shouldBindPlaybackService()");
         int methodEnd = source.indexOf("private ", method + 1);
         String body = method >= 0 && methodEnd > method ? source.substring(method, methodEnd) : "";
@@ -666,7 +666,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlaybackPublishesViewingRecordLifecycle() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int update = source.indexOf("private void updateInlineHistory(Episode item)");
         int updateEnd = source.indexOf("private ", update + 1);
         String updateBody = source.substring(update, updateEnd);
@@ -707,7 +707,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlaybackReconnectRestoresExistingResultBeforeRetryingSourceResolution() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int disconnect = source.indexOf("public void onServiceDisconnected(ComponentName name)");
         int disconnectEnd = source.indexOf("@Override", disconnect + 1);
         int restore = source.indexOf("private void restoreInlinePlaybackIfNeeded()");
@@ -739,7 +739,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlaybackDoesNotResolveSourceAgainWhileServiceReconnects() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int toggle = source.indexOf("private void toggleInlinePlayback()");
         int toggleEnd = source.indexOf("private void toggleInlineControls()", toggle);
         String body = toggle >= 0 && toggleEnd > toggle ? source.substring(toggle, toggleEnd) : "";
@@ -751,7 +751,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void playbackPageHidesThemeActionsWhileEnhancedDetailKeepsThem() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("private void updateDetailThemeButtonVisibility()");
         int methodEnd = source.indexOf("private void applyTemplateCardChrome", method);
         String body = source.substring(method, methodEnd);
@@ -800,7 +800,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionInlineQualityAndVideoTrackLogicMatchesNativeLeanbackPlayer() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int canQuality = source.indexOf("private boolean canChangeInlineQuality()");
         int showQuality = source.indexOf("private void showInlineQuality()");
         int changeQuality = source.indexOf("private void changeInlineQuality(int position)");
@@ -825,7 +825,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionInlineLutQuickFocusMatchesNativeLeanbackPlayer() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String layout = readLayout("activity_tmdb_detail.xml");
         int dispatch = source.indexOf("public boolean dispatchKeyEvent(KeyEvent event)");
         int focus = source.indexOf("private boolean focusInlineLutQuickContent()");
@@ -861,7 +861,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineControlsRemainAvailableBeforePlaybackStartsOrWhileLoading() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int toggle = source.indexOf("private void toggleInlineControls()");
         int show = source.indexOf("private void showInlineControls(boolean show, boolean focus)");
@@ -877,7 +877,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineGesturesStayInteractiveBeforePlaybackStarts() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int touch = source.indexOf("private boolean onInlineTouch(View view, MotionEvent event)");
         int seeking = source.indexOf("public void onSeeking(long time)", touch);
         int singleTap = source.indexOf("public void onSingleTap()");
@@ -905,7 +905,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void repeatedEpisodeTapDoesNotRestartSamePendingInlinePlayback() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int helper = source.indexOf("private boolean isSamePendingInlinePlayback(Episode episode)");
         int select = source.indexOf("private void selectInlineEpisode(Episode episode)");
         int guard = source.indexOf("if (isSamePendingInlinePlayback(episode)) return;", select);
@@ -930,7 +930,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineFullscreenRemainsAvailableWithoutAPlayerInstance() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int toggle = source.indexOf("private void toggleInlineFullscreen()");
         int enterPip = source.indexOf("private void enterInlinePiP(boolean force)", toggle);
         String toggleBody = toggle >= 0 && enterPip > toggle ? source.substring(toggle, enterPip) : "";
@@ -946,9 +946,9 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlayerPersistentDisplayUsesUnifiedPlayerOsd() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
-        String controller = readJava("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiController.java");
+        String controller = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerUiController.java");
         int method = source.indexOf("private void updateInlineDisplayPanel()");
         int end = source.indexOf("private void setButtonEnabled", method);
         String body = method >= 0 && end > method ? source.substring(method, end) : "";
@@ -978,7 +978,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void mobileInlineCastReflectionKeepsR8MethodNames() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         Path proguardPath = findAppModulePath().resolve("proguard-rules.pro");
         String proguard = new String(Files.readAllBytes(proguardPath), StandardCharsets.UTF_8);
@@ -1012,7 +1012,7 @@ public class TmdbDetailActivityLayoutTest {
                 playerSpacer >= 0 && playerSpacer < dock);
         assertTrue("mobile fusion player action dock must remain hidden between player spacer and detail actions", playerSpacer < dock && dock < fusionActions);
 
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int update = source.indexOf("private void updateMobileInlineButtons(boolean playing");
         int dockMethod = source.indexOf("private void hideMobileFusionPlayerActionDock()");
@@ -1032,7 +1032,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void mobileFusionControlOverlayRoutesBlankTouchesToGestureDetector() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int touchHandler = source.indexOf("private boolean onInlineControlTouch(View view, MotionEvent event)");
         int nextMethod = source.indexOf("private boolean onInlinePanelKey", touchHandler);
@@ -1045,7 +1045,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionDetailBackdropCropsToFillScreen() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private boolean shouldCropBackdrop()");
         assertTrue(sourcePath + " is missing shouldCropBackdrop", method >= 0);
@@ -1058,7 +1058,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void unmatchedTmdbDetailUsesAppWallpaperBackdrop() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int bind = source.indexOf("private void bindBackdrop()");
         int surface = source.indexOf("private void applyBackdropSurface(ThemeColors colors)");
@@ -1084,7 +1084,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void profileBackdropKeepsHistoricalTransparencyOverPosterArt() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private float backdropSlideAlpha()");
 
@@ -1121,7 +1121,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailLoadsPersonalAiCacheBeforeSlowMediaBlocksFinish() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void loadTmdbMediaBlocks(TmdbBundle bundle)");
         int bind = source.indexOf("bindTmdbSection();", method);
@@ -1139,7 +1139,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void earlyPersonalAiCacheRendersBeforeAsynchronousRatingEnrichment() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void loadTmdbPersonalAiCache(TmdbBundle bundle");
         int nextMethod = source.indexOf("private void loadTmdbPersonalAi(TmdbBundle bundle", method);
@@ -1157,7 +1157,7 @@ public class TmdbDetailActivityLayoutTest {
     }
     @Test
     public void detailLoadsUseLifecycleScopeAndSeparateTmdbExecutor() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int load = source.indexOf("private void loadContent(@Nullable TmdbBundle reusableBundle)");
         int helper = source.indexOf("private boolean shouldLoadInitialStandaloneTmdbDetailInSinglePass", load);
@@ -1180,7 +1180,7 @@ public class TmdbDetailActivityLayoutTest {
     }
     @Test
     public void standaloneOmdbRatingUsesSharedLifecycleScopedClient() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = Files.readString(sourcePath, StandardCharsets.UTF_8);
         int fetch = source.indexOf("private void fetchOmdbRating(String key)");
         int next = source.indexOf("private void addOmdbRatingChips", fetch);
@@ -1195,7 +1195,7 @@ public class TmdbDetailActivityLayoutTest {
     }
     @Test
     public void standaloneDetailAppliesInitialTmdbResultInSinglePass() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int load = source.indexOf("private void loadContent(@Nullable TmdbBundle reusableBundle)");
         int helper = source.indexOf("private boolean shouldLoadInitialStandaloneTmdbDetailInSinglePass");
@@ -1215,7 +1215,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void standaloneDetailPreloadsInitialSeasonBeforeFirstBind() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int load = source.indexOf("private void loadContent(@Nullable TmdbBundle reusableBundle)");
         int preload = source.indexOf("private TmdbLoadResult preloadInitialStandaloneSeason");
@@ -1235,7 +1235,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void episodeDetailDismissRestoresLongPressedCardFocus() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int show = source.indexOf("private void showTmdbEpisodeDetail(Episode episode, int episodeNumber, TmdbEpisode boundTmdbEpisode, RecyclerView returnRecycler)");
         int restore = source.indexOf("private void restoreEpisodeDetailFocus(RecyclerView recycler, Episode episode)", show);
 
@@ -1259,7 +1259,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void episodeDetailDismissRepairsInvalidVisibleHoldersBeforeRestoringFocus() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String recovery = javaBlockAt(source, "private void recoverRecyclerViewIfDetached(");
         String show = javaBlockAt(source, "private void showTmdbEpisodeDetail(");
         String dismiss = javaBlockAt(show, "OnDismissListener dismissListener");
@@ -1296,7 +1296,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void standaloneEpisodeModeToggleDoesNotForceSelectedScroll() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void toggleEpisodeViewMode()");
         int nextMethod = source.indexOf("private void updateEpisodeViewModeButton()", method);
@@ -1310,7 +1310,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailThemeToggleRestylesDynamicViewsWithoutRebuildingEpisodes() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int cycle = source.indexOf("private void cycleThemeMode()");
         int cycleEnd = source.indexOf("private void applyDetailTheme()", cycle);
@@ -1339,7 +1339,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void standaloneEpisodeViewportRerenderOnlyNumbersCurrentPage() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void rerenderEpisodeViewportOnly(boolean scrollToSelection)");
         int nextMethod = source.indexOf("private void updateEpisodeRangeButtonStates()", method);
@@ -1356,7 +1356,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void episodeSeasonResolutionIsCachedAcrossViewportOnlyRerenders() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int applyLoaded = source.indexOf("private void applyLoaded(Vod loadedVod, TmdbBundle bundle, List<TmdbItem> searchItems, String error, boolean allowMatchDialog)");
         int applyLoadedEnd = source.indexOf("private TmdbLoadResult loadTmdbResult()", applyLoaded);
@@ -1441,7 +1441,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void standaloneEpisodeReverseUsesViewportOnlyRefreshForLargeLists() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int toggle = source.indexOf("private void toggleEpisodeReverse()");
         int nextToggle = source.indexOf("private void toggleEpisodeViewMode()", toggle);
@@ -1465,7 +1465,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void standaloneMobileEpisodeCardPagesUseLargerButBoundedGroups() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int constant = source.indexOf("private static final int STANDALONE_MOBILE_EPISODE_CARD_PAGE_MAX_SIZE = 36;");
         int method = source.indexOf("private int episodeCardPageMaxSize()");
@@ -1479,7 +1479,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void openingDetailBindsTmdbEpisodesWithoutRepeatedIndexOf() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void bindTmdbEpisodes(List<Episode> sourceEpisodes, int tmdbSeason)");
         int nextMethod = source.indexOf("private int tmdbEpisodeDataSeason", method);
@@ -1496,7 +1496,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void seasonNavigationUsesOnlyCurrentFlagAvailableSeasons() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int resolver = source.indexOf("private List<Integer> availableSeasonNumbers(List<Episode> episodes)");
         int render = source.indexOf("private void renderSeasonSelection()", resolver);
@@ -1540,7 +1540,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void singleAvailableSeasonKeepsReadOnlySeasonContext() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int render = source.indexOf("private void renderEpisodes()");
         int renderEnd = source.indexOf("private List<EpisodeRangePolicy.Range> buildCardEpisodeRanges", render);
@@ -1581,7 +1581,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void switchingLongStandaloneEpisodeFlagsReusesEpisodeRenderCaches() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int indices = source.indexOf("private Map<Episode, Integer> episodeIndices(List<Episode> episodes)");
         int clear = source.indexOf("private void clearEpisodeRenderCaches()", indices);
@@ -1620,7 +1620,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void compactCinemaDetailKeepsPosterVisible() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void applyCinemaDetailTemplate()");
         int nextMethod = source.indexOf("private boolean isCompactWidth()", method);
@@ -1641,9 +1641,9 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionDetailShowsFocusedPersonalAiReason() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbRailAdapter.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbRailAdapter.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
         Path layoutPath = findMainResPath().resolve(Path.of("layout", "activity_tmdb_detail.xml"));
         String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);
@@ -1688,7 +1688,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void keepStateShowsAddedLabelWhenAlreadyKept() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateKeepState()");
         assertTrue(sourcePath + " is missing updateKeepState", method >= 0);
@@ -1705,7 +1705,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void lightActionButtonsStayReadableOnBackdropAndPanels() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int theme = source.indexOf("private void applyDetailTheme()");
         int themeEnd = source.indexOf("private void styleSourceValue()", theme);
@@ -1738,7 +1738,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailRatingChipsKeepReadableBrandColorsAfterThemeTint() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int theme = source.indexOf("private void applyDetailTheme()");
         int add = source.indexOf("private void addRatingChip");
@@ -1764,7 +1764,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeToolsAndCardsKeepDistinctFocusChrome() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         Path selectorPath = findMainResPath().resolve(Path.of("drawable", "selector_episode_card.xml"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         String selector = new String(Files.readAllBytes(selectorPath), StandardCharsets.UTF_8);
@@ -1807,7 +1807,7 @@ public class TmdbDetailActivityLayoutTest {
     @Test
     public void detailEpisodeTitleSharesToolFocusChromeAndNavigation() throws Exception {
         String layout = readLayout("activity_tmdb_detail.xml");
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int label = layout.indexOf("android:id=\"@+id/episodeLabel\"");
         int title = layout.indexOf("android:id=\"@+id/episodeTitle\"");
         int titleTag = layout.lastIndexOf("<com.google.android.material.button.MaterialButton", title);
@@ -1861,11 +1861,11 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineEpisodesReuseSharedNativeEnhancedAdaptivePanel() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
-        Path policyPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbEpisodeGridPolicy.java"));
+        Path policyPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbEpisodeGridPolicy.java"));
         String policy = new String(Files.readAllBytes(policyPath), StandardCharsets.UTF_8);
 
         int method = activity.indexOf("private void showInlineEpisodes()");
@@ -1971,7 +1971,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeBottomRowDpadDownFocusesFirstVisibleTmdbRow() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int episodeKey = activity.indexOf("private boolean onDetailEpisodeKey");
         int flagFocus = activity.indexOf("private boolean focusDetailFlagButton()", episodeKey);
@@ -1994,7 +1994,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeGridDpadUpDownUsesFullHeightRecyclerViewUntilBoundary() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
         int moveEnd = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
@@ -2045,7 +2045,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeHorizontalFocusSkipsSameRowOuterAlignment() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int focusChange = activity.indexOf("private void onDetailEpisodeFocusChange");
         int flagKey = activity.indexOf("private boolean onDetailFlagKey", focusChange);
@@ -2068,7 +2068,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeGridModeDpadLeftRightStaysInsideGridRow() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
         int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
@@ -2088,7 +2088,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeRangeDpadDownUsesButtonPositionInsteadOfSelectedEpisode() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int rangeKey = activity.indexOf("private boolean onDetailEpisodeRangeKey");
         int toolKey = activity.indexOf("private boolean onDetailEpisodeToolKey", rangeKey);
@@ -2121,7 +2121,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeRangeFocusActivatesPageEvenWhenIndexStateAlreadyMatches() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int focusChange = activity.indexOf("private void setEpisodeRangeFocusChange");
         int activate = activity.indexOf("private void activateFocusedEpisodeRange", focusChange);
@@ -2171,7 +2171,7 @@ public class TmdbDetailActivityLayoutTest {
      */
     @Test
     public void episodeAndSourceChipsKeepTheirFillThroughMaterialBackgroundRebuilds() throws Exception {
-        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setChipState(MaterialButton button, boolean selected)");
 
@@ -2187,9 +2187,9 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void tmdbArtworkRowsSeparateBackdropsAndPostersWhileSlidesRemainResponsive() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
-        Path headerPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbPhotoAdapter.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path headerPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbPhotoAdapter.java"));
         Path layoutPath = findMainResPath().resolve(Path.of("layout", "activity_tmdb_detail.xml"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         String header = new String(Files.readAllBytes(headerPath), StandardCharsets.UTF_8);
@@ -2220,8 +2220,8 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void mobileTmdbPhotoViewersKeepCurrentOrientationUntilUserRotates() throws Exception {
-        String detail = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String person = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbPersonActivity.java");
+        String detail = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String person = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbPersonActivity.java");
 
         assertPhotoViewerKeepsCurrentOrientation(detail, "detail artwork viewer");
         assertPhotoViewerKeepsCurrentOrientation(person, "person photo viewer");
@@ -2254,8 +2254,8 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void mobileLegacyDetailPhotoCardsOpenOnFirstTapAcrossDetailFlows() throws Exception {
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbPhotoAdapter.java"));
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbPhotoAdapter.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int holderConstructor = adapter.indexOf("public ViewHolder(@NonNull android.view.View itemView)");
@@ -2280,7 +2280,7 @@ public class TmdbDetailActivityLayoutTest {
     @Test
     public void detailPhotoCardsUseUnifiedMaterialFocusStrokeAndAlignedCorners() throws Exception {
         Path layoutPath = findMainResPath().resolve(Path.of("layout", "adapter_tmdb_photo.xml"));
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbPhotoAdapter.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbPhotoAdapter.java"));
         String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
 
@@ -2330,7 +2330,7 @@ public class TmdbDetailActivityLayoutTest {
                             && !layout.contains("@drawable/selector_tmdb_cast_focus"));
         }
 
-        String helper = readJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbCardFocusHelper.java");
+        String helper = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbCardFocusHelper.java");
         assertTrue("shared TMDB card focus helper should clear gray state overlays before applying visible foreground focus",
                 helper.contains("card.setSelected(false);")
                         && helper.contains("card.setActivated(false);")
@@ -2351,14 +2351,14 @@ public class TmdbDetailActivityLayoutTest {
                         && !helper.contains("scaleX(")
                         && !helper.contains("scaleY("));
 
-        String castAdapter = readJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbCastAdapter.java");
+        String castAdapter = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbCastAdapter.java");
         assertTrue("cast/creator cards should use the same stroke-only helper instead of foreground activation",
                 castAdapter.contains("TmdbCardFocusHelper.bind(card")
                         && !castAdapter.contains("setForeground(")
                         && !castAdapter.contains("setActivated(focused)"));
 
-        String personPhotoAdapter = readJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbPersonPhotoAdapter.java");
-        String personWorkAdapter = readJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbPersonWorkAdapter.java");
+        String personPhotoAdapter = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbPersonPhotoAdapter.java");
+        String personWorkAdapter = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbPersonWorkAdapter.java");
         assertTrue("person photo cards should also use stroke-only focus",
                 personPhotoAdapter.contains("TmdbCardFocusHelper.bind(card"));
         assertTrue("person work cards should also use stroke-only focus",
@@ -2367,7 +2367,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeListModeDpadUpDownLeavesHorizontalEpisodeRow() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
         int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
@@ -2391,7 +2391,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeListModeDpadLeftRightStaysInsideHorizontalEpisodeRow() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int episodeKey = activity.indexOf("private boolean onDetailEpisodeKey");
         int episodeKeyEnd = activity.indexOf("private boolean moveDetailEpisodeFocus", episodeKey);
@@ -2422,7 +2422,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeListModeCentersTheFocusedCardLikeNativeEnhanced() throws Exception {
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String focusChange = javaBlockAt(activity, "private void onDetailEpisodeFocusChange(");
         String alignFocused = javaBlockAt(activity, "private void alignDetailEpisodeFocusedRow(");
         String alignHorizontal = javaBlockAt(activity, "private void alignDetailEpisodeFocusedCardHorizontallyNow(");
@@ -2442,7 +2442,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailTmdbHorizontalRowsMoveWithinRowAndConsumeBoundaries() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int navigation = activity.indexOf("private boolean handleDetailEpisodeNavigationKey");
         int detailRows = activity.indexOf("private RecyclerView detailTmdbRecyclerContainingFocus", navigation);
@@ -2481,7 +2481,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailFocusableButtonGroupsUseExplicitDpadNavigation() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int navigation = activity.indexOf("private boolean handleDetailEpisodeNavigationKey");
         int detailRows = activity.indexOf("private RecyclerView detailTmdbRecyclerContainingFocus", navigation);
@@ -2539,7 +2539,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailExternalLinkFirstRowDpadUpReturnsToRecommendationCardRow() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int externalKey = activity.indexOf("private boolean onDetailExternalLinksKey");
         int horizontalTarget = activity.indexOf("private View horizontalFocusTarget", externalKey);
@@ -2567,7 +2567,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void leanbackDetailOverviewRendersAsPlainFullText() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int init = activity.indexOf("protected void initView(Bundle savedInstanceState)");
         int setup = activity.indexOf("private void setupOverviewInteraction()");
@@ -2602,7 +2602,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeDownToTmdbRowsUsesImmediateFocusWithoutScrollFlicker() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int focusRecycler = activity.indexOf("private boolean focusTmdbRecycler(RecyclerView recycler)");
         int scrollHelper = activity.indexOf("private void scrollDetailChildIntoView", focusRecycler);
@@ -2621,7 +2621,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeToolButtonsUseSharedFocusStroke() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int setup = activity.indexOf("private void setEpisodeToolButton(MaterialButton button, ThemeColors colors)");
         int setupEnd = activity.indexOf("private void applyEpisodeToolButtonsFocus()", setup);
@@ -2646,7 +2646,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailEpisodeHeaderToolsStayVisibleAndDpadReachable() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         Path layoutPath = findMainResPath().resolve(Path.of("layout", "activity_tmdb_detail.xml"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);
@@ -2727,7 +2727,7 @@ public class TmdbDetailActivityLayoutTest {
     @Test
     public void mobileDetailEpisodeHeaderUsesIconOnlyToolbarWithStateAwareAccessibility() throws Exception {
         String layout = readLayout("activity_tmdb_detail.xml");
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
 
         assertTrue("detail episode toolbar must expose a state-aware reverse icon helper",
                 activity.contains("private void updateEpisodeReverseButton()")
@@ -2745,7 +2745,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void nativeEnhancedEpisodeHeaderInitializesAllIconToolsBeforeFirstViewportBind() throws Exception {
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int render = activity.indexOf("private void renderEpisodes()");
         int initialize = activity.indexOf("updateEpisodeToolButtons();", render);
         int bindViewport = activity.indexOf("applyEpisodeViewport(pagedDisplayEpisodes", render);
@@ -2767,7 +2767,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineEpisodeModeToggleClicksImmediatelyOnMobileWhileTvKeepsFocusNavigation() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int mobileMethod = activity.indexOf("private MaterialButton createInlineEpisodeModeButton()");
@@ -2791,7 +2791,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void leanbackFusionEpisodeFocusTakesPriorityOverInlineSeekKeys() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int dispatch = activity.indexOf("public boolean dispatchKeyEvent(KeyEvent event)");
@@ -2820,7 +2820,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlayerConfirmSeparatesPanelClickAndHiddenKeyBehavior() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int confirm = activity.indexOf("private void onInlinePanelConfirm()");
@@ -2905,9 +2905,9 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void tmdbEpisodeDataIsBoundBackToSourceEpisodesAndRefreshesByDataSeason() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
-        Path servicePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "service", "TmdbService.java"));
+        Path servicePath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "service", "TmdbService.java"));
         String service = new String(Files.readAllBytes(servicePath), StandardCharsets.UTF_8);
 
         int bindSeason = activity.indexOf("private void bindSeasonEpisodes(List<Episode> sourceEpisodes)");
@@ -2943,7 +2943,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineFullscreenExitRestoresEmbeddedPlayerLayout() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int restore = activity.indexOf("private void restoreInlinePlayerPanelAfterOverlay()");
@@ -3019,7 +3019,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void mobileInlinePipClearsEmbeddedOffsetAndStopsPlaybackWhenClosed() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
 
         int enterPipLayout = activity.indexOf("private void enterInlinePiPLayout()");
@@ -3050,7 +3050,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlayerScaleSurvivesPlayerCoreRebuild() throws Exception {
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int setScale = activity.indexOf("private void setInlineScale(int scale)");
         int previewScale = activity.indexOf("private void setInlinePreviewScale(int scale)", setScale);
 
@@ -3066,7 +3066,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlayerPanelStaysInRootWithoutReparent() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8).replace("\r\n", "\n");
 
         int enter = activity.indexOf("private void enterInlineFullscreen()");
@@ -3101,7 +3101,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void mobileInlineFullscreenKeepsLiveVideoVisibleDuringLayoutChanges() throws Exception {
-        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8).replace("\r\n", "\n");
 
         int enter = activity.indexOf("private void enterInlineFullscreen()");
@@ -3127,8 +3127,8 @@ public class TmdbDetailActivityLayoutTest {
     @Test
     public void fusionPlayerSpacerOnlyAcceptsFocusOnLeanback() throws Exception {
         String layout = readLayout("activity_tmdb_detail.xml");
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String controller = readJava("com", "fongmi", "android", "tv", "ui", "detail", "FusionDetailController.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String controller = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "detail", "FusionDetailController.java");
 
         int spacerStart = layout.indexOf("android:id=\"@+id/playerPanelSpacer\"");
         int spacerEnd = layout.indexOf("/>", spacerStart);
@@ -3157,7 +3157,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionFocusBridgeDoesNotShipTemporaryDebugLogs() throws Exception {
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
 
         assertTrue("temporary TmdbDetailFocus logs must be removed before merge",
                 !activity.contains("TmdbDetailFocus"));
@@ -3165,7 +3165,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void nativeEnhancedEpisodeCardsUseUnifiedTvFocusAndPlayingState() throws Exception {
-        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
         Path selectorPath = findMainResPath().resolve(Path.of("drawable", "selector_episode_card.xml"));
         String selector = new String(Files.readAllBytes(selectorPath), StandardCharsets.UTF_8);
@@ -3196,7 +3196,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineEpisodeSwitchDoesNotCarryPreviousEpisodePosition() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String updateHistory = javaBlockAt(source, "private void updateInlineHistory(Episode item)");
         String startPlayer = javaBlockAt(source, "private void startInlinePlayer(Result result, long resumePosition)");
         String onTime = javaBlockAt(source, "public void onTimeChanged(long time)");
@@ -3252,7 +3252,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void currentInlineEpisodeCardEntersFullscreenWithoutReloading() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int onPlay = source.indexOf("private void onPlay()");
         int playDetailFullscreen = source.indexOf("private void playDetailFullscreen()");
         int playInline = source.indexOf("private void playInline()");
@@ -3291,7 +3291,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlinePlaybackSpeedUsesPersonalDefaultAndRestoresAfterHold() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int speedEnd = source.indexOf("public void onSpeedEnd()");
         int onBright = source.indexOf("public void onBright(int progress)", speedEnd);
         int initHistory = source.indexOf("private void initHistory()");
@@ -3345,9 +3345,9 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void fusionInlinePlayerDelegatesSharedUiSetup() throws Exception {
-        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String chrome = readJava("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerChrome.java");
-        String controller = readJava("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiController.java");
+        String activity = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String chrome = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerChrome.java");
+        String controller = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "player", "VodPlayerUiController.java");
         int method = activity.indexOf("private void initFusionPlayer()");
         int mobile = activity.indexOf("private void setupMobileInlineControl()", method);
         String body = activity.substring(method, mobile);
@@ -3394,7 +3394,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void tvInlinePauseFeedbackStaysVisibleAcrossDetailPlayerStatePaths() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int show = source.indexOf("private void showInlinePauseInfo()");
         int sync = source.indexOf("private void syncInlinePauseInfo(boolean playing)");
         int condition = source.indexOf("private boolean shouldShowInlinePauseInfo(boolean playing)", sync);
@@ -3459,7 +3459,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void duplicateNamedFlagsUseUrlThenStableKeyAndObjectIdentity() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String standalone = source.substring(source.indexOf("private Flag initialStandaloneFlag"),
                 source.indexOf("private Episode initialStandaloneEpisode"));
         String initial = source.substring(source.indexOf("private Flag findInitialFlag"),
@@ -3498,7 +3498,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void seasonSourceRouteChipsAreDistinguishableFromRealFlags() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String bindRoutes = javaBlockAt(source, "private void bindSeasonSourceRoutes(");
         String label = javaBlockAt(source, "private String seasonSourceRouteLabel(");
 
@@ -3524,7 +3524,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void initialStandaloneFlagLoadsSeasonBindingBeforeRoutesAndEpisodes() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String bindFlags = source.substring(source.indexOf("private void bindFlags()"),
                 source.indexOf("private void bindSeasonSourceRoutes"));
         String applyBundle = source.substring(source.indexOf("private void applyTmdbBundle"),
@@ -3543,7 +3543,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void knownSeasonAutoFallbackUsesOnlyValidatedSeasonRoutes() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String manual = source.substring(source.indexOf("private void changeSource()"),
                 source.indexOf("private SourceMatch searchAutoChangeSource"));
         String automatic = source.substring(source.indexOf("private void tryAutoChangeSource()"),
@@ -3564,7 +3564,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void tmdbSeasonCacheWritesHoldOneLockForTheWholeMutation() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String load = source.substring(source.indexOf("private void loadTmdbSeasonBinding"),
                 source.indexOf("private void updateTmdbSeasonActionVisibility"));
         String save = source.substring(source.indexOf("private void saveTmdbSeasonBinding"),
@@ -3584,7 +3584,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void automaticSeasonChoiceRestoresUnboundEpisodeResolution() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String seasonChoice = source.substring(source.indexOf("public void onSeason(int seasonNumber)"),
                 source.indexOf("private void analyzeTmdbSeasonWithAi"));
         String clear = source.substring(source.indexOf("private void clearTmdbSeasonBinding"),
@@ -3600,7 +3600,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void automaticEpisodeMetadataUsesResolvedFallbackSeason() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String dataSeason = source.substring(source.indexOf("private int tmdbEpisodeDataSeason"),
                 source.indexOf("private void fetchSeasonIfNeeded(int seasonNumber)"));
         String episodeDetail = source.substring(source.indexOf("private void showTmdbEpisodeDetail"),
@@ -3618,8 +3618,8 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void episodeDetailUsesLongPressedCardMappingForManualSeason() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String adapter = readJava("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String adapter = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java");
         String detail = source.substring(source.indexOf("private void showTmdbEpisodeDetail"),
                 source.indexOf("private EpisodePosition historyEpisodePosition"));
 
@@ -3641,7 +3641,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void manualSeasonBindingClearsOnlySelectedFlagMetadata() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String clear = source.substring(source.indexOf("private void clearBoundTmdbEpisodeMetadata"),
                 source.indexOf("private void showManualTmdbMatchDialog"));
 
@@ -3652,7 +3652,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void explicitFlagSelectionPersistsIndependentlyOfPlaybackProgress() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String initial = javaBlockAt(source, "private Flag findInitialFlag(");
         String preferred = javaBlockAt(source, "private Flag findPreferredFlag(");
         String save = javaBlockAt(source, "private void savePreferredFlag(");
@@ -3695,7 +3695,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void detailInlineRotateKeepsTheOrientationTheUserChose() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String rotate = javaBlockAt(source, "private void rotateInlineFullscreen()");
         String applyOrientation = javaBlockAt(source, "private void setInlineFullscreenOrientation()");
         String toggleLock = javaBlockAt(source, "private void toggleInlineLock()");
@@ -3726,7 +3726,7 @@ public class TmdbDetailActivityLayoutTest {
      */
     @Test
     public void metaChipPaddingIsDensityIndependentAndMatchesTheVideoItemShape() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String create = javaBlockAt(source, "private MaterialButton createChipButton(String text)");
         String padding = javaBlockAt(source, "private void applyChipPadding(MaterialButton button)");
         String focus = javaBlockAt(source, "private void applyChipFocus(MaterialButton button, boolean selected, boolean focused, ThemeColors colors)");
@@ -3916,7 +3916,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void playbackStartDelegatesToModeController() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String body = javaBlockAt(source, "private void startInlinePlayer(Result result, long resumePosition)");
         assertTrue("successful inline playback must notify the active mode controller",
                 body.contains("modeController.onPlaybackStarted();"));
@@ -3924,7 +3924,7 @@ public class TmdbDetailActivityLayoutTest {
 
     @Test
     public void inlineBackStopsPlaybackBeforeFinishingDetail() throws Exception {
-        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String source = readJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
         String body = javaBlockAt(source, "private void onInlineBack()");
         int stop = body.indexOf("stopPlayback();");
         int finish = body.indexOf("finish();");

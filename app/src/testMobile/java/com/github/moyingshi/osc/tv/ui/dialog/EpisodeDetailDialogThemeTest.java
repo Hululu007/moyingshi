@@ -14,9 +14,9 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void episodeDetailDialogPrefersTheBoundCardEpisode() throws Exception {
         String mobile = read(findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String leanback = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
 
         assertTrue("mobile dialog must accept the card-bound TMDB episode",
                 mobile.contains("Episode episode, TmdbEpisode boundTmdbEpisode") &&
@@ -29,7 +29,7 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void tvEpisodeAndMovieDetailsApplyResolvedThemeBeforeShowing() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
 
         assertTrue("TV episode detail must resolve the configured TMDB detail theme",
                 source.contains("Setting.resolveTmdbDetailLightTheme(Setting.getTmdbDetailTheme()"));
@@ -43,7 +43,7 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void tvEpisodeDetailThemeCoversEveryReadableSurface() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "dialog_episode_detail.xml")));
 
         assertTrue("TV episode detail root needs an id for runtime theme application",
@@ -68,7 +68,7 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void tvEpisodeGuestCardsReceiveResolvedTheme() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
 
         assertTrue("preloaded media binding must receive the resolved theme",
                 source.contains("bindPreloadedMedia(activity, preloadedPhotos, preloadedGuests, light,"));
@@ -81,11 +81,11 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void cinemaEpisodeGuestCardsReuseOuterHorizontalLayoutWithoutPhotoRounding() throws Exception {
         String adapter = read(findMainJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "adapter", "TmdbPersonAdapter.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "TmdbPersonAdapter.java")));
         String mobileDialog = read(findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String leanbackDialog = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String mobileLayout = read(findMainResPath().resolve(Path.of(
                 "layout", "dialog_episode_detail.xml")));
 
@@ -113,7 +113,7 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void mobileEpisodeDetailKeepsBottomGuestCardsInsideStableScrollBounds() throws Exception {
         String dialog = read(findMobileJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String layout = read(findMainResPath().resolve(Path.of(
                 "layout", "dialog_episode_detail.xml")));
 
@@ -128,9 +128,9 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void tvEpisodePhotosUseUnifiedYellowFocusStrokeWithoutGrayOverlay() throws Exception {
         String adapter = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "adapter", "EpisodePhotoAdapter.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodePhotoAdapter.java")));
         String dialog = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
 
         assertTrue("episode photos should use the shared yellow focus stroke",
                 adapter.contains("private final MaterialCardView card;")
@@ -147,7 +147,7 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void tvEpisodeGuestCardsNavigateUpThroughPhotosBeforePoster() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "dialog_episode_detail.xml")));
 
         String guestMarker = "if (focus != null && (focus == guestsGrid || isDescendantOf(focus, guestsGrid)))";
@@ -181,7 +181,7 @@ public class EpisodeDetailDialogThemeTest {
     @Test
     public void tvEpisodePosterNavigatesDownToTheFirstAvailablePhotoCard() throws Exception {
         String source = read(findLeanbackJavaPath().resolve(Path.of(
-                "com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
+                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "EpisodeDetailDialog.java")));
         String layout = read(findLeanbackResPath().resolve(Path.of("layout", "dialog_episode_detail.xml")));
 
         assertTrue("poster focus must be recognized even when a nested child owns focus",

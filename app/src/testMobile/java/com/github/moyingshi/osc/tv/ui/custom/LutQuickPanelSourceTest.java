@@ -12,7 +12,7 @@ public class LutQuickPanelSourceTest {
 
     @Test
     public void lutQuickPanelKeepsChipTextWhiteWhenBackgroundStateChanges() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "ui", "custom", "LutQuickPanel.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "LutQuickPanel.java");
         int method = source.indexOf("private void applyBg(MaterialTextView view, boolean selected, boolean focused)");
         int end = source.indexOf("private int dp(int value)", method);
 
@@ -23,7 +23,7 @@ public class LutQuickPanelSourceTest {
 
     @Test
     public void lutQuickPanelRaisesItselfAbovePlayerControlsWhenShown() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "ui", "custom", "LutQuickPanel.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "LutQuickPanel.java");
         int method = source.indexOf("private void show()");
         int visible = source.indexOf("setVisibility(VISIBLE);", method);
 
@@ -34,7 +34,7 @@ public class LutQuickPanelSourceTest {
 
     @Test
     public void lutQuickPanelKeepsChipTextWhiteImmediatelyAfterLabelChanges() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "ui", "custom", "LutQuickPanel.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "LutQuickPanel.java");
         int helper = source.indexOf("private void setChipText(MaterialTextView view,");
         int renderList = source.indexOf("private void renderList(List<LutPreset> presets)");
         int createPanel = source.indexOf("private View createPanel()");
@@ -53,7 +53,7 @@ public class LutQuickPanelSourceTest {
 
     @Test
     public void lutQuickPanelRefreshesAllChipTextWhiteAfterShow() throws Exception {
-        String source = readMainJava("com", "fongmi", "android", "tv", "ui", "custom", "LutQuickPanel.java");
+        String source = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "LutQuickPanel.java");
         int chips = source.indexOf("private final List<MaterialTextView> chips");
         int show = source.indexOf("private void show()");
         int panelPost = source.indexOf("panel.post(() ->", show);

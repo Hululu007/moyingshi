@@ -12,7 +12,7 @@ public class SettingTmdbEpisodeFileSizeTest {
 
     @Test
     public void tmdbEpisodeFileSize_defaultsOff() throws Exception {
-        String source = read(sourcePath().resolve(Path.of("com", "fongmi", "android", "tv", "setting", "Setting.java")));
+        String source = read(sourcePath().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "setting", "Setting.java")));
 
         assertTrue(source.contains("Prefers.getBoolean(\"tmdb_episode_file_size\", false)"));
     }

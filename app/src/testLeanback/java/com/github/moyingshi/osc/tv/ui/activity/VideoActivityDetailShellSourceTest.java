@@ -14,7 +14,7 @@ public class VideoActivityDetailShellSourceTest {
 
     @Test
     public void emptyDetailFromSearchKeepsPlaybackPageForRetry() throws Exception {
-        Path path = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path path = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (!Files.isRegularFile(path)) path = Path.of("app").resolve(path);
         String source = Files.readString(path, StandardCharsets.UTF_8);
         int start = source.indexOf("private void setEmpty(boolean finish) {");
@@ -45,7 +45,7 @@ public class VideoActivityDetailShellSourceTest {
                         + "must not default it to gone (regression from 934e831de)",
                 block.contains("android:visibility=\"gone\""));
 
-        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path source = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
         String activity = Files.readString(source, StandardCharsets.UTF_8);
         int tag = activity.indexOf("mBinding.content.setTag(item.getContent());");
@@ -59,7 +59,7 @@ public class VideoActivityDetailShellSourceTest {
      */
     @Test
     public void directPlaybackRendersInlineSynopsisPreview() throws Exception {
-        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path source = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
         String activity = Files.readString(source, StandardCharsets.UTF_8);
 
@@ -93,7 +93,7 @@ public class VideoActivityDetailShellSourceTest {
      */
     @Test
     public void directEpisodeChipsMarkThePlayingEpisode() throws Exception {
-        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "adapter", "EpisodeAdapter.java");
+        Path source = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "adapter", "EpisodeAdapter.java");
         if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
         String adapter = Files.readString(source, StandardCharsets.UTF_8);
 
@@ -143,7 +143,7 @@ public class VideoActivityDetailShellSourceTest {
      */
     @Test
     public void synopsisPreviewDoesNotUnhideTheDetailColumnWhileImmersiveAudioIsShown() throws Exception {
-        Path source = Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
+        Path source = Path.of("src", "leanback", "java", "com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
         if (!Files.isRegularFile(source)) source = Path.of("app").resolve(source);
         String activity = Files.readString(source, StandardCharsets.UTF_8);
 

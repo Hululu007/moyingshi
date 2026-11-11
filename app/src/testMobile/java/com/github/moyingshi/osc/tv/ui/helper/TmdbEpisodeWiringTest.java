@@ -12,7 +12,7 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void standaloneDetailModesShareEpisodeInfoAcrossDetailAndPlayback() throws Exception {
-        String activity = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String activity = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         assertTrue(activity.contains("TmdbEpisodeInfo episodeInfo = tmdbEpisodeInfo();"));
         assertTrue(activity.contains("addMetaChip(episodeInfo.detailText(this));"));
@@ -24,7 +24,7 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void standaloneDetailEpisodeInfoTracksCurrentResolvedSeason() throws Exception {
-        String activity = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String activity = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
 
         int start = activity.indexOf("private TmdbEpisodeInfo tmdbEpisodeInfo()");
         int end = activity.indexOf("private String releaseDate()", start);
@@ -35,7 +35,7 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void embeddedTmdbHeaderShowsEpisodeInfoInNativeAndFusionLayouts() throws Exception {
-        String header = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java")));
+        String header = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "custom", "TmdbHeaderView.java")));
         String layout = read(mainRes().resolve(Path.of("layout", "view_tmdb_header.xml")));
 
         assertTrue(header.contains("String episodeInfo = adapter.getEpisodeDetailText();"));
@@ -47,8 +47,8 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void bothVideoActivitiesAppendCompactEpisodeInfoToExistingOsdTitle() throws Exception {
-        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue(leanback.contains("String episodeInfo = tmdbEpisodeCompactText();"));
         assertTrue(leanback.contains("setText(mBinding.remark, 0, episodeInfo);"));
@@ -57,8 +57,8 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void detailDirectPlaybackConsumesPreloadedTmdbEpisodeRemarkInBothVideoActivities() throws Exception {
-        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue(leanback.contains("private String getTmdbVodRemark()"));
         assertTrue(leanback.contains("applyIntentTmdbVodRemark(item);"));
@@ -72,7 +72,7 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void leanbackNativeEnhancedKeepsEpisodeInfoVisibleAfterPlayerRefresh() throws Exception {
-        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue(leanback.contains("mBinding.remark.setVisibility(shouldShowVideoDetailRemark(visible) ? View.VISIBLE : View.GONE);"));
         assertTrue(leanback.contains("private boolean shouldShowVideoDetailRemark(boolean visible)"));
@@ -82,10 +82,10 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void manualSeasonChangesInvalidateStaleMetadataAndRefreshCardsImmediately() throws Exception {
-        String adapter = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java")));
-        String detail = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java")));
-        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String adapter = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java")));
+        String detail = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java")));
+        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue(adapter.contains("private volatile int episodeMetadataGeneration;"));
         assertTrue(adapter.contains("discard removed season source=%s tmdb=%d season=%s"));
@@ -109,7 +109,7 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void leanbackSeasonSelectorParticipatesInRemoteFocusNavigation() throws Exception {
-        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         int focusOrders = leanback.indexOf("private List<Integer> getEpisodeFocusOrders()");
         int focusUpdate = leanback.indexOf("private void updateFocus()", focusOrders);
@@ -136,9 +136,9 @@ public class TmdbEpisodeWiringTest {
 
     @Test
     public void pushSourcesUseConservativeTmdbSeasonResolution() throws Exception {
-        String adapter = read(mainJava().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java")));
-        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
-        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String adapter = read(mainJava().resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "helper", "TmdbUIAdapter.java")));
+        String leanback = read(flavorJava("leanback").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
+        String mobile = read(flavorJava("mobile").resolve(Path.of("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java")));
 
         assertTrue(adapter.contains("!SiteApi.PUSH.equals(cacheSiteKey(sourceVod))"));
         assertTrue(adapter.contains("TmdbSeasonResolver.resolve("));
