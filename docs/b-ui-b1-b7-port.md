@@ -15,15 +15,16 @@
 | B4 | 详情页丰富（演员阵容/相关推荐/类似作品/外部链接/换平台/源搜） | 已实现，待 GitHub 构建验证 | 1be0182f |
 | B5 | 首页自定义 JS 组件区（Bangumi/豆瓣/Mikan/TMDB 小组件引擎） | 已实现，待 GitHub 构建验证（见下 B5 小节） | 1ea6db7d、da8878f9、50c4489f、a7bd9322、96541e74、757b9c81 |
 | B6 | 播放器画面调节五项 + Anime4K（黑边虚化不做） | 已实现，待 GitHub 构建验证（见下 B6 小节） | 28b19c98、8d901a1e、9501d64f、ff3eb885、92b2976b、ff4af5ba、b1a27158 |
+| 吸顶 | 首页分类栏吸顶（上滑到顶钉住，海报继续滑） | 已实现，待 GitHub 构建验证（见下吸顶小节） | a26b910c |
 | B7 | 播放器多内核 media_kit 切换 | 不做：已有等价实现（见评估） | — |
 
 ## Recovery anchor
 
 - 目标：B1–B7 逐项落地到墨影视原生 UI，B7 先评估再决定做不做；全部本地提交、不推、不编。
-- 当前阶段：B1–B6 已提交；B7 已评估为不做。
-- 分支/HEAD：main / b1a27158（B6 已提交，本地 only，未推、未编）。
-- 已完成：B1 首页轮播横幅（ef5b9e0d）；B2 继续观看横滑行（7e23040d）；B3 悬浮玻璃胶囊底栏（6d163ba1）；B4 详情页演员回退（1be0182f，其余五项原已存在）；B5 首页 JS 组件区（见下 B5 小节，6 笔提交）；B6 画面调节 + Anime4K（见下 B6 小节，7 笔提交）。
-- 未验证：B1、B2、B3、B4、B5（无本地 SDK，编译靠 GitHub 构建；每项只做静态核对）。
+- 当前阶段：B1–B6 + 吸顶分类栏已提交；B7 已评估为不做。
+- 分支/HEAD：main / a26b910c（吸顶已提交，本地 only，未推、未编；B6 也在本地未推）。
+- 已完成：B1 首页轮播横幅（ef5b9e0d）；B2 继续观看横滑行（7e23040d）；B3 悬浮玻璃胶囊底栏（6d163ba1）；B4 详情页演员回退（1be0182f，其余五项原已存在）；B5 首页 JS 组件区（见下 B5 小节，6 笔提交）；B6 画面调节 + Anime4K（见下 B6 小节，7 笔提交）；吸顶分类栏（a26b910c，见下吸顶小节）。
+- 未验证：B1、B2、B3、B4、B5、吸顶（无本地 SDK，编译靠 GitHub 构建；每项只做静态核对）。
 - B5 已做（2026-11-11，用户 07:55 说“开始b5”后单独立项完成；设计文档 docs/b5-js-home-widgets.md）：
   - 单元 0 设计文档（1ea6db7d）：组件格式（`var WidgetMetadata` + 顶层 async 函数，非 ES 模块）、沙箱 API（Widget.http/tmdb/storage/dom/fetch/console，禁 local/Android 类/文件系统/Setting/VodConfig，TMDB Key 不进脚本）、缓存（widget-cache/ 按模块调用 + cacheDuration TTL）、首页分区渲染、内置 4 组件、失败只隐藏该行。
   - 单元 1 引擎（da8878f9）：WidgetHost（每组件一个 QuickJSContext，load 10s / invoke 20s+5s 超时）、WidgetBridge（`__widget*` 全局，OkHttp http、TmdbService.get、Prefers 前缀存储、jsoup DOM）、WidgetCache、WidgetMetadata/Module/Item、widget_host.js 适配、B5 专用 TmdbService.get(path, params, config)（TTL 1h，401 熔断 + 陈旧缓存回退）、build.gradle 加 jsoup 1.22.2。Node 桩测试 24/24。
@@ -47,5 +48,11 @@
   - B6 待真机验证（推后编测试版才能验）：五项滑杆在 Exo/mpv 下实时生效、归零恢复原样；切 ijk 后面板提示不支持、切回后上次的值还在；Anime4K 开后 720p 动漫明显变锐、无掉帧；HDR 片源下 Exo 调节不生效（有提示）、mpv 下生效；LUT 与 Anime4K 同时开不闪退；开 Anime4K 播 10 分钟看发热/帧率/电量。
   - B6 未做：黑边虚化（需第二层模糊视频，是独立工程）；ijk 五项调节（vf0 只能 prepare 时设、硬解下未验证）；Exo Anime4K（需多 pass GlEffect 链 + 浮点中间纹理，未验证）；SystemPlayer；直播/TV 播放器按钮（引擎层已通用，只缺按钮接线）；全屏 VideoActivity 的控制栏（`view_control_vod_action.xml` / `dialog_control.xml` 里的 LUT 按钮旁未加画面按钮，见 B6 小节末尾）。
 - B7 评估结论：不做。media_kit 是 Flutter 专属包（Dart 封装 libmpv），原生 Android App 无法使用；墨影视已有等价且更多的实现——三内核 Exo/ijk/mpv（player/engine/ 下 ExoPlayerEngine、IjkPlayerEngine、MpvPlayerEngine），渲染路径（PlaybackAutoContext.Kernel：EXO/IJK/MPV；RenderPath：exo-tunneling、mpv-surface-direct、mpv-gpu、ijk-native），用户可选手动切换（PlayerSetting → PlaybackAutoContext.Kernel，见 PlayerManager.java 约 8498 行）。BieCuiLe 的 media_kit 底层就是 libmpv，与墨影视的 MpvPlayerEngine 同源；引入 media_kit 需嵌 Flutter（即 B8，已排除），零播放收益。
+- 吸顶分类栏已做（2026-11-11，用户 15:08 发首页截图提要求，15:10 说“做好直接推”）：
+  - 方案：AppBarLayout scroll flags（标准做法，不复制分类行）：Toolbar/轮播（B1）/继续观看（B2）/组件区（B5）加 `layout_scrollFlags="scroll"`，上滑一起滑走；typeBar 不加 flag——它是 AppBar 最后一个子项，收到底时正好停在屏幕顶部（y=0）钉住，下滑回顶时随展开回到原位。单行单 Adapter，无选中状态同步问题。
+  - 背景：typeBar 展开时透明（壁纸上的样子）；VodFragment 给 typeBar 挂 colorSurface ColorDrawable，初始透明，复用 AppBar offset 监听按收起比例淡入，收到底时全不透明，海报不透出来（设计文档 §5.4）。offset 监听的 chips 顶边距调整（最多 12dp）现在 range>0 才真正跑起来。
+  - 提交：a26b910c（2 文件，+33/−3），recovery tag recovery/sticky-typebar/20261111151605-a26b910c90c0。
+  - 静态核对：XML 解析通过，diff --check 通过，括号平衡，底栏仍 6 项；未本地编译（无 SDK），编译检查靠 GitHub 构建。
+  - 吸顶待真机验证（推后编测试版才能验）：上滑时顶栏/轮播/继续观看/组件区先滑走、分类行到顶钉住、海报继续滑；下滑回顶时全部回到原位；钉住时分类行背景不透明、海报不透出来；点分类行仍切换分类；轮播自动滚动、继续观看刷新不受影响；网页首页/沉浸模式下无异常。
 - 风险：task_guard 是单会话状态（`.codex/task-state/current`），不可并行跑多个 guard 会话——B 各项必须串行做、串行提交。
-- 下一步：把 B6 的汇报交回主对话；用户说“推”再推 main、按新规矩直接编测试版。
+- 下一步：吸顶已做完（a26b910c）；按用户 2026-11-11 15:10“做好直接推”，直接推 main（B6 + 吸顶一起）并按新规矩直接编测试版。
