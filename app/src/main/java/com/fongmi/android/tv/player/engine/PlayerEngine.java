@@ -16,6 +16,7 @@ import com.fongmi.android.tv.player.PlaybackRoute;
 import com.fongmi.android.tv.player.PlaybackResourceClassifier;
 import com.fongmi.android.tv.player.PlaybackTrace;
 import com.fongmi.android.tv.player.lut.MpvLutShader;
+import com.fongmi.android.tv.player.picture.PictureAdjust;
 
 import java.util.Collections;
 import java.util.List;
@@ -131,6 +132,24 @@ default void resetTrack(int type) {
     }
 
     default void setNativeLutPreviewProgress(float progress) {
+    }
+
+    /** B6：该内核能否做画面调节五项（Exo/mpv 为 true，ijk/System 默认 false）。 */
+    default boolean supportsPictureAdjust() {
+        return false;
+    }
+
+    /** B6：应用画面调节五项；不支持的内核默认空实现。 */
+    default void setPictureAdjust(PictureAdjust adjust) {
+    }
+
+    /** B6：该内核能否挂 Anime4K shader（仅 mpv GPU 输出为 true）。 */
+    default boolean supportsAnime4k() {
+        return false;
+    }
+
+    /** B6：挂/卸 Anime4K shader；path 为 null/空表示关闭，不支持的内核默认空实现。 */
+    default void setAnime4kShader(String path) {
     }
 
     default Format getVideoFormat() {

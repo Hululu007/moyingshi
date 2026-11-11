@@ -450,6 +450,7 @@ public class MpvPlayerEngine implements PlayerEngine {
     }
 
     /** B6：五项调节走 mpv 原生属性（-100..100，运行时 set_property 实时生效）。 */
+    @Override
     public void setPictureAdjust(PictureAdjust adjust) {
         if (adjust == null) adjust = PictureAdjust.NEUTRAL;
         player.setVideoProperty("brightness", adjust.getBrightness());
@@ -460,8 +461,20 @@ public class MpvPlayerEngine implements PlayerEngine {
     }
 
     /** B6：Anime4K shader 槽位；path 为 null/空表示关闭。 */
+    @Override
     public void setAnime4kShader(@Nullable String path) {
         player.setAnime4kShader(path);
+    }
+
+    /** B6：mpv 的画面调节与 Anime4K 都要求 GPU 输出（直出模式下均不可用，与 LUT 同口径）。 */
+    @Override
+    public boolean supportsPictureAdjust() {
+        return supportsNativeLut();
+    }
+
+    @Override
+    public boolean supportsAnime4k() {
+        return supportsNativeLut();
     }
 
     @Override

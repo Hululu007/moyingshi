@@ -794,6 +794,12 @@ public class ExoPlayerEngine implements PlayerEngine {
         return true;
     }
 
+    /** B6：Exo 用 PictureAdjustEffect 做五项调节；Anime4K 不支持（走默认 false）。 */
+    @Override
+    public boolean supportsPictureAdjust() {
+        return true;
+    }
+
     @Override
     public void setVideoEffects(List<Effect> effects) {
         if (SpiderDebug.isEnabled()) {

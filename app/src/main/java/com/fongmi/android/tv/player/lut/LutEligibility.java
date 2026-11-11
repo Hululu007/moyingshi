@@ -42,6 +42,11 @@ public class LutEligibility {
         return TextUtils.isEmpty(getUnavailableReason(engine, spec));
     }
 
+    /** B6：画面调节在 Exo 下的 HDR 门禁复用 LUT 的 HDR 判断（HDR 片源不挂调节 effect）。 */
+    public static boolean isHdrContent(Format format, Tracks tracks) {
+        return isHdr(format) || isHdr(tracks);
+    }
+
     private static boolean isHdr(Format format) {
         if (format == null) return false;
         if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) return true;

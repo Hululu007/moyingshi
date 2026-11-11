@@ -106,6 +106,10 @@ import com.fongmi.android.tv.player.mpv.MpvPreloadPolicy;
 import com.fongmi.android.tv.player.mpv.MpvResourcePressureController;
 import com.fongmi.android.tv.player.mpv.MpvResourcePressurePolicy;
 import com.fongmi.android.tv.player.mpv.MpvVulkanBackendPolicy;
+import com.fongmi.android.tv.player.picture.Anime4kShaderStore;
+import com.fongmi.android.tv.player.picture.PictureAdjust;
+import com.fongmi.android.tv.player.picture.PictureAdjustEffect;
+import com.fongmi.android.tv.player.picture.PictureAdjustSetting;
 import com.fongmi.android.tv.server.proxy.MultiThreadProxy;
 import com.fongmi.android.tv.server.proxy.ProxyPlaybackPolicy;
 import com.fongmi.android.tv.server.proxy.ProxyRuntimeConfig;
@@ -201,6 +205,7 @@ public class PlayerManager implements ParseCallback {
     private final PlaybackMediaSessionController mediaSession =
             new PlaybackMediaSessionController(mediaSignals, mediaClock);
     private final DynamicLutEffect dynamicLutEffect;
+    private final PictureAdjustEffect pictureAdjustEffect;
     private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
     private final BroadcastReceiver noisyReceiver;
     private final PlaybackBufferingTracker playbackBufferingTracker;
@@ -396,6 +401,7 @@ public class PlayerManager implements ParseCallback {
         this.speedToggleState = new SpeedToggleState();
         this.exoSpeedRestoreState = new ExoSpeedRestoreState();
         this.dynamicLutEffect = new DynamicLutEffect();
+        this.pictureAdjustEffect = new PictureAdjustEffect();
         this.audioFocusChangeListener = this::onNativeAudioFocusChanged;
         this.noisyReceiver = new BroadcastReceiver() {
             @Override
@@ -516,6 +522,7 @@ public class PlayerManager implements ParseCallback {
             }
         }
         dynamicLutEffect.clear();
+        pictureAdjustEffect.clear();
         videoEffectsActive = false;
         videoEffectsDirty = false;
         lutAppliedForItem = false;
@@ -1013,6 +1020,87 @@ public class PlayerManager implements ParseCallback {
 
     public String getLutUnavailableReason() {
         return LutEligibility.getUnavailableReason(engine, spec);
+    }
+
+    // B6：画面调节 + Anime4K -------------------------------------------------------
+
+    /** 面板入口：写持久化 → 按内核分发 → 立即生效。 */
+    public void setPictureAdjust(PictureAdjust adjust, boolean anime4k) {
+        if (adjust == null) adjust = PictureAdjust.NEUTRAL;
+        PictureAdjustSetting.putAdjust(adjust);
+        PictureAdjustSetting.putAnime4kEnabled(anime4k);
+        applyPictureAdjust();
+    }
+
+    /** 当前五项调节不可用的原因；可用返回 null（面板据此置灰滑杆）。 */
+    public String getPictureAdjustUnavailableReason() {
+        if (engine == null) return ResUtil.getString(R.string.pic_unavailable_kernel);
+        if (engine.supportsNativeLut()) return null;
+        if (engine instanceof MpvPlayerEngine) return ResUtil.getString(R.string.pic_unavailable_output_mode);
+        if (!engine.supportsPictureAdjust()) return ResUtil.getString(R.string.pic_unavailable_kernel);
+        if (LutEligibility.isHdrContent(engine.getVideoFormat(), engine.getCurrentTracks())) return ResUtil.getString(R.string.pic_unavailable_hdr);
+        return null;
+    }
+
+    /** Anime4K 不可用的原因；可用返回 null（面板据此置灰开关）。 */
+    public String getAnime4kUnavailableReason() {
+        if (engine == null) return ResUtil.getString(R.string.pic_unavailable_kernel);
+        if (engine.supportsAnime4k()) return null;
+        if (engine instanceof MpvPlayerEngine) return ResUtil.getString(R.string.pic_unavailable_output_mode);
+        return ResUtil.getString(R.string.pic_unavailable_kernel);
+    }
+
+    /** 按当前内核把已保存的调节值与 Anime4K 开关应用到播放器；换片/换核后由 applyLutForCurrentItem 触发重应用。 */
+    public void applyPictureAdjust() {
+        if (engine == null) return;
+        PictureAdjust adjust = PictureAdjustSetting.getAdjust();
+        if (engine.supportsNativeLut()) {
+            // mpv（GPU 输出）：五项走原生属性，Anime4K 走第二 shader 槽位。
+            try {
+                engine.setPictureAdjust(adjust);
+            } catch (Throwable e) {
+                if (SpiderDebug.isEnabled()) SpiderDebug.log("pic-mpv", "set adjust failed error=%s", causeChain(e));
+            }
+            if (engine.supportsAnime4k()) {
+                String path = PictureAdjustSetting.isAnime4kEnabled() ? Anime4kShaderStore.ensureShaderPath() : null;
+                try {
+                    engine.setAnime4kShader(path);
+                } catch (Throwable e) {
+                    if (SpiderDebug.isEnabled()) SpiderDebug.log("pic-mpv", "set anime4k failed error=%s", causeChain(e));
+                }
+            }
+            return;
+        }
+        if (!engine.supportsVideoEffects()) return; // ijk / System：不支持，面板已提示
+        // Exo：门禁与 LUT 同款（lutAllowed / DRM / 隧道 / 软解 / video-prefer / HDR）。
+        if (!canWarmLutPipeline() || !TextUtils.isEmpty(getPictureAdjustUnavailableReason())) {
+            pictureAdjustEffect.clear();
+            if (adjust.isNeutral() && !LutSetting.isEnabled()) safeSetVideoEffects(Collections.emptyList(), "picture_adjust_unavailable");
+            return;
+        }
+        if (shouldWaitForVideoFormat()) return; // 等视频格式到了再挂，由 applyLutForCurrentItem 的下次触发重试
+        pictureAdjustEffect.set(adjust);
+        if (!adjust.isNeutral()) safeSetVideoEffects(currentVideoEffects(), "picture_adjust");
+        else if (!LutSetting.isEnabled()) safeSetVideoEffects(Collections.emptyList(), "picture_adjust_neutral");
+        // 调节中性且 LUT 开着时不管——管线归 LUT 流程管。
+    }
+
+    /** Exo 的 effects 列表：调节在前、LUT 在后（与 mpv 侧 Anime4K 在前、LUT 在后同顺序）。 */
+    private List<Effect> currentVideoEffects() {
+        List<Effect> effects = new ArrayList<>();
+        effects.addAll(pictureAdjustEffect.effects());
+        effects.addAll(dynamicLutEffect.effects());
+        return effects;
+    }
+
+    /** 调节是否处于“非中性且具备挂 effect 条件”（供 LUT 的中性管线判断复用）。 */
+    private boolean isPictureAdjustActive() {
+        return engine != null
+                && engine.supportsVideoEffects()
+                && !PictureAdjustSetting.getAdjust().isNeutral()
+                && canWarmLutPipeline()
+                && TextUtils.isEmpty(getPictureAdjustUnavailableReason())
+                && !shouldWaitForVideoFormat();
     }
 
     public boolean selectLut(@Nullable LutPreset preset, boolean preview) {
@@ -6773,13 +6861,15 @@ public void resetTrack(int type) {
         lutPipelinePrepareInProgress = false;
         pendingLutPreview = false;
         dynamicLutEffect.clear();
+        // B6：预装管线里带上已保存的调节值（中性时 effect 短路原样输出）。
+        pictureAdjustEffect.set(PictureAdjustSetting.getAdjust());
         clearLutWarmupRecovery();
         if (videoEffectsDirty) {
             if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "rebuild clean player before media item reason=prepare spec=%s", debugSpec());
             rebuildPlayer();
         }
         if (shouldPreinstallDynamicLutPipeline()
-                && safeSetVideoEffects(dynamicLutEffect.effects(), "prepare_dynamic_passthrough")) {
+                && safeSetVideoEffects(currentVideoEffects(), "prepare_dynamic_passthrough")) {
             lutPipelineReadyForItem = true;
             if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "preinstalled dynamic pipeline before playback spec=%s", debugSpec());
             return;
@@ -6987,7 +7077,7 @@ public void resetTrack(int type) {
         if (applied) {
             if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "updated dynamic pipeline in place reason=%s preview=%s", preview ? "preview_dynamic" : "apply_dynamic", preview);
         } else {
-            applied = safeSetVideoEffects(dynamicLutEffect.effects(), preview ? "preview_dynamic" : "apply_dynamic");
+            applied = safeSetVideoEffects(currentVideoEffects(), preview ? "preview_dynamic" : "apply_dynamic");
         }
         if (applied) {
             lutAppliedForItem = true;
@@ -7001,6 +7091,8 @@ public void resetTrack(int type) {
 
     private void applyLutForCurrentItem() {
         if (engine == null) return;
+        // B6：画面调节与 LUT 独立，换片/换核后在此处一并重应用。
+        applyPictureAdjust();
         if (!lutAllowed) {
             if (lutAppliedForItem && !videoEffectsActive && !waitingLutBeforePlay) return;
             lutAppliedForItem = true;
@@ -7072,7 +7164,7 @@ public void resetTrack(int type) {
         long position = Math.max(0, getPosition());
         boolean playWhenReady = player.getPlayWhenReady();
         float speed = getSpeed();
-        if (!safeSetVideoEffects(dynamicLutEffect.effects(), reason + "_prepare_dynamic_passthrough")) {
+        if (!safeSetVideoEffects(currentVideoEffects(), reason + "_prepare_dynamic_passthrough")) {
             lutPipelinePrepareInProgress = false;
             return true;
         }
@@ -7149,6 +7241,7 @@ public void resetTrack(int type) {
 
     private void clearVideoEffects(String reason) {
         dynamicLutEffect.clear();
+        pictureAdjustEffect.clear();
         if (engine != null && engine.supportsNativeLut()) {
             safeSetNativeLut(null, reason);
             return;
@@ -7158,11 +7251,13 @@ public void resetTrack(int type) {
 
     private void setNeutralVideoEffects(String reason) {
         dynamicLutEffect.clear();
+        // B6：先同步调节状态；调节非中性时管线留给调节用（LUT 只清自己的状态）。
+        pictureAdjustEffect.set(PictureAdjustSetting.getAdjust());
         if (engine != null && engine.supportsNativeLut()) {
             safeSetNativeLut(null, reason);
             return;
         }
-        if (canKeepWarmNeutralEffects()) safeSetVideoEffects(dynamicLutEffect.effects(), reason + "_dynamic_passthrough");
+        if (canKeepWarmNeutralEffects() || isPictureAdjustActive()) safeSetVideoEffects(currentVideoEffects(), reason + "_dynamic_passthrough");
         else clearVideoEffects(reason);
     }
 
