@@ -164,7 +164,7 @@
 
 | 部位 | 近似值 | 依据 / 备注 |
 |---|---|---|
-| 页面背景（浅色） | 透明（`@android:color/transparent`）+ 根布局 `backgroundBlurRadius` 16dp | 2026-11-11 改玻璃：壁纸透出；深色模式同样透明；API 31 以下模糊被忽略，只剩透明 |
+| 页面背景（浅色） | 透明（`@android:color/transparent`） | 2026-11-11 改玻璃：壁纸透出；深色模式同样透明；背景模糊本想用 `android:backgroundBlurRadius` 16dp，但该属性不是公开属性、aapt 链接失败（run 43038841625），已去掉，只剩半透明；真要模糊得在代码里对 10 个设置 Fragment 的根 View 调 `setBackgroundBlurRadius`，另算 |
 | 分组卡片底色（浅色） | `#BFFFFFFF`（75% 白）；深色模式 `#BF1E1E1E`（75% `#1E1E1E`） | 2026-11-11 改玻璃：`setting_card_bg` 一处改色，主设置页分组卡片、8 个子页行卡片、搜索栏卡片全部跟随；75% 是为保卡片内黑字/灰字可读，未按玻璃透光默认值 50% |
 | 分组卡片圆角 | 24dp | 截图大圆角，目测 20–28dp 区间，取 24dp |
 | 分组卡片左右边距 | 16dp | 截图卡片离屏边约 16dp |
