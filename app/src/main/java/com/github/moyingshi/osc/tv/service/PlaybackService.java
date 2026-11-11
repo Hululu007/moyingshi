@@ -107,9 +107,11 @@ private AudioHistory.Record audioHistoryRecord;
         @Override public void run() {
             if (originLease == null || originLease.isClosed() || player == null || player.isReleased()) return;
             if (releaseOriginIfMediaReplaced()) return;
-            if (originHistory != null) com.github.moyingshi.osc.tv.playback.origin.OriginProgressWriter.write(originHistory,
-                    player.getPlayer().getCurrentPosition(), player.getPlayer().getDuration());
-            if (originLease != null) originLease.progressCommitted();
+            if (originHistory != null && !com.github.moyingshi.osc.tv.setting.Setting.isIncognito()
+                    && com.github.moyingshi.osc.tv.playback.origin.OriginProgressWriter.write(originHistory,
+                    player.getPlayer().getCurrentPosition(), player.getPlayer().getDuration())) {
+                if (originLease != null) originLease.progressCommitted();
+            }
             App.post(this, 5000);
         }
     };
