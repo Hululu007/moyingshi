@@ -1,6 +1,6 @@
 package androidx.media3.mpvplayer;
 
-import com.fongmi.android.tv.player.PlaybackAutoContext;
+import com.github.moyingshi.osc.tv.player.PlaybackAutoContext;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

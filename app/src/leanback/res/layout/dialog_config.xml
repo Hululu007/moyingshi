@@ -33,7 +33,7 @@
             android:textSize="18sp"
             tools:text="@string/push_info" />
 
-        <com.fongmi.android.tv.ui.custom.CustomEditText
+        <com.github.moyingshi.osc.tv.ui.custom.CustomEditText
             android:id="@+id/name"
             android:layout_width="match_parent"
             android:nextFocusDown="@id/text"
@@ -47,7 +47,7 @@
             android:textColorHint="?attr/colorOnSurfaceVariant"
             android:textSize="18sp" />
 
-        <com.fongmi.android.tv.ui.custom.CustomEditText
+        <com.github.moyingshi.osc.tv.ui.custom.CustomEditText
             android:id="@+id/text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -63,7 +63,7 @@
             android:textColorHint="?attr/colorOnSurfaceVariant"
             android:textSize="18sp" />
 
-        <com.fongmi.android.tv.ui.custom.CustomEditText
+        <com.github.moyingshi.osc.tv.ui.custom.CustomEditText
             android:id="@+id/addresses"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

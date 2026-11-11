@@ -783,7 +783,7 @@
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp"
                 android:visibility="gone" />
-            <com.fongmi.android.tv.widget.AdBlockChartView
+            <com.github.moyingshi.osc.tv.widget.AdBlockChartView
                 android:id="@+id/chartView"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"

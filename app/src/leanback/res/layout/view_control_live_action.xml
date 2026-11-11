@@ -60,7 +60,7 @@
             android:layout_marginEnd="8dp"
             android:text="@string/play_params" />
 
-        <com.fongmi.android.tv.ui.custom.CustomUpDownView
+        <com.github.moyingshi.osc.tv.ui.custom.CustomUpDownView
             android:id="@+id/speed"
             style="@style/Control"
             android:layout_marginEnd="8dp"
@@ -83,7 +83,7 @@
             tools:text="來源 1"
             tools:visibility="visible" />
 
-        <com.fongmi.android.tv.ui.custom.CustomUpDownView
+        <com.github.moyingshi.osc.tv.ui.custom.CustomUpDownView
             android:id="@+id/text"
             style="@style/Control"
             android:layout_marginEnd="8dp"

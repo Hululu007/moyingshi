@@ -107,7 +107,7 @@ def verify_native(work):
         parts = line.split()
         if len(parts) == 8 and parts[0].rstrip(":").isdigit() and parts[4] in ("GLOBAL", "WEAK") and parts[6] != "UND":
             exports.append(parts[7])
-    jni = "Java_com_fongmi_android_tv_player_exo_ass_AssNative_"
+    jni = "Java_com_github_moyingshi_osc_tv_player_exo_ass_AssNative_"
     require(set(exports) == {jni + x for x in ["create", "load", "loadHeader", "chunk", "render", "setSurface", "destroy", "createTestFonts", "testSurface", "readPixels"]},
             "Unexpected exported symbols")
     return {"sha256": sha, "bytes": len(data), "api": android_api, "load_alignment": alignment,

@@ -1,4 +1,4 @@
-// Mooyingshi Widget 宿主 shim（CapyPlayer 规范）。
+// moyingshi Widget 宿主 shim（CapyPlayer 规范）。
 // 以 BieCuiLe 的 widget_host.js 为底本改写：去掉 WebView 的 window/Native 桥，
 // 底层走 Java 桥 __widget*（同步调用，跑在 JS 单线程执行器上；超时由桥控制）。
 // 与 BieCuiLe 的差异：

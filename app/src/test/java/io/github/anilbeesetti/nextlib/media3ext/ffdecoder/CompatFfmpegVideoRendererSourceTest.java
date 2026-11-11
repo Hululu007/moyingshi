@@ -13,7 +13,7 @@ import java.nio.file.Files;
 public class CompatFfmpegVideoRendererSourceTest {
 
     private static final String SOURCE_PATH = "app/src/main/java/io/github/anilbeesetti/nextlib/media3ext/ffdecoder/CompatFfmpegVideoRenderer.java";
-    private static final String EXO_UTIL_PATH = "app/src/main/java/com/fongmi/android/tv/player/exo/ExoUtil.java";
+    private static final String EXO_UTIL_PATH = "app/src/main/java/com/github/moyingshi/osc/tv/player/exo/ExoUtil.java";
 
     /**
      * The audio renderer may ask whether the platform supports the exact {@link

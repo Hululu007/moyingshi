@@ -465,7 +465,7 @@ int stream_open(void *, char *uri, mpv_stream_cb_info *info) {
 } // namespace
 
 bool register_iso_protocol(JNIEnv *env) {
-    jclass local = env->FindClass("com/fongmi/android/tv/player/iso/IsoSessionManager");
+    jclass local = env->FindClass("com/github/moyingshi/osc/tv/player/iso/IsoSessionManager");
     if (!local) return false;
     manager_class = static_cast<jclass>(env->NewGlobalRef(local));
     env->DeleteLocalRef(local);

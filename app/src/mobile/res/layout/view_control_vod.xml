@@ -277,7 +277,7 @@
             android:paddingStart="16dp"
             android:paddingEnd="4dp">
 
-            <com.fongmi.android.tv.ui.custom.CustomSeekView
+            <com.github.moyingshi.osc.tv.ui.custom.CustomSeekView
                 android:id="@+id/seek"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"

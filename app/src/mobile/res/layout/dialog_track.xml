@@ -169,7 +169,7 @@
         tools:text="AI 正在翻译：1/3 分块，约剩 20s"
         tools:visibility="visible" />
 
-    <com.fongmi.android.tv.ui.custom.CustomRecyclerView
+    <com.github.moyingshi.osc.tv.ui.custom.CustomRecyclerView
         android:id="@+id/recycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

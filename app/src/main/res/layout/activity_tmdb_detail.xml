@@ -1194,7 +1194,7 @@
             android:textSize="16sp"
             android:visibility="gone" />
 
-        <com.fongmi.android.tv.ui.custom.MiniProgressView
+        <com.github.moyingshi.osc.tv.ui.custom.MiniProgressView
             android:id="@+id/playerDisplayMini"
             android:layout_width="match_parent"
             android:layout_height="3dp"
@@ -1572,7 +1572,7 @@
                     </LinearLayout>
                 </HorizontalScrollView>
 
-                <com.fongmi.android.tv.ui.custom.CustomSeekView
+                <com.github.moyingshi.osc.tv.ui.custom.CustomSeekView
                     android:id="@+id/seek"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -1615,7 +1615,7 @@
 
         </FrameLayout>
 
-        <com.fongmi.android.tv.ui.custom.LutQuickPanel
+        <com.github.moyingshi.osc.tv.ui.custom.LutQuickPanel
             android:id="@+id/lutQuick"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />

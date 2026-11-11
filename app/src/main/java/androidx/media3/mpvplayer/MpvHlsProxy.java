@@ -4,30 +4,30 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
-import com.fongmi.android.tv.App;
-import com.fongmi.android.tv.api.config.AdBlockStatsStore;
-import com.fongmi.android.tv.api.config.HlsRuleConfig;
-import com.fongmi.android.tv.utils.HlsAdblockNotice;
-import com.fongmi.android.tv.utils.HlsAdblockPipeline;
-import com.fongmi.android.tv.utils.HlsManifestCleaner;
-import com.fongmi.android.tv.utils.Notify;
+import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.api.config.AdBlockStatsStore;
+import com.github.moyingshi.osc.tv.api.config.HlsRuleConfig;
+import com.github.moyingshi.osc.tv.utils.HlsAdblockNotice;
+import com.github.moyingshi.osc.tv.utils.HlsAdblockPipeline;
+import com.github.moyingshi.osc.tv.utils.HlsManifestCleaner;
+import com.github.moyingshi.osc.tv.utils.Notify;
 
-import com.fongmi.android.tv.cache.CacheCenter;
-import com.fongmi.android.tv.cache.CacheModuleId;
-import com.fongmi.android.tv.cache.CachePolicyStore;
-import com.fongmi.android.tv.cache.PlaybackCacheBudget;
-import com.fongmi.android.tv.player.PlaybackAutoContext;
-import com.fongmi.android.tv.player.PlaybackRouteRegistry;
-import com.fongmi.android.tv.player.PlaybackResourceClassifier;
-import com.fongmi.android.tv.player.PlaybackSystemConditionMonitor;
-import com.fongmi.android.tv.player.PreloadPausePolicy;
-import com.fongmi.android.tv.player.cache.PlaybackDiskBufferStore;
-import com.fongmi.android.tv.player.mpv.MpvPreloadPolicy;
-import com.fongmi.android.tv.setting.PlayerSetting;
-import com.fongmi.android.tv.setting.PlaybackPerformanceCatalog;
-import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
-import com.fongmi.android.tv.setting.PreloadSetting;
-import com.fongmi.android.tv.setting.Setting;
+import com.github.moyingshi.osc.tv.cache.CacheCenter;
+import com.github.moyingshi.osc.tv.cache.CacheModuleId;
+import com.github.moyingshi.osc.tv.cache.CachePolicyStore;
+import com.github.moyingshi.osc.tv.cache.PlaybackCacheBudget;
+import com.github.moyingshi.osc.tv.player.PlaybackAutoContext;
+import com.github.moyingshi.osc.tv.player.PlaybackRouteRegistry;
+import com.github.moyingshi.osc.tv.player.PlaybackResourceClassifier;
+import com.github.moyingshi.osc.tv.player.PlaybackSystemConditionMonitor;
+import com.github.moyingshi.osc.tv.player.PreloadPausePolicy;
+import com.github.moyingshi.osc.tv.player.cache.PlaybackDiskBufferStore;
+import com.github.moyingshi.osc.tv.player.mpv.MpvPreloadPolicy;
+import com.github.moyingshi.osc.tv.setting.PlayerSetting;
+import com.github.moyingshi.osc.tv.setting.PlaybackPerformanceCatalog;
+import com.github.moyingshi.osc.tv.setting.PlaybackPerformanceSetting;
+import com.github.moyingshi.osc.tv.setting.PreloadSetting;
+import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Path;
@@ -488,9 +488,9 @@ public final class MpvHlsProxy extends NanoHTTPD {
         MpvHlsCacheCoordinator.CapacitySnapshot capacity =
                 preloadCapacity.capacity();
         boolean storageKnown = capacity.policy().state()
-                != com.fongmi.android.tv.player.cache.DiskCacheCapacityPolicy.State.UNAVAILABLE;
+                != com.github.moyingshi.osc.tv.player.cache.DiskCacheCapacityPolicy.State.UNAVAILABLE;
         boolean cacheEnabled = capacity.policy().state()
-                != com.fongmi.android.tv.player.cache.DiskCacheCapacityPolicy.State.DISABLED;
+                != com.github.moyingshi.osc.tv.player.cache.DiskCacheCapacityPolicy.State.DISABLED;
         boolean budgetAvailable = preloadCapacity.allowed()
                 || !preloading.isEmpty() || activePreloadTransfers.get() > 0;
         return new PreloadRuntimeSnapshot(

@@ -985,7 +985,7 @@ Renderer *fromHandle(jlong handle) {
 }  // namespace
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeProbeCapabilities(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeProbeCapabilities(
         JNIEnv *env, jclass) {
     jint result = probeVulkan();
     if (probeImageReader(env)) result |= kCapabilityImageReader;
@@ -1006,7 +1006,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeProbeCapabilities(
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeCreate(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeCreate(
         JNIEnv *, jclass, jint width, jint height) {
     if (width <= 0 || height <= 0) return 0;
     auto *renderer = new (std::nothrow) Renderer();
@@ -1035,7 +1035,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeCreate(
 }
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeGetInputSurface(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeGetInputSurface(
         JNIEnv *env, jclass, jlong handle) {
     Renderer *renderer = fromHandle(handle);
     if (renderer == nullptr || renderer->reader == nullptr) return nullptr;
@@ -1048,7 +1048,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeGetInputSurface(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeQueueFrame(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeQueueFrame(
         JNIEnv *, jclass, jlong handle, jlong imageTimestampNs,
         jlong presentationTimeUs) {
     Renderer *renderer = fromHandle(handle);
@@ -1064,7 +1064,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeQueueFrame(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeClearFrames(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeClearFrames(
         JNIEnv *, jclass, jlong handle) {
     Renderer *renderer = fromHandle(handle);
     if (renderer == nullptr) return;
@@ -1088,7 +1088,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeClearFrames(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeQueueRpu(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeQueueRpu(
         JNIEnv *env, jclass, jlong handle, jlong presentationTimeUs,
         jbyteArray rpuArray) {
     Renderer *renderer = fromHandle(handle);
@@ -1174,7 +1174,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeQueueRpu(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeSetOutputSurface(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeSetOutputSurface(
         JNIEnv *env, jclass, jlong handle, jobject surface) {
     Renderer *renderer = fromHandle(handle);
     if (renderer == nullptr) return;
@@ -1191,7 +1191,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeSetOutputSurface(
 }
 
 extern "C" JNIEXPORT jlongArray JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeGetStats(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeGetStats(
         JNIEnv *env, jclass, jlong handle) {
     Renderer *renderer = fromHandle(handle);
     if (renderer == nullptr) return nullptr;
@@ -1232,7 +1232,7 @@ Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeGetStats(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_fongmi_android_tv_player_exo_ExoDv5Native_nativeRelease(
+Java_com_github_moyingshi_osc_tv_player_exo_ExoDv5Native_nativeRelease(
         JNIEnv *, jclass, jlong handle) {
     Renderer *renderer = fromHandle(handle);
     if (renderer == nullptr) return;

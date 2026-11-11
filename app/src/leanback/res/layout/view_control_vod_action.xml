@@ -105,7 +105,7 @@
             android:layout_marginEnd="8dp"
             android:text="@string/codec_capability_short" />
 
-        <com.fongmi.android.tv.ui.custom.CustomUpDownView
+        <com.github.moyingshi.osc.tv.ui.custom.CustomUpDownView
             android:id="@+id/speed"
             style="@style/Control"
             android:layout_marginEnd="8dp"
@@ -146,7 +146,7 @@
             android:text="@string/player_immersive_audio_mode"
             android:visibility="gone" />
 
-        <com.fongmi.android.tv.ui.custom.CustomUpDownView
+        <com.github.moyingshi.osc.tv.ui.custom.CustomUpDownView
             android:id="@+id/text"
             style="@style/Control"
             android:layout_marginEnd="8dp"
@@ -167,13 +167,13 @@
             android:tag="2"
             android:text="@string/play_track_video" />
 
-        <com.fongmi.android.tv.ui.custom.CustomUpDownView
+        <com.github.moyingshi.osc.tv.ui.custom.CustomUpDownView
             android:id="@+id/opening"
             style="@style/Control"
             android:layout_marginEnd="8dp"
             android:text="@string/play_op" />
 
-        <com.fongmi.android.tv.ui.custom.CustomUpDownView
+        <com.github.moyingshi.osc.tv.ui.custom.CustomUpDownView
             android:id="@+id/ending"
             style="@style/Control"
             android:layout_marginEnd="8dp"

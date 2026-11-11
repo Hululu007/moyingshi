@@ -85,7 +85,7 @@
         app:backgroundTint="@color/dialog_outlined_button_bg"
         app:strokeColor="@color/dialog_outlined_button_stroke" />
 
-    <com.fongmi.android.tv.ui.custom.CustomRecyclerView
+    <com.github.moyingshi.osc.tv.ui.custom.CustomRecyclerView
         android:id="@+id/sites"
         android:layout_width="match_parent"
         android:layout_height="0dp"

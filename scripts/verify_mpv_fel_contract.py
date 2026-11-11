@@ -154,7 +154,7 @@ def main():
         collector = (ROOT / "app/src/main/java/androidx/media3/mpvplayer/MpvDiagnosticCollector.java").read_text()
         native_log = collector[collector.index("synchronized void nativeLog("):
                                collector.index("static boolean isHook(")]
-        sink = (ROOT / "app/src/main/java/com/fongmi/android/tv/player/PlaybackDiagnosticCollector.java").read_text()
+        sink = (ROOT / "app/src/main/java/com/github/moyingshi/osc/tv/player/PlaybackDiagnosticCollector.java").read_text()
         require(callback.index("diagnostics.nativeLog(prefix, level, text)")
                 < callback.index("if (performanceKind >= 0)")
                 and "log.emitNative(" in native_log and "DebugLogStore.event(event)" in sink

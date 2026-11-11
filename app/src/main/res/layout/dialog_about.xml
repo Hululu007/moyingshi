@@ -61,7 +61,7 @@
         android:layout_marginBottom="14dp"
         android:background="?attr/colorSurfaceContainer" />
 
-    <com.fongmi.android.tv.ui.custom.CustomNestedScrollView
+    <com.github.moyingshi.osc.tv.ui.custom.CustomNestedScrollView
         android:id="@+id/contentScroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -79,7 +79,7 @@
             android:textColor="?attr/colorOnSurface"
             android:textSize="14sp" />
 
-    </com.fongmi.android.tv.ui.custom.CustomNestedScrollView>
+    </com.github.moyingshi.osc.tv.ui.custom.CustomNestedScrollView>
 
     <androidx.appcompat.widget.LinearLayoutCompat
         android:layout_width="match_parent"

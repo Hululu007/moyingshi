@@ -345,7 +345,7 @@ bool add_fonts(JNIEnv *env, ASS_Library *library, jobjectArray names, jobjectArr
 }
 } // namespace
 
-#define JNI_METHOD(name) Java_com_fongmi_android_tv_player_exo_ass_AssNative_##name
+#define JNI_METHOD(name) Java_com_github_moyingshi_osc_tv_player_exo_ass_AssNative_##name
 
 extern "C" JNIEXPORT jlong JNICALL JNI_METHOD(create)(JNIEnv *env, jclass, jstring font_config,
         jobjectArray names, jobjectArray fonts) {

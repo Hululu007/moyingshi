@@ -199,7 +199,7 @@
             android:text="@string/mpv_config_script_open_editor"
             android:visibility="gone" />
 
-        <com.fongmi.android.tv.ui.custom.MpvConfigEditText
+        <com.github.moyingshi.osc.tv.ui.custom.MpvConfigEditText
             android:id="@+id/scriptCode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

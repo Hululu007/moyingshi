@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <com.fongmi.android.tv.ui.custom.CustomMic
+            <com.github.moyingshi.osc.tv.ui.custom.CustomMic
                 android:id="@+id/mic"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
@@ -50,7 +50,7 @@
                 android:paddingEnd="16dp"
                 android:paddingBottom="8dp">
 
-                <com.fongmi.android.tv.ui.custom.CustomSearchView
+                <com.github.moyingshi.osc.tv.ui.custom.CustomSearchView
                     android:id="@+id/keyword"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

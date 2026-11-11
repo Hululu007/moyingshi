@@ -60,7 +60,7 @@ public final class MPVLib {
     public static synchronized boolean ensureLoaded(Context context) {
         if (loaded) return true;
         if (loadError != null) {
-            com.fongmi.android.tv.player.NativeLibraryDiagnostics.failure("mpv-bundle", loadError);
+            com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.failure("mpv-bundle", loadError);
             return false;
         }
         String loadingLibrary = "mpv-bundle";
@@ -81,7 +81,7 @@ public final class MPVLib {
             }
             loadedAbi = abi;
             loaded = true;
-            com.fongmi.android.tv.player.NativeLibraryDiagnostics.request();
+            com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.request();
             try {
                 writeMarker(marker, bundleId);
             } catch (IOException e) {
@@ -90,7 +90,7 @@ public final class MPVLib {
             return true;
         } catch (Throwable e) {
             loadError = e;
-            com.fongmi.android.tv.player.NativeLibraryDiagnostics.failure(loadingLibrary, e);
+            com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.failure(loadingLibrary, e);
             Log.e(TAG, "Unable to load bundled MPV native libraries", e);
             return false;
         }

@@ -1,7 +1,7 @@
 package androidx.media3.mpvplayer;
 
-import com.fongmi.android.tv.player.PlaybackAutoContext;
-import com.fongmi.android.tv.player.PlaybackResourceClassifier;
+import com.github.moyingshi.osc.tv.player.PlaybackAutoContext;
+import com.github.moyingshi.osc.tv.player.PlaybackResourceClassifier;
 
 import org.junit.Test;
 

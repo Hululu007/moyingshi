@@ -18,7 +18,7 @@ wait_focus() { local p=$1 l=$2 i=1; while [ $i -le "$l" ]; do case "$(focus)" in
 adb_ shell "am force-stop $PKG" >/dev/null 2>&1
 adb_ shell "monkey -p $PKG -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1
 if ! wait_focus HomeActivityCurrent 20; then
-  adb_ shell "am start -n $PKG/com.fongmi.android.tv.ui.activity.HomeActivityCurrent" >/dev/null 2>&1
+  adb_ shell "am start -n $PKG/com.github.moyingshi.osc.tv.ui.activity.HomeActivityCurrent" >/dev/null 2>&1
   wait_focus HomeActivityCurrent 20 || { echo "home not reached" >&2; exit 3; }
 fi
 sleep 12

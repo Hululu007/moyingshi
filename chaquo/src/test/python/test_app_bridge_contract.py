@@ -469,7 +469,7 @@ class BridgeContractTest(unittest.TestCase):
     }
 
     def _java_app_names(self):
-        java_root = SOURCE.parent / "java/com/fongmi/chaquo"
+        java_root = SOURCE.parent / "java/com/github/moyingshi/osc/tv/chaquo"
         sources = sorted(java_root.glob("*.java"))
         self.assertTrue(sources, "no Java bridge sources found under " + str(java_root))
         names = set()

@@ -20,7 +20,7 @@ PKG="com.silent.android.webhtv"
 SERIAL="emulator-5556"
 OUT_DIR=""
 RESET=0
-HOME_ACT="com.fongmi.android.tv.ui.activity.HomeActivity"
+HOME_ACT="com.github.moyingshi.osc.tv.ui.activity.HomeActivity"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -73,7 +73,7 @@ adb shell profman --dump-classes-and-methods   --profile-file="$PROFILE" --apk="
 OUT="$OUT_DIR/baseline-prof.txt"
 tr -d '' < "$RAW" | sed '/^$/d' | sort -u > "$OUT"
 
-echo "== dump: $(wc -l < "$OUT") rules ($(grep -c 'com/fongmi' "$OUT" || true) in this app) =="
+echo "== dump: $(wc -l < "$OUT") rules ($(grep -c 'com/github/moyingshi/osc/tv' "$OUT" || true) in this app) =="
 echo "== written: $OUT"
 echo "   commit it as app/src/main/baseline-prof.txt; AGP merges it with the"
 echo "   dependency-provided rules and packages assets/dexopt/baseline.prof."

@@ -1,0 +1,55 @@
+package com.github.moyingshi.osc.tv.subtitle;
+
+import com.github.moyingshi.osc.tv.bean.Episode;
+import com.github.moyingshi.osc.tv.bean.Result;
+import com.github.moyingshi.osc.tv.bean.Site;
+import com.github.moyingshi.osc.tv.bean.TmdbEpisode;
+import com.github.moyingshi.osc.tv.bean.TmdbItem;
+import com.github.moyingshi.osc.tv.bean.Vod;
+import com.github.moyingshi.osc.tv.setting.Setting;
+import com.github.moyingshi.osc.tv.subtitle.model.SubtitleRequest;
+import com.github.moyingshi.osc.tv.subtitle.model.SubtitleTrigger;
+
+public class SubtitleRequestFactory {
+
+    /**
+     * @param durationMs 当前播放影片的时长，用于和候选字幕标注的时长比对；未知传 0。
+     */
+    public SubtitleRequest create(String playbackKey, Site site, Vod vod, Episode episode, Result result, TmdbItem tmdbItem, TmdbEpisode tmdbEpisode, SubtitleTrigger trigger, long durationMs) {
+        SubtitleRequest request = create(playbackKey, site, vod, episode, result, tmdbItem, tmdbEpisode, trigger);
+        return request == null ? null : request.withDurationMs(durationMs);
+    }
+
+    public SubtitleRequest create(String playbackKey, Site site, Vod vod, Episode episode, Result result, TmdbItem tmdbItem, TmdbEpisode tmdbEpisode, SubtitleTrigger trigger) {
+        if (result == null) return null;
+        String vodName = firstNonEmpty(vod == null ? "" : vod.getName(), tmdbItem == null ? "" : tmdbItem.getTitle());
+        String episodeName = episode == null ? "" : firstNonEmpty(episode.getDisplayName(), episode.getDesc(), episode.getName());
+        int seasonNumber = tmdbEpisode == null ? -1 : tmdbEpisode.getSeasonNumber();
+        int episodeNumber = tmdbEpisode != null && tmdbEpisode.getNumber() > 0 ? tmdbEpisode.getNumber() : episode == null ? -1 : episode.getNumber();
+
+        return SubtitleRequest.builder()
+                .playbackKey(playbackKey)
+                .siteKey(site == null ? "" : site.getKey())
+                .siteName(site == null ? "" : site.getName())
+                .vodId(vod == null ? "" : vod.getId())
+                .vodName(vodName)
+                .vodRemarks(vod == null ? "" : vod.getRemarks())
+                .vodYear(vod == null ? "" : vod.getYear())
+                .episodeName(episodeName)
+                .playUrl(result.getRealUrl())
+                .playHeaders(result.getHeader())
+                .preferredLanguage(Setting.getSubtitlePreferredLanguage())
+                .trigger(trigger)
+                .allowTmdbLookup(Setting.isTmdbReady())
+                .tmdbItem(tmdbItem)
+                .tmdbEpisode(tmdbEpisode)
+                .seasonNumber(seasonNumber)
+                .episodeNumber(episodeNumber)
+                .build();
+    }
+
+    private String firstNonEmpty(String... values) {
+        for (String value : values) if (!SubtitleStrings.isEmpty(value)) return value;
+        return "";
+    }
+}

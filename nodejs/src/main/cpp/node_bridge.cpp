@@ -69,7 +69,7 @@ std::string jstr(JNIEnv *env, jstring s) {
 // x86_64 模拟器跑 arm64 包时 SUPPORTED_ABIS 首项是 x86_64，但调用方是 arm64，
 // dlopen 一个 x86_64 的 libnode 会直接失败（unexpected e_machine）。
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_fongmi_android_tv_nodejs_NodeBridge_nativeAbi(JNIEnv *env, jclass) {
+Java_com_github_moyingshi_osc_tv_nodejs_NodeBridge_nativeAbi(JNIEnv *env, jclass) {
 #if defined(__aarch64__)
     return env->NewStringUTF("arm64-v8a");
 #elif defined(__arm__)
@@ -84,7 +84,7 @@ Java_com_fongmi_android_tv_nodejs_NodeBridge_nativeAbi(JNIEnv *env, jclass) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_fongmi_android_tv_nodejs_NodeBridge_nativeLoad(JNIEnv *env, jclass, jstring libPath) {
+Java_com_github_moyingshi_osc_tv_nodejs_NodeBridge_nativeLoad(JNIEnv *env, jclass, jstring libPath) {
     if (g_start != nullptr) return nullptr;
     std::string path = jstr(env, libPath);
     if (path.empty()) return env->NewStringUTF("empty libnode path");
@@ -110,7 +110,7 @@ Java_com_fongmi_android_tv_nodejs_NodeBridge_nativeLoad(JNIEnv *env, jclass, jst
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_fongmi_android_tv_nodejs_NodeBridge_nativeStart(JNIEnv *env, jclass, jobjectArray argv) {
+Java_com_github_moyingshi_osc_tv_nodejs_NodeBridge_nativeStart(JNIEnv *env, jclass, jobjectArray argv) {
     if (g_start == nullptr) {
         LOGE("nativeStart before nativeLoad");
         return -1;

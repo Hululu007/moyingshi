@@ -2,8 +2,8 @@ package androidx.media3.mpvplayer;
 
 import android.os.SystemClock;
 
-import com.fongmi.android.tv.player.PlaybackDiagnosticCollector;
-import com.fongmi.android.tv.player.PlaybackDiagnosticCollector.Context;
+import com.github.moyingshi.osc.tv.player.PlaybackDiagnosticCollector;
+import com.github.moyingshi.osc.tv.player.PlaybackDiagnosticCollector.Context;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.crawler.diagnostics.DiagnosticEvent;
 import com.github.catvod.crawler.diagnostics.DiagnosticText;
@@ -29,8 +29,8 @@ final class MpvDiagnosticCollector {
             "container-fps", "estimated-vf-fps", "video-pts", "audio-pts", "mpv-version", "ffmpeg-version", "options/msg-level",
             "options/af", "demuxer-cache-duration", "cache-buffering-state", "audio-spdif");
     private final PlaybackDiagnosticCollector log = new PlaybackDiagnosticCollector("mpv", "runtime-properties");
-    private final com.fongmi.android.tv.player.FelBindProbeControl felBindProbe =
-            new com.fongmi.android.tv.player.FelBindProbeControl(log.instanceId());
+    private final com.github.moyingshi.osc.tv.player.FelBindProbeControl felBindProbe =
+            new com.github.moyingshi.osc.tv.player.FelBindProbeControl(log.instanceId());
     private final MpvPropertySnapshot snapshot;
     private final AtomicLong nativeSeq = new AtomicLong();
     private final String cacheId = PlaybackDiagnosticCollector.id("mpv-health");
@@ -46,10 +46,10 @@ final class MpvDiagnosticCollector {
     private final Set<String> emittedMissing = new java.util.HashSet<>();
     private MpvPropertySnapshot.TrackList emittedTracks;
     private int categories = -1;
-    private final com.fongmi.android.tv.player.OutputProgressDiagnostic videoProgress = new com.fongmi.android.tv.player.OutputProgressDiagnostic(true);
+    private final com.github.moyingshi.osc.tv.player.OutputProgressDiagnostic videoProgress = new com.github.moyingshi.osc.tv.player.OutputProgressDiagnostic(true);
 
     MpvDiagnosticCollector(MpvPropertySnapshot snapshot) { this.snapshot = snapshot; }
-    com.fongmi.android.tv.player.FelBindProbeControl felBindProbe() { return felBindProbe; }
+    com.github.moyingshi.osc.tv.player.FelBindProbeControl felBindProbe() { return felBindProbe; }
     boolean depthActive() {
         Context owner = nativeOwner;
         com.github.catvod.crawler.diagnostics.DiagnosticCapture.Session capture = com.github.catvod.crawler.diagnostics.DiagnosticCapture.current(owner.trace(), owner.generation(), owner.attempt());
@@ -73,7 +73,7 @@ final class MpvDiagnosticCollector {
     synchronized void begin(String trace) {
         closed = false; log.begin(trace, "foreground");
         felBindProbe.begin();
-        com.fongmi.android.tv.player.DiagnosticControls.registerFelBindProbe(felBindProbe);
+        com.github.moyingshi.osc.tv.player.DiagnosticControls.registerFelBindProbe(felBindProbe);
         emitted.clear(); emittedMissing.clear(); emittedTracks = null;
         if (PlaybackDiagnosticCollector.enabled()) { capture(); health(); }
     }

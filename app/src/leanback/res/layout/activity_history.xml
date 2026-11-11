@@ -63,7 +63,7 @@
 
    </androidx.appcompat.widget.LinearLayoutCompat>
 
-    <com.fongmi.android.tv.ui.custom.ProgressLayout
+    <com.github.moyingshi.osc.tv.ui.custom.ProgressLayout
         android:id="@+id/progressLayout"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -80,6 +80,6 @@
             android:paddingEnd="24dp"
             android:paddingBottom="24dp" />
 
-    </com.fongmi.android.tv.ui.custom.ProgressLayout>
+    </com.github.moyingshi.osc.tv.ui.custom.ProgressLayout>
 
 </androidx.appcompat.widget.LinearLayoutCompat>

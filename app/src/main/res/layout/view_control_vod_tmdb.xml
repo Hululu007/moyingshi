@@ -248,7 +248,7 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <com.fongmi.android.tv.ui.custom.CustomSeekView
+            <com.github.moyingshi.osc.tv.ui.custom.CustomSeekView
                 android:id="@+id/seek"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"

@@ -18,7 +18,7 @@ def main():
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     java = Path(args.java_home) / "bin"
-    source = (root / "app/src/main/java/com/fongmi/android/tv/server/process/DebugLogs.java").read_text()
+    source = (root / "app/src/main/java/com/github/moyingshi/osc/tv/server/process/DebugLogs.java").read_text()
     methods = source[source.index("    private String html() {"):source.rindex("}")]
     rows = [
         "quickjs: [DEBUG] initialized",
