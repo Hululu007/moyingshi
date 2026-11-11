@@ -35,7 +35,6 @@ import com.github.moyingshi.osc.tv.impl.LiveListener;
 import com.github.moyingshi.osc.tv.impl.SiteListener;
 import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.setting.ConfigSyncPolicy;
-import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.SiteHealthStore;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
@@ -87,10 +86,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_WIDGET = "widget";
     public static final String ROW_SEARCH_INPUT = "search_input";
     public static final String ROW_PLAYER = "player";
-    public static final String ROW_BADGE = "badge";
     public static final String ROW_DANMAKU = "danmaku";
     public static final String ROW_SUBTITLE = "subtitle";
-    public static final String ROW_ENHANCE = "enhance";
     public static final String ROW_AI = "ai";
     public static final String ROW_AD = "ad";
     public static final String ROW_ACCOUNT = "account";
@@ -181,7 +178,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 R.string.setting_wall, ROW_WALL, this::onWall, this::setWallDefault, this::setWallRefresh);
         wallRow.findViewById(R.id.historyBtn).setOnLongClickListener(v -> onWallHistory());
 
-        // 通用：外观 / 首页与导航 / 组件 / 搜索与输入 / 播放 / 媒体徽章 / 弹幕 / 字幕 / 增强设置 / AI / 广告
+        // 通用：外观 / 首页与导航 / 增强功能 / 搜索与输入 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
         ViewGroup general = addGroup(container, inflater, R.string.setting_group_general, false);
         addRow(general, inflater, R.drawable.ic_setting_appearance, R.drawable.shape_setting_circle_purple,
                 R.string.setting_appearance, R.string.setting_appearance_sub, ROW_APPEARANCE, this::onAppearance);
@@ -189,8 +186,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         addRow(general, inflater, R.drawable.ic_setting_home, R.drawable.shape_setting_circle_orange,
                 R.string.setting_home_nav, R.string.setting_home_nav_sub, ROW_HOME_NAV, () -> getRoot().change(5));
         addDivider(general);
-        addRow(general, inflater, R.drawable.ic_site_grid, R.drawable.shape_setting_circle_green,
-                R.string.setting_widget, R.string.setting_widget_sub, ROW_WIDGET, () -> getRoot().change(3));
+        addRow(general, inflater, R.drawable.ic_action_setting, R.drawable.shape_setting_circle_orange,
+                R.string.setting_enhance, R.string.setting_enhance_sub, ROW_WIDGET, () -> getRoot().change(3));
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_search, R.drawable.shape_setting_circle_blue,
                 R.string.setting_search_input, R.string.setting_search_input_sub, ROW_SEARCH_INPUT, () -> getRoot().change(5));
@@ -198,17 +195,11 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         addRow(general, inflater, R.drawable.ic_setting_play, R.drawable.shape_setting_circle_red,
                 R.string.setting_player, R.string.setting_player_sub, ROW_PLAYER, () -> getRoot().change(2));
         addDivider(general);
-        addRow(general, inflater, R.drawable.ic_setting_badge, R.drawable.shape_setting_circle_violet,
-                R.string.setting_media_badge, R.string.setting_badge_sub, ROW_BADGE, () -> getRoot().change(2));
-        addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_danmaku, R.drawable.shape_setting_circle_blue,
                 R.string.setting_danmaku, R.string.setting_danmaku_sub, ROW_DANMAKU, () -> getRoot().change(4));
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_subtitle, R.drawable.shape_setting_circle_green,
                 R.string.setting_subtitle, R.string.setting_subtitle_sub, ROW_SUBTITLE, () -> getRoot().change(6));
-        addDivider(general);
-        addRow(general, inflater, R.drawable.ic_action_setting, R.drawable.shape_setting_circle_orange,
-                R.string.setting_enhance, R.string.setting_enhance_sub, ROW_ENHANCE, () -> getRoot().change(3));
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_ai, R.drawable.shape_setting_circle_purple,
                 R.string.setting_ai, R.string.setting_ai_sub, ROW_AI, () -> getRoot().change(8));
@@ -216,10 +207,10 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         addRow(general, inflater, R.drawable.ic_setting_ad, R.drawable.shape_setting_circle_red,
                 R.string.setting_ad, R.string.setting_ad_sub, ROW_AD, () -> getRoot().change(9));
 
-        // 账号与服务：账号管理 / 个人
+        // 账号与服务：TMDB / 个性设置
         ViewGroup account = addGroup(container, inflater, R.string.setting_group_account, false);
         addRow(account, inflater, R.drawable.ic_setting_account, R.drawable.shape_setting_circle_blue,
-                R.string.setting_account, R.string.setting_account_sub, ROW_ACCOUNT, () -> getRoot().change(7));
+                R.string.setting_tmdb, R.string.setting_tmdb_sub, ROW_ACCOUNT, () -> getRoot().change(7));
         addDivider(account);
         addRow(account, inflater, R.drawable.ic_setting_personal, R.drawable.shape_setting_circle_green,
                 R.string.setting_personal, R.string.setting_personal_sub, ROW_PERSONAL, () -> getRoot().change(5));
@@ -348,11 +339,6 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_LIVE, LiveConfig.getDesc());
         setValue(ROW_WALL, Setting.getWallDesc(WallConfig.getDesc()));
         setValue(ROW_APPEARANCE, getThemeModeText());
-        setValue(ROW_WIDGET, getString(R.string.setting_widget_count, 4));
-        String[] badgePosition = getResources().getStringArray(R.array.select_media_badge_position);
-        int badgeChoice = PlayerSetting.getMediaBadgeChoice();
-        setValue(ROW_BADGE, badgePosition != null && badgePosition.length > badgeChoice
-                ? badgePosition[badgeChoice] : getString(R.string.setting_off));
         setValue(ROW_ACCOUNT, getString(Setting.isTmdbReady() ? R.string.setting_configured : R.string.setting_unconfigured));
         setValue(ROW_GITCLOUD, getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         setValue(ROW_DRIVE, getSwitch(Setting.isDriveCheck()));
@@ -416,8 +402,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case ROW_WALL -> onWall();
             case ROW_APPEARANCE -> onAppearance();
             case ROW_HOME_NAV, ROW_SEARCH_INPUT, ROW_PERSONAL -> getRoot().change(5);
-            case ROW_WIDGET, ROW_ENHANCE -> getRoot().change(3);
-            case ROW_PLAYER, ROW_BADGE -> getRoot().change(2);
+            case ROW_WIDGET -> getRoot().change(3);
+            case ROW_PLAYER -> getRoot().change(2);
             case ROW_DANMAKU -> getRoot().change(4);
             case ROW_SUBTITLE -> getRoot().change(6);
             case ROW_AI -> getRoot().change(8);

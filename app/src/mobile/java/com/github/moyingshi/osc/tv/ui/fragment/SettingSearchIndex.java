@@ -47,16 +47,14 @@ public final class SettingSearchIndex {
         entries.add(main(R.string.setting_wall, 0, SettingFragment.ROW_WALL));
         entries.add(main(R.string.setting_appearance, R.string.setting_appearance_sub, SettingFragment.ROW_APPEARANCE));
         entries.add(main(R.string.setting_home_nav, R.string.setting_home_nav_sub, SettingFragment.ROW_HOME_NAV));
-        entries.add(main(R.string.setting_widget, R.string.setting_widget_sub, SettingFragment.ROW_WIDGET));
+        entries.add(main(R.string.setting_enhance, R.string.setting_enhance_sub, SettingFragment.ROW_WIDGET));
         entries.add(main(R.string.setting_search_input, R.string.setting_search_input_sub, SettingFragment.ROW_SEARCH_INPUT));
         entries.add(main(R.string.setting_player, R.string.setting_player_sub, SettingFragment.ROW_PLAYER));
-        entries.add(main(R.string.setting_media_badge, R.string.setting_badge_sub, SettingFragment.ROW_BADGE));
         entries.add(main(R.string.setting_danmaku, R.string.setting_danmaku_sub, SettingFragment.ROW_DANMAKU));
         entries.add(main(R.string.setting_subtitle, R.string.setting_subtitle_sub, SettingFragment.ROW_SUBTITLE));
-        entries.add(main(R.string.setting_enhance, R.string.setting_enhance_sub, SettingFragment.ROW_ENHANCE));
         entries.add(main(R.string.setting_ai, R.string.setting_ai_sub, SettingFragment.ROW_AI));
         entries.add(main(R.string.setting_ad, R.string.setting_ad_sub, SettingFragment.ROW_AD));
-        entries.add(main(R.string.setting_account, R.string.setting_account_sub, SettingFragment.ROW_ACCOUNT));
+        entries.add(main(R.string.setting_tmdb, R.string.setting_tmdb_sub, SettingFragment.ROW_ACCOUNT));
         entries.add(main(R.string.setting_personal, R.string.setting_personal_sub, SettingFragment.ROW_PERSONAL));
         entries.add(main(R.string.setting_local_source, R.string.setting_local_source_sub, SettingFragment.ROW_LOCAL_SOURCE));
         entries.add(main(R.string.setting_lab, R.string.setting_lab_sub, SettingFragment.ROW_LAB));
