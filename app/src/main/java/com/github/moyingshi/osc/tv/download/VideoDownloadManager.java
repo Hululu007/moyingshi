@@ -504,6 +504,7 @@ public final class VideoDownloadManager {
                     outLines.add(line);
                     continue;
                 }
+                String localKey = keyFiles.get(pendingKeyUri);
                 if (localKey == null) {
                     localKey = "key-" + keyFiles.size() + ".key";
                     keyFiles.put(pendingKeyUri, localKey);
