@@ -175,6 +175,7 @@ import com.github.moyingshi.osc.tv.ui.dialog.PlaybackSpeedDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.CodecCapabilityDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.DanmakuDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.DisplayDialog;
+import com.github.moyingshi.osc.tv.ui.dialog.DownloadEpisodeDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.MultiThreadProxyDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.PictureAdjustDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.PlayerKernelDialog;
@@ -914,12 +915,16 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.episodeReverse.setOnClickListener(view -> toggleEpisodeReverse());
         binding.episodeViewMode.setOnClickListener(view -> toggleEpisodeViewMode());
         binding.episodeFileName.setOnClickListener(view -> toggleEpisodeFileName());
+        binding.episodeDownload.setOnClickListener(view -> showDownloadDialog());
         binding.episodeTitle.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));
         binding.episodeReverse.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));
         binding.episodeViewMode.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));
         binding.episodeFileName.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));
-        binding.episodeTitle.setNextFocusRightId(R.id.episodeReverse);
-        binding.episodeReverse.setNextFocusLeftId(R.id.episodeTitle);
+        binding.episodeDownload.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));
+        binding.episodeTitle.setNextFocusRightId(R.id.episodeDownload);
+        binding.episodeDownload.setNextFocusLeftId(R.id.episodeTitle);
+        binding.episodeDownload.setNextFocusRightId(R.id.episodeReverse);
+        binding.episodeReverse.setNextFocusLeftId(R.id.episodeDownload);
         binding.episodeReverse.setNextFocusRightId(R.id.episodeFileName);
         binding.episodeFileName.setNextFocusLeftId(R.id.episodeReverse);
         binding.episodeFileName.setNextFocusRightId(R.id.episodeViewMode);
@@ -2033,6 +2038,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setEpisodeToolButton(binding.episodeReverse, colors);
         setEpisodeToolButton(binding.episodeViewMode, colors);
         setEpisodeToolButton(binding.episodeFileName, colors);
+        setEpisodeToolButton(binding.episodeDownload, colors);
         setButton(binding.play, colors.play, colors.play, 0xFFFFFFFF);
         binding.headerTitle.setTextColor(colors.primary);
         binding.title.setTextColor(colors.primary);
@@ -2458,6 +2464,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         applyEpisodeToolButtonFocus(binding.episodeReverse, colors);
         applyEpisodeToolButtonFocus(binding.episodeViewMode, colors);
         applyEpisodeToolButtonFocus(binding.episodeFileName, colors);
+        applyEpisodeToolButtonFocus(binding.episodeDownload, colors);
     }
 
     private void applyEpisodeTitleButtonFocus(MaterialButton button, ThemeColors colors) {
@@ -5113,10 +5120,28 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
     }
 
+    /** 选集行下载按钮：仅下载开关打开且有选集时显示（排序图标左边）。 */
+    private void refreshDownloadButton() {
+        if (binding == null) return;
+        boolean show = binding.episodeHeader.getVisibility() == View.VISIBLE && Setting.isDownloadEnabled();
+        binding.episodeDownload.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** 点下载按钮：弹出选集下载弹窗，集数按当前显示顺序（倒序时同样倒序）。 */
+    private void showDownloadDialog() {
+        if (vod == null || selectedFlag == null) return;
+        List<Episode> raw = selectedFlag.getEpisodes();
+        List<Episode> episodes = new ArrayList<>(visibleEpisodes(raw == null ? List.of() : raw));
+        if (episodeReverse) Collections.reverse(episodes);
+        if (episodes.isEmpty()) return;
+        DownloadEpisodeDialog.show(this, vod.getName(), vod.getSiteKey(), selectedFlag.getFlag(), episodes);
+    }
+
     private void renderEpisodes() {
         List<Episode> episodes = selectedFlag == null ? null : selectedFlag.getEpisodes();
         boolean hasEpisodes = episodes != null && !episodes.isEmpty();
         binding.episodeHeader.setVisibility(hasEpisodes ? View.VISIBLE : View.GONE);
+        refreshDownloadButton();
         binding.episodeContainer.setVisibility(hasEpisodes ? View.VISIBLE : View.GONE);
         binding.episodeEmpty.setVisibility(hasEpisodes ? View.GONE : View.VISIBLE);
         if (!hasEpisodes) {
@@ -11640,6 +11665,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         // 本页的插件 chip 此后永远读不到剧集上下文。
         republishPluginEpisodeContext();
         refreshSelectionAfterExternalPlayback();
+        refreshDownloadButton();
         if (vod != null && binding.loading.getVisibility() != View.VISIBLE) revealDefaultPlaybackLoadingPage();
         scheduleBackdropSlide(BACKDROP_SLIDE_DELAY_MS);
     }

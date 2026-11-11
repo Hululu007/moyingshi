@@ -666,10 +666,30 @@
                             android:layout_weight="1" />
 
                         <com.google.android.material.button.MaterialButton
+                            android:id="@+id/episodeDownload"
+                            style="?attr/materialButtonOutlinedStyle"
+                            android:layout_width="40dp"
+                            android:layout_height="36dp"
+                            android:minHeight="36dp"
+                            android:minWidth="0dp"
+                            android:contentDescription="@string/download_dialog_title"
+                            android:padding="0dp"
+                            android:visibility="gone"
+                            app:backgroundTint="?attr/colorSurfaceContainerHigh"
+                            app:icon="@drawable/ic_download"
+                            app:iconGravity="textStart"
+                            app:iconPadding="0dp"
+                            app:iconSize="20dp"
+                            app:iconTint="@android:color/white"
+                            app:strokeColor="@android:color/transparent"
+                            app:cornerRadius="18dp" />
+
+                        <com.google.android.material.button.MaterialButton
                             android:id="@+id/episodeReverse"
                             style="?attr/materialButtonOutlinedStyle"
                             android:layout_width="40dp"
                             android:layout_height="36dp"
+                            android:layout_marginStart="8dp"
                             android:minHeight="36dp"
                             android:minWidth="0dp"
                             android:contentDescription="@string/detail_episode_reverse"
