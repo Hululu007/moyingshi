@@ -2,7 +2,6 @@ package com.github.moyingshi.osc.tv.ui.fragment;
 
 import android.net.Uri;
 import android.app.Activity;
-import android.graphics.drawable.ColorDrawable;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -80,7 +79,6 @@ import com.github.moyingshi.osc.tv.web.HomeWebController;
 import com.github.moyingshi.osc.tv.web.WebHomeChrome;
 import com.github.moyingshi.osc.tv.web.WebHomeChromeStartup;
 import com.github.moyingshi.osc.tv.web.WebHomeViewport;
-import com.google.android.material.color.MaterialColors;
 import com.google.gson.JsonObject;
 
 import org.greenrobot.eventbus.EventBus;
@@ -118,9 +116,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private WidgetManager mWidgetManager;
     private final Map<String, AdapterWidgetSectionBinding> mWidgetSections = new LinkedHashMap<>();
     private final Map<String, WidgetSectionAdapter> mWidgetAdapters = new LinkedHashMap<>();
-
-    // 吸顶分类栏：typeBar 背景淡入用的 surface 色 drawable（展开时透明、收起时不透明）。
-    private ColorDrawable mTypeBarBackground;
 
     private final Runnable mBannerAutoScroll = new Runnable() {
         @Override
@@ -162,7 +157,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.title.setSelected(true);
         mHomeWebTopMargin = ((ViewGroup.MarginLayoutParams) mBinding.homeWeb.getLayoutParams()).topMargin;
         setRecyclerView();
-        setTypeBarBackground();
         setBannerView();
         setContinueView();
         setWebView();
@@ -192,9 +186,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             int range = appBarLayout.getTotalScrollRange();
             if (range <= 0) return;
             float factor = Math.abs(verticalOffset * 1f / range);
-            // 吸顶分类栏背景：按收起比例淡入（展开透明、收到底不透明），放 padding 短路之前，
-            // 否则 padding 不变的那几帧会跳过透明度更新、淡入不连贯。
-            if (mTypeBarBackground != null) mTypeBarBackground.setAlpha((int) (factor * 255));
             int padding = (int) (ResUtil.dp2px(12) * factor);
             if (mBinding.type.getPaddingTop() == padding) return;
             mBinding.type.setPadding(mBinding.type.getPaddingStart(), padding, mBinding.type.getPaddingEnd(), mBinding.type.getPaddingBottom());
@@ -224,19 +215,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.type.setItemAnimator(null);
         mBinding.type.setAdapter(mAdapter = new TypeAdapter(this));
         mBinding.pager.setAdapter(new PageAdapter(getChildFragmentManager()));
-    }
-
-    /**
-     * 吸顶分类栏背景：typeBar 本身不带 scroll flag，收到底时钉在顶部；首页背景是壁纸，
-     * typeBar 展开时是透明的（壁纸上的样子），钉住后海报会从它底下透出来，所以挂一个
-     * surface 色 ColorDrawable，透明度由 AppBar offset 监听按收起比例淡入（见 initEvent）——
-     * 展开时全透明、收到底时全不透明（设计文档 §5.4：内容表面须有不透明 surface 层）。
-     */
-    private void setTypeBarBackground() {
-        int surface = MaterialColors.getColor(requireContext(), com.google.android.material.R.attr.colorSurface, "VodFragment");
-        mTypeBarBackground = new ColorDrawable(surface);
-        mTypeBarBackground.setAlpha(0);
-        mBinding.typeBar.setBackground(mTypeBarBackground);
     }
 
     /**

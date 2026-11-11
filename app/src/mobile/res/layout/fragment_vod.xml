@@ -92,7 +92,7 @@
 
         <!-- 分类栏（吸顶）：故意不加 layout_scrollFlags——它是 AppBar 最后一个子项，
              其相对 Y 正好等于全部 scroll 子项高度之和（总收起范围），收到底时正好停在屏幕顶部
-             钉住不动；下滑回顶部时随 AppBar 展开回到原位。背景淡入见 VodFragment 的 offset 监听。 -->
+             钉住不动；下滑回顶部时随 AppBar 展开回到原位。背景始终透明，露出壁纸，与页面其他地方一致。 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/typeBar"
             android:layout_width="match_parent"
