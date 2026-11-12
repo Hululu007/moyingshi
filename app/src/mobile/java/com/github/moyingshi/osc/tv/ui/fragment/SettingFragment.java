@@ -73,9 +73,11 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * BieCuiLe-style grouped settings page: big title + search icon, one rounded card per
@@ -128,6 +130,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private LinearLayout mDownloadListContainer;
     /** 下载任务变化时只重建下载列表，不动整个设置页。 */
     private final VideoDownloadManager.Listener mDownloadListener = this::refreshDownloadList;
+    /** 用户手动展开的下载剧名组：进度刷新重建列表时保持展开，不自动收起。 */
+    private final Set<String> mExpandedDownloadDramas = new HashSet<>();
 
     public static SettingFragment newInstance() {
         return new SettingFragment();
@@ -678,11 +682,14 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         episodes.setOrientation(LinearLayout.VERTICAL);
         episodes.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        episodes.setVisibility(View.GONE);
+        episodes.setVisibility(mExpandedDownloadDramas.contains(dramaName) ? View.VISIBLE : View.GONE);
         for (DownloadTask task : tasks) addEpisodeRow(inflater, episodes, task);
         binding.getRoot().setOnClickListener(v -> {
             binding.deleteBtn.setVisibility(View.GONE);
-            episodes.setVisibility(episodes.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            boolean expand = episodes.getVisibility() != View.VISIBLE;
+            episodes.setVisibility(expand ? View.VISIBLE : View.GONE);
+            if (expand) mExpandedDownloadDramas.add(dramaName);
+            else mExpandedDownloadDramas.remove(dramaName);
         });
         binding.getRoot().setOnLongClickListener(v -> {
             binding.deleteBtn.setVisibility(View.VISIBLE);
@@ -705,8 +712,30 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         ItemDownloadEpisodeBinding binding = ItemDownloadEpisodeBinding.inflate(inflater, parent, false);
         binding.name.setText(task.episodeName);
         binding.status.setText(downloadStatusText(task));
+        bindEpisodeProgress(binding, task);
         binding.getRoot().setOnClickListener(v -> playDownloaded(task));
         parent.addView(binding.getRoot());
+    }
+
+    /** 集行进度条：下载中按真实进度定量显示，总数未知时转圈；解析中转圈；其他状态隐藏。 */
+    private void bindEpisodeProgress(ItemDownloadEpisodeBinding binding, DownloadTask task) {
+        if (task.status == DownloadTask.Status.DOWNLOADING) {
+            int progress = task.progress();
+            if (progress >= 0) {
+                binding.progress.setIndeterminate(false);
+                binding.progress.setProgress(progress);
+            } else {
+                binding.progress.setIndeterminate(true);
+            }
+            binding.progress.setVisibility(View.VISIBLE);
+            return;
+        }
+        if (task.status == DownloadTask.Status.RESOLVING) {
+            binding.progress.setIndeterminate(true);
+            binding.progress.setVisibility(View.VISIBLE);
+            return;
+        }
+        binding.progress.setVisibility(View.GONE);
     }
 
     private String downloadStatusText(DownloadTask task) {
