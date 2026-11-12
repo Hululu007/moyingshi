@@ -821,6 +821,17 @@
                             android:textSize="16sp" />
 
                         <androidx.appcompat.widget.AppCompatImageView
+                            android:id="@+id/episodeDownload"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="8dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="@string/download_dialog_title"
+                            android:src="@drawable/ic_download"
+                            android:visibility="gone"
+                            tools:visibility="visible" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
                             android:id="@+id/reverse"
                             android:layout_width="20dp"
                             android:layout_height="20dp"

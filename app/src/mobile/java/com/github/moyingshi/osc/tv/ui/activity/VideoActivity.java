@@ -161,6 +161,7 @@ import com.github.moyingshi.osc.tv.ui.dialog.CastDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.CodecCapabilityDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ControlDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.DanmakuDialog;
+import com.github.moyingshi.osc.tv.ui.dialog.DownloadEpisodeDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.EpisodeGridDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.EpisodeListDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.InfoDialog;
@@ -1871,6 +1872,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.content.setOnClickListener(view -> onContent());
         mBinding.episodeTitle.setOnClickListener(view -> showManualTmdbSeasonDialog());
         mBinding.reverse.setOnClickListener(view -> onReverse());
+        if (mBinding.episodeDownload != null) mBinding.episodeDownload.setOnClickListener(view -> showDownloadDialog());
         if (mBinding.episodeFileName != null) mBinding.episodeFileName.setOnClickListener(view -> toggleEpisodeFileName());
         if (mBinding.episodeViewMode != null) mBinding.episodeViewMode.setOnClickListener(view -> toggleEpisodeViewMode());
         mBinding.director.setOnClickListener(view -> onDirector());
@@ -3648,6 +3650,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         }
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.more.setVisibility(View.GONE);
+        refreshDownloadButton();
         int maxGroupSize = shouldUseTmdbDetailLayout() ? EpisodeRangePolicy.CARD_PAGE_MAX_SIZE : 0;
         List<EpisodeGroupAdapter.Group> groups = EpisodeGroupAdapter.build(size, getSelectedEpisodePosition(items), mHistory != null && mHistory.isRevSort(), maxGroupSize);
         mEpisodeGroupAdapter.addAll(groups);
@@ -3670,6 +3673,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         if (mBinding.episodeFileName != null) mBinding.episodeFileName.setVisibility(size > 1 ? View.VISIBLE : View.GONE);
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.more.setVisibility(View.GONE);
+        refreshDownloadButton();
         List<EpisodeGroupAdapter.Group> groups = EpisodeGroupAdapter.build(size, getSelectedEpisodePosition(items), mHistory != null && mHistory.isRevSort());
         mEpisodeGroupAdapter.addAll(groups);
         mBinding.episodeGroup.setVisibility(groups.size() > 1 ? View.VISIBLE : View.GONE);
@@ -4029,6 +4033,20 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         applyTmdbPlaybackControlColors();
     }
 
+    /** 选集行下载按钮：仅下载开关打开且有选集时显示（排序图标左边）。 */
+    private void refreshDownloadButton() {
+        if (mBinding == null || mBinding.episodeDownload == null) return;
+        boolean show = Setting.isDownloadEnabled() && mBinding.episode != null && mBinding.episode.getVisibility() == View.VISIBLE;
+        mBinding.episodeDownload.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** 点下载按钮：弹出选集下载弹窗，集数按当前显示顺序。 */
+    private void showDownloadDialog() {
+        Flag flag = getFlag();
+        List<Episode> episodes = new ArrayList<>(getCurrentEpisodeItems());
+        if (episodes.isEmpty()) return;
+        DownloadEpisodeDialog.show(this, getName(), getKey(), flag == null ? "" : flag.getFlag(), episodes);
+    }
 
     private void updateEpisodeViewModeButton() {
         if (mBinding.episodeViewMode == null) return;
@@ -6801,6 +6819,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         if (mBinding.episodeFileName != null) mBinding.episodeFileName.setVisibility(showViewMode ? View.VISIBLE : View.GONE);
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.more.setVisibility(View.GONE);
+        refreshDownloadButton();
         int maxGroupSize = shouldUseTmdbDetailLayout() ? EpisodeRangePolicy.CARD_PAGE_MAX_SIZE : 0;
         List<EpisodeGroupAdapter.Group> groups = EpisodeGroupAdapter.build(size, getSelectedEpisodePosition(items), mHistory != null && mHistory.isRevSort(), maxGroupSize);
         mEpisodeGroupAdapter.addAll(groups);
@@ -7130,6 +7149,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.episodeGroup.setVisibility(visible || !episodeGroupVisible ? View.GONE : View.VISIBLE);
         mBinding.episode.setVisibility(visible || !episodeVisible ? View.GONE : View.VISIBLE);
         mBinding.quick.setVisibility(visible || !quickVisible ? View.GONE : View.VISIBLE);
+        refreshDownloadButton();
     }
 
     private void updateAudioStageText() {
@@ -9195,6 +9215,7 @@ private void checkOrientation() {
         tintFusionPlaybackTextTree(mBinding.episodeTitleBar, color, light);
         tintFusionPlaybackText(mBinding.qualityText, color, light);
         tintFusionPlaybackIcon(mBinding.reverse, color);
+        if (mBinding.episodeDownload != null) tintFusionPlaybackIcon(mBinding.episodeDownload, color);
         if (mBinding.episodeFileName != null) tintFusionPlaybackIcon(mBinding.episodeFileName, color);
         tintFusionPlaybackIcon(mBinding.episodeViewMode, color);
         tintFusionPlaybackIcon(mBinding.more, color);
@@ -10310,6 +10331,7 @@ private void checkOrientation() {
         if (mAudioStageVisible) applyAudioBackground();
         syncLyricsPlaybackState();
         syncKaraokePosition();
+        refreshDownloadButton();
     }
 
 
