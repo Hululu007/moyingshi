@@ -102,7 +102,7 @@ public class CrashRecoveryGateTest {
     @Test
     public void bothHomesAwaitRecoveryBeforeConfigAndExternalActions() throws Exception {
         for (String flavor : new String[]{"mobile", "leanback"}) {
-            String source = Files.readString(root().resolve("app/src/" + flavor + "/java/com/fongmi/android/tv/ui/activity/HomeActivity.java"), StandardCharsets.UTF_8);
+            String source = Files.readString(root().resolve("app/src/" + flavor + "/java/com/github/moyingshi/osc/tv/ui/activity/HomeActivity.java"), StandardCharsets.UTF_8);
             int config = source.indexOf("private void initConfig()");
             int consume = source.indexOf("CrashRestartMode.consume()", config);
             int gate = source.indexOf("PreviousProcessCrashRecovery.checkBeforeConfig(this, this::loadConfig)", config);
@@ -117,7 +117,7 @@ public class CrashRecoveryGateTest {
     @Test
     public void bothHomesUnregisterTheirDestroyedHost() throws Exception {
         for (String flavor : new String[]{"mobile", "leanback"}) {
-            String source = Files.readString(root().resolve("app/src/" + flavor + "/java/com/fongmi/android/tv/ui/activity/HomeActivity.java"), StandardCharsets.UTF_8);
+            String source = Files.readString(root().resolve("app/src/" + flavor + "/java/com/github/moyingshi/osc/tv/ui/activity/HomeActivity.java"), StandardCharsets.UTF_8);
             int destroy = source.indexOf("protected void onDestroy()");
             int release = source.indexOf("PreviousProcessCrashRecovery.release(this)", destroy);
             assertTrue(flavor + " must drop its parked steps when it is destroyed", release > destroy);
@@ -127,7 +127,7 @@ public class CrashRecoveryGateTest {
 
     @Test
     public void recoveryLogCarriesTheCurrentIntentAndGuardsAgainstAnotherReport() throws Exception {
-        String session = read("app/src/main/java/com/fongmi/android/tv/utils/CrashLogSession.java");
+        String session = read("app/src/main/java/com/github/moyingshi/osc/tv/utils/CrashLogSession.java");
         int intent = session.indexOf("intentOf(context)");
         int pid = session.indexOf("historyPid(history)", intent);
         int drop = session.indexOf("report = null;", pid);

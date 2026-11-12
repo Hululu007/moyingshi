@@ -13,7 +13,7 @@ public class GlobalHistoryResumeSourceTest {
 
     @Test
     public void stageOneCrossConfigOriginRoutePrecedesTheExistingCurrentMatcher() throws Exception {
-        String source = read("app/src/main/java/com/fongmi/android/tv/ui/activity/HistoryResumeCoordinator.java");
+        String source = read("app/src/main/java/com/github/moyingshi/osc/tv/ui/activity/HistoryResumeCoordinator.java");
         int start = source.indexOf("public static void open(Activity activity, History history)");
         int end = source.indexOf("public static void fallbackToCurrent", start);
         assertTrue("shared history entry must retain its explicit original record", start >= 0 && end > start);

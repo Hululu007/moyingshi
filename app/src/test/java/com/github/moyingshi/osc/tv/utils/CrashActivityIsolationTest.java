@@ -17,7 +17,7 @@ public class CrashActivityIsolationTest {
 
     @Test
     public void errorProcessAvoidsBusinessInitializationAndPreferenceResources() throws Exception {
-        String app = read("app/src/main/java/com/fongmi/android/tv/App.java");
+        String app = read("app/src/main/java/com/github/moyingshi/osc/tv/App.java");
         String attach = section(app, "protected void attachBaseContext", "public void onCreate");
         assertTrue("error process must be recognized before business initialization", attach.contains("CrashReport.isErrorProcess(base)"));
         assertTrue("lightweight processes must exit before WebView initialization", attach.indexOf("if (lightweightProcess)") < attach.indexOf("WebViewDataDirectoryGuard.clearStaleLock"));
@@ -32,13 +32,13 @@ public class CrashActivityIsolationTest {
 
     @Test
     public void handlerIsInstalledBeforeProvidersAndCannotBeOverwrittenByCaoc() throws Exception {
-        String app = read("app/src/main/java/com/fongmi/android/tv/App.java");
+        String app = read("app/src/main/java/com/github/moyingshi/osc/tv/App.java");
         String attach = section(app, "protected void attachBaseContext", "public void onCreate");
         int install = attach.indexOf("CrashReport.install(base)");
         assertTrue("attachBaseContext must install the handler", install >= 0);
         assertTrue(install < attach.indexOf("PreviousProcessCrashRecovery.initialize(base)"));
         assertTrue(install < attach.indexOf("WebViewDataDirectoryGuard.clearStaleLock"));
-        String startup = read("app/src/main/java/com/fongmi/android/tv/Startup.java");
+        String startup = read("app/src/main/java/com/github/moyingshi/osc/tv/Startup.java");
         assertFalse("Startup must not replace the early handler", startup.contains("CrashReport.install(context)"));
         NodeList providers = DocumentBuilderFactory.newInstance().newDocumentBuilder()
                 .parse(root().resolve("app/src/main/AndroidManifest.xml").toFile()).getElementsByTagName("provider");
@@ -54,7 +54,7 @@ public class CrashActivityIsolationTest {
 
     @Test
     public void independentPageRetainsActionsWithoutBusinessBaseActivity() throws Exception {
-        String activity = read("app/src/main/java/com/fongmi/android/tv/ui/activity/CrashActivity.java");
+        String activity = read("app/src/main/java/com/github/moyingshi/osc/tv/ui/activity/CrashActivity.java");
         assertTrue("crash page must bypass both business BaseActivity implementations", activity.contains("extends AppCompatActivity"));
         assertFalse(activity.contains("import com.github.moyingshi.osc.tv.ui.base.BaseActivity"));
         assertFalse(activity.contains("Setting."));
@@ -71,7 +71,7 @@ public class CrashActivityIsolationTest {
 
     @Test
     public void missingOrMalformedConfigCannotDisableRestartOrDetails() throws Exception {
-        String activity = read("app/src/main/java/com/fongmi/android/tv/ui/activity/CrashActivity.java");
+        String activity = read("app/src/main/java/com/github/moyingshi/osc/tv/ui/activity/CrashActivity.java");
         assertFalse("a plain Intent must not crash when restarting", activity.contains("Objects.requireNonNull"));
         assertTrue(activity.contains("new CaocConfig()"));
         assertTrue(activity.contains("getLaunchIntentForPackage(getPackageName())"));
@@ -83,7 +83,7 @@ public class CrashActivityIsolationTest {
 
     @Test
     public void mainProcessIdentityUsesTheManifestApplicationProcess() throws Exception {
-        String report = read("app/src/main/java/com/fongmi/android/tv/utils/CrashReport.java");
+        String report = read("app/src/main/java/com/github/moyingshi/osc/tv/utils/CrashReport.java");
         String identity = section(report, "public static boolean isMainProcess", "private static void launchRecovery");
         assertTrue("custom application process names must take precedence over package name", identity.contains("context.getApplicationInfo()"));
         assertTrue(identity.contains(".processName"));

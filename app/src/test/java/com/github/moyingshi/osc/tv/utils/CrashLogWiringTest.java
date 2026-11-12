@@ -15,8 +15,8 @@ public class CrashLogWiringTest {
 
     @Test
     public void crashWriterIsInstalledBeforeStartupProviders() throws Exception {
-        String app = read("app/src/main/java/com/fongmi/android/tv/App.java");
-        String startup = read("app/src/main/java/com/fongmi/android/tv/Startup.java");
+        String app = read("app/src/main/java/com/github/moyingshi/osc/tv/App.java");
+        String startup = read("app/src/main/java/com/github/moyingshi/osc/tv/Startup.java");
         int attach = app.indexOf("protected void attachBaseContext");
         int install = app.indexOf("CrashReport.install(base)", attach);
         int initialize = app.indexOf("PreviousProcessCrashRecovery.initialize(base)", attach);
@@ -162,9 +162,9 @@ public class CrashLogWiringTest {
             assertEquals(writer,handoff);
             String report = CrashReport.withIdentity("# report\nprocess=actual.main\n--- stack ---\n"+"x".repeat(200000),writer);
             assertTrue(report.startsWith("# report\nevent=java:shared-token\n"));
-            String source = read("app/src/main/java/com/fongmi/android/tv/utils/CrashReport.java");
+            String source = read("app/src/main/java/com/github/moyingshi/osc/tv/utils/CrashReport.java");
             assertTrue(source.contains("withIdentity(CrashLogText.format(facts(thread, error)), PreviousProcessCrashRecovery.javaEvent(context))"));
-            source = read("app/src/main/java/com/fongmi/android/tv/utils/PreviousProcessCrashRecovery.java");
+            source = read("app/src/main/java/com/github/moyingshi/osc/tv/utils/PreviousProcessCrashRecovery.java");
             assertTrue(source.contains("String event = javaEvent(app)"));
         } finally { run.set(null,previous); }
     }
