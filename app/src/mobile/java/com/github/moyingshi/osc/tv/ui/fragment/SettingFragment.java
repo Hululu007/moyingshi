@@ -615,6 +615,13 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
     private void setDownloadEnabled() {
         Setting.putDownloadEnabled(!Setting.isDownloadEnabled());
+        if (!Setting.isDownloadEnabled()) {
+            // 关掉下载开关：隐藏设置重新锁定，分组消失；想再开就再点 5 次版本号。
+            Setting.putHiddenSettingsEnabled(false);
+            Notify.show(R.string.hidden_settings_disabled);
+            refreshHiddenGroupIfNeeded();
+            return;
+        }
         setValue(ROW_DOWNLOAD, getSwitch(Setting.isDownloadEnabled()));
         refreshDownloadList();
     }
