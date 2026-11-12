@@ -295,6 +295,9 @@ public final class VideoDownloadManager {
      * WebView 嗅探在主线程建 WebView），这里用 CountDownLatch 等它出结果。
      * 成功返回解析后的 Result（真实地址 + 合并后的请求头，parse 已清零），
      * 失败/超时/任务被删返回 null。写法照搬 OriginSessionService.parse。
+     * useParse 传 result.shouldUseParse()，与播放（VideoActivity /
+     * TmdbDetailActivity / AudioMiniPlayer）完全一致：用户配了 JSON 解析
+     * 服务且该站源走解析服务时，下载也先用解析服务，不回退到 WebView 嗅探。
      */
     private Result resolveParse(Result result, DownloadTask task) {
         CountDownLatch latch = new CountDownLatch(1);
@@ -319,7 +322,7 @@ public final class VideoDownloadManager {
                 latch.countDown();
             }
         });
-        job.start(result, false);
+        job.start(result, result.shouldUseParse());
         try {
             if (!latch.await(PARSE_TIMEOUT_MS, TimeUnit.MILLISECONDS) || out.get() == null || isCancelled(task)) return null;
             return out.get();
