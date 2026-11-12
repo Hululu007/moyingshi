@@ -6,6 +6,8 @@ import com.github.catvod.net.OkHttp;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.api.SiteApi;
 import com.github.moyingshi.osc.tv.bean.Result;
+import com.github.moyingshi.osc.tv.impl.ParseCallback;
+import com.github.moyingshi.osc.tv.player.ParseJob;
 import com.github.moyingshi.osc.tv.setting.Setting;
 
 import java.io.File;
@@ -20,12 +22,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -48,6 +54,8 @@ public final class VideoDownloadManager {
 
     private static final String TAG = "VideoDownload";
     private static final long TIMEOUT_MS = 30_000;
+    /** 解析等待上限：须大于 ParseJob 自身最长超时（超级解析 90 秒）。 */
+    private static final long PARSE_TIMEOUT_MS = 100_000;
     private static final int MAX_ATTEMPTS = 3;
     private static final int BUFFER_SIZE = 8192;
     private static final long NOTIFY_INTERVAL_MS = 500;
@@ -249,6 +257,21 @@ public final class VideoDownloadManager {
                 fail(task, "解析不到播放地址");
                 return;
             }
+            if (result.needParse()) {
+                // 蜘蛛只给了待解析的地址（播放时由 ParseJob 再解析一次）：下载走同一条解析链，
+                // 否则拿着解析页/解析服务地址直接去下，全集都会失败。
+                if (isCancelled(task)) return;
+                result = resolveParse(result, task);
+                if (result == null) {
+                    fail(task, "解析失败");
+                    return;
+                }
+                url = result.getUrl().v();
+                if (TextUtils.isEmpty(url)) {
+                    fail(task, "解析不到播放地址");
+                    return;
+                }
+            }
             if (isCancelled(task)) return;
             task.resolvedUrl = url;
             Map<String, String> headers = new HashMap<>(result.getHeader());
@@ -264,6 +287,47 @@ public final class VideoDownloadManager {
             // 任务已被删除，不再动记录。
         } catch (Exception e) {
             fail(task, messageOf(e));
+        }
+    }
+
+    /**
+     * 与播放同一条解析链：ParseJob 是异步回调（JSON 解析服务直接发请求，
+     * WebView 嗅探在主线程建 WebView），这里用 CountDownLatch 等它出结果。
+     * 成功返回解析后的 Result（真实地址 + 合并后的请求头，parse 已清零），
+     * 失败/超时/任务被删返回 null。写法照搬 OriginSessionService.parse。
+     */
+    private Result resolveParse(Result result, DownloadTask task) {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Result> out = new AtomicReference<>();
+        Map<String, String> originalHeaders = new LinkedHashMap<>(result.getHeader());
+        ParseJob job = ParseJob.create(new ParseCallback() {
+            @Override
+            public void onParseSuccess(Map<String, String> headers, String url, String from) {
+                Map<String, String> merged = new LinkedHashMap<>(originalHeaders);
+                if (headers != null) merged.putAll(headers);
+                result.setUrl(url);
+                result.getHeader().clear();
+                result.setHeader(merged);
+                result.setPlayUrl("");
+                result.setParse(0);
+                out.set(result);
+                latch.countDown();
+            }
+
+            @Override
+            public void onParseError() {
+                latch.countDown();
+            }
+        });
+        job.start(result, false);
+        try {
+            if (!latch.await(PARSE_TIMEOUT_MS, TimeUnit.MILLISECONDS) || out.get() == null || isCancelled(task)) return null;
+            return out.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } finally {
+            job.stop();
         }
     }
 
@@ -454,9 +518,31 @@ public final class VideoDownloadManager {
             return;
         }
         setStatus(task, DownloadTask.Status.DOWNLOADING);
-        String playlist = OkHttp.string(url, headers, TIMEOUT_MS);
+        String playlist = fetchPlaylist(url, headers);
         if (TextUtils.isEmpty(playlist)) throw new IOException("播放列表拉取失败");
+        if (!isPlaylist(playlist)) throw new IOException("播放列表无效");
         downloadHlsFromPlaylist(task, url, playlist, headers);
+    }
+
+    /**
+     * 拉取播放列表：OkHttp.string() 不看 HTTP 状态，403/404 的错误页也会被当成
+     * 列表解析（HTML 行会被当成分段 URL，全集失败还看不出原因）。这里非 2xx
+     * 直接报 HTTP 码，空响应也明说。
+     */
+    private String fetchPlaylist(String url, Map<String, String> headers) throws Exception {
+        OkHttpClient client = OkHttp.client(TIMEOUT_MS);
+        Call call = OkHttp.newCall(client, url, headers);
+        try (Response response = call.execute()) {
+            if (!response.isSuccessful()) throw new IOException("HTTP " + response.code());
+            ResponseBody body = response.body();
+            if (body == null) throw new IOException("空响应");
+            return body.string();
+        }
+    }
+
+    /** 内容里至少有一个 HLS 标签才算播放列表；否则多半是错误页（HTML）。 */
+    private static boolean isPlaylist(String content) {
+        return content.contains("#EXTM3U") || content.contains("#EXT-X-STREAM-INF") || content.contains("#EXTINF");
     }
 
     private void downloadHlsFromPlaylist(DownloadTask task, String playlistUrl, String playlist, Map<String, String> headers) throws Exception {
@@ -464,8 +550,9 @@ public final class VideoDownloadManager {
             // master 列表：选最大码率的 variant。
             String variant = pickBestVariant(playlistUrl, playlist);
             if (TextUtils.isEmpty(variant)) throw new IOException("播放列表解析失败");
-            String media = OkHttp.string(variant, headers, TIMEOUT_MS);
+            String media = fetchPlaylist(variant, headers);
             if (TextUtils.isEmpty(media)) throw new IOException("播放列表拉取失败");
+            if (!isPlaylist(media)) throw new IOException("播放列表无效");
             downloadHlsFromPlaylist(task, variant, media, headers);
             return;
         }

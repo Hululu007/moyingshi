@@ -743,8 +743,12 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         switch (task.status) {
             case DONE:
                 return getString(R.string.download_state_done);
-            case FAILED:
-                return getString(R.string.download_state_failed);
+            case FAILED: {
+                String failed = getString(R.string.download_state_failed);
+                if (TextUtils.isEmpty(task.error)) return failed;
+                String reason = task.error.length() > 30 ? task.error.substring(0, 30) + "…" : task.error;
+                return failed + "：" + reason;
+            }
             case RESOLVING:
                 return getString(R.string.download_state_resolving);
             case DOWNLOADING: {
