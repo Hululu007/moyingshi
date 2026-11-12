@@ -51,6 +51,10 @@ public final class CachePolicyEngine {
         return ids;
     }
 
+    /** Modules no unattended pass may clear, whatever the registry says about manual cleanup. */
+    private static final Set<CacheModuleId> AUTOMATIC_EXCLUDED =
+            EnumSet.of(CacheModuleId.PLUGIN_AUDIT, CacheModuleId.PLUGIN_HTTP_CACHE);
+
     private CachePolicyEngine() {
     }
 
@@ -76,12 +80,19 @@ public final class CachePolicyEngine {
      *
      * <p>Module order follows the enum so a run is deterministic and the progress line stays
      * stable across attempts.</p>
+     *
+     * <p>The plugin audit trail and the plugin HTTP cache are excluded even though the panel may
+     * clear both by hand: their registry entries declare "never evicted on its own", which is the
+     * same contract {@link #deepModules()} honours. An unattended pass at startup, every twelve
+     * hours, or at playback end must not erase the audit evidence trail or turn a cached plugin
+     * response back into a network call the user never asked for.</p>
      */
     public static CacheCleanupPlan convergencePlan(java.io.File cache) {
         if (cache == null) return new CacheCleanupPlan(CacheCleanupMode.CONVERGE, List.of());
         ArrayList<CacheModuleId> ids = new ArrayList<>();
         for (CacheModule module : CacheModuleRegistry.modules(cache)) {
             if (module == null || !module.protection().allowManualCleanup()) continue;
+            if (AUTOMATIC_EXCLUDED.contains(module.id())) continue;
             ids.add(module.id());
         }
         ArrayList<CacheModuleId> ordered = new ArrayList<>();

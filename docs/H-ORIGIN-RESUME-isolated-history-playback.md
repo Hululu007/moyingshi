@@ -17,7 +17,7 @@
 
 所有本地定位基于 `dev2` / `15a893a50cbbbfd99576700865813b57404b2706`（40 字符）；访问日 2026-11-09，等级 **L：已读本地源码**。初始／首次编辑前 `git status --short` 均空。
 
-| 源码路径（`app/src/main/java/com/fongmi/android/tv/` 下，另标模块） | 已确认事实／设计影响 |
+| 源码路径（`app/src/main/java/com/github/moyingshi/osc/tv/` 下，另标模块） | 已确认事实／设计影响 |
 |---|---|
 | `ui/activity/HistoryResumeCoordinator.java:39–53,113–145`；`history/HistorySourceResolver.java:44–78` | 外部历史目前直接当前源搜索；必须在原有 fallback 之前插入原源尝试，不重写当前匹配器。 |
 | `api/config/VodSiteCatalog.java:57–84,208–259`；`api/loader/BaseLoader.java:136–185` | Catalog 只有 sites/doh/rules/flags；namespace 只分 spider 实例缓存槽；不是可运行的配置会话。Catalog 的 Node bundle 路径仍 `CatSource.reuse`。 |
@@ -132,7 +132,7 @@ PLAY_STARTED 后的 URL/网络错误 -> 原有播放器处理；协调器不新�
 
 ### A. 核心实现（阶段 1；可独立执行简报）
 
-新增，目录均为 `app/src/main/java/com/fongmi/android/tv/`：
+新增，目录均为 `app/src/main/java/com/github/moyingshi/osc/tv/`：
 
 * `playback/origin/OriginSessionContract.java`：上述 schema／状态与错误 enum。
 * `playback/origin/OriginSessionClient.java`：快照、绑定、owner、代次、FD／租约关闭。
@@ -150,15 +150,15 @@ PLAY_STARTED 后的 URL/网络错误 -> 原有播放器处理；协调器不新�
 修改（闭合清单）：
 
 * `app/src/main/AndroidManifest.xml`：上述 Activity 与非 exported `:origin`／`:origin_node` 声明。
-* `app/src/main/java/com/fongmi/android/tv/App.java`：attach/onCreate 子进程轻量分流，worker 初始化早于 Init/Python/WebView。
-* `app/src/main/java/com/fongmi/android/tv/api/config/{BaseConfig,VodConfig}.java`：明确 origin 私有加载模式，禁 failover／主事件／主配置持久副作用；现有主路径默认不变。
-* `app/src/main/java/com/fongmi/android/tv/db/AppDatabase.java`：worker 私有库 factory／初始数据；主库 builder 不变。
-* `app/src/main/java/com/fongmi/android/tv/bean/History.java`：显式原 cid 保存，保留事务但不借当前 TMDB enrich。
-* `app/src/main/java/com/fongmi/android/tv/node/{NodeRuntime,NodeService,NodeBundle,NodeBoot}.java`：服务路由、lease Context、端口／通知／生命周期可注入；默认原服务语义保留。
-* `app/src/main/java/com/fongmi/android/tv/api/CatSource.java`：origin Node Adapter，主路径 serve/reuse 不变。
-* `app/src/main/java/com/fongmi/android/tv/player/PlaybackRouteRegistry.java`：主进程登记／注销 origin 端口，避免当外部地址二次代理。
-* `app/src/main/java/com/fongmi/android/tv/service/PlaybackService.java`：持有媒体消费期间租约、明确停播释放与原进度提交。
-* `app/src/main/java/com/fongmi/android/tv/ui/activity/HistoryResumeCoordinator.java`：原源在先、五个业务 reason 触发原有 fallback；阶段 1 导向共用入口。
+* `app/src/main/java/com/github/moyingshi/osc/tv/App.java`：attach/onCreate 子进程轻量分流，worker 初始化早于 Init/Python/WebView。
+* `app/src/main/java/com/github/moyingshi/osc/tv/api/config/{BaseConfig,VodConfig}.java`：明确 origin 私有加载模式，禁 failover／主事件／主配置持久副作用；现有主路径默认不变。
+* `app/src/main/java/com/github/moyingshi/osc/tv/db/AppDatabase.java`：worker 私有库 factory／初始数据；主库 builder 不变。
+* `app/src/main/java/com/github/moyingshi/osc/tv/bean/History.java`：显式原 cid 保存，保留事务但不借当前 TMDB enrich。
+* `app/src/main/java/com/github/moyingshi/osc/tv/node/{NodeRuntime,NodeService,NodeBundle,NodeBoot}.java`：服务路由、lease Context、端口／通知／生命周期可注入；默认原服务语义保留。
+* `app/src/main/java/com/github/moyingshi/osc/tv/api/CatSource.java`：origin Node Adapter，主路径 serve/reuse 不变。
+* `app/src/main/java/com/github/moyingshi/osc/tv/player/PlaybackRouteRegistry.java`：主进程登记／注销 origin 端口，避免当外部地址二次代理。
+* `app/src/main/java/com/github/moyingshi/osc/tv/service/PlaybackService.java`：持有媒体消费期间租约、明确停播释放与原进度提交。
+* `app/src/main/java/com/github/moyingshi/osc/tv/ui/activity/HistoryResumeCoordinator.java`：原源在先、五个业务 reason 触发原有 fallback；阶段 1 导向共用入口。
 * `catvod/src/main/java/com/github/catvod/utils/Path.java`：进程私有 root override；默认 Environment 根路径保持不变。
 
 SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块本阶段不编辑：在受控 worker 的完整原配置中复用。若实际证据证明其中有绕开私有 Context 的写入，先报阻塞及确切路径，再取得范围授权，不悄悄扩大清单。
@@ -179,7 +179,7 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 
 ### B. WebHome＋双端细节（阶段 2；不与 A 同时改文件）
 
-仅所有：`app/src/main/java/com/fongmi/android/tv/web/{HomeWebBridge,WebHomeVodContract}.java`，`app/src/{mobile,leanback}/java/com/fongmi/android/tv/ui/activity/VideoActivity.java`，以及 `examples/homepages/nostr.html`、`skills/webhome-homepage-builder/assets/demo/nostr.html`。
+仅所有：`app/src/main/java/com/github/moyingshi/osc/tv/web/{HomeWebBridge,WebHomeVodContract}.java`，`app/src/{mobile,leanback}/java/com/github/moyingshi/osc/tv/ui/activity/VideoActivity.java`，以及 `examples/homepages/nostr.html`、`skills/webhome-homepage-builder/assets/demo/nostr.html`。
 
 输入为已验收 OriginSessionClient／会话 schema；扩展现有 options：`historyCid`、`historyKey`/`resumePayload`、`resumeFromHistory:true`；app.history 按现有全局历史设置返回带原 cid/key 的记录，播放时恢复具体 History 后进入 Coordinator。双端 getSite/getHistoryKey、原线路、下一集、进度、融合详情／播放器 UI 消费显式 origin identity，当前模式保持原路径。旧 options 不变；不能通过仅 siteKey/vodId 猜同名跨配置历史。两份 nostr 文件属于该任务，本执行者不编辑。若 B 需要改 A 清单，通过接口返工交 A，不共同编辑。
 
@@ -187,12 +187,12 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 
 只所有新增／调整：
 
-* `app/src/test/java/com/fongmi/android/tv/playback/origin/OriginSessionContractTest.java`
-* `app/src/test/java/com/fongmi/android/tv/playback/origin/OriginFallbackPolicyTest.java`
-* `app/src/test/java/com/fongmi/android/tv/playback/origin/OriginRelayTargetTest.java`
-* `app/src/androidTest/java/com/fongmi/android/tv/playback/origin/OriginIsolationPlaybackTest.java`
+* `app/src/test/java/com/github/moyingshi/osc/tv/playback/origin/OriginSessionContractTest.java`
+* `app/src/test/java/com/github/moyingshi/osc/tv/playback/origin/OriginFallbackPolicyTest.java`
+* `app/src/test/java/com/github/moyingshi/osc/tv/playback/origin/OriginRelayTargetTest.java`
+* `app/src/androidTest/java/com/github/moyingshi/osc/tv/playback/origin/OriginIsolationPlaybackTest.java`
 * `app/src/androidTest/assets/origin-isolation/` 中当前 A／原 B 的受控配置、媒体及运行时 fixtures。
-* 既有 `app/src/test/java/com/fongmi/android/tv/ui/activity/HistoryResumeCoordinatorTest.java`、`history/GlobalHistoryResumeSourceTest.java`；阶段 2 对应 `web/OriginHistoryBridgeContractTest.java` 新增测试。
+* 既有 `app/src/test/java/com/github/moyingshi/osc/tv/ui/activity/HistoryResumeCoordinatorTest.java`、`history/GlobalHistoryResumeSourceTest.java`；阶段 2 对应 `web/OriginHistoryBridgeContractTest.java` 新增测试。
 
 必须断言：五个业务 reason 才 fallback；ISOLATION_ERROR/WORKER_DIED/PARSE_FAILED 不 fallback；取消／迟到 FD 被关闭；同 host A/B 账号不串；同名站 Jar/JS/Py/Node 原实例与主实例并存；HLS key/redirect/206 原请求头正确；原 cid 进度且无当前历史新建；起播后故意 404 不匹配；切页面／后台持有及真正停播释放；API 不具 WebView 独立目录或 Node 固定端口时显式阻塞。测试可拒绝核心实现，不能自行修生产代码。
 
@@ -228,7 +228,7 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 
 ### 7.1 实际落地文件（生产路径 13 个，闭合清单内；测试文件与 fixtures 由测试任务独占）
 
-新增（8，均在 `app/src/main/java/com/fongmi/android/tv/playback/origin/`）：`OriginSessionContract.java`（VERSION=1、状态/reason 常量、`shouldFallback` 仅五业务 reason、手写 Binder Stub/Proxy、64 KiB 控制消息校验）、`OriginStorageContext.java`（租约私有 files/cache/codeCache/db/SharedPreferences/LayoutInflater，`getApplicationContext()` 不逃逸）、`OriginSessionBootstrap.java`（`:origin`/`:origin_node` 识别、仅 open 后安装私有 Context + `WebView.setDataDirectorySuffix`、API<28 直接 `ISOLATION_ERROR`）、`OriginSessionSnapshot.java`（只读原 Config/Site/白名单偏好快照、FD JSON 上限 32 MiB、resume/config 指纹）、`OriginSessionService.java`（`:origin` 单租约、串行执行、owner death、close 幂等、私有 VodConfig 加载）、`OriginSessionClient.java`（主进程 seam：快照 FD、代次、租约比对、迟到丢弃、close/cancel）、`OriginHistoryResolver.java`（原 detail→稳定 flag/episode→原 playerContent，`needParse` 未消解即 `PARSE_FAILED`）、`OriginMediaRelay.java`（127.0.0.1:0、target 登记与请求头继承、Range/206 透传、redirect 改写、HLS/DASH 嵌套改写、manifest 响应类型重写）。
+新增（8，均在 `app/src/main/java/com/github/moyingshi/osc/tv/playback/origin/`）：`OriginSessionContract.java`（VERSION=1、状态/reason 常量、`shouldFallback` 仅五业务 reason、手写 Binder Stub/Proxy、64 KiB 控制消息校验）、`OriginStorageContext.java`（租约私有 files/cache/codeCache/db/SharedPreferences/LayoutInflater，`getApplicationContext()` 不逃逸）、`OriginSessionBootstrap.java`（`:origin`/`:origin_node` 识别、仅 open 后安装私有 Context + `WebView.setDataDirectorySuffix`、API<28 直接 `ISOLATION_ERROR`）、`OriginSessionSnapshot.java`（只读原 Config/Site/白名单偏好快照、FD JSON 上限 32 MiB、resume/config 指纹）、`OriginSessionService.java`（`:origin` 单租约、串行执行、owner death、close 幂等、私有 VodConfig 加载）、`OriginSessionClient.java`（主进程 seam：快照 FD、代次、租约比对、迟到丢弃、close/cancel）、`OriginHistoryResolver.java`（原 detail→稳定 flag/episode→原 playerContent，`needParse` 未消解即 `PARSE_FAILED`）、`OriginMediaRelay.java`（127.0.0.1:0、target 登记与请求头继承、Range/206 透传、redirect 改写、HLS/DASH 嵌套改写、manifest 响应类型重写）。
 
 修改（6）：`App.java`（attach 最早识别 worker，worker 不做主进程初始化；`installOriginContext` 换基类 Context）、`AndroidManifest.xml`（`.playback.origin.OriginSessionService`，`exported=false`、`process=":origin"`）、`api/config/BaseConfig.java`（`originPrivateLoad`：禁主 Server、禁失败切换）、`api/config/VodConfig.java`（origin 私有加载开关与 `onLoadSuccess`/`onConfigFailure` 副作用关闭）、`db/AppDatabase.java`（`installOrigin` 私有库、主库 builder 不变）、`catvod/.../utils/Path.java`（`setRootOverride`，默认 `Environment` 根不变）。
 
@@ -405,7 +405,7 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 ### 13.1 改动
 
 * 删除 `app/src/main/java/.../ui/activity/OriginPlaybackActivity.java` 与 `app/src/main/res/layout/activity_origin_playback.xml`，并从 `AndroidManifest.xml` 移除该 activity 声明（自带的播放/暂停/下一集/线路/退出按钮与"正在匹配…"文案一并消失）。
-* 新增 `app/src/main/java/com/fongmi/android/tv/playback/origin/OriginHistoryPlayback.java`：原源会话内核（intent extras `origin_history_cid`/`origin_history_key`/`origin_history_payload`、按需 `open`、PlayReady 缓存 `Vod`/`Result`、进度写回、释放租约）。intent 只带原 cid／historyKey／`HistoryResumePayload.encode(history)`，不塞大 JSON。
+* 新增 `app/src/main/java/com/github/moyingshi/osc/tv/playback/origin/OriginHistoryPlayback.java`：原源会话内核（intent extras `origin_history_cid`/`origin_history_key`/`origin_history_payload`、按需 `open`、PlayReady 缓存 `Vod`/`Result`、进度写回、释放租约）。intent 只带原 cid／historyKey／`HistoryResumePayload.encode(history)`，不塞大 JSON。
 * 两个 flavor 的 `VideoActivity` 新增静态入口：`public static Intent originHistoryIntent(Context context, History origin)` 与 `public static void startFromOriginHistory(Activity activity, History origin)`；`originHistoryIntent` 复用既有 `putIntentPlaybackSelection(...)`（原 flag／stableFlagKey／集名／集 URL）与既有 `EXTRA_RESUME_*`，不引入新播放控件。
 * 原源模式下逐点复用既有 UI 与既有 `startPlayer`：`getDetail(boolean)` 改为 `mOrigin.requestDetail()`（详情来自 worker 的 `PlayReady.vod`，不调用当前 `VodConfig` 的 SiteApi）；`getPlayer(Flag, Episode)` 只把 `mViewModel.playerContent(...)` 换成 `mOrigin.requestPlay(flag, episode)`，其后的标题/海报/歌词/历史更新/进度条等全部照旧；`setPlayer(Result)`、`startPlayer(...)`、选集器、手势、字幕、倍速、弹幕全部原样复用。
 * 身份与站点：`getHistoryKey()` 在原源模式返回 `mOrigin.historyKey()`（原 cid 的组合键），`getSite()` 返回原源 `Site`（原 key + 原站名），因此 `History.findPlayback`／`Keep`／内核偏好都按原源身份走，不落当前配置；`getPlaybackKey()` 返回 `client.playbackKey()`，`startPlayer` 的 key 参数改用它（普通路径下二者等值，逐字不变）。
@@ -484,7 +484,7 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 
 ### 15.4 仍未覆盖
 
-1. `app/src/test/java/com/fongmi/android/tv/history/GlobalHistoryResumeSourceTest.java:21` 的源码文本断言仍指向 `VideoActivity.startFromOriginHistory`，本轮 `open()` 改调 `routeOriginHistory` 后该断言失败（1 failed / 58）。语义需改为搜索 `routeOriginHistory(activity, history)`；该文件不在本轮 scope，已报父等待授权，未自行修改。
+1. `app/src/test/java/com/github/moyingshi/osc/tv/history/GlobalHistoryResumeSourceTest.java:21` 的源码文本断言仍指向 `VideoActivity.startFromOriginHistory`，本轮 `open()` 改调 `routeOriginHistory` 后该断言失败（1 failed / 58）。语义需改为搜索 `routeOriginHistory(activity, history)`；该文件不在本轮 scope，已报父等待授权，未自行修改。
 2. TMDB 元数据未在设备上联网验证（无可用 TMDB 凭据），只验证了 tmdbId/mediaType 传入且失败时不影响原源线路渲染。
 3. 阅读器（小说/漫画）路由下的原源详情/起播未验证；TV（leanback）只做编译验证。
 4. 原源模式旋转重建复用租约的行为仍与 §13.3-4 相同，未新增验证。
@@ -535,7 +535,7 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 ### 18.1 起点现场（本轮开始即核对）
 
 * 分支 `dev2`，HEAD `264b7e688a`；工作区 9 个未提交文件即 §17 记录的改动，全部保留并以 `--adopt-dirty` 纳入守卫 `H-ORIGIN-RESUME-S6`（BASE 同上）。
-* 设备主包为 `com.silent.android.webhtv`，测试包 `com.silent.android.webhtv.test`；两台模拟器（5554/5556）均 SDK 28、`ro.product.cpu.abi=x86_64`，主包 18:29/18:30 已更新为含 §17 改动的构建。`com.fongmi.android.tv` 是无关旧包（5556 上状态 corrupt），与本任务无关。
+* 设备主包为 `com.silent.android.webhtv`，测试包 `com.github.moyingshi.osc.tv.test`；两台模拟器（5554/5556）均 SDK 28、`ro.product.cpu.abi=x86_64`，主包 18:29/18:30 已更新为含 §17 改动的构建。`com.github.moyingshi.osc.tv` 是无关旧包（5556 上状态 corrupt），与本任务无关。
 * `files/origin-isolation-input` 不在两台设备静态目录中，由设备用例运行时自行准备。
 
 ### 18.2 本轮已核到的新证据
@@ -697,3 +697,23 @@ SiteApi、ParseJob、BaseLoader、JS/Py/Jar、Chaquo/QuickJS/nodejs 原生模块
 最终 Standards 与 Spec 两轴 run3 PASS（记录：`app/build/beta-review-dev2-20261111-standards-run3.md`、`app/build/beta-review-dev2-20261111-spec-run3.md`），调度者已实际读取并独立核实修复控制流、XML 与 mobile 真实绿；首审五类缺陷及后续 TV 标志残余均已修复闭环，无未处理新增实质问题。已有实际执行证据：mobile42/leanback45 联合单测全部 0 failure/error/skip，双端 Java 确实执行；TV1 Robolectric 拒绝状态红转绿、active/started 复位且错误可见、progress GONE；device1（5554）真实首帧、release→retry 与另一集错误可见、loading=false，无 current 搜索/取流。既有 merge 91 与调度者 mobile 38 验证保留，不将测试执行次数混称唯一用例数。本次仅记录既有验收证据，不重复构建、测试或复审。
 
 代码已最终验收，当前处于本地闭合、待推送/待 PR 发布状态；本段不宣称已推送或已发布，实际提交、恢复标签、推送、beta PR 与最终远端同步结果由 PR 和最终输出承接。合并审查已覆盖旧本地 7 提交、beta 22 与 merge 共 30 提交、105 净路径（PR 54 路径）及历史 140 映射；beta 51 路径记录与正式提交 blob 等价已由调度者五组 git diff exit 0 核实，App 冲突保留双方 origin 分流与崩溃恢复语义。TV 真机、完整 API24–27、Node libnode、无痕实机、阅读器与 TMDB 联网未验；目录清理及旧 flags 空集已另立任务，不宣称全平台全部通过。
+
+## 23. 发布期间 beta 缓存增量合并（2026-11-11，执行 1/3，待两轴增量复审）
+
+- 本轮起点实际核验为 `dev2/HEAD=origin/dev2=df59c86c21629e372589d5f5191471847ecab954`、初始 dirty 0；已发布原源修复保留。已审旧 beta `4038aab74959f763a80cdc132a6da72b4a3e314c` 至冻结新 beta `c28572a0f0b415472c2f3b43b3f0ae17229ee76a`，实际新增 5 提交、15 路径（原源文档末尾接续为第 16 scope）。本轮没有 fetch 或更新源坐标，`origin=https://github.com/Silent1566/webhtv.git`；用户当前授权覆盖此前文档历史 stage 的“不 push”等限制，但本执行只留未提交 merge，不进行发布。
+- 前一次守卫已经 finish，当前不存在旧 current 不是阻塞。先用真实 `G:\Git\bin\bash.exe` 启动 `task_guard start --id beta-resync-dev2-20261111 --mode standard`、精确 16 scope、保护初始脏文件 0，再执行 `git merge --no-ff --no-commit c28572a0f0b415472c2f3b43b3f0ae17229ee76a`：exit 0、无冲突、unmerged 0。没有整文件覆盖、业务修复、重写历史、stash/reset 或删除数据；没有 native/依赖增量，不重做其上游调研。
+- 完整读入 beta 的 `docs/C128-upstream-sync-silent1566-cache-total-limit.md`，原文及外来历史不改。该 15 路径与正式已审 source `2caf5b746336b21080abf990c92cc097a9e1adce` 逐路径 blob 全部等价；正式源已有两轴最终实审、缓存失败状态 6 项真实红绿。当前结果树的 14 个非 service 路径又与冻结 beta 逐路径 `git diff --quiet` exit 0；不能把这些旧审查结论说成当前新合并树两轴已 PASS。
+- `PlaybackService` 相对 df59 只新增 `CacheScheduler` import 和 `onDestroy` 中 `player.release()` 后的两行注释及 `CacheScheduler.get().onPlaybackEnded()`（4 新增行、0 删除）。删去精确这四行后与 df59 全文等价，原源 hold/release、无痕 ticker、keep-alive/替换检查及关闭顺序保持；`releaseOriginLease` 仍先于音频保存/terminal release，缓存钩子在 player release 后、removeForeground 前。上一原源守卫九路径中扣除本文件和允许交互的 service，实际 7 个其他生产/测试路径逐条相对 df59 diff exit 0；所有范围外原源变更也不在当前差异集合中，不凑“8”个计数。TV false 分支原 `mPlaybackRequestActive=false` / `mPlaybackPlayerStarted=false` 两行仍在 3507/3508。
+- 唯一联合验证：`.\gradlew.bat --offline --no-build-cache --console=plain :app:compileMobileArm64_v8aDebugJavaWithJavac :app:compileLeanbackArm64_v8aDebugJavaWithJavac :app:testLeanbackArm64_v8aDebugUnitTest --tests 'com.github.moyingshi.osc.tv.cache.PlaybackCacheBudgetTest' --tests 'com.github.moyingshi.osc.tv.cache.TotalLimitConvergencePlanTest' --tests 'com.github.moyingshi.osc.tv.cache.CacheSchedulerConvergenceTest' --tests 'com.github.moyingshi.osc.tv.playback.origin.OriginPostMergeRegressionTest'`。15:58:36–16:03:56 +08:00，exit 0 / `BUILD SUCCESSFUL in 5m 19s`；两条 Java 编译和 test 任务均实际执行，非 UP-TO-DATE。`--no-build-cache` 仅避开 C128 已证实的跨工作区共享缓存锁，不改全局配置；JDK21 通过现有 JAVA_HOME，warm Robolectric 依赖正常，没有下载/安装新环境。
+- 新鲜 XML 实读且原样快照：`PlaybackCacheBudgetTest` 14、`TotalLimitConvergencePlanTest` 7、`CacheSchedulerConvergenceTest` 18，缓存合计 39；`OriginPostMergeRegressionTest` 4（Node SDK24/25、TV SDK27、无痕 SDK28）。总计 **43 tests / 0 failures / 0 errors / 0 skipped**，不是预期或历史 XML 冒报。4186 个 `app/src` / `catvod/src` 已跟踪源码文件测试前后 SHA256 清单完全一致，清单 hash 均 `758D4524B80332F53ECEF0CAFED7CC8607C1EF108BEED0005E9E777B5DA089D7`；文档追加在测试后，不改变产品源码。
+- 完整日志、15 路径双方 blob 表、原源保护、source_before/after、XML 快照和准确计数仅保存在 ignored `app/build/beta-resync-dev2-20261111/`。未重复其他已绿 87、全缓存/双端全部单测矩阵；未进行 native 重建、实机、镜像下载或新协议/性能压力验证。C128 已记录的真实缓存 owner 写入竞态/性能等旧边界仍保留，本轮未发现并自行修复新缓存业务缺陷；不以本次 JVM/编译结果证明这些边界。
+- 当前恢复锚：`HEAD=df59c86c21629e372589d5f5191471847ecab954`、`MERGE_HEAD=c28572a0f0b415472c2f3b43b3f0ae17229ee76a`、`guard=beta-resync-dev2-20261111 active`；暂存仅 15 merge 产物，本接续末节未暂存，总变化只在授权 16 scope。未 commit/tag/push/PR，未 finish 守卫；本次新缓存简报执行 1/3、追踪编辑 16 路径累计（merge 15 + 本末节），其他生产编辑 0。
+- **唯一下一步：由调度者收取 Standards / Spec 两轴对当前未提交合并树的独立增量复审，重点复核 service 并集合流及原源保护；复审前不发布，之后最终发布才更新同 PR555。**
+
+## 24. beta 缓存增量合并发布记录（2026-11-11）
+
+- 两轴增量复审已对当前未提交合并树 PASS（`app/build/beta-resync-dev2-20261111/standards.md`、`spec.md`），重点复核 service 并集与原源保护：`PlaybackService` 相对 df59 仅 +4/−0（`CacheScheduler` import、`onDestroy` 中 player.release() 后两行注释及 `CacheScheduler.get().onPlaybackEnded()`），原源 7 个其他生产/测试路径逐条 diff exit 0。
+- 唯一联合验证 exit 0 / `BUILD SUCCESSFUL in 5m 19s`，双端 Java 实际执行；新鲜 XML 43 tests（PlaybackCacheBudget 14 / TotalLimitConvergencePlan 7 / CacheSchedulerConvergence 18 / OriginPostMergeRegression 4），0 failure / 0 error / 0 skip；4186 已跟踪源码测试前后 SHA256 一致。
+- 本节只记录既有实际证据，不重跑构建、测试或复审。旧 beta `4038aab74959f763a80cdc132a6da72b4a3e314c` → 新 beta `c28572a0f0b415472c2f3b43b3f0ae17229ee76a`，5 提交 / 15 路径；本文件接续为第 16 scope。
+- 提交、恢复标签、dev2 推送、PR555 正文更新与最终远端同步由本轮 `task_guard finish` 和后续发布命令承接；本节落盘时仍未 commit（15 个非本文件路径已暂存、本节未暂存），未推送、未改 PR。
+- 未验边界保持：真机缓存收敛效果、缓存 owner 写入竞态、性能压力、TV 真机 / API24–27 / Node libnode / 无痕实机 / 阅读器 / TMDB 联网；目录清理与旧 flags 空集另立任务。

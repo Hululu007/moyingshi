@@ -55,6 +55,16 @@ public class TotalLimitConvergencePlanTest {
     }
 
     @Test
+    public void convergencePlanSkipsLocalNeverEvictModules() throws Exception {
+        List<CacheModuleId> modules = CachePolicyEngine.convergencePlan(cacheDir("converge-plugin-protected")).modules();
+
+        assertFalse(modules.contains(CacheModuleId.PLUGIN_AUDIT));
+        assertFalse(modules.contains(CacheModuleId.PLUGIN_HTTP_CACHE));
+        assertTrue(modules.contains(CacheModuleId.EXO));
+        assertTrue(modules.contains(CacheModuleId.DIAGNOSTIC_LOGS));
+    }
+
+    @Test
     public void convergencePlanIsOrderedAndCarriesItsOwnMode() throws Exception {
         CacheCleanupPlan plan = CachePolicyEngine.convergencePlan(cacheDir("converge-order"));
 

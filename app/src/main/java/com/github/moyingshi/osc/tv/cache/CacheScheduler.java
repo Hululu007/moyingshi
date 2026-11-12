@@ -168,6 +168,8 @@ public final class CacheScheduler {
             executor.execute(() -> {
                 boolean pending = false;
                 try {
+                    // A new measurement invalidates the previous limit before any fallible work.
+                    clearBlocked();
                     pending = converge(reason, complete);
                 } catch (Throwable error) {
                     if (SpiderDebug.isEnabled()) SpiderDebug.log("cache-scheduler", "total-limit failed reason=%s error=%s", reason, error.getClass().getSimpleName());
@@ -176,6 +178,7 @@ public final class CacheScheduler {
                 }
             });
         } catch (Throwable error) {
+            clearBlocked();
             complete.run();
         }
     }
@@ -191,8 +194,18 @@ public final class CacheScheduler {
      * burning a full inventory every twelve hours for a number that can not move.</p>
      */
     private boolean converge(String reason, Runnable complete) {
-        if (CacheCleanupManager.isRunning()) return false;
-        if (PlaybackService.isRunning()) return false;
+        // A busy disk or a running player leaves the total unverified, so the last blocked figure is
+        // stale rather than proof: it was measured against a limit that may since have changed.
+        // Reporting it as permanently protected content would make the panel disagree with the
+        // configured total, so the same rule as settleBlocked's retryable case applies here.
+        if (CacheCleanupManager.isRunning()) {
+            clearBlocked();
+            return false;
+        }
+        if (PlaybackService.isRunning()) {
+            clearBlocked();
+            return false;
+        }
         long configured = CachePolicyStore.getTotalLimitBytes();
         if (configured <= 0) {
             clearBlocked();
