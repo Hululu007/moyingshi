@@ -9,9 +9,13 @@ import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.Class;
+import com.github.moyingshi.osc.tv.bean.Episode;
+import com.github.moyingshi.osc.tv.bean.Flag;
 import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.Vod;
+import com.github.moyingshi.osc.tv.download.DownloadStore;
+import com.github.moyingshi.osc.tv.download.DownloadTask;
 import com.github.moyingshi.osc.tv.event.CatWebEvent;
 import com.github.moyingshi.osc.tv.player.Source;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
@@ -27,6 +31,7 @@ import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Prefers;
 import com.github.catvod.utils.Util;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -397,7 +402,53 @@ public class SiteApi {
         vod.setPlayFrom(ResUtil.getString(R.string.push));
         vod.setPic(ResUtil.getString(R.string.push_image));
         Source.get().parse(vod.setFlags());
+        expandDownloadedEpisodes(vod, push.getUrl());
         return Result.vod(vod);
+    }
+
+    /**
+     * 播的是已下载的本地文件时，把同剧已下载完的集全列进选集行（按集数顺序），
+     * 当前播的那集保持选中；不是下载文件、或同剧只有一集已下载时不动。
+     * 点选集行切集走现有 onItemClick(Episode) → playerContent(PUSH) 直播本地文件。
+     */
+    private static void expandDownloadedEpisodes(Vod vod, String pushUrl) {
+        if (vod == null || TextUtils.isEmpty(pushUrl) || vod.getFlags().isEmpty()) return;
+        if (!pushUrl.regionMatches(true, 0, "file://", 0, 7)) return;
+        String filePath = pushUrl.substring("file://".length());
+        List<DownloadTask> tasks = DownloadStore.load();
+        String dramaName = null;
+        for (DownloadTask task : tasks) {
+            if (task.isDone() && filePath.equals(task.filePath)) {
+                dramaName = task.dramaName;
+                break;
+            }
+        }
+        if (dramaName == null) return;
+        List<DownloadTask> done = new ArrayList<>();
+        for (DownloadTask task : tasks) {
+            if (task.isDone() && dramaName.equals(task.dramaName)
+                    && !TextUtils.isEmpty(task.filePath) && new File(task.filePath).exists()) {
+                done.add(task);
+            }
+        }
+        if (done.size() < 2) return;
+        done.sort((a, b) -> {
+            int na = com.github.moyingshi.osc.tv.utils.Util.getEpisodeNumber(a.episodeName);
+            int nb = com.github.moyingshi.osc.tv.utils.Util.getEpisodeNumber(b.episodeName);
+            if (na != nb) return Integer.compare(na, nb);
+            return Long.compare(a.createdAt, b.createdAt);
+        });
+        Flag flag = vod.getFlags().get(0);
+        List<Episode> episodes = new ArrayList<>();
+        Episode current = null;
+        for (DownloadTask task : done) {
+            Episode episode = Episode.create(task.episodeName, "file://" + task.filePath);
+            episodes.add(episode);
+            if (("file://" + task.filePath).equals(pushUrl)) current = episode;
+        }
+        flag.getEpisodes().clear();
+        flag.getEpisodes().addAll(episodes);
+        if (current != null) flag.toggle(true, current);
     }
 
     @NonNull
