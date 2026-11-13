@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首页浏览悬浮按钮图标：Material 风格 tune（横向滑杆），按 tune 的几何自画——
+     3 条横向滑轨（2dp 粗）+ 3 个错开的竖向滑块（2dp 宽 × 6dp 高），与 ic_fab_filter 同格式。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="@color/white"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M3,5h18v2H3zM13,3h2v6h-2zM3,11h18v2H3zM7,9h2v6H7zM3,17h18v2H3zM16,15h2v6h-2z" />
+</vector>

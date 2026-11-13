@@ -1677,6 +1677,7 @@
     <string name="home_empty_description">內容源沒有回傳可顯示的內容。</string>
     <string name="home_empty_action">重新載入</string>
     <string name="home_continue_watching">繼續觀看</string>
+    <string name="home_filter_title">篩選</string>
     <!--
         「還沒設定接口」空態：重置應用、重新安裝或恢復出廠後首次啟動就是這個狀態。
         它**不是失敗**（沒有網址可請求，也沒有失敗原因，重試永遠不會成功），所以標題不用

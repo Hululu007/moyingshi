@@ -6,7 +6,6 @@ import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -31,6 +30,7 @@ import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.Class;
 import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.Device;
+import com.github.moyingshi.osc.tv.bean.Filter;
 import com.github.moyingshi.osc.tv.bean.History;
 import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Site;
@@ -66,7 +66,6 @@ import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.ui.dialog.ApkPushDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ApkPushMethodDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ApkPushUrlDialog;
-import com.github.moyingshi.osc.tv.ui.dialog.FilterDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.HistoryDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.LinkDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
@@ -74,7 +73,7 @@ import com.github.moyingshi.osc.tv.ui.dialog.PushPlayDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.PushPlayUrlDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ReceiveDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.SiteDialog;
-import com.github.moyingshi.osc.tv.ui.dialog.TypeDialog;
+import com.github.moyingshi.osc.tv.ui.dialog.TypeFilterDialog;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
@@ -89,6 +88,7 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -174,7 +174,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     /** 首页玻璃面：3 个 FAB 用半透明底（与设置卡片同一套玻璃）。首页内容是滚动的海报/列表，
      * 没有静态壁纸可模糊，真模糊只在设置页（壁纸静止）做，见 ThemeController.applyWallpaperBlur。 */
     private void setGlassSurfaces() {
-        setFabGlass(mBinding.filter);
+        setFabGlass(mBinding.browse);
         setFabGlass(mBinding.link);
         setFabGlass(mBinding.top);
     }
@@ -189,7 +189,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.logo.setOnClickListener(this::onLogo);
         mBinding.logo.setOnLongClickListener(this::reloadConfig);
         mBinding.link.setOnClickListener(this::onLink);
-        mBinding.typeMore.setOnClickListener(this::onTypeMore);
+        mBinding.browse.setOnClickListener(this::onBrowse);
         mBinding.title.setOnClickListener(this::onSite);
         mBinding.title.setOnLongClickListener(this::reloadConfig);
         mBinding.searchBar.setOnClickListener(v -> SearchActivity.start(requireActivity()));
@@ -199,10 +199,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         });
         mBinding.searchHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
         mBinding.searchMore.setOnClickListener(this::onSearchMore);
-        mBinding.typeMore.setOnTouchListener(this::onTypeMoreTouch);
-        mBinding.typeMore.setOnClickListener(this::onTypeMore);
-        mBinding.filter.setOnClickListener(this::onFilter);
-        mBinding.filter.setOnLongClickListener(this::onLink);
         mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
         mBinding.toolbar.post(this::setSearchLongClick);
         mBinding.appBar.addOnOffsetChangedListener((appBarLayout, verticalOffset) -> {
@@ -221,16 +217,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
                 setFabVisible(position);
             }
         });
-    }
-
-    private void updateTypeMoreVisible() {
-        if (mBinding.type.getWidth() == 0 || mBinding.typeBar.getWidth() == 0) {
-            mBinding.type.post(this::updateTypeMoreVisible);
-            return;
-        }
-        int typeWidth = mBinding.typeBar.getWidth() - mBinding.typeBar.getPaddingStart() - mBinding.typeBar.getPaddingEnd();
-        boolean visible = mAdapter.getItemCount() > 0 && mBinding.type.computeHorizontalScrollRange() > typeWidth;
-        mBinding.typeMore.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void setRecyclerView() {
@@ -443,8 +429,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         refreshContinue();
         refreshWidgets();
         notifyPagerAdapter();
-        mBinding.typeMore.setVisibility(View.GONE);
-        mBinding.type.post(this::updateTypeMoreVisible);
         setFabVisible(0);
         updateToolbarMenu();
         hideProgress();
@@ -455,21 +439,16 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (isNativeChromeHidden()) {
             mBinding.top.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
-            mBinding.filter.setVisibility(View.GONE);
+            mBinding.browse.setVisibility(View.GONE);
             return;
         }
+        mBinding.top.setVisibility(View.INVISIBLE);
         if (mAdapter.getItemCount() == 0) {
-            mBinding.top.setVisibility(View.INVISIBLE);
+            mBinding.browse.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.VISIBLE);
-            mBinding.filter.setVisibility(View.GONE);
-        } else if (!mAdapter.get(position).getFilters().isEmpty()) {
-            mBinding.top.setVisibility(View.INVISIBLE);
+        } else {
+            mBinding.browse.show();
             mBinding.link.setVisibility(View.GONE);
-            mBinding.filter.show();
-        } else if (position == 0 || mAdapter.get(position).getFilters().isEmpty()) {
-            mBinding.top.setVisibility(View.INVISIBLE);
-            mBinding.filter.setVisibility(View.GONE);
-            mBinding.link.show();
         }
     }
 
@@ -481,7 +460,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private void onTop(View view) {
         getFragment().scrollToTop();
         mBinding.top.setVisibility(View.INVISIBLE);
-        if (mBinding.filter.getVisibility() == View.INVISIBLE) mBinding.filter.show();
+        if (mBinding.browse.getVisibility() == View.INVISIBLE) mBinding.browse.show();
         else if (mBinding.link.getVisibility() == View.INVISIBLE) mBinding.link.show();
     }
 
@@ -490,19 +469,14 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         return true;
     }
 
-    private void onTypeMore(View view) {
-        if (mAdapter.getItemCount() > 0) TypeDialog.create().items(mAdapter.getItems()).show(this);
+    /** 右下角浏览悬浮按钮：打开“全部分类 + 筛选”合成面板。 */
+    private void onBrowse(View view) {
+        if (mAdapter.getItemCount() > 0) TypeFilterDialog.create().items(mAdapter.getItems()).filter(getFiltersForPosition(mBinding.pager.getCurrentItem())).filterProvider(this::getFiltersForPosition).show(this);
     }
 
-    private boolean onTypeMoreTouch(View view, MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            view.animate().cancel();
-            view.animate().scaleX(1.06f).scaleY(1.06f).setDuration(80).start();
-        } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-            view.animate().cancel();
-            view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
-        }
-        return false;
+    private List<Filter> getFiltersForPosition(int position) {
+        if (mAdapter == null || position < 0 || position >= mAdapter.getItemCount()) return Collections.emptyList();
+        return mAdapter.get(position).getFilters();
     }
 
     private void onLogo(View view) {
@@ -544,10 +518,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         popup.getMenuInflater().inflate(R.menu.menu_vod_more, popup.getMenu());
         popup.setOnMenuItemClickListener(this::onMenuItemClick);
         popup.show();
-    }
-
-    private void onFilter(View view) {
-        if (mAdapter.getItemCount() > 0) FilterDialog.create().filter(mAdapter.get(mBinding.pager.getCurrentItem()).getFilters()).show(this);
     }
 
     private boolean onMenuItemClick(MenuItem item) {
@@ -634,13 +604,11 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void hideContent() {
         mBinding.type.setVisibility(View.INVISIBLE);
-        mBinding.typeMore.setVisibility(View.INVISIBLE);
         mBinding.pager.setVisibility(View.INVISIBLE);
     }
 
     private void showContent() {
         mBinding.type.setVisibility(View.VISIBLE);
-        updateTypeMoreVisible();
         mBinding.pager.setVisibility(View.VISIBLE);
     }
 
@@ -671,7 +639,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void clearPagerTypes() {
         mAdapter.clear();
-        mBinding.typeMore.setVisibility(View.GONE);
         notifyPagerAdapter();
     }
 
@@ -999,13 +966,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.appBar.setVisibility(hidden ? View.GONE : View.VISIBLE);
         setHomeWebTopMargin(hidden ? 0 : mHomeWebTopMargin);
         mBinding.type.setVisibility(View.GONE);
-        mBinding.typeMore.setVisibility(View.GONE);
         mBinding.pager.setVisibility(View.GONE);
         mBinding.banner.setVisibility(View.GONE);
         stopBannerAutoScroll();
         mBinding.continueSection.setVisibility(View.GONE);
         mBinding.widgetSections.setVisibility(View.GONE);
-        mBinding.filter.setVisibility(View.GONE);
+        mBinding.browse.setVisibility(View.GONE);
         mBinding.link.setVisibility(View.GONE);
         mBinding.top.setVisibility(View.GONE);
         updateToolbarMenu();
@@ -1014,7 +980,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private void showNativeContent() {
         requestNormalChrome();
         mBinding.type.setVisibility(View.VISIBLE);
-        updateTypeMoreVisible();
         mBinding.pager.setVisibility(View.VISIBLE);
         updateBannerVisibility();
         updateContinueVisibility();
@@ -1032,13 +997,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         updateToolbarMenu();
         if (hidden) {
             mBinding.type.setVisibility(View.GONE);
-            mBinding.typeMore.setVisibility(View.GONE);
             mBinding.pager.setVisibility(View.GONE);
             mBinding.banner.setVisibility(View.GONE);
             stopBannerAutoScroll();
             mBinding.continueSection.setVisibility(View.GONE);
             mBinding.widgetSections.setVisibility(View.GONE);
-            mBinding.filter.setVisibility(View.GONE);
+            mBinding.browse.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
             mBinding.top.setVisibility(View.GONE);
         }

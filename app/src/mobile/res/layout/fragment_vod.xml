@@ -188,22 +188,6 @@
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 tools:listitem="@layout/adapter_type" />
 
-            <androidx.appcompat.widget.AppCompatImageView
-                android:id="@+id/typeMore"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_gravity="center_vertical"
-                android:layout_marginStart="2dp"
-                android:background="@android:color/transparent"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
-                android:padding="8dp"
-                android:scaleType="center"
-                android:translationY="-4dp"
-                android:visibility="gone"
-                app:srcCompat="@drawable/ic_action_menu"
-                tools:visibility="visible" />
-
         </androidx.appcompat.widget.LinearLayoutCompat>
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -246,7 +230,7 @@
         android:visibility="gone" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/filter"
+        android:id="@+id/browse"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
@@ -255,7 +239,7 @@
         app:layout_anchor="@id/pager"
         app:layout_anchorGravity="end|bottom"
         app:layout_behavior="com.github.moyingshi.osc.tv.ui.custom.CustomFabBehavior"
-        app:srcCompat="@drawable/ic_fab_filter"
+        app:srcCompat="@drawable/ic_fab_tune"
         app:tint="?attr/colorOnSecondaryContainer"
         tools:visibility="visible" />
 
