@@ -38,7 +38,7 @@ public final class DownloadEpisodeDialog {
     private DownloadEpisodeDialog() {
     }
 
-    public static void show(FragmentActivity activity, String dramaName, String siteKey, String flag, List<Episode> episodes) {
+    public static void show(FragmentActivity activity, String dramaName, String siteKey, String flag, List<Episode> episodes, String poster) {
         if (activity == null || episodes == null || episodes.isEmpty()) return;
         DialogDownloadEpisodeBinding binding = DialogDownloadEpisodeBinding.inflate(LayoutInflater.from(activity));
         DownloadEpisodeAdapter adapter = new DownloadEpisodeAdapter(episodes);
@@ -64,7 +64,7 @@ public final class DownloadEpisodeDialog {
                 }
                 int enqueued = 0;
                 for (Episode episode : selected) {
-                    if (VideoDownloadManager.get().enqueue(dramaName, siteKey, flag, episode.getName(), episode.getUrl())) enqueued++;
+                    if (VideoDownloadManager.get().enqueue(dramaName, siteKey, flag, episode.getName(), episode.getUrl(), poster)) enqueued++;
                 }
                 if (enqueued > 0) Notify.show(R.string.download_started);
             });

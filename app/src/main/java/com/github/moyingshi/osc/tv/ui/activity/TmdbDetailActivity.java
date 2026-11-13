@@ -5247,7 +5247,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         List<Episode> episodes = new ArrayList<>(visibleEpisodes(raw == null ? List.of() : raw));
         if (episodeReverse) Collections.reverse(episodes);
         if (episodes.isEmpty()) return;
-        DownloadEpisodeDialog.show(this, vod.getName(), vod.getSiteKey(), selectedFlag.getFlag(), episodes);
+        DownloadEpisodeDialog.show(this, vod.getName(), vod.getSiteKey(), selectedFlag.getFlag(), episodes, vod.getPic());
     }
 
     private void renderEpisodes() {

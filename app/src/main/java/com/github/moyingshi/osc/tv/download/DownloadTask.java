@@ -23,6 +23,8 @@ public class DownloadTask {
     public String episodeUrl;
     /** 解析后的直链地址（m3u8 或文件直链），解析完成前为空。 */
     public String resolvedUrl;
+    /** 剧集海报地址（详情页的 pic，下单时存下，供下载点播时写进历史记录；老任务没有，留空）。 */
+    public String poster;
     /** 最终文件绝对路径：直链是视频文件，m3u8 是本地 index.m3u8。 */
     public String filePath;
     public Status status = Status.QUEUED;

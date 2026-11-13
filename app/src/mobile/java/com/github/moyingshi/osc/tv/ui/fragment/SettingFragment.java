@@ -735,7 +735,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case FAILED:
                 // 重试走正常入队：失败任务重置后重新排队，解析重新跑一遍拿新鲜地址
                 // （旧的 resolvedUrl 已清掉，不会拿着解析失败时的旧地址重试）。
-                if (VideoDownloadManager.get().enqueue(task.dramaName, task.siteKey, task.flag, task.episodeName, task.episodeUrl)) {
+                // 海报沿用任务里存的，不丢。
+                if (VideoDownloadManager.get().enqueue(task.dramaName, task.siteKey, task.flag, task.episodeName, task.episodeUrl, task.poster)) {
                     Notify.show(R.string.download_retry_started);
                 }
                 break;

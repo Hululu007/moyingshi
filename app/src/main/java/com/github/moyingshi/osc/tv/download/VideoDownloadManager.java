@@ -129,13 +129,14 @@ public final class VideoDownloadManager {
      * 入队一集。已完成且文件还在 → 不重复下；已在队列/下载中 → 不重复入队；
      * 之前失败过 → 重置后重新排队。返回 true 表示已入队或已重新排队。
      */
-    public synchronized boolean enqueue(String dramaName, String siteKey, String flag, String episodeName, String episodeUrl) {
+    public synchronized boolean enqueue(String dramaName, String siteKey, String flag, String episodeName, String episodeUrl, String poster) {
         String id = DownloadPathUtil.taskId(dramaName, episodeName);
         DownloadTask existing = findById(id);
         if (existing != null) {
             if (existing.isDone() && existing.filePath != null && new File(existing.filePath).exists()) return false;
             if (existing.isActive()) return false;
             pausedIds.remove(id);
+            existing.poster = poster;
             existing.status = DownloadTask.Status.QUEUED;
             existing.error = null;
             existing.downloadedBytes = 0;
@@ -155,6 +156,7 @@ public final class VideoDownloadManager {
         task.siteKey = siteKey;
         task.flag = flag;
         task.episodeUrl = episodeUrl;
+        task.poster = poster;
         task.status = DownloadTask.Status.QUEUED;
         task.createdAt = System.currentTimeMillis();
         tasks.add(task);

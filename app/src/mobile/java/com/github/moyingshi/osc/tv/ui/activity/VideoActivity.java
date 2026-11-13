@@ -4045,7 +4045,8 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         Flag flag = getFlag();
         List<Episode> episodes = new ArrayList<>(getCurrentEpisodeItems());
         if (episodes.isEmpty()) return;
-        DownloadEpisodeDialog.show(this, getName(), getKey(), flag == null ? "" : flag.getFlag(), episodes);
+        String poster = mVod != null && !TextUtils.isEmpty(mVod.getPic()) ? mVod.getPic() : getPic();
+        DownloadEpisodeDialog.show(this, getName(), getKey(), flag == null ? "" : flag.getFlag(), episodes, poster);
     }
 
     private void updateEpisodeViewModeButton() {

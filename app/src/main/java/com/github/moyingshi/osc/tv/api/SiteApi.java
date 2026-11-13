@@ -416,14 +416,20 @@ public class SiteApi {
         if (!pushUrl.regionMatches(true, 0, "file://", 0, 7)) return;
         String filePath = pushUrl.substring("file://".length());
         List<DownloadTask> tasks = DownloadStore.load();
+        DownloadTask current = null;
         String dramaName = null;
         for (DownloadTask task : tasks) {
             if (task.isDone() && filePath.equals(task.filePath)) {
+                current = task;
                 dramaName = task.dramaName;
                 break;
             }
         }
         if (dramaName == null) return;
+        // 下载点播：详情与历史用真剧名、真海报，不再拿 file:// 地址当片名、纸飞机占位图当海报。
+        // 老任务没有海报时不覆盖，仍留占位图。
+        vod.setName(dramaName);
+        if (current != null && !TextUtils.isEmpty(current.poster)) vod.setPic(current.poster);
         List<DownloadTask> done = new ArrayList<>();
         for (DownloadTask task : tasks) {
             if (task.isDone() && dramaName.equals(task.dramaName)
