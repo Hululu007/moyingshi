@@ -6,7 +6,7 @@ package com.github.moyingshi.osc.tv.download;
 public class DownloadTask {
 
     public enum Status {
-        QUEUED, RESOLVING, DOWNLOADING, DONE, FAILED
+        QUEUED, RESOLVING, DOWNLOADING, PAUSED, DONE, FAILED
     }
 
     /** 任务唯一标识：剧名 + 集名（清洗后拼接），同一部剧同一集只建一条任务。 */
@@ -47,6 +47,10 @@ public class DownloadTask {
 
     public boolean isActive() {
         return status == Status.QUEUED || status == Status.RESOLVING || status == Status.DOWNLOADING;
+    }
+
+    public boolean isPaused() {
+        return status == Status.PAUSED;
     }
 
     /** 0..100 的进度；总数未知时按段数算，段数未知时返回 -1。 */

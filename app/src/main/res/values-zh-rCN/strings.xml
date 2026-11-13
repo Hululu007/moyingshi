@@ -3162,6 +3162,11 @@
     <string name="download_no_episode_selected">请先选择要下载的集数</string>
     <string name="download_drama_summary">%1$d 集，%2$d 已完成</string>
     <string name="download_state_resolving">解析中</string>
+    <string name="download_state_paused">已暂停</string>
+    <string name="download_state_failed_retry">下载失败，点击重试</string>
+    <string name="download_retry_started">正在重新下载</string>
+    <string name="download_paused">已暂停下载</string>
+    <string name="download_resumed">已继续下载</string>
     <string name="download_delete_failed">删除失败，请重试</string>
     <string name="download_file_missing">下载的文件找不到了</string>
     <string name="setting_group_storage">数据与存储</string>

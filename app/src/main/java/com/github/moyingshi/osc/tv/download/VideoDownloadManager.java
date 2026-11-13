@@ -67,6 +67,13 @@ public final class VideoDownloadManager {
         }
     }
 
+    /** 任务被暂停时用来中断正在进行的下载（与取消的区别：记录保留，状态置为已暂停）。 */
+    private static final class PausedException extends IOException {
+        PausedException() {
+            super("paused");
+        }
+    }
+
     public interface Listener {
         void onTasksChanged();
     }
@@ -85,6 +92,7 @@ public final class VideoDownloadManager {
     private final List<DownloadTask> tasks = new ArrayList<>();
     private final Set<Listener> listeners = Collections.synchronizedSet(new HashSet<>());
     private final Set<String> cancelledIds = Collections.synchronizedSet(new HashSet<>());
+    private final Set<String> pausedIds = Collections.synchronizedSet(new HashSet<>());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AtomicLong lastNotifyMs = new AtomicLong(0);
     private boolean workerActive;
@@ -127,6 +135,7 @@ public final class VideoDownloadManager {
         if (existing != null) {
             if (existing.isDone() && existing.filePath != null && new File(existing.filePath).exists()) return false;
             if (existing.isActive()) return false;
+            pausedIds.remove(id);
             existing.status = DownloadTask.Status.QUEUED;
             existing.error = null;
             existing.downloadedBytes = 0;
@@ -156,6 +165,34 @@ public final class VideoDownloadManager {
     }
 
     /**
+     * 暂停一集：排队中的直接置为已暂停；正在解析/下载中的记入 pausedIds，
+     * 工作线程在下一个检查点中断传输并置为已暂停。已下好的部分保留，
+     * 恢复时直链走 Range 续传、m3u8 复用已落盘的分段。
+     */
+    public synchronized boolean pauseTask(String id) {
+        DownloadTask task = findById(id);
+        if (task == null || !task.isActive()) return false;
+        pausedIds.add(id);
+        task.status = DownloadTask.Status.PAUSED;
+        persist();
+        notifyChanged(true);
+        return true;
+    }
+
+    /** 恢复一集：已暂停的重新排队（重新解析拿新鲜地址，已下部分接着下）。 */
+    public synchronized boolean resumeTask(String id) {
+        DownloadTask task = findById(id);
+        if (task == null || task.status != DownloadTask.Status.PAUSED) return false;
+        pausedIds.remove(id);
+        task.status = DownloadTask.Status.QUEUED;
+        task.error = null;
+        persist();
+        notifyChanged(true);
+        kickWorker();
+        return true;
+    }
+
+    /**
      * 删除一部剧的全部下载：删任务记录 + 递归删掉 Download/&lt;剧名&gt;/ 文件夹本身。
      * 正在下载的同一集会被中断。结果回调在主线程执行。
      */
@@ -168,6 +205,7 @@ public final class VideoDownloadManager {
             }
             for (DownloadTask task : doomed) {
                 cancelledIds.add(task.id);
+                pausedIds.remove(task.id);
                 tasks.remove(task);
             }
             persist();
@@ -232,6 +270,10 @@ public final class VideoDownloadManager {
         return cancelledIds.contains(task.id);
     }
 
+    private boolean isPaused(DownloadTask task) {
+        return pausedIds.contains(task.id);
+    }
+
     private void setStatus(DownloadTask task, DownloadTask.Status status) {
         task.status = status;
         persist();
@@ -273,6 +315,7 @@ public final class VideoDownloadManager {
                 }
             }
             if (isCancelled(task)) return;
+            if (isPaused(task)) throw new PausedException();
             task.resolvedUrl = url;
             Map<String, String> headers = new HashMap<>(result.getHeader());
             addUserAgentIfMissing(headers);
@@ -285,6 +328,9 @@ public final class VideoDownloadManager {
             }
         } catch (CancelledException e) {
             // 任务已被删除，不再动记录。
+        } catch (PausedException e) {
+            // 暂停不是失败：只有仍在暂停集合里才置为已暂停（用户已点了恢复就不再覆盖）。
+            if (isPaused(task)) setStatus(task, DownloadTask.Status.PAUSED);
         } catch (Exception e) {
             fail(task, messageOf(e));
         }
@@ -415,15 +461,19 @@ public final class VideoDownloadManager {
             setStatus(task, DownloadTask.Status.DONE);
             return;
         }
+        if (isPaused(task)) throw new PausedException();
         setStatus(task, DownloadTask.Status.DOWNLOADING);
         OkHttpClient client = OkHttp.client(TIMEOUT_MS);
         Exception lastError = null;
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             if (isCancelled(task)) throw new CancelledException();
+            if (isPaused(task)) throw new PausedException();
             try {
                 downloadDirectOnce(task, client, url, headers, target);
                 return;
             } catch (CancelledException e) {
+                throw e;
+            } catch (PausedException e) {
                 throw e;
             } catch (Exception e) {
                 lastError = e;
@@ -507,6 +557,7 @@ public final class VideoDownloadManager {
         int read;
         while ((read = in.read(buffer)) != -1) {
             if (isCancelled(task)) throw new CancelledException();
+            if (isPaused(task)) throw new PausedException();
             out.write(buffer, 0, read);
             done += read;
             task.downloadedBytes = done;
@@ -525,6 +576,7 @@ public final class VideoDownloadManager {
             setStatus(task, DownloadTask.Status.DONE);
             return;
         }
+        if (isPaused(task)) throw new PausedException();
         setStatus(task, DownloadTask.Status.DOWNLOADING);
         String playlist = fetchPlaylist(url, headers);
         if (TextUtils.isEmpty(playlist)) throw new IOException("播放列表拉取失败");
@@ -713,10 +765,13 @@ public final class VideoDownloadManager {
         Exception lastError = null;
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             if (isCancelled(task)) throw new CancelledException();
+            if (isPaused(task)) throw new PausedException();
             try {
                 downloadFileOnce(client, url, headers, target, task);
                 return;
             } catch (CancelledException e) {
+                throw e;
+            } catch (PausedException e) {
                 throw e;
             } catch (Exception e) {
                 lastError = e;
@@ -746,6 +801,7 @@ public final class VideoDownloadManager {
                 int read;
                 while ((read = in.read(buffer)) != -1) {
                     if (isCancelled(task)) throw new CancelledException();
+                    if (isPaused(task)) throw new PausedException();
                     out.write(buffer, 0, read);
                 }
                 out.flush();

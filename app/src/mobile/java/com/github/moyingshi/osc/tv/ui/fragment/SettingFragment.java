@@ -721,8 +721,37 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         binding.status.setText(downloadStatusText(task));
         bindDownloadError(binding, task);
         bindEpisodeProgress(binding, task);
-        binding.getRoot().setOnClickListener(v -> playDownloaded(task));
+        binding.getRoot().setOnClickListener(v -> onEpisodeRowClick(task));
         parent.addView(binding.getRoot());
+    }
+
+    /** 点集行：已完成 → 播放；失败 → 重试；已暂停 → 恢复；下载中/解析中/排队中 → 暂停。 */
+    private void onEpisodeRowClick(DownloadTask task) {
+        if (task == null) return;
+        switch (task.status) {
+            case DONE:
+                playDownloaded(task);
+                break;
+            case FAILED:
+                // 重试走正常入队：失败任务重置后重新排队，解析重新跑一遍拿新鲜地址
+                // （旧的 resolvedUrl 已清掉，不会拿着解析失败时的旧地址重试）。
+                if (VideoDownloadManager.get().enqueue(task.dramaName, task.siteKey, task.flag, task.episodeName, task.episodeUrl)) {
+                    Notify.show(R.string.download_retry_started);
+                }
+                break;
+            case PAUSED:
+                if (VideoDownloadManager.get().resumeTask(task.id)) {
+                    Notify.show(R.string.download_resumed);
+                }
+                break;
+            case QUEUED:
+            case RESOLVING:
+            case DOWNLOADING:
+                if (VideoDownloadManager.get().pauseTask(task.id)) {
+                    Notify.show(R.string.download_paused);
+                }
+                break;
+        }
     }
 
     /** 失败原因单独一行换行显示（最多 3 行）：之前截前 30 字只剩半截路径，真正原因看不见。 */
@@ -746,6 +775,18 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
     /** 集行进度条：下载中按真实进度定量显示，总数未知时转圈；解析中转圈；其他状态隐藏。 */
     private void bindEpisodeProgress(ItemDownloadEpisodeBinding binding, DownloadTask task) {
+        if (task.status == DownloadTask.Status.PAUSED) {
+            // 已暂停：进度条停在当前进度不动（总数未知时不转圈，免得像还在下）。
+            int progress = task.progress();
+            if (progress >= 0) {
+                binding.progress.setIndeterminate(false);
+                binding.progress.setProgress(progress);
+                binding.progress.setVisibility(View.VISIBLE);
+            } else {
+                binding.progress.setVisibility(View.GONE);
+            }
+            return;
+        }
         if (task.status == DownloadTask.Status.DOWNLOADING) {
             int progress = task.progress();
             if (progress >= 0) {
@@ -772,8 +813,10 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 return getString(R.string.download_state_done);
             case FAILED: {
                 // 原因不再塞进状态行，单独一行完整显示（见 bindDownloadError）。
-                return getString(R.string.download_state_failed);
+                return getString(R.string.download_state_failed_retry);
             }
+            case PAUSED:
+                return getString(R.string.download_state_paused);
             case RESOLVING:
                 return getString(R.string.download_state_resolving);
             case DOWNLOADING: {
