@@ -135,7 +135,7 @@ public class TmdbCastAdapter extends RecyclerView.Adapter<TmdbCastAdapter.ViewHo
             itemParams.width = dp(cinema ? 250 : 90);
             itemView.setLayoutParams(itemParams);
             if (itemParams instanceof ViewGroup.MarginLayoutParams marginParams) {
-                marginParams.setMarginEnd(dp(cinema ? 18 : 12));
+                marginParams.setMarginEnd(dp(cinema ? 18 : 8));
                 itemView.setLayoutParams(marginParams);
             }
 

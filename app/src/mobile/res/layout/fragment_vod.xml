@@ -41,6 +41,52 @@
 
         </com.google.android.material.appbar.MaterialToolbar>
 
+        <!-- 首页搜索条：圆角搜索 pill，点进搜索（长按搜本站），右侧站名点进切站；随 AppBar 收起。 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/searchBar"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/shape_setting_row_card"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            app:layout_scrollFlags="scroll">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_action_search"
+                android:tint="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/menu_search"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/searchSite"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:maxWidth="120dp"
+                android:textColor="?attr/colorPrimary"
+                android:textSize="14sp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
         <!-- 首页轮播横幅（B1）：ViewPager2，数据取当前站首页推荐；无数据时隐藏。 -->
         <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/banner"
@@ -66,7 +112,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:text="@string/home_continue_watching"
-                android:textAppearance="?attr/textAppearanceTitleSmall" />
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/continueList"
@@ -74,9 +121,9 @@
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
                 android:orientation="horizontal"
-                android:paddingStart="12dp"
+                android:paddingStart="16dp"
                 android:paddingTop="8dp"
-                android:paddingEnd="12dp"
+                android:paddingEnd="16dp"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>

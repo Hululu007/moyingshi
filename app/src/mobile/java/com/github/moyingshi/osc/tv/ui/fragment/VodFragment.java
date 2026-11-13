@@ -2,6 +2,7 @@ package com.github.moyingshi.osc.tv.ui.fragment;
 
 import android.net.Uri;
 import android.app.Activity;
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -13,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentStatePagerAdapter;
@@ -48,6 +50,7 @@ import com.github.moyingshi.osc.tv.impl.SiteListener;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
+import com.github.moyingshi.osc.tv.theme.ThemeController;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
@@ -165,6 +168,20 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         setTitle();
         setLogo();
         updateToolbarMenu();
+        setGlassSurfaces();
+    }
+
+    /** 首页玻璃面：搜索条与 3 个 FAB 用半透明底 + 真模糊（与设置卡片同一套玻璃）。 */
+    private void setGlassSurfaces() {
+        ThemeController.applyViewBlur(mBinding.searchBar);
+        setFabGlass(mBinding.filter);
+        setFabGlass(mBinding.link);
+        setFabGlass(mBinding.top);
+    }
+
+    private void setFabGlass(com.google.android.material.floatingactionbutton.FloatingActionButton fab) {
+        fab.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.setting_card_bg)));
+        ThemeController.applyViewBlur(fab);
     }
 
     @Override
@@ -176,6 +193,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.typeMore.setOnClickListener(this::onTypeMore);
         mBinding.title.setOnClickListener(this::onSite);
         mBinding.title.setOnLongClickListener(this::reloadConfig);
+        mBinding.searchBar.setOnClickListener(v -> SearchActivity.start(requireActivity()));
+        mBinding.searchBar.setOnLongClickListener(v -> {
+            SearchActivity.start(requireActivity(), "", getHome().getKey());
+            return true;
+        });
+        mBinding.searchSite.setOnClickListener(this::onSite);
         mBinding.typeMore.setOnTouchListener(this::onTypeMoreTouch);
         mBinding.typeMore.setOnClickListener(this::onTypeMore);
         mBinding.filter.setOnClickListener(this::onFilter);
@@ -451,7 +474,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void setTitle() {
-        mBinding.title.setText(AppBranding.getDisplayName(requireContext(), getHome().getDisplayName(), getConfig().getName()));
+        String name = AppBranding.getDisplayName(requireContext(), getHome().getDisplayName(), getConfig().getName());
+        mBinding.title.setText(name);
+        mBinding.searchSite.setText(name);
     }
 
     private void onTop(View view) {

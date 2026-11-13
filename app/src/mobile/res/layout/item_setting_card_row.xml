@@ -52,7 +52,7 @@
             android:layout_marginTop="2dp"
             android:maxLines="2"
             android:textColor="@color/setting_card_subtitle"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -64,7 +64,7 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:textColor="@color/setting_card_value"
-        android:textSize="15sp" />
+        android:textSize="14sp" />
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/chevron"

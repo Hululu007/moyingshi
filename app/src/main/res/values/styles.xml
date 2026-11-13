@@ -5,12 +5,11 @@
     </style>
 
     <style name="Vod.Grid">
-        <item name="cornerSizeTopLeft">8dp</item>
-        <item name="cornerSizeTopRight">8dp</item>
+        <item name="cornerSize">12dp</item>
     </style>
 
     <style name="Vod.Grid.Large">
-        <item name="cornerSize">8dp</item>
+        <item name="cornerSize">16dp</item>
     </style>
 
     <style name="Vod.Circle">

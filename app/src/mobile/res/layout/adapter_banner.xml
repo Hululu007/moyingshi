@@ -2,8 +2,8 @@
 <!-- 首页轮播横幅 item（B1）：宽幅海报 + 底部标题/备注，点进详情。
      ViewPager2 要求页面根视图宽高都为 match_parent（否则抛
      IllegalStateException: Pages must fill the whole ViewPager2），
-     所以根用 match_parent、不带边距；12dp 两侧 / 4dp 上下的视觉内缩
-     放在内层容器里，显示尺寸与原来（180dp + 边距 = 188dp）一致。 -->
+     所以根用 match_parent、不带边距；16dp 两侧 / 4dp 上下的视觉内缩
+     放在内层容器里。右上角 dots 为轮播指示器（本页高亮），由 BannerAdapter 驱动。 -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -12,9 +12,9 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="16dp"
         android:layout_marginTop="4dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginEnd="16dp"
         android:layout_marginBottom="4dp">
 
     <com.google.android.material.imageview.ShapeableImageView
@@ -24,6 +24,16 @@
         android:background="?attr/colorSurfaceContainer"
         android:scaleType="centerCrop"
         app:shapeAppearanceOverlay="@style/Vod.Grid.Large" />
+
+    <LinearLayout
+        android:id="@+id/dots"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="horizontal" />
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/name"

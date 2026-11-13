@@ -412,6 +412,55 @@ public final class ThemeController {
     }
 
     /**
+     * 视图背景模糊（API 31+ 才有 View 背景模糊）：模糊该视图背后的内容，配上半透明
+     * 背景就是一块磨砂玻璃卡片。低版本、液态玻璃关、模糊半径 0 时不做（显式置 0，
+     * 避免复用视图残留旧半径）。半径取「模糊效果」设置（0-40dp），默认 5dp。
+     */
+    public static void applyViewBlur(View view) {
+        if (view == null) return;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+        if (!com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) {
+            view.setBackgroundBlurRadius(0);
+            return;
+        }
+        float density = App.get().getResources().getDisplayMetrics().density;
+        view.setBackgroundBlurRadius((int) (com.github.moyingshi.osc.tv.setting.Setting.getGlassBlur() * density));
+    }
+
+    /**
+     * 给一棵子树里的设置卡片逐个加真模糊：背景是设置行卡（shape_setting_row_card）
+     * 的行卡、以及底色为设置卡片色的 MaterialCardView。子页行卡是静态 XML，一次
+     * 遍历即可；主设置页分组卡在代码里创建，创建处直接调 applyViewBlur，不走这里。
+     */
+    public static void applyCardBlur(View root) {
+        if (root == null) return;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+        if (!com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) return;
+        android.graphics.drawable.Drawable card = ContextCompat.getDrawable(App.get(), R.drawable.shape_setting_row_card);
+        int cardColor = ContextCompat.getColor(App.get(), R.color.setting_card_bg);
+        applyCardBlurRecursive(root, card, cardColor);
+    }
+
+    private static void applyCardBlurRecursive(View view, android.graphics.drawable.Drawable card, int cardColor) {
+        if (view instanceof com.google.android.material.card.MaterialCardView materialCard) {
+            if (materialCard.getCardBackgroundColor() != null
+                    && materialCard.getCardBackgroundColor().getDefaultColor() == cardColor) {
+                applyViewBlur(materialCard);
+            }
+        } else if (card != null && card.getConstantState() != null
+                && view.getBackground() != null
+                && view.getBackground().getConstantState() != null
+                && card.getConstantState().equals(view.getBackground().getConstantState())) {
+            applyViewBlur(view);
+        }
+        if (view instanceof android.view.ViewGroup group) {
+            for (int i = 0; i < group.getChildCount(); i++) {
+                applyCardBlurRecursive(group.getChildAt(i), card, cardColor);
+            }
+        }
+    }
+
+    /**
      * Applies the active profile to a window-level background drawable.
      *
      * <p>Alert dialog panels live on the window rather than on a view, so they need
