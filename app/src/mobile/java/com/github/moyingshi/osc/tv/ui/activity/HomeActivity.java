@@ -45,6 +45,7 @@ import com.github.moyingshi.osc.tv.server.Server;
 import com.github.moyingshi.osc.tv.service.PlaybackService;
 import com.github.moyingshi.osc.tv.setting.AutoBackupPolicy;
 import com.github.moyingshi.osc.tv.setting.Setting;
+import com.github.moyingshi.osc.tv.theme.ThemeController;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 import com.github.moyingshi.osc.tv.ui.custom.FragmentStateManager;
 import com.github.moyingshi.osc.tv.ui.dialog.LocalSourceDialog;
@@ -499,7 +500,13 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     private boolean changeFragment(int position) {
         boolean changed = mManager.change(position);
-        if (changed) currentPosition = position;
+        if (changed) {
+            currentPosition = position;
+            // 设置页（1 主设置 + 2-10 子页/搜索）开壁纸模糊，首页（0）关：半透明卡片
+            // 盖在模糊壁纸上就是磨砂玻璃；只在一切换处挂一次，全部设置屏都覆盖。
+            if (position >= 1) ThemeController.applyWallpaperBlur(this);
+            else ThemeController.clearWallpaperBlur(this);
+        }
         refreshWebHomeChromeLayout();
         return changed;
     }

@@ -412,52 +412,34 @@ public final class ThemeController {
     }
 
     /**
-     * 视图背景模糊（API 31+ 才有 View 背景模糊）：模糊该视图背后的内容，配上半透明
-     * 背景就是一块磨砂玻璃卡片。低版本、液态玻璃关、模糊半径 0 时不做（显式置 0，
-     * 避免复用视图残留旧半径）。半径取「模糊效果」设置（0-40dp），默认 5dp。
+     * 设置页壁纸模糊（②真模糊的正确做法）：平台没有 View 级背景模糊 API——
+     * {@code View.setBackgroundBlurRadius} 根本不存在（只有 {@code Window} 有，且只模糊
+     * 窗口外的屏幕）；真原语 {@code RenderNode.setBackdropRenderEffect} 要 SDK 37.2 才公开，
+     * 用户机器上还没有。所以模糊整张壁纸（{@code CustomWallView}，RenderEffect，API 31+），
+     * 75% 半透明卡片盖在上面就是磨砂玻璃；半径取「模糊效果」设置（0-40dp），默认 5dp。
+     * 只在设置页可见时开，离开即清；液态玻璃关、半径 0、低版本时不模糊。
      */
-    public static void applyViewBlur(View view) {
-        if (view == null) return;
+    public static void applyWallpaperBlur(android.app.Activity activity) {
+        setWallpaperBlur(activity, true);
+    }
+
+    public static void clearWallpaperBlur(android.app.Activity activity) {
+        setWallpaperBlur(activity, false);
+    }
+
+    private static void setWallpaperBlur(android.app.Activity activity, boolean blur) {
+        if (activity == null) return;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
-        if (!com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) {
-            view.setBackgroundBlurRadius(0);
+        android.view.ViewGroup content = activity.findViewById(android.R.id.content);
+        if (content == null || content.getChildCount() == 0) return;
+        android.view.View wall = content.getChildAt(0);
+        if (!(wall instanceof com.github.moyingshi.osc.tv.ui.custom.CustomWallView wallView)) return;
+        if (!blur || !com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) {
+            wallView.setBlurRadius(0);
             return;
         }
         float density = App.get().getResources().getDisplayMetrics().density;
-        view.setBackgroundBlurRadius((int) (com.github.moyingshi.osc.tv.setting.Setting.getGlassBlur() * density));
-    }
-
-    /**
-     * 给一棵子树里的设置卡片逐个加真模糊：背景是设置行卡（shape_setting_row_card）
-     * 的行卡、以及底色为设置卡片色的 MaterialCardView。子页行卡是静态 XML，一次
-     * 遍历即可；主设置页分组卡在代码里创建，创建处直接调 applyViewBlur，不走这里。
-     */
-    public static void applyCardBlur(View root) {
-        if (root == null) return;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
-        if (!com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) return;
-        android.graphics.drawable.Drawable card = ContextCompat.getDrawable(App.get(), R.drawable.shape_setting_row_card);
-        int cardColor = ContextCompat.getColor(App.get(), R.color.setting_card_bg);
-        applyCardBlurRecursive(root, card, cardColor);
-    }
-
-    private static void applyCardBlurRecursive(View view, android.graphics.drawable.Drawable card, int cardColor) {
-        if (view instanceof com.google.android.material.card.MaterialCardView materialCard) {
-            if (materialCard.getCardBackgroundColor() != null
-                    && materialCard.getCardBackgroundColor().getDefaultColor() == cardColor) {
-                applyViewBlur(materialCard);
-            }
-        } else if (card != null && card.getConstantState() != null
-                && view.getBackground() != null
-                && view.getBackground().getConstantState() != null
-                && card.getConstantState().equals(view.getBackground().getConstantState())) {
-            applyViewBlur(view);
-        }
-        if (view instanceof android.view.ViewGroup group) {
-            for (int i = 0; i < group.getChildCount(); i++) {
-                applyCardBlurRecursive(group.getChildAt(i), card, cardColor);
-            }
-        }
+        wallView.setBlurRadius(com.github.moyingshi.osc.tv.setting.Setting.getGlassBlur() * density);
     }
 
     /**

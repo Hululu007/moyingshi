@@ -50,7 +50,6 @@ import com.github.moyingshi.osc.tv.impl.SiteListener;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
-import com.github.moyingshi.osc.tv.theme.ThemeController;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
@@ -171,9 +170,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         setGlassSurfaces();
     }
 
-    /** 首页玻璃面：搜索条与 3 个 FAB 用半透明底 + 真模糊（与设置卡片同一套玻璃）。 */
+    /** 首页玻璃面：3 个 FAB 用半透明底（与设置卡片同一套玻璃）。首页内容是滚动的海报/列表，
+     * 没有静态壁纸可模糊，真模糊只在设置页（壁纸静止）做，见 ThemeController.applyWallpaperBlur。 */
     private void setGlassSurfaces() {
-        ThemeController.applyViewBlur(mBinding.searchBar);
         setFabGlass(mBinding.filter);
         setFabGlass(mBinding.link);
         setFabGlass(mBinding.top);
@@ -181,7 +180,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void setFabGlass(com.google.android.material.floatingactionbutton.FloatingActionButton fab) {
         fab.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.setting_card_bg)));
-        ThemeController.applyViewBlur(fab);
     }
 
     @Override

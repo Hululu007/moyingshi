@@ -8,11 +8,12 @@
 
 - 目标：四件套做完并编进测试版——①圆角/间距/字号全界面统一 ②设置卡片上真模糊 ③首页收尾（搜索栏、海报圆角、轮播指示器、FAB，B5 筛选 chips 统一成首页 chip 样式）④图标色收敛到同一色系降饱和度。
 - 验收标准：每件按下表定值改完；功能一项不丢（底栏 6 项、B1–B6、吸顶分类栏、下载列表点播/删除、液态玻璃开关）；只改手机端；两笔提交、两轮构建，每笔一提交 + recovery tag；无 SDK，编译靠推后 GitHub 构建验证。
-- 计划状态：本计划已完成（只读审计结束，见“审计实测”）；**提交 A（①③④ + ②的 helper 本体）已在本地改完、静态核对通过，待 guard finish 提交；提交 B（②调用点）待做。**
-- 已做动作：只读审计——量了各屏圆角/间距/字号现值、设置 Fragment 清单、图标 6 色、玻璃模糊开关、首页结构、B5 chips 样式（见下）。提交 A 已改：`styles.xml`（Vod.Grid 全圆角 12dp、Vod.Grid.Large 16dp）、详情页标题 18sp、演员/选集间距统一 8dp、设置行卡副标题/数值 14sp、横幅内缩 16dp + 右上角 dots 指示器（BannerAdapter.bindDots）、首页搜索 pill（fragment_vod.xml + VodFragment 接线，menu_vod 搜索项隐藏）、B5 chips 统一成首页 chip 样式、6 个图标圆底色降饱和（HLS ×0.60）、ThemeController 新增 applyViewBlur/applyCardBlur（API 31+ 守卫 + 液态玻璃开关守卫）。静态核对：git diff --check 通过、14 个 XML 解析通过、无旧值残留（TmdbEpisodeAdapter:359 内边距 12dp 是内容内边距、非网格间距，保留）、leanback 零改动、19 文件 + 计划文档在 guard 作用域内。
+- 计划状态：本计划已完成（只读审计结束，见“审计实测”）；**提交 A（①③④ + ②的 helper 本体）已推上（81e14b9e，线上 main 已是该提交），但构建 run 43360170458 在“Run release-critical tests”失败：`View.setBackgroundBlurRadius` 编译找不到——该方法在公开 API 里根本不存在（见下“②机制已改”）。修法在 guard 会话 elegance-pass-b-fix（quick-fix）里做，改完再推再编。**
+- 已做动作：只读审计——量了各屏圆角/间距/字号现值、设置 Fragment 清单、图标 6 色、玻璃模糊开关、首页结构、B5 chips 样式（见下）。提交 A 已改：`styles.xml`（Vod.Grid 全圆角 12dp、Vod.Grid.Large 16dp）、详情页标题 18sp、演员/选集间距统一 8dp、设置行卡副标题/数值 14sp、横幅内缩 16dp + 右上角 dots 指示器（BannerAdapter.bindDots）、首页搜索 pill（fragment_vod.xml + VodFragment 接线，menu_vod 搜索项隐藏）、B5 chips 统一成首页 chip 样式、6 个图标圆底色降饱和（HLS ×0.60）、ThemeController 新增 applyViewBlur/applyCardBlur（API 31+ 守卫 + 液态玻璃开关守卫）。静态核对：git diff --check 通过、14 个 XML 解析通过、无旧值残留（TmdbEpisodeAdapter:359 内边距 12dp 是内容内边距、非网格间距，保留）、leanback 零改动、19 文件 + 计划文档在 guard 作用域内。**构建失败后已定性（见“②机制已改”）：其余 19 个文件的改动都编译通过，失败只在 ThemeController.java:423/427 两处 `View.setBackgroundBlurRadius` 调用。**
+- ②机制已改（2026-11-13 构建失败后核实）：`View.setBackgroundBlurRadius` 在公开 Android API 里不存在（官方 View 参考页无此方法，compileSdk 37 下 javac 找不到；只有 `Window` 有，且只模糊窗口外的屏幕；真原语 `RenderNode.setBackdropRenderEffect` 要 SDK 37.2 才公开，用户机器上还没有；`SurfaceControl` 的同名方法是 `@hide`，反射不走）。正确做法是**模糊整张壁纸**：`CustomWallView.setBlurRadius()`（RenderEffect，API 31+，GPU 加速，静态图一层成本低；视频壁纸是 SurfaceView 子画面，不受父视图 RenderEffect 影响，保持原样），`ThemeController.applyWallpaperBlur/clearWallpaperBlur`（读「模糊效果」设置 0–40dp，默认 5dp；液态玻璃关/半径 0/低版本时清除），调用点只有一处——`HomeActivity.changeFragment`（设置页位置 1–10 开、首页 0 关；全部设置屏都覆盖，主设置页 + 8 子页 + 搜索页）。首页搜索 pill 与 FAB 不再单加模糊（首页内容是滚动的海报/列表，没有静态壁纸可模糊），只留半透明底。
 - 未验证项：本机无 SDK、无真机；第一次编译检查靠推后 GitHub 构建；模糊在真机上的观感（5dp 默认是否够显）只能等用户截图复核。
-- 风险：① `View.setBackgroundBlurRadius` 需 API 31+，minSdk 24——必须守卫，否则低版本崩；② 每行卡片都模糊有性能成本（滚动重模糊），默认 5dp、用户可调（0–40）可关；③ 海报圆角改动 `Vod.Grid` 会波及搜索/收藏等所有海报网格（预期内、要的就是统一）；④ 搜索栏是首页新增一行，需守吸顶红线。
-- 下一步动作：**guard finish 提交 A（elegance-pass-a）→ 推送 → 确认无构建在跑后触发测试版构建 → 核对 release 4 APK → 汇报；然后另起 guard 会话做提交 B（②真模糊调用点：SettingFragment.addGroup + 8 个子页 + 设置搜索页）。**
+- 风险：① 原计划“每行卡片都模糊”的性能成本已随机制改变消失（改成一整张静态壁纸模糊一次，滚动不重模糊）；② 壁纸模糊后，首页壁纸在切回首页时已清除、只在设置页可见时模糊；③ 海报圆角改动 `Vod.Grid` 会波及搜索/收藏等所有海报网格（预期内、要的就是统一）；④ 搜索栏是首页新增一行，需守吸顶红线。
+- 下一步动作：**guard finish 提交修法（elegance-pass-b-fix）→ 推送 → 确认无构建在跑后触发测试版构建 → 核对 release 4 APK → 汇报 tag + 4 条链接。修法构建若再失败，先看日志；修不好就汇报，不硬推。**
 
 ## 审计实测（2026-11-13，只读）
 
@@ -48,7 +49,7 @@
 
 - `Setting.getGlassBlur()`：pref `liquid_glass_blur`，默认 **5dp**，范围 0–40；`Setting.isLiquidGlass()` 为总开关。
 - `ThemeController.applyGlassWindowBlur`：弹窗窗口背景模糊，API 31+ 守卫 + 液态玻璃开关守卫，已有先例。
-- `View.setBackgroundBlurRadius` 全仓**零使用**；minSdk 24，**必须 API 31+ 守卫**。
+- `View.setBackgroundBlurRadius` 在公开 API 里**不存在**（全仓零使用是对的——它根本调不出来；见“②机制已改”）。minSdk 24，RenderEffect 需 API 31+ 守卫。
 - 75% 不透明 + 5dp 默认：模糊会是柔和的一层，不会很抢；用户可用已有“模糊效果”设置（0–40）调强，开关可关。
 
 ### 首页现状（§3.5 剩余项）
@@ -139,21 +140,21 @@
 
 **④ 图标色收敛：**6 个 `shape_setting_circle_*.xml` 按上表改 solid 色值。
 
-**提交说明：**搜索条与 FAB 的“真模糊”依赖②的 helper——若提交 A 先行，A 里先只做半透明底 + 预留调用点，B 合入后再补模糊调用；或者 A 包含 helper 本体（`ThemeController.applyViewBlur` + `applyCardBlur`）但只接搜索条/FAB 两处，B 再接 10 个设置 Fragment。选后者：helper 随 A 进，B 只加调用点（调用点小、风险低，B 的构建只验调用）。
+**提交说明（已改，2026-11-13）：**原计划“每张卡片调 `View.setBackgroundBlurRadius`”是错的——该方法不存在，提交 A 的构建因此失败。②改成模糊整张壁纸（见“②机制已改”）：helper 是 `ThemeController.applyWallpaperBlur/clearWallpaperBlur` + `CustomWallView.setBlurRadius()`，调用点只有 `HomeActivity.changeFragment` 一处；首页搜索条与 FAB 不再单加模糊，只留半透明底。
 
-### 提交 B（②真模糊；standard；后做，另起 guard 会话）
+### 提交 B（②真模糊——已改机制；quick-fix 修复提交 A 的构建失败，会话 elegance-pass-b-fix）
 
-- `app/src/main/java/com/github/moyingshi/osc/tv/theme/ThemeController.java`：新增 `public static void applyViewBlur(View)`（API 31+ 守卫 + `isLiquidGlass()` 守卫；半径取 `Setting.getGlassBlur()` dp × density；关/0 时显式置 0）与 `public static void applyCardBlur(View root)`（子树遍历：背景 constant-state 等于 `R.drawable.shape_setting_row_card` 的 view、以及背景色等于 `setting_card_bg` 的 `MaterialCardView`，逐个 `applyViewBlur`）。（若 helper 已随 A 进，B 只做调用点。）
-- `SettingFragment.addGroup`：`card.setRadius(dp(24))` 后加 `applyViewBlur(card)`（1 处，覆盖 6 分组 + 隐藏分组，重建也生效）。
-- 8 个子页 Fragment（增强/播放器/弹幕/字幕/TMDB/个人/AI/广告）：各 `onViewCreated` 末尾加 `ThemeController.applyCardBlur(binding.getRoot())`（各 1 行；以各文件实际 binding 字段名为准）。
-- `SettingSearchFragment`：同上（覆盖其 `MaterialCardView`）。
+- `app/src/main/java/com/github/moyingshi/osc/tv/ui/custom/CustomWallView.java`：新增 `public void setBlurRadius(float radiusPx)`（API 31+ 守卫；`RenderEffect.createBlurEffect(radius, radius, CLAMP)` 模糊整张壁纸，`<= 0` 清除；视频壁纸不受父视图 RenderEffect 影响）。
+- `app/src/main/java/com/github/moyingshi/osc/tv/theme/ThemeController.java`：删掉编译不过的 `applyViewBlur/applyCardBlur`；新增 `applyWallpaperBlur/clearWallpaperBlur(Activity)`（找到 `android.R.id.content` 第 0 个子视图 `CustomWallView`，半径取 `Setting.getGlassBlur()` dp × density；液态玻璃关/半径 0/低版本时清除）。
+- `app/src/mobile/java/com/github/moyingshi/osc/tv/ui/activity/HomeActivity.java`：`changeFragment` 里一切换就开关（位置 1–10 设置页开、0 首页关）；全部设置屏（主设置页 + 8 子页 + 搜索页）都覆盖。
+- `app/src/mobile/java/com/github/moyingshi/osc/tv/ui/fragment/VodFragment.java`：去掉搜索条与 FAB 的 `applyViewBlur` 调用（方法已删）与无用 import；FAB 只留半透明底。
 - 不透明度不动（`setting_card_bg` 保持 #BF 75%）；模糊半径不动（默认 5dp，用户设置 0–40 可调）。
-- 性能注：每页约 15 个模糊视图，5dp 默认半径成本低；开关可关、滑杆可调；低端机若卡，用户关液态玻璃即回原样。
+- 性能注：整张静态壁纸模糊一次，滚动不重模糊，成本低于原计划的逐卡片模糊；开关可关、滑杆可调；低端机若卡，用户关液态玻璃即回原样。
 
 ## 拆分与验证
 
-- 提交 A：①③④（XML 为主 + 少量 Java 间距/绑定），一轮构建。
-- 提交 B：②（Java helper + 10 处调用），一轮构建。
+- 提交 A：①③④（XML 为主 + 少量 Java 间距/绑定），一轮构建（构建失败，见“②机制已改”）。
+- 提交 B：②机制改成壁纸模糊（quick-fix 修 A 的构建失败），一轮构建。
 - 每笔：guard `finish`（`--verified` 写静态核对证据）→ 推送 → `gh workflow run android-release.yml --repo xinyonghuu/moyingshi -f release_channel=beta -f prerelease=true -f publish_oci=false -f release_notes="…"` → 核对 release 4 APK 齐全 → 汇报 tag + 4 条链接。触发前 `gh run list` 确认无在跑构建。
 - 静态核对（每笔）：`git diff --check`、XML 解析（`python3 -c xml.etree` 过改动的 layout/drawable）、grep 残留（旧色值/旧字号/旧间距无残留）、逐行复核 diff（类型、dp/sp 单位、selector 引用存在、leanback 未动）。
 - 回滚：每笔独立提交 + recovery tag；任一构建失败先看日志，一处小错可修一轮再推再编。

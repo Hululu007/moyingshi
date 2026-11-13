@@ -6,7 +6,10 @@ import android.graphics.BitmapFactory;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.net.Uri;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
@@ -64,6 +67,16 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
     public CustomWallView setMotionEnabled(boolean motionEnabled) {
         this.motionEnabled = motionEnabled;
         return this;
+    }
+
+    /**
+     * 整张壁纸的模糊（API 31+ RenderEffect，GPU 加速、静态图一层，开销小）：只模糊壁纸
+     * 本身，壁纸上的卡片、文字等前景内容不受影响；radiusPx &lt;= 0 清除模糊。视频壁纸是
+     * SurfaceView 子画面，不受父视图 RenderEffect 影响，保持原样。
+     */
+    public void setBlurRadius(float radiusPx) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+        setRenderEffect(radiusPx <= 0 ? null : RenderEffect.createBlurEffect(radiusPx, radiusPx, Shader.TileMode.CLAMP));
     }
 
     @Override
