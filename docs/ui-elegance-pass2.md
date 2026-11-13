@@ -17,11 +17,11 @@
 
 - 目标：五件做完并编进测试版（见完成句）。
 - 验收标准：每件按下表定值改完；功能一项不丢（底栏 6 项、B1–B6、吸顶分类栏、下载重试/暂停/点播/历史海报、液态玻璃开关）；只改手机端；两笔提交、两轮构建，每笔一提交 + recovery tag；构建一次通过（允许一处小错修一轮）。
-- 计划状态：只读审计已完成（见“审计实测”）；guard 会话 elegance-pass2-a 已开（base 5a6fef0e），提交 A（①②④⑤）已实施完毕，待静态核对 → finish → 推 → 构建；提交 B（③壁纸更柔）随后另开 guard 会话。
-- 已做动作：只读审计——量了占位图来源、字体/灰色现值、模糊机制、首页节奏、ControlDialog 按钮清单（见下）；确认与下载三件套的边界（见“协调”）；提交 A 实施：continue_placeholder.xml 新建、ContinueAdapter 占位分支 + 标题兜底、adapter_continue 备注色、设置行/下载行标题加粗、下载行字号 13/15→14/14、色板两主题三色新值、fragment_vod 4 处间隙统 8dp、dialog_control 加 pictureAdjust 行、ControlDialog 接线 + onPictureAdjust()。核对发现：item_download_episode.xml 的 error 行已用 subtitle 色、status 行用 value 色，无需改动。
+- 计划状态：只读审计已完成；guard 会话 elegance-pass2-a 已 finish（提交 7166b047，构建 run 43376553964 一次通过，v5.6.0-beta-202611131407 已发布，4 APK 齐全，head 已核对）；guard 会话 elegance-pass2-b 已开（base 7166b047），提交 B（③壁纸更柔）已实施完毕，待静态核对 → finish → 推 → 构建。
+- 已做动作：只读审计——量了占位图来源、字体/灰色现值、模糊机制、首页节奏、ControlDialog 按钮清单（见下）；确认与下载三件套的边界（见“协调”）；提交 A 实施并已发布（7166b047，v5.6.0-beta-202611131407，4 APK 齐全）；提交 B 实施：Setting.getGlassBlur 默认 5→10、ThemeController.setWallpaperBlur 改半径参数 + 新增 3dp 首页轻微模糊重载、HomeActivity.changeFragment 首页传 3dp。核对发现：item_download_episode.xml 的 error 行已用 subtitle 色、status 行用 value 色，无需改动。
 - 未验证项：本机无 SDK、无真机；第一次编译检查靠推后 GitHub 构建；真机观感（渐变占位、加粗标题、10dp 模糊、3dp 首页模糊）只能等用户截图复核。
 - 风险：① 占位图只改 ContinueAdapter，不碰 ImgUtil 全局占位（改 ImgUtil 会波及搜索/收藏等所有海报）；② 模糊默认值 5→10 会同时影响弹窗窗口模糊（applyGlassWindowBlur 也读同一设置，用户滑杆可调回）；③ 首页 3dp 轻微模糊是壁纸背景，不影响海报/文字前景；④ ControlDialog 新增行不碰 Listener 接口（见实施注），不改 VideoActivity/TmdbDetailActivity。
-- 下一步动作：**静态核对提交 A → guard finish（提交 + recovery tag）→ 推 → 触发测试版构建 → 核对 4 APK → 汇报父任务；随后开 guard 会话 elegance-pass2-b 做提交 B。**
+- 下一步动作：**静态核对提交 B → guard finish（提交 + recovery tag）→ 推 → 触发测试版构建 → 核对 4 APK → 汇报父任务（两笔提交的 tag + 8 条链接）。**
 
 ## 审计实测（2026-11-13，只读）
 

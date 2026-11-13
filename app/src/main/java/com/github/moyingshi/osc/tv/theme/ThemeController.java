@@ -416,30 +416,35 @@ public final class ThemeController {
      * {@code View.setBackgroundBlurRadius} 根本不存在（只有 {@code Window} 有，且只模糊
      * 窗口外的屏幕）；真原语 {@code RenderNode.setBackdropRenderEffect} 要 SDK 37.2 才公开，
      * 用户机器上还没有。所以模糊整张壁纸（{@code CustomWallView}，RenderEffect，API 31+），
-     * 75% 半透明卡片盖在上面就是磨砂玻璃；半径取「模糊效果」设置（0-40dp），默认 5dp。
-     * 只在设置页可见时开，离开即清；液态玻璃关、半径 0、低版本时不模糊。
+     * 75% 半透明卡片盖在上面就是磨砂玻璃；半径取「模糊效果」设置（0-40dp），默认 10dp。
+     * 设置页可见时用设置半径，首页改轻微 3dp；液态玻璃关、半径 0、低版本时不模糊。
      */
     public static void applyWallpaperBlur(android.app.Activity activity) {
-        setWallpaperBlur(activity, true);
+        setWallpaperBlur(activity, com.github.moyingshi.osc.tv.setting.Setting.getGlassBlur());
+    }
+
+    /** 首页轻微模糊：固定 3dp，只柔化壁纸背景，不影响海报与文字前景。 */
+    public static void applyWallpaperBlur(android.app.Activity activity, float radiusDp) {
+        setWallpaperBlur(activity, radiusDp);
     }
 
     public static void clearWallpaperBlur(android.app.Activity activity) {
-        setWallpaperBlur(activity, false);
+        setWallpaperBlur(activity, 0);
     }
 
-    private static void setWallpaperBlur(android.app.Activity activity, boolean blur) {
+    private static void setWallpaperBlur(android.app.Activity activity, float radiusDp) {
         if (activity == null) return;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
         android.view.ViewGroup content = activity.findViewById(android.R.id.content);
         if (content == null || content.getChildCount() == 0) return;
         android.view.View wall = content.getChildAt(0);
         if (!(wall instanceof com.github.moyingshi.osc.tv.ui.custom.CustomWallView wallView)) return;
-        if (!blur || !com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) {
+        if (radiusDp <= 0 || !com.github.moyingshi.osc.tv.setting.Setting.isLiquidGlass()) {
             wallView.setBlurRadius(0);
             return;
         }
         float density = App.get().getResources().getDisplayMetrics().density;
-        wallView.setBlurRadius(com.github.moyingshi.osc.tv.setting.Setting.getGlassBlur() * density);
+        wallView.setBlurRadius(radiusDp * density);
     }
 
     /**

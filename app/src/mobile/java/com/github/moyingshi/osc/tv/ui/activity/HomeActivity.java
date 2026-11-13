@@ -502,10 +502,10 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         boolean changed = mManager.change(position);
         if (changed) {
             currentPosition = position;
-            // 设置页（1 主设置 + 2-10 子页/搜索）开壁纸模糊，首页（0）关：半透明卡片
-            // 盖在模糊壁纸上就是磨砂玻璃；只在一切换处挂一次，全部设置屏都覆盖。
+            // 设置页（1 主设置 + 2-10 子页/搜索）开壁纸模糊（设置半径，默认 10dp），
+            // 首页（0）改轻微 3dp 柔化壁纸背景；只在一切换处挂一次，全部设置屏都覆盖。
             if (position >= 1) ThemeController.applyWallpaperBlur(this);
-            else ThemeController.clearWallpaperBlur(this);
+            else ThemeController.applyWallpaperBlur(this, 3);
         }
         refreshWebHomeChromeLayout();
         return changed;

@@ -437,7 +437,7 @@ public class Setting {
     }
 
     public static int getGlassBlur() {
-        return Math.max(0, Math.min(40, Prefers.getInt("liquid_glass_blur", 5)));
+        return Math.max(0, Math.min(40, Prefers.getInt("liquid_glass_blur", 10)));
     }
 
     public static void putGlassBlur(int blur) {
