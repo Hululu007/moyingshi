@@ -41,7 +41,8 @@
 
         </com.google.android.material.appbar.MaterialToolbar>
 
-        <!-- 首页搜索条：圆角搜索 pill，点进搜索（长按搜本站），右侧站名点进切站；随 AppBar 收起。 -->
+        <!-- 首页搜索条：圆角搜索 pill，点进搜索（长按搜本站），右侧历史 + ⋮ 两个图标；
+             站名只在工具栏标题显示，点标题切站；随 AppBar 收起。 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/searchBar"
             android:layout_width="match_parent"
@@ -74,16 +75,37 @@
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp" />
 
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/searchSite"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <!-- 右侧图标：历史 + ⋮（原工具栏右上角移入），与放大镜同色同尺寸；点按行为不变。 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="20dp"
                 android:layout_marginStart="8dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:maxWidth="120dp"
-                android:textColor="?attr/colorPrimary"
-                android:textSize="14sp" />
+                android:layout_marginEnd="4dp"
+                android:background="@color/setting_card_divider" />
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/searchHistory"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/app_history"
+                android:focusable="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_popup_history"
+                android:tint="?attr/colorOnSurfaceVariant" />
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/searchMore"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/control_other"
+                android:focusable="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_action_more_vert"
+                android:tint="?attr/colorOnSurfaceVariant" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 

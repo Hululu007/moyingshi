@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
@@ -196,7 +197,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             SearchActivity.start(requireActivity(), "", getHome().getKey());
             return true;
         });
-        mBinding.searchSite.setOnClickListener(this::onSite);
+        mBinding.searchHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
+        mBinding.searchMore.setOnClickListener(this::onSearchMore);
         mBinding.typeMore.setOnTouchListener(this::onTypeMoreTouch);
         mBinding.typeMore.setOnClickListener(this::onTypeMore);
         mBinding.filter.setOnClickListener(this::onFilter);
@@ -474,7 +476,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private void setTitle() {
         String name = AppBranding.getDisplayName(requireContext(), getHome().getDisplayName(), getConfig().getName());
         mBinding.title.setText(name);
-        mBinding.searchSite.setText(name);
     }
 
     private void onTop(View view) {
@@ -537,6 +538,14 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         return true;
     }
 
+    /** 搜索条右侧 ⋮：弹原工具栏溢出菜单（刷新/追更/一键同步/推送/增强设置），id 与行为不变。 */
+    private void onSearchMore(View view) {
+        PopupMenu popup = new PopupMenu(requireContext(), view);
+        popup.getMenuInflater().inflate(R.menu.menu_vod_more, popup.getMenu());
+        popup.setOnMenuItemClickListener(this::onMenuItemClick);
+        popup.show();
+    }
+
     private void onFilter(View view) {
         if (mAdapter.getItemCount() > 0) FilterDialog.create().filter(mAdapter.get(mBinding.pager.getCurrentItem()).getFilters()).show(this);
     }
@@ -547,7 +556,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             else homeContent();
         } else if (item.getItemId() == R.id.keep) KeepActivity.start(requireActivity());
         else if (item.getItemId() == R.id.search) SearchActivity.start(requireActivity());
-        else if (item.getItemId() == R.id.history) HistoryActivity.start(requireActivity());
         else if (item.getItemId() == R.id.sync) OneKeySyncDialog.create().show(requireActivity());
         else if (item.getItemId() == R.id.push_apk) ApkPushDialog.create().listener(this::onApkDeviceSelected).show(requireActivity());
         else if (item.getItemId() == R.id.push_play) PushPlayDialog.create().listener(this::onPushPlayDeviceSelected).show(requireActivity());

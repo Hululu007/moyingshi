@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首页搜索条右侧 ⋮ 的弹出菜单：原 menu_vod.xml 里 more_actions 子菜单的 6 项原样搬过来，
+     id/图标/文案不变，点按走 VodFragment.onMenuItemClick，行为与原来工具栏溢出菜单一致。 -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/refresh"
+        android:icon="@drawable/ic_popup_refresh"
+        android:title="@string/live_refresh" />
+
+    <item
+        android:id="@+id/keep"
+        android:icon="@drawable/ic_popup_keep"
+        android:title="@string/app_keep" />
+
+    <item
+        android:id="@+id/sync"
+        android:icon="@drawable/ic_popup_sync"
+        android:title="@string/setting_one_key_sync" />
+
+    <item
+        android:id="@+id/push_apk"
+        android:icon="@drawable/ic_popup_apk"
+        android:title="@string/menu_push_apk" />
+
+    <item
+        android:id="@+id/push_play"
+        android:icon="@drawable/ic_popup_push"
+        android:title="@string/menu_push_play" />
+
+    <item
+        android:id="@+id/enhance"
+        android:icon="@drawable/ic_popup_enhance"
+        android:title="@string/setting_enhance" />
+
+</menu>
