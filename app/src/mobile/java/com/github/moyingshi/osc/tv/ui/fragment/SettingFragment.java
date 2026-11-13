@@ -133,6 +133,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private final VideoDownloadManager.Listener mDownloadListener = this::refreshDownloadList;
     /** 用户手动展开的下载剧名组：进度刷新重建列表时保持展开，不自动收起。 */
     private final Set<String> mExpandedDownloadDramas = new HashSet<>();
+    /** 长按剧名后显示删除按钮的剧名组：进度刷新重建列表时保持显示，不闪一下就没。 */
+    private final Set<String> mDeleteShownDownloadDramas = new HashSet<>();
 
     public static SettingFragment newInstance() {
         return new SettingFragment();
@@ -679,6 +681,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         binding.title.setText(dramaName);
         binding.subtitle.setText(downloadSummary(tasks));
         binding.value.setVisibility(View.GONE);
+        // 删除按钮显隐是持久状态：重建时从集合恢复，否则下载中每 500ms 刷新会把它清掉。
+        binding.deleteBtn.setVisibility(mDeleteShownDownloadDramas.contains(dramaName) ? View.VISIBLE : View.GONE);
         LinearLayout episodes = new LinearLayout(requireContext());
         episodes.setOrientation(LinearLayout.VERTICAL);
         episodes.setLayoutParams(new LinearLayout.LayoutParams(
@@ -686,6 +690,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         episodes.setVisibility(mExpandedDownloadDramas.contains(dramaName) ? View.VISIBLE : View.GONE);
         for (DownloadTask task : tasks) addEpisodeRow(inflater, episodes, task);
         binding.getRoot().setOnClickListener(v -> {
+            mDeleteShownDownloadDramas.remove(dramaName);
             binding.deleteBtn.setVisibility(View.GONE);
             boolean expand = episodes.getVisibility() != View.VISIBLE;
             episodes.setVisibility(expand ? View.VISIBLE : View.GONE);
@@ -693,6 +698,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             else mExpandedDownloadDramas.remove(dramaName);
         });
         binding.getRoot().setOnLongClickListener(v -> {
+            mDeleteShownDownloadDramas.add(dramaName);
             binding.deleteBtn.setVisibility(View.VISIBLE);
             return true;
         });
@@ -797,6 +803,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 .setTitle(R.string.download_delete_title)
                 .setMessage(getString(R.string.download_delete_message, dramaName))
                 .setPositiveButton(R.string.download_delete, (dialog, which) -> VideoDownloadManager.get().deleteDrama(dramaName, ok -> {
+                    mDeleteShownDownloadDramas.remove(dramaName);
                     Notify.show(ok ? R.string.download_deleted : R.string.download_delete_failed);
                     refreshDownloadList();
                 }))
