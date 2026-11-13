@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首页“继续观看”无海报占位：柔和对角渐变（主题 surfaceContainerHigh → surfaceContainer），
+     替代旧 push 占位图的大白卡 + 灰纸飞机；有真海报时不走这张。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:endColor="?attr/colorSurfaceContainer"
+                android:startColor="?attr/colorSurfaceContainerHigh"
+                android:type="linear" />
+        </shape>
+    </item>
+</layer-list>

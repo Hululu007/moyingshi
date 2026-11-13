@@ -47,7 +47,7 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textColor="@color/setting_card_subtitle"
         android:textSize="12sp" />
 
 </LinearLayout>

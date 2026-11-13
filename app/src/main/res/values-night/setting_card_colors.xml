@@ -3,10 +3,10 @@
     <!-- BieCuiLe-style grouped settings card palette (dark). -->
     <color name="setting_page_bg">#121212</color>
     <color name="setting_card_bg">#BF1E1E1E</color>
-    <color name="setting_group_title">#98989D</color>
+    <color name="setting_group_title">#A3A3A8</color>
     <color name="setting_card_title">#FFFFFF</color>
-    <color name="setting_card_subtitle">#98989D</color>
-    <color name="setting_card_value">#98989D</color>
+    <color name="setting_card_subtitle">#A3A3A8</color>
+    <color name="setting_card_value">#C6C6CB</color>
     <color name="setting_card_divider">#38383A</color>
     <color name="setting_chevron">#48484A</color>
     <color name="setting_accent">#A8C7FA</color>

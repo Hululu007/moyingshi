@@ -335,6 +335,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.codecCapability.setOnClickListener(v -> listener().onCodecCapabilityPanel());
         binding.panDiagnostic.setOnClickListener(v -> onPanDiagnostic());
         binding.lut.setOnClickListener(v -> onLut());
+        binding.pictureAdjust.setOnClickListener(v -> onPictureAdjust());
         binding.ending.setOnClickListener(v -> click(binding.ending, controls.ending));
         binding.opening.setOnClickListener(v -> click(binding.opening, controls.opening));
         binding.player.setOnLongClickListener(v -> longClick(binding.player, controls.player));
@@ -356,6 +357,19 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         App.post(() -> {
             if (activity.isFinishing() || activity.isDestroyed() || fragmentManager.isStateSaved() || current.isReleased()) return;
             PanNetworkDiagnosticDialog.show(activity, current);
+        }, 140);
+    }
+
+    private void onPictureAdjust() {
+        FragmentActivity activity = getActivity();
+        PlayerManager current = player;
+        if (activity == null || current == null) return;
+        FragmentManager fragmentManager = activity.getSupportFragmentManager();
+        if (activity.isFinishing() || activity.isDestroyed() || fragmentManager.isStateSaved() || current.isReleased()) return;
+        dismissAllowingStateLoss();
+        App.post(() -> {
+            if (activity.isFinishing() || activity.isDestroyed() || fragmentManager.isStateSaved() || current.isReleased()) return;
+            PictureAdjustDialog.show(activity, current);
         }, 140);
     }
 
