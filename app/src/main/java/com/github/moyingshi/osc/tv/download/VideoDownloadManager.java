@@ -473,6 +473,11 @@ public final class VideoDownloadManager {
             long total = body.contentLength();
             task.totalBytes = total < 0 ? -1 : total + existing;
             task.filePath = target.getAbsolutePath();
+            // 直链目标在 Download/<剧名>/ 下：这个目录只在 m3u8 流程里建过，
+            // 直链第一次下这部剧时目录还不存在，FileOutputStream 会直接抛
+            // FileNotFoundException（整部剧全集失败，原因就是这条路径）。
+            File parent = part.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IOException("创建下载目录失败");
             try (InputStream in = body.byteStream();
                  FileOutputStream out = new FileOutputStream(part, existing > 0)) {
                 copyWithProgress(task, in, out, existing);

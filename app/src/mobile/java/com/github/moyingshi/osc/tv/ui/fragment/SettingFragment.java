@@ -28,6 +28,7 @@ import com.github.moyingshi.osc.tv.databinding.ItemSettingCardRowBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemSettingCardRowConfigBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemSettingGroupTitleBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
+import com.github.moyingshi.osc.tv.download.DownloadPathUtil;
 import com.github.moyingshi.osc.tv.download.DownloadTask;
 import com.github.moyingshi.osc.tv.download.VideoDownloadManager;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
@@ -712,9 +713,29 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         ItemDownloadEpisodeBinding binding = ItemDownloadEpisodeBinding.inflate(inflater, parent, false);
         binding.name.setText(task.episodeName);
         binding.status.setText(downloadStatusText(task));
+        bindDownloadError(binding, task);
         bindEpisodeProgress(binding, task);
         binding.getRoot().setOnClickListener(v -> playDownloaded(task));
         parent.addView(binding.getRoot());
+    }
+
+    /** 失败原因单独一行换行显示（最多 3 行）：之前截前 30 字只剩半截路径，真正原因看不见。 */
+    private void bindDownloadError(ItemDownloadEpisodeBinding binding, DownloadTask task) {
+        if (task.status != DownloadTask.Status.FAILED || TextUtils.isEmpty(task.error)) {
+            binding.error.setVisibility(View.GONE);
+            return;
+        }
+        binding.error.setText(shortenDownloadError(task.error));
+        binding.error.setVisibility(View.VISIBLE);
+    }
+
+    /** 去掉内置存储根路径前缀，只留 Download/…，原因本身一字不动。 */
+    private String shortenDownloadError(String error) {
+        String root = DownloadPathUtil.getDownloadRoot().getParent();
+        if (!TextUtils.isEmpty(root) && error.startsWith(root + "/")) {
+            return error.substring(root.length() + 1);
+        }
+        return error;
     }
 
     /** 集行进度条：下载中按真实进度定量显示，总数未知时转圈；解析中转圈；其他状态隐藏。 */
@@ -744,10 +765,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case DONE:
                 return getString(R.string.download_state_done);
             case FAILED: {
-                String failed = getString(R.string.download_state_failed);
-                if (TextUtils.isEmpty(task.error)) return failed;
-                String reason = task.error.length() > 30 ? task.error.substring(0, 30) + "…" : task.error;
-                return failed + "：" + reason;
+                // 原因不再塞进状态行，单独一行完整显示（见 bindDownloadError）。
+                return getString(R.string.download_state_failed);
             }
             case RESOLVING:
                 return getString(R.string.download_state_resolving);

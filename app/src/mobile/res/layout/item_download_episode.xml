@@ -42,6 +42,18 @@
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 
+    <!-- 失败原因单独一行换行显示（最多 3 行）：之前原因塞在状态行里只截前 30 字，剩半截路径，真正原因看不见。 -->
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/error"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="3"
+        android:textColor="@color/setting_card_subtitle"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
     <ProgressBar
         android:id="@+id/progress"
         style="?android:attr/progressBarStyleHorizontal"
