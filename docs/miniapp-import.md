@@ -4,7 +4,7 @@
 
 - [x] 地基提交 f9f6b234 还在 main 上（Rhino + HkRule/HkStore/HkEngine/HkExecutor/HkParser）
 - [x] 实验室“海阔小程序”分组 371009f4 已在 main 上（占位页，本步已替换成真页面）
-- [x] 本步提交（见 finish 结果的 hash；本地提交，不推不编）
+- [x] 本步提交 a2e06441（本地提交，不推不编；recovery tag recovery/miniapp-import/20261114201745-a2e064416dd9）
 
 ## 目标
 
