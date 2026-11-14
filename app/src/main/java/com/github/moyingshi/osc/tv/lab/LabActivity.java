@@ -67,6 +67,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private static final String GROUP_ALL = "all";
     /** 本地源分组 id：下划线前缀，避免与 lab.json 里的分组 id 撞上。 */
     private static final String GROUP_LOCAL_SOURCE = "__local_source__";
+    /** 海阔小程序分组 id：下划线前缀，避免与 lab.json 里的分组 id 撞上；占位，导入和列表随后就到。 */
+    private static final String GROUP_MINIAPP = "__miniapp__";
     private static final int[] SOURCE_MODES = {LabConfig.SOURCE_LOCAL, LabConfig.SOURCE_URL};
     public static final String EXTRA_SHOW_RUNNING = "show_running";
 
@@ -144,6 +146,11 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 groupSwipeDetector.onTouchEvent(event);
                 return false;
             });
+            // 占位页（海阔小程序）和空态时列表是隐藏的，手势挂到空态视图上，左右滑动一样能切分组。
+            mBinding.empty.getRoot().setOnTouchListener((v, event) -> {
+                groupSwipeDetector.onTouchEvent(event);
+                return false;
+            });
         }
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
@@ -208,6 +215,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         groups.add(new LabGroupAdapter.Row(GROUP_ALL, "全部"));
         // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
         if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_LOCAL_SOURCE, getString(R.string.setting_local_source)));
+        // 海阔小程序分组紧跟本地源之后，同样只在手机端出现；现在是占位，导入和列表随后就到。
+        if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_MINIAPP, "海阔小程序"));
         List<LabModels.Item> all = new ArrayList<>();
         if (root != null && root.lists != null) {
             if (root.groups != null) {
@@ -225,6 +234,10 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         mBinding.groupRecycler.smoothScrollToPosition(selectedIndex);
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
             showLocalSources();
+            return;
+        }
+        if (GROUP_MINIAPP.equals(currentGroup)) {
+            showMiniappPlaceholder();
             return;
         }
         setScanMenuVisible(false);
@@ -314,6 +327,16 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         mBinding.recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
         mBinding.empty.text.setText(R.string.lab_local_source_empty);
         setScanMenuVisible(true);
+        mBinding.progress.setVisibility(View.GONE);
+        mBinding.swipeRefresh.setRefreshing(false);
+    }
+
+    /** 海阔小程序分组占位：导入和列表还没做，先显示标题加一行说明；复用空态视图，居中显示。 */
+    private void showMiniappPlaceholder() {
+        setScanMenuVisible(false);
+        mBinding.recycler.setVisibility(View.GONE);
+        mBinding.empty.getRoot().setVisibility(View.VISIBLE);
+        mBinding.empty.text.setText("海阔小程序\n导入和列表功能正在做，随后就到");
         mBinding.progress.setVisibility(View.GONE);
         mBinding.swipeRefresh.setRefreshing(false);
     }
