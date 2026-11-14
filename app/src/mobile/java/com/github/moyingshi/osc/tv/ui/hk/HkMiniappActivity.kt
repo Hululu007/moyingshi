@@ -147,7 +147,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
 
     /** 重新加载当前点播配置，让新登记的小程序站源出现在首页站点列表里（与本地源弹窗一致）。 */
     private fun reloadLocalConfig() {
-        VodConfig.load(Config.vod(), object : Callback {
+        VodConfig.load(Config.vod(), object : Callback() {
             override fun success() {
                 ConfigEvent.vod()
             }
