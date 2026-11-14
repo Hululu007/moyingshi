@@ -483,7 +483,7 @@ public class HkStore {
         }
     }
 
-    /** 在 zip 里找规则入口：根目录 rule.json 优先，其次任意 */rule.json，最后唯一的其它 .json（排除 require.json）。 */
+    /** 在 zip 里找规则入口：根目录 rule.json 优先，其次任意 rule.json，最后唯一的其它 .json（排除 require.json）。 */
     private static ZipEntry findRuleEntry(ZipFile zip) {
         ZipEntry root = zip.getEntry("rule.json");
         if (root != null) return root;
