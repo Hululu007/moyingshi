@@ -109,6 +109,7 @@ public final class SettingSearchIndex {
         // Enhance page (3).
         entries.add(sub(R.string.setting_lab, R.string.setting_enhance, 3));
         entries.add(sub(R.string.setting_lab_nav, R.string.setting_enhance, 3));
+        entries.add(sub(R.string.setting_hk_miniapp, R.string.setting_enhance, 3));
         entries.add(sub(R.string.setting_drive_check, R.string.setting_enhance, 3));
         entries.add(sub(R.string.setting_site_name, R.string.setting_enhance, 3));
         entries.add(sub(R.string.setting_local_reader, R.string.setting_enhance, 3));

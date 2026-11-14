@@ -131,6 +131,15 @@ public class LocalSource {
         return end > start && "密密".equals(site.getName().substring(start + 2, end));
     }
 
+    /** 是不是海阔小程序站源（api 或 key 以 hk:// 开头；main 源集不能引用 mobile 的 HkStore，这里只按字符串判断，与 HkStore.isMiniapp 同义）。 */
+    public static boolean isMiniapp(Site site) {
+        if (site == null) return false;
+        String api = site.getApi();
+        if (!TextUtils.isEmpty(api) && api.startsWith("hk://")) return true;
+        String key = site.getKey();
+        return !TextUtils.isEmpty(key) && key.startsWith("hk://");
+    }
+
     /** 读出本地源站点列表（api/ext 按当前本机服务端口换成本机地址；密源未开开关时过滤掉）。 */
     public static synchronized List<Site> getSites() {
         if (sites != null) return new ArrayList<>(sites);
@@ -166,9 +175,12 @@ public class LocalSource {
         sites = new ArrayList<>(list);
     }
 
-    /** 清空本地源（删掉全部站点）。 */
+    /** 清空本地源（删掉全部本地源站点；海阔小程序不是本地源，登记的 hk:// 条目保留，仍在小程序管理页里）。 */
     public static synchronized void clear() {
-        saveSites(new ArrayList<>());
+        List<Site> raw = getSitesRaw();
+        List<Site> kept = new ArrayList<>();
+        for (Site site : raw) if (isMiniapp(site)) kept.add(site);
+        saveSites(kept);
     }
 
     /** 按 key 删站点（直接操作原始列表，不经过地址转换，写回的还是 file://）。 */

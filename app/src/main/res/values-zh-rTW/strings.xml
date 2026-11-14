@@ -3090,6 +3090,7 @@
     <string name="setting_local_source_sub">本地 .py/.js/.json 源</string>
     <string name="setting_lab_sub">實驗功能</string>
     <string name="setting_lab_nav">底欄顯示實驗室</string>
+    <string name="setting_hk_miniapp">顯示海闊小程序</string>
     <string name="local_source_remove">刪除</string>
     <string name="lab_local_source_scan">掃描目錄</string>
     <string name="lab_local_source_empty">暫無本地源</string>

@@ -130,6 +130,52 @@
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/hkMiniapp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_green">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_site_grid"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/setting_hk_miniapp"
+                    android:textColor="@color/setting_card_title"
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/hkMiniappText"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/setting_card_value"
+                    android:textSize="16sp"
+                    tools:text="开"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/driveCheck"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -1,7 +1,5 @@
 package com.github.moyingshi.osc.tv.lab;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -18,7 +16,6 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -92,6 +89,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private int swipeFlingDelta;
     /** 结算动画的代次：新开手势或重渲染时 +1，旧动画的结束回调凭它认出自己已过期，不再切分组。 */
     private int swipeSettleToken;
+    /** 上次看到的“海阔小程序”开关值：增强设置里切了开关、回实验室时分组要跟着重渲染（与 HomeActivity 的 lastLabNav 同款）。 */
+    private boolean lastHkMiniapp;
     private final Set<String> autoInstallAttempted = new HashSet<>();
     private AlertDialog settingsDialog;
     /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
@@ -160,6 +159,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         }
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
+        lastHkMiniapp = Setting.isHkMiniapp();
         reload();
         handleShowRunning(getIntent());
         App.post(this::requestNotifyPermission, 300);
@@ -190,6 +190,12 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     @Override
     protected void onResume() {
         super.onResume();
+        // 增强设置里“海阔小程序”开关可能刚被切换：分组变了就重渲染（正在小程序分组时开关被关掉会切回“全部”）。
+        if (lastHkMiniapp != Setting.isHkMiniapp()) {
+            lastHkMiniapp = Setting.isHkMiniapp();
+            render(LabConfig.get().getLabRoot());
+            return;
+        }
         // 从小程序管理页回来时刷新内嵌列表（可能刚导进/删掉规则）；其它分组不动。
         if (GROUP_MINIAPP.equals(currentGroup)) showMiniappList();
     }
@@ -233,7 +239,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
         if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_LOCAL_SOURCE, getString(R.string.setting_local_source)));
         // 海阔小程序分组紧跟本地源之后，同样只在手机端出现；点开进管理页（HkMiniappActivity），这里是返回后看到的内嵌列表。
-        if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_MINIAPP, "海阔小程序"));
+        // 增强设置里“海阔小程序”开关关掉时不显示这个分组。
+        if (!Util.isLeanback() && Setting.isHkMiniapp()) groups.add(new LabGroupAdapter.Row(GROUP_MINIAPP, "海阔小程序"));
         List<LabModels.Item> all = new ArrayList<>();
         if (root != null && root.lists != null) {
             if (root.groups != null) {
@@ -353,32 +360,21 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
             bounceSwipeBack();
             return;
         }
-        // 过阈值：先把旧内容加速滑出屏（约 150ms），再切分组，新内容从另一侧减速滑进来（约 200ms）。
+        // 过阈值：直接切分组，不再把旧内容先滑出屏——那段“滑出→空白→滑入”是拖起来不跟手、
+        // 看起来一顿一顿的来源。新内容从手势方向外侧一次滑进来（约 220ms），方向和手指一致。
         float width = getResources().getDisplayMetrics().widthPixels;
-        float outX = delta > 0 ? -width : width;
-        float enterX = -outX;
-        final int token = ++swipeSettleToken;
-        final int switchDelta = delta;
-        mBinding.recycler.animate().translationX(outX).setDuration(150)
-                .setInterpolator(new AccelerateInterpolator())
-                .setListener(new AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        if (token != swipeSettleToken) return;
-                        if (isFinishing() || isDestroyed()) return;
-                        switchGroup(switchDelta);
-                        mBinding.recycler.setTranslationX(enterX);
-                        mBinding.recycler.animate().translationX(0).setDuration(200)
-                                .setInterpolator(new DecelerateInterpolator())
-                                .setListener(null);
-                    }
-                });
+        float enterX = delta > 0 ? width : -width;
+        switchGroup(delta);
+        mBinding.recycler.setTranslationX(enterX);
+        mBinding.recycler.animate().translationX(0).setDuration(220)
+                .setInterpolator(new DecelerateInterpolator())
+                .setListener(null);
     }
 
-    /** 不到阈值或滑到头：弹回原位（约 200ms）。 */
+    /** 不到阈值或滑到头：弹回原位（约 180ms）。 */
     private void bounceSwipeBack() {
         swipeFlingDelta = 0;
-        mBinding.recycler.animate().translationX(0).setDuration(200)
+        mBinding.recycler.animate().translationX(0).setDuration(180)
                 .setInterpolator(new DecelerateInterpolator())
                 .setListener(null);
     }
@@ -400,14 +396,15 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         else reload();
     }
 
-    /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）。 */
+    /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）；海阔小程序不是本地源，hk:// 条目不进这里。 */
     private void showLocalSources() {
         if (localSourceAdapter == null) {
             localSourceAdapter = new LocalSourceAdapter(this);
             localSourceAdapter.setCheckable(false);
         }
         if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
-        List<Site> sites = LocalSource.getSites();
+        List<Site> sites = new ArrayList<>();
+        for (Site site : LocalSource.getSites()) if (!LocalSource.isMiniapp(site)) sites.add(site);
         localSourceAdapter.setItems(sites);
         boolean empty = sites.isEmpty();
         mBinding.empty.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -439,13 +436,9 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         mBinding.swipeRefresh.setRefreshing(false);
     }
 
-    /** 是不是小程序站源（main 源集不能引用 mobile 的 HkStore，这里只按 api/key 字符串判断）。 */
+    /** 是不是小程序站源（main 源集不能引用 mobile 的 HkStore，判断逻辑在 LocalSource.isMiniapp 里）。 */
     private static boolean isMiniappSite(Site site) {
-        if (site == null) return false;
-        String api = site.getApi();
-        if (api != null && api.startsWith("hk://")) return true;
-        String key = site.getKey();
-        return key != null && key.startsWith("hk://");
+        return LocalSource.isMiniapp(site);
     }
 
     private void setScanMenuVisible(boolean visible) {
@@ -832,7 +825,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
      *
      * <p>onScroll 里方向锁定后内容跟着手指平移（纵向占优时不跟，纵向滚动、下拉刷新、点卡片原样不动）；
      * onFling 只记录方向不直接切组，松手时 onSwipeTouch 统一结算：fling 优先，其次看位移是否过阈值，
-     * 过阈值先滑出屏再切组、新内容从另一侧滑进来，不到阈值或滑到头就弹回原位。
+     * 过阈值直接切分组、新内容从手势方向一次滑进来（不再先把旧内容滑出屏留一段空白），不到阈值或滑到头就弹回原位。
      * 返回 true 只表示手势被认领，事件本身仍由 OnTouchListener 原样放行给列表。
      */
     private final class GroupSwipeListener extends GestureDetector.SimpleOnGestureListener {
@@ -877,7 +870,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
             if (e1 == null || e2 == null) return false;
             if (Math.abs(velocityX) < Math.abs(velocityY)) return false;
             float dx = e2.getX() - e1.getX();
-            float minDistance = 80 * getResources().getDisplayMetrics().density;
+            float minDistance = 50 * getResources().getDisplayMetrics().density;
             if (dx < -minDistance) {
                 swipeFlingDelta = 1;
                 return true;

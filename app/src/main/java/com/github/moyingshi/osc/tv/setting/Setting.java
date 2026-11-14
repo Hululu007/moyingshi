@@ -772,6 +772,15 @@ public class Setting {
         Prefers.put("lab_nav", value);
     }
 
+    /** 海阔小程序开关：默认开；开则实验室里显示“海阔小程序”分组，关则隐藏（管理页也随之进不去）。 */
+    public static boolean isHkMiniapp() {
+        return Prefers.getBoolean("hk_miniapp", true);
+    }
+
+    public static void putHkMiniapp(boolean value) {
+        Prefers.put("hk_miniapp", value);
+    }
+
     public static void logDebugEnvironment(String reason) {
         boolean hardwareAccelerated = (App.get().getApplicationInfo().flags & ApplicationInfo.FLAG_HARDWARE_ACCELERATED) != 0;
         DebugLogStore.event(new com.github.catvod.crawler.diagnostics.DiagnosticEvent("env.device", "none", "process", 0, 0)

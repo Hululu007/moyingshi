@@ -3187,6 +3187,7 @@
     <string name="setting_local_source_sub">本地 .py/.js/.json 源</string>
     <string name="setting_lab_sub">实验功能</string>
     <string name="setting_lab_nav">底栏显示实验室</string>
+    <string name="setting_hk_miniapp">显示海阔小程序</string>
     <string name="local_source_remove">删除</string>
     <string name="lab_local_source_scan">扫描目录</string>
     <string name="lab_local_source_empty">暂无本地源</string>

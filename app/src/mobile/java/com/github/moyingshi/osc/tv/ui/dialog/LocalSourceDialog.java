@@ -175,7 +175,10 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
     }
 
     private void refreshList() {
-        all = LocalSource.getSites();
+        // 海阔小程序不是本地源：hk:// 条目不进这个列表（分类 tabs、条数、搜索都只算本地源），
+        // 它们只在实验室“海阔小程序”分组 / 小程序管理页里出现。
+        all = new ArrayList<>();
+        for (Site site : LocalSource.getSites()) if (!LocalSource.isMiniapp(site)) all.add(site);
         List<String> categories = LocalSource.categoriesOf(all);
         if (!categories.contains(category)) category = "全部";
         buildTabs(categories);

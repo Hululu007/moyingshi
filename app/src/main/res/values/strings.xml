@@ -3194,6 +3194,7 @@
     <string name="setting_local_source_sub">Local .py/.js/.json sources</string>
     <string name="setting_lab_sub">Experimental features</string>
     <string name="setting_lab_nav">Show Lab in bottom bar</string>
+    <string name="setting_hk_miniapp">Show Hiker mini-apps</string>
     <string name="local_source_remove">Delete</string>
     <string name="lab_local_source_scan">Scan folder</string>
     <string name="lab_local_source_empty">No local sources yet</string>
