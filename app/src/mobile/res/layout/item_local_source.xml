@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
@@ -34,5 +35,18 @@
             android:textSize="12sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <!-- 行末删除：点它只删这一条，不触发整行点击（切源）；样式照 adapter_plugin_entry 的 entryDelete。 -->
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/delete"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/selector_dialog_switch"
+        android:contentDescription="@string/local_source_remove"
+        android:focusable="true"
+        android:padding="12dp"
+        android:src="@drawable/ic_action_delete"
+        app:tint="@color/fixed_light_focus_icon" />
 
 </androidx.appcompat.widget.LinearLayoutCompat>

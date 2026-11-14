@@ -243,17 +243,30 @@ public class LocalSource {
         return skipped;
     }
 
-    /** 扫描一个目录（递归），返回新导入的站点数。 */
+    /** 上次整目录扫描清理掉的失效条目数（源文件已不在的条目，读一次就清掉）。 */
+    private static volatile int prunedStaleCount;
+
+    public static int takePrunedCount() {
+        int pruned = prunedStaleCount;
+        prunedStaleCount = 0;
+        return pruned;
+    }
+
+    /** 扫描一个目录（递归），返回新导入的站点数；顺带清掉源文件已不在的条目。 */
     public static int scan(File dir) {
         if (dir == null || !dir.isDirectory()) return 0;
         skippedLargeDir = false;
+        prunedStaleCount = 0;
         List<File> files = new ArrayList<>();
         collect(dir, files);
-        return parse(files, isShowSecret());
+        int added = parse(files, isShowSecret());
+        prunedStaleCount = pruneStale();
+        return added;
     }
 
-    /** 扫描指定的单个文件，返回新导入的站点数。 */
+    /** 扫描指定的单个文件，返回新导入的站点数（只加一个文件，不清理列表）。 */
     public static int scanFiles(List<File> files) {
+        prunedStaleCount = 0;
         return parse(files, isShowSecret());
     }
 
@@ -326,6 +339,70 @@ public class LocalSource {
         }
         if (added > 0) saveSites(new ArrayList<>(byKey.values()));
         return added;
+    }
+
+    /**
+     * 清掉源文件已不在的条目（整目录重扫时顺带清理，参考实现的 retainOnly）。
+     * 只删能确定源文件已删的：backingFilePath 能找到一个本地文件地址、且该文件已不在。
+     * 无法验证的一律保留：http 地址的、csp_ 且 ext 不是本地文件的、api 为空的、
+     * 配置文件解析出但没对应本地文件的站点。
+     */
+    private static synchronized int pruneStale() {
+        List<Site> raw = getSitesRaw();
+        if (raw.isEmpty()) return 0;
+        List<Site> kept = new ArrayList<>();
+        int pruned = 0;
+        for (Site site : raw) {
+            String path = backingFilePath(site);
+            if (path != null && !new File(path).exists()) {
+                pruned++;
+                continue;
+            }
+            kept.add(site);
+        }
+        if (pruned > 0) {
+            saveSites(kept);
+            // saveSites 把原始列表写进缓存，这里必须清掉，后面 getSites() 才重新读盘换成本机地址。
+            sites = null;
+        }
+        return pruned;
+    }
+
+    /**
+     * 找出一条站点对应的本地源文件绝对路径，找不到（无法验证）返回 null。
+     * 注册方式决定文件在哪：.py/.js/.php 直接加载的在 api；drpy 引擎（var rule .js）
+     * 的规则文件在 ext；xbpq/xyq/wv.js/FileSpider 的规则文件在 ext（FileSpider 的
+     * ext 是裸绝对路径）；.html（csp_Nostr）的源文件在 homePage。配置文件解析出的
+     * 站点按同样的规则找，找不到就保留，不误删。
+     */
+    private static String backingFilePath(Site site) {
+        if (site == null) return null;
+        String api = site.getApi();
+        String ext = site.getExt();
+        String homePage = site.getHomePage();
+        // 直接加载的源（.py/.js/.php、cat.js）：源文件在 api。
+        String path = filePathOf(toFileUrl(api));
+        if (path != null) return path;
+        // drpy 引擎（var rule .js）：规则文件在 ext。
+        if ("lib/drpy2-fast.min.js".equals(api)) return filePathOf(toFileUrl(ext));
+        // Jar 蜘蛛（xbpq/xyq/wv.js/FileSpider）：规则文件在 ext；
+        // .html（csp_Nostr）的源文件在 homePage。
+        if (api != null && api.startsWith("csp_")) {
+            path = filePathOf(toFileUrl(ext));
+            if (path != null) return path;
+            // FileSpider 的 ext 存的是裸绝对路径（toPlainPath 去掉了 file://）。
+            if (!TextUtils.isEmpty(ext) && ext.startsWith("/")) return ext;
+            return filePathOf(toFileUrl(homePage));
+        }
+        // 其余（http 地址、assets://、空 api 等）无法验证，保留。
+        return null;
+    }
+
+    /** file:// 地址转成本地绝对路径；不是 file:// 或路径为空返回 null。 */
+    private static String filePathOf(String fileUrl) {
+        if (fileUrl == null) return null;
+        String path = fileUrl.substring("file://".length());
+        return TextUtils.isEmpty(path) ? null : path;
     }
 
     /** 真的 Jar 蜘蛛类（xbpq/xyq/wv.js 用的），不是坏的 csp_ 写法，别动。 */

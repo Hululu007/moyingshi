@@ -31,6 +31,7 @@
     <string name="local_source_scanning">正在扫描…</string>
     <string name="local_source_imported">已导入 %1$d 个源</string>
     <string name="local_source_deleted">已删除 %1$d 个源</string>
+    <string name="local_source_pruned">已清理 %1$d 个失效源</string>
     <string name="local_source_bad_ext">不支持的文件类型</string>
     <string name="local_source_php_hint">PHP 根目录已设置</string>
     <string name="local_source_php_root_label">PHP 根目录：%1$s</string>

@@ -26,6 +26,7 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
 
     public interface OnClickListener {
         void onItemClick(Site item);
+        void onDeleteClick(Site item);
         void onSelectionChanged();
     }
 
@@ -100,6 +101,8 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
             listener.onSelectionChanged();
         });
         holder.binding.getRoot().setOnClickListener(v -> listener.onItemClick(site));
+        // 行末删除按钮自己拦截点击，不会冒泡到整行（切源）；只删这一条。
+        holder.binding.delete.setOnClickListener(v -> listener.onDeleteClick(site));
     }
 
     @Override

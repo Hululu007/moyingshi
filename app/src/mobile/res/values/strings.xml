@@ -31,6 +31,7 @@
     <string name="local_source_scanning">Scanning…</string>
     <string name="local_source_imported">Imported %1$d sources</string>
     <string name="local_source_deleted">Deleted %1$d sources</string>
+    <string name="local_source_pruned">Cleaned up %1$d stale sources</string>
     <string name="local_source_bad_ext">Unsupported file type</string>
     <string name="local_source_php_hint">PHP root set</string>
     <string name="local_source_php_root_label">PHP root: %1$s</string>

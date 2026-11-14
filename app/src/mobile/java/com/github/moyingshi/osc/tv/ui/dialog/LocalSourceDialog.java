@@ -91,6 +91,8 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
             LocalSource.setPhpRoot(path);
             refreshPhpRoot();
             Notify.show(R.string.local_source_php_hint);
+            // 换了 PHP 根，旧 PHP 源要重载配置才生效，顺手重载一次。
+            reloadConfig();
         }
     });
 
@@ -247,11 +249,14 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
             scanning = false;
             LocalSource.invalidate();
             boolean skippedLarge = LocalSource.takeSkippedLargeDir();
+            int pruned = LocalSource.takePrunedCount();
             refreshList();
             // 有文件夹因文件过多被跳过：只提示这句，不再报导入数。
             if (skippedLarge) Notify.show(R.string.local_source_too_many_files);
             else Notify.show(getString(R.string.local_source_imported, count));
-            if (count > 0) reloadConfig();
+            if (pruned > 0) Notify.show(getString(R.string.local_source_pruned, pruned));
+            // 有新源或清掉了失效条目都要重载，配置里的站点列表才跟得上。
+            if (count > 0 || pruned > 0) reloadConfig();
         });
     }
 
@@ -291,6 +296,15 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
         VodConfig.get().setHome(item);
         ConfigEvent.vod();
         dismiss();
+    }
+
+    /** 行末删除按钮：只删这一条，删完刷新列表并重载配置。 */
+    @Override
+    public void onDeleteClick(Site item) {
+        LocalSource.removeByKeys(List.of(item.getKey()));
+        refreshList();
+        Notify.show(getString(R.string.local_source_deleted, 1));
+        reloadConfig();
     }
 
     @Override
