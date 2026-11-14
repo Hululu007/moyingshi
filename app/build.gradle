@@ -173,6 +173,9 @@ dependencies {
     implementation libs.quickjs.java
     // B5 Widget.dom 用 jsoup：quickjs 模块的 jsoup 是 implementation，不向 app 传递，故此处显式声明（同一版本 1.22.2）。
     implementation libs.jsoup
+    // 小程序（海阔规则）引擎：Rhino 解释器模式（HkEngine 内 setOptimizationLevel(-1)，Android 上必须，
+    // 不能用优化模式/动态生成字节码）。评估明确要求 1.7.14，不用 1.8.0。
+    implementation libs.rhino
     implementation libs.appcompat
     implementation libs.lifecycle.service
     implementation libs.media
