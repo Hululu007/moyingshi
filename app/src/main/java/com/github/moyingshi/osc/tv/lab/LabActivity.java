@@ -230,8 +230,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         for (LabGroupAdapter.Row row : groups) groupIds.add(row.id);
         int selectedIndex = indexOfGroup(groups, currentGroup);
         groupAdapter.select(selectedIndex);
-        // 选中标签可能在横向标签栏可视区之外（分组多时），滚到可见位置。
-        mBinding.groupRecycler.smoothScrollToPosition(selectedIndex);
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
             showLocalSources();
             return;
