@@ -97,6 +97,8 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private GlassNavState glassState;
     private GlassBackdropCapture glassCapture;
     private boolean navShown = true;
+    /** 上次刷新底栏时底栏实验室开关的值，回首页时变了就重刷底栏。 */
+    private boolean lastLabNav = true;
 
     @Override
     protected ViewBinding getBinding() {
@@ -139,7 +141,8 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     protected void onResume() {
         super.onResume();
         if (mBinding.navigation.getMenu().findItem(R.id.following).isVisible() != FollowingSettings.isEnabled()
-                || mBinding.navigation.getMenu().findItem(R.id.drama).isVisible() != (DramaSites.hasDramaSites() && Setting.isShortDramaCollected())) setNavigation();
+                || mBinding.navigation.getMenu().findItem(R.id.drama).isVisible() != (DramaSites.hasDramaSites() && Setting.isShortDramaCollected())
+                || lastLabNav != Setting.isLabNav()) setNavigation();
         updateFollowingBadge();
     }
 
@@ -283,13 +286,25 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private void setNavigation() {
         mBinding.navigation.getMenu().findItem(R.id.vod).setVisible(true);
         mBinding.navigation.getMenu().findItem(R.id.setting).setVisible(true);
-        mBinding.navigation.getMenu().findItem(R.id.local_source).setVisible(true);
+        // 底栏第 5 项是实验室/本地源二选一（开关在增强设置里，默认开显示实验室）：
+        // 菜单 XML 保持 6 项不动，这里只换这一项的图标、标题和点击去向。
+        MenuItem localSource = mBinding.navigation.getMenu().findItem(R.id.local_source);
+        localSource.setVisible(true);
+        boolean labNav = Setting.isLabNav();
+        localSource.setIcon(labNav ? R.drawable.ic_nav_lab : R.drawable.ic_nav_local);
+        localSource.setTitle(labNav ? R.string.app_lab : R.string.local_source);
+        lastLabNav = labNav;
         mBinding.navigation.getMenu().findItem(R.id.drama).setVisible(DramaSites.hasDramaSites() && Setting.isShortDramaCollected());
         mBinding.navigation.getMenu().findItem(R.id.live).setVisible(LiveConfig.hasUrl());
         mBinding.navigation.getMenu().findItem(R.id.following).setVisible(FollowingSettings.isEnabled());
         updateFollowingBadge();
         syncNavigationSelection();
         syncGlassState();
+    }
+
+    /** 底栏实验室开关变化后立即刷新底栏（增强设置里切换时调用）。 */
+    public void refreshNavigation() {
+        setNavigation();
     }
 
     private boolean openLive() {
@@ -384,7 +399,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         addGlassItem(items, R.id.live, R.drawable.ic_nav_live, R.string.nav_live, true);
         addGlassItem(items, R.id.drama, R.drawable.ic_nav_drama, R.string.nav_drama, false);
         addGlassItem(items, R.id.following, R.drawable.ic_nav_following, R.string.nav_following, false);
-        addGlassItem(items, R.id.local_source, R.drawable.ic_nav_local, R.string.local_source, false);
+        addGlassItem(items, R.id.local_source, Setting.isLabNav() ? R.drawable.ic_nav_lab : R.drawable.ic_nav_local, Setting.isLabNav() ? R.string.app_lab : R.string.local_source, false);
         addGlassItem(items, R.id.setting, R.drawable.ic_nav_setting, R.string.nav_setting, false);
         glassState.setItems(items);
         glassState.setSelectedId(mBinding.navigation.getSelectedItemId());
@@ -444,7 +459,8 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
             return false;
         }
         if (itemId == R.id.local_source) {
-            LocalSourceDialog.create().show(this);
+            if (Setting.isLabNav()) LabActivity.start(this);
+            else LocalSourceDialog.create().show(this);
             return false;
         }
         if (itemId == R.id.vod) return changeFragment(0);

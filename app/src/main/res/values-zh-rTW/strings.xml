@@ -3089,6 +3089,14 @@
     <string name="setting_personal_sub">液態玻璃、搜索、追更、歷史</string>
     <string name="setting_local_source_sub">本地 .py/.js/.json 源</string>
     <string name="setting_lab_sub">實驗功能</string>
+    <string name="setting_lab_nav">底欄顯示實驗室</string>
+    <string name="local_source_remove">刪除</string>
+    <string name="lab_local_source_scan">掃描目錄</string>
+    <string name="lab_local_source_empty">暫無本地源</string>
+    <string name="lab_local_source_imported">已匯入 %1$d 個本地源</string>
+    <string name="lab_local_source_pruned">已清理 %1$d 個失效源</string>
+    <string name="lab_local_source_too_many_files">檔案過多，請選擇子資料夾</string>
+    <string name="lab_local_source_deleted">已刪除 %1$d 個本地源</string>
     <string name="setting_gitcloud_sub">雲端同步帳號</string>
     <string name="setting_onekey_sub">一鍵同步觀看記錄</string>
     <string name="setting_drive_sub">定期檢查本地源驅動</string>

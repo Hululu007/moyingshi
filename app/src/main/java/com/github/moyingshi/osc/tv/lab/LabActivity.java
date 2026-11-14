@@ -11,6 +11,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -19,6 +20,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,6 +29,14 @@ import androidx.appcompat.widget.AppCompatEditText;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.bean.Config;
+import com.github.moyingshi.osc.tv.bean.Site;
+import com.github.moyingshi.osc.tv.event.ConfigEvent;
+import com.github.moyingshi.osc.tv.impl.Callback;
+import com.github.moyingshi.osc.tv.ui.adapter.LocalSourceAdapter;
+import com.github.moyingshi.osc.tv.utils.FileChooser;
+import com.github.moyingshi.osc.tv.utils.LocalSource;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.databinding.ActivityLabBinding;
 import com.github.moyingshi.osc.tv.setting.Setting;
@@ -33,6 +44,7 @@ import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
+import com.github.catvod.utils.Path;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.io.File;
@@ -46,11 +58,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
-public class LabActivity extends AppCompatActivity implements LabPackageAdapter.Listener, LabGroupAdapter.Listener {
+public class LabActivity extends AppCompatActivity implements LabPackageAdapter.Listener, LabGroupAdapter.Listener, LocalSourceAdapter.OnClickListener {
 
     private static final int REQUEST_IMPORT = 1001;
     private static final int REQUEST_LOCAL_CONFIG = 1002;
     private static final String GROUP_ALL = "all";
+    /** 本地源分组 id：下划线前缀，避免与 lab.json 里的分组 id 撞上。 */
+    private static final String GROUP_LOCAL_SOURCE = "__local_source__";
     private static final int[] SOURCE_MODES = {LabConfig.SOURCE_LOCAL, LabConfig.SOURCE_URL};
     public static final String EXTRA_SHOW_RUNNING = "show_running";
 
@@ -60,6 +74,18 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private String currentGroup = GROUP_ALL;
     private final Set<String> autoInstallAttempted = new HashSet<>();
     private AlertDialog settingsDialog;
+    /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
+    private LocalSourceAdapter localSourceAdapter;
+    private boolean localSourceScanning;
+
+    /** 选本地源扫描目录：SAF 目录选择器自己授权，不用先要文件权限（与弹窗一致）。 */
+    private final ActivityResultLauncher<Intent> localSourceLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        if (result.getData() == null || result.getData().getData() == null) return;
+        String path = FileChooser.getPersistentPathFromUri(result.getData().getData());
+        if (TextUtils.isEmpty(path)) return;
+        LocalSource.setScanDir(path);
+        scanLocalDir(new File(path));
+    });
 
     public static void start(Context context) {
         context.startActivity(new Intent(context, LabActivity.class));
@@ -90,6 +116,10 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 showSettings();
                 return true;
             }
+            if (id == R.id.scan_local_dir) {
+                pickLocalSourceDir();
+                return true;
+            }
             return false;
         });
         mBinding.groupRecycler.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
@@ -99,7 +129,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         packageAdapter = new LabPackageAdapter(this, this);
         mBinding.recycler.setAdapter(packageAdapter);
         mBinding.swipeRefresh.setColorSchemeColors(getColor(R.color.accent));
-        mBinding.swipeRefresh.setOnRefreshListener(this::reload);
+        mBinding.swipeRefresh.setOnRefreshListener(this::onRefresh);
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
         reload();
@@ -161,6 +191,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private void render(LabModels.LabRoot root) {
         List<LabGroupAdapter.Row> groups = new ArrayList<>();
         groups.add(new LabGroupAdapter.Row(GROUP_ALL, "全部"));
+        // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
+        if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_LOCAL_SOURCE, getString(R.string.setting_local_source)));
         List<LabModels.Item> all = new ArrayList<>();
         if (root != null && root.lists != null) {
             if (root.groups != null) {
@@ -171,6 +203,13 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         groupAdapter.setRows(groups);
         if (currentGroup == null || !containsGroup(groups, currentGroup)) currentGroup = GROUP_ALL;
         groupAdapter.select(indexOfGroup(groups, currentGroup));
+        if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
+            showLocalSources();
+            return;
+        }
+        setScanMenuVisible(false);
+        mBinding.empty.text.setText(R.string.lab_empty_no_source);
+        if (mBinding.recycler.getAdapter() != packageAdapter) mBinding.recycler.setAdapter(packageAdapter);
         List<LabModels.Item> packages = new ArrayList<>();
         for (LabModels.Item item : all) {
             if (!item.show) continue;
@@ -223,6 +262,102 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     @Override
     public void onLongPress(LabModels.Item item) {
         LabDetailActivity.start(this, item.name);
+    }
+
+    /** 下拉刷新：本地源分组时重扫上次的扫描目录（弹窗“扫描全部”的行为），否则重载实验室配置。 */
+    private void onRefresh() {
+        if (GROUP_LOCAL_SOURCE.equals(currentGroup)) scanLocalSourceDir();
+        else reload();
+    }
+
+    /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）。 */
+    private void showLocalSources() {
+        if (localSourceAdapter == null) {
+            localSourceAdapter = new LocalSourceAdapter(this);
+            localSourceAdapter.setCheckable(false);
+        }
+        if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
+        List<Site> sites = LocalSource.getSites();
+        localSourceAdapter.setItems(sites);
+        boolean empty = sites.isEmpty();
+        mBinding.empty.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
+        mBinding.recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
+        mBinding.empty.text.setText(R.string.lab_local_source_empty);
+        setScanMenuVisible(true);
+        mBinding.progress.setVisibility(View.GONE);
+        mBinding.swipeRefresh.setRefreshing(false);
+    }
+
+    private void setScanMenuVisible(boolean visible) {
+        if (mBinding.toolbar.getMenu() == null) return;
+        MenuItem item = mBinding.toolbar.getMenu().findItem(R.id.scan_local_dir);
+        if (item != null) item.setVisible(visible);
+    }
+
+    /** 重扫上次的扫描目录（未选过就从存储根目录扫），与弹窗“扫描全部”同款。 */
+    private void scanLocalSourceDir() {
+        String dir = LocalSource.getScanDir();
+        scanLocalDir(TextUtils.isEmpty(dir) ? Path.root() : new File(dir));
+    }
+
+    private void scanLocalDir(File dir) {
+        if (localSourceScanning || dir == null) return;
+        localSourceScanning = true;
+        mBinding.swipeRefresh.setRefreshing(true);
+        new Thread(() -> {
+            int count = LocalSource.scan(dir);
+            App.post(() -> {
+                localSourceScanning = false;
+                mBinding.swipeRefresh.setRefreshing(false);
+                LocalSource.invalidate();
+                boolean skippedLarge = LocalSource.takeSkippedLargeDir();
+                int pruned = LocalSource.takePrunedCount();
+                showLocalSources();
+                // 有文件夹因文件过多被跳过：只提示这句，不再报导入数（与弹窗一致）。
+                if (skippedLarge) Notify.show(R.string.lab_local_source_too_many_files);
+                else Notify.show(getString(R.string.lab_local_source_imported, count));
+                if (pruned > 0) Notify.show(getString(R.string.lab_local_source_pruned, pruned));
+                // 有新源或清掉了失效条目都要重载，配置里的站点列表才跟得上。
+                if (count > 0 || pruned > 0) reloadLocalConfig();
+            });
+        }).start();
+    }
+
+    /** 重新加载当前点播配置，让新扫到的本地源出现在首页站点列表里（与弹窗一致）。 */
+    private void reloadLocalConfig() {
+        VodConfig.load(Config.vod(), new Callback() {
+            @Override
+            public void success() {
+                ConfigEvent.vod();
+            }
+        });
+    }
+
+    /** 工具栏“扫描目录”：选个文件夹当扫描目录并重扫（与弹窗“选择文件夹”一致）。 */
+    private void pickLocalSourceDir() {
+        FileChooser.from(localSourceLauncher).showDirectory();
+    }
+
+    /** 点一条本地源：设为当前站源并回首页（与弹窗一致；首页在后台已收到事件刷新）。 */
+    @Override
+    public void onItemClick(Site item) {
+        VodConfig.get().setHome(item);
+        ConfigEvent.vod();
+        finish();
+    }
+
+    /** 行末删除按钮：只删这一条，删完刷新列表并重载配置（与弹窗一致）。 */
+    @Override
+    public void onDeleteClick(Site item) {
+        LocalSource.removeByKeys(List.of(item.getKey()));
+        showLocalSources();
+        Notify.show(getString(R.string.lab_local_source_deleted, 1));
+        reloadLocalConfig();
+    }
+
+    @Override
+    public void onSelectionChanged() {
+        // 实验室里多选框是关掉的，不会有选中变化。
     }
 
     private void showAbout() {

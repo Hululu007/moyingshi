@@ -18,4 +18,12 @@
         android:title="@string/nav_setting"
         app:iconTint="@android:color/white"
         app:showAsAction="always"/>
+    <!-- 本地源分组专用：扫描目录。默认隐藏，切到本地源分组时才显示。 -->
+    <item
+        android:icon="@drawable/ic_folder"
+        android:id="@+id/scan_local_dir"
+        android:title="@string/lab_local_source_scan"
+        android:visible="false"
+        app:iconTint="@android:color/white"
+        app:showAsAction="always"/>
 </menu>

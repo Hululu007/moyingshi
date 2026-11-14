@@ -763,6 +763,15 @@ public class Setting {
         Prefers.put("home_widget", value);
     }
 
+    /** 底栏实验室开关：默认开；开则底栏第 5 项显示实验室，关则显示本地源。 */
+    public static boolean isLabNav() {
+        return Prefers.getBoolean("lab_nav", true);
+    }
+
+    public static void putLabNav(boolean value) {
+        Prefers.put("lab_nav", value);
+    }
+
     public static void logDebugEnvironment(String reason) {
         boolean hardwareAccelerated = (App.get().getApplicationInfo().flags & ApplicationInfo.FLAG_HARDWARE_ACCELERATED) != 0;
         DebugLogStore.event(new com.github.catvod.crawler.diagnostics.DiagnosticEvent("env.device", "none", "process", 0, 0)

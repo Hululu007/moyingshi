@@ -97,6 +97,7 @@ public class SettingEnhanceFragment extends BaseFragment {
             return false;
         });
         mBinding.lab.setOnClickListener(view -> LabActivity.start(requireContext()));
+        mBinding.labNav.setOnClickListener(this::setLabNav);
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.siteName.setOnClickListener(this::setSiteName);
         mBinding.localReader.setOnClickListener(this::setLocalReader);
@@ -136,6 +137,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         ViewGroup parent = (ViewGroup) mBinding.customCsp.getParent();
         View[] order = {
                 mBinding.lab,
+                mBinding.labNav,
                 mBinding.customCsp,
                 mBinding.webHomeExtension,
                 mBinding.gitCloud,
@@ -169,6 +171,7 @@ public class SettingEnhanceFragment extends BaseFragment {
 
     private void setText() {
         if (!canSetText()) return;
+        safeSet("labNav", mBinding.labNavText, () -> getSwitch(Setting.isLabNav()));
         safeSet("driveCheck", mBinding.driveCheckText, () -> getSwitch(Setting.isDriveCheck()));
         safeSet("siteName", mBinding.siteNameText, () -> getString(R.string.setting_site_name_summary, SiteNameStore.count()));
         safeSet("novelSource", mBinding.novelSourceText, () -> getSwitch(!NovelSourceConfig.get().getDisplayRules().isEmpty()));
@@ -302,6 +305,13 @@ public class SettingEnhanceFragment extends BaseFragment {
     private void setSearchCurrentSite(View view) {
         Setting.putSearchCurrentSiteDefault(!Setting.isSearchCurrentSiteDefault());
         setSummary(mBinding.searchCurrentSiteText, getSwitch(Setting.isSearchCurrentSiteDefault()));
+    }
+
+    /** 底栏实验室开关：默认开；开则底栏第 5 项显示实验室，关则显示本地源；切换后立即刷新底栏。 */
+    private void setLabNav(View view) {
+        Setting.putLabNav(!Setting.isLabNav());
+        setSummary(mBinding.labNavText, getSwitch(Setting.isLabNav()));
+        if (requireActivity() instanceof HomeActivity activity) activity.refreshNavigation();
     }
 
     /** 首页组件区开关（B5）：点行切换，默认关；开则首页显示 Bangumi/豆瓣/Mikan/TMDB 推荐行。 */

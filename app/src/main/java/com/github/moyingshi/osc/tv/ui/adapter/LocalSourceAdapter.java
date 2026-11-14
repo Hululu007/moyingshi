@@ -1,6 +1,7 @@
 package com.github.moyingshi.osc.tv.ui.adapter;
 
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -19,6 +20,14 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
     private final OnClickListener listener;
     private List<Site> mItems = new ArrayList<>();
     private final Set<String> selected = new HashSet<>();
+    /** 多选框显隐：弹窗里要勾选删除，默认开；嵌进实验室页时只要点源切换，关掉多选框。 */
+    private boolean checkable = true;
+
+    public LocalSourceAdapter setCheckable(boolean checkable) {
+        this.checkable = checkable;
+        notifyDataSetChanged();
+        return this;
+    }
 
     public LocalSourceAdapter(OnClickListener listener) {
         this.listener = listener;
@@ -94,6 +103,7 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
         Site site = mItems.get(position);
         holder.binding.name.setText(site.getName());
         holder.binding.api.setText(site.getApi());
+        holder.binding.check.setVisibility(checkable ? View.VISIBLE : View.GONE);
         holder.binding.check.setChecked(selected.contains(site.getKey()));
         holder.binding.check.setOnCheckedChangeListener((button, checked) -> {
             if (checked) selected.add(site.getKey());
