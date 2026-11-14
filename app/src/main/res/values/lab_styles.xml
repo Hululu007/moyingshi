@@ -53,4 +53,12 @@
         <item name="colorPrimary">@color/accent</item>
         <item name="isLightTheme">false</item>
     </style>
+
+    <!-- 本地源弹窗宿主：透明 Activity，只负责把 LocalSourceDialog 弹出来；弹窗关掉宿主就 finish，背后仍是实验室页。 -->
+    <style name="Theme.App.Lab.LocalSourceDialogHost" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
 </resources>

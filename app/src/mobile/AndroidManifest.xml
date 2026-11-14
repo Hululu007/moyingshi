@@ -148,6 +148,18 @@
         </activity>
 
         <activity
+            android:name=".ui.activity.LocalSourceDialogActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout"
+            android:parentActivityName=".lab.LabActivity"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.App.Lab.LocalSourceDialogHost">
+            <intent-filter>
+                <action android:name="${applicationId}.local_source_dialog" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".ui.activity.WidgetBrowseActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"
             android:screenOrientation="fullUser" />

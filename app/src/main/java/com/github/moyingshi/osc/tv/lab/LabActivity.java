@@ -128,6 +128,16 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 return true;
             }
             if (id == R.id.import_pkg) {
+                // + 按当前分组走不同功能：本地源分组开本地源弹窗（搜索、分类、更多操作都在里面），
+                // 海阔小程序分组开小程序管理页，全部及其它分组保持原来的“导入包”。
+                if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
+                    openLocalSourceDialog();
+                    return true;
+                }
+                if (GROUP_MINIAPP.equals(currentGroup)) {
+                    openMiniappManager();
+                    return true;
+                }
                 showImportDialog();
                 return true;
             }
@@ -313,6 +323,13 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     /** 海阔小程序分组：管理页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开；打不开时只留内嵌列表。 */
     private void openMiniappManager() {
         Intent intent = new Intent(App.get().getPackageName() + ".hk_miniapp");
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+        if (intent.resolveActivity(getPackageManager()) != null) startActivity(intent);
+    }
+
+    /** 本地源分组：+ 打开本地源弹窗；弹窗是 mobile 专属的 DialogFragment（main 源集不能直接引用），走透明宿主 Activity + 隐式 intent（与海阔小程序管理页同款）。 */
+    private void openLocalSourceDialog() {
+        Intent intent = new Intent(App.get().getPackageName() + ".local_source_dialog");
         intent.addCategory(Intent.CATEGORY_DEFAULT);
         if (intent.resolveActivity(getPackageManager()) != null) startActivity(intent);
     }
