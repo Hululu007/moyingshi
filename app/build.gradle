@@ -176,6 +176,8 @@ dependencies {
     // 小程序（海阔规则）引擎：Rhino 解释器模式（HkEngine 内 setOptimizationLevel(-1)，Android 上必须，
     // 不能用优化模式/动态生成字节码）。评估明确要求 1.7.14，不用 1.8.0。
     implementation libs.rhino
+    // 小程序导入的 SAF 接线（HkImportPicker）：系统文件选择器 + DocumentFile 递归读目录。
+    implementation libs.documentfile
     implementation libs.appcompat
     implementation libs.lifecycle.service
     implementation libs.media

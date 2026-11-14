@@ -64,4 +64,18 @@
 <string name="lab_global_proxy_port">代理端口</string>
 <string name="lab_global_proxy_no_proxy">不走代理的域名（逗号分隔）</string>
 <string name="lab_empty_no_source">暂无可用包\n请点击右上角设置，选择本地 lab.json 或填写网络 URL</string>
+    <string name="hk_miniapp_title">海阔小程序</string>
+    <string name="hk_miniapp_import_file">导入文件/目录</string>
+    <string name="hk_miniapp_import_paste">粘贴 JSON</string>
+    <string name="hk_miniapp_sync">同步已装规则</string>
+    <string name="hk_miniapp_empty">还没有导入小程序</string>
+    <string name="hk_miniapp_imported">已导入 %1$d 条小程序</string>
+    <string name="hk_miniapp_synced">已同步 %1$d 条小程序</string>
+    <string name="hk_miniapp_import_error">导入失败：%1$s</string>
+    <string name="hk_miniapp_list_pending">小程序列表页还在做</string>
+    <string name="hk_miniapp_paste_hint">粘贴 rule.json 内容</string>
+    <string name="hk_miniapp_pick_title">选择文件或目录</string>
+    <string name="hk_miniapp_pick_file">选择文件</string>
+    <string name="hk_miniapp_pick_dir">选择目录</string>
+    <string name="hk_miniapp_no_rule">没有找到可导入的规则</string>
 </resources>

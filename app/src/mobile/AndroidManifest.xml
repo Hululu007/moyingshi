@@ -137,6 +137,17 @@
             android:screenOrientation="fullUser" />
 
         <activity
+            android:name=".ui.hk.HkMiniappActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout"
+            android:parentActivityName=".lab.LabActivity"
+            android:screenOrientation="fullUser">
+            <intent-filter>
+                <action android:name="${applicationId}.hk_miniapp" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".ui.activity.WidgetBrowseActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"
             android:screenOrientation="fullUser" />

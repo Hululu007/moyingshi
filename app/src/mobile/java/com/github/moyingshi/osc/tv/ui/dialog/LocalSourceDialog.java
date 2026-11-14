@@ -13,6 +13,7 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.DialogLocalSourceBinding;
@@ -293,6 +294,11 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
 
     @Override
     public void onItemClick(Site item) {
+        // 小程序站源：列表页还在做（第 3 步），先弹一句，不切站源、不进蜘蛛空页。
+        if (HkStore.isMiniapp(item)) {
+            Notify.show(R.string.hk_miniapp_list_pending);
+            return;
+        }
         VodConfig.get().setHome(item);
         ConfigEvent.vod();
         dismiss();

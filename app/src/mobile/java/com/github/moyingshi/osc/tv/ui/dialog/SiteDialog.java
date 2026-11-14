@@ -22,6 +22,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.DialogSiteBinding;
 import com.github.moyingshi.osc.tv.impl.SiteListener;
@@ -33,6 +34,7 @@ import com.github.moyingshi.osc.tv.ui.adapter.SiteGroupAdapter;
 import com.github.moyingshi.osc.tv.ui.custom.CustomTextListener;
 import com.github.moyingshi.osc.tv.ui.custom.SpaceItemDecoration;
 import com.github.moyingshi.osc.tv.ui.helper.SiteDialogTheme;
+import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -270,6 +272,11 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         if (block) {
             SiteBlockSetting.toggle(item);
             filter();
+            return;
+        }
+        // 小程序站源：列表页还在做（第 3 步），先弹一句，不切站源、不进蜘蛛空页。
+        if (HkStore.isMiniapp(item)) {
+            Notify.show(R.string.hk_miniapp_list_pending);
             return;
         }
         if (listener != null) listener.setSite(item);

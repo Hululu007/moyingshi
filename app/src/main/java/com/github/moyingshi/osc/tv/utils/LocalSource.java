@@ -179,6 +179,37 @@ public class LocalSource {
         if (changed) saveSites(raw);
     }
 
+    /**
+     * 合并站点（小程序导入/同步用）：直接操作原始列表，不经过地址转换。
+     * 同 key 的替换（重导更新，不产生 key_1 后缀），新 key 的追加；返回新追加的条数。
+     * 不能用 getSites() + saveSites() 往返：getSites() 会把 .php 的 api 换成本机地址，
+     * 写回就把 file:// 变成了当前端口的 http://127.0.0.1 地址（removeByKeys 的注释同理）。
+     * 写完清掉内存缓存，下次 getSites() 重新读文件换地址（不然缓存里留的是原始列表）。
+     */
+    public static synchronized int mergeSites(List<Site> merged) {
+        if (merged == null || merged.isEmpty()) return 0;
+        List<Site> raw = getSitesRaw();
+        int added = 0;
+        for (Site site : merged) {
+            if (site == null || site.getKey() == null || site.getKey().isEmpty()) continue;
+            int index = -1;
+            for (int i = 0; i < raw.size(); i++) {
+                if (site.getKey().equals(raw.get(i).getKey())) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index >= 0) raw.set(index, site);
+            else {
+                raw.add(site);
+                added++;
+            }
+        }
+        saveSites(raw);
+        invalidate();
+        return added;
+    }
+
     private static Site siteFrom(JsonObject object) {
         try {
             Site site = new Site();
