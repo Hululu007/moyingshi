@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.lab;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -15,6 +17,9 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
@@ -80,6 +85,13 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private final List<String> groupIds = new ArrayList<>();
     /** 内容区横向滑动手势：只观察事件，不拦截，纵向滚动与点卡片原样不动。 */
     private GestureDetector groupSwipeDetector;
+    /** 拖动跟手的状态：手势起始时的 translationX、方向锁定、待结算的 fling 方向（+1 下一组、-1 上一组、0 无）。 */
+    private float swipeDragBaseX;
+    private boolean swipeHorizontal;
+    private boolean swipeVertical;
+    private int swipeFlingDelta;
+    /** 结算动画的代次：新开手势或重渲染时 +1，旧动画的结束回调凭它认出自己已过期，不再切分组。 */
+    private int swipeSettleToken;
     private final Set<String> autoInstallAttempted = new HashSet<>();
     private AlertDialog settingsDialog;
     /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
@@ -142,15 +154,9 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         // OnTouchListener 只观察、不消费事件，纵向滚动、下拉刷新、点卡片都走原来的路。
         if (!Util.isLeanback()) {
             groupSwipeDetector = new GestureDetector(this, new GroupSwipeListener());
-            mBinding.recycler.setOnTouchListener((v, event) -> {
-                groupSwipeDetector.onTouchEvent(event);
-                return false;
-            });
+            mBinding.recycler.setOnTouchListener((v, event) -> onSwipeTouch(event));
             // 占位页（海阔小程序）和空态时列表是隐藏的，手势挂到空态视图上，左右滑动一样能切分组。
-            mBinding.empty.getRoot().setOnTouchListener((v, event) -> {
-                groupSwipeDetector.onTouchEvent(event);
-                return false;
-            });
+            mBinding.empty.getRoot().setOnTouchListener((v, event) -> onSwipeTouch(event));
         }
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
@@ -218,6 +224,10 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     }
 
     private void render(LabModels.LabRoot root) {
+        // 内容换掉时 translationX 必须归零：新内容不能带着拖动偏移显示；正在跑的结算动画也一并作废（代次 +1 让它的结束回调不再切分组）。
+        swipeSettleToken++;
+        mBinding.recycler.animate().cancel();
+        mBinding.recycler.setTranslationX(0);
         List<LabGroupAdapter.Row> groups = new ArrayList<>();
         groups.add(new LabGroupAdapter.Row(GROUP_ALL, "全部"));
         // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
@@ -308,6 +318,69 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         int next = index + delta;
         if (next < 0 || next >= groupIds.size()) return;
         onGroup(groupIds.get(next));
+    }
+
+    /** 内容区触摸入口（列表与空态视图共用）：先喂手势识别器，再在松手时结算；始终不消费事件，纵向滚动、下拉刷新、点卡片原样走原来的路。 */
+    private boolean onSwipeTouch(MotionEvent event) {
+        groupSwipeDetector.onTouchEvent(event);
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_UP) settleSwipe();
+        else if (action == MotionEvent.ACTION_CANCEL) bounceSwipeBack();
+        return false;
+    }
+
+    /** 该方向有没有分组可切（+1 下一组，-1 上一组）。 */
+    private boolean hasGroup(int delta) {
+        if (groupIds.isEmpty()) return false;
+        int index = groupIds.indexOf(currentGroup);
+        if (index < 0) index = 0;
+        int next = index + delta;
+        return next >= 0 && next < groupIds.size();
+    }
+
+    /** 松手结算：fling 优先，其次看位移是否过阈值（120dp 与 1/4 屏宽取大者）。 */
+    private void settleSwipe() {
+        int delta = swipeFlingDelta;
+        swipeFlingDelta = 0;
+        if (delta == 0) {
+            float tx = mBinding.recycler.getTranslationX();
+            float threshold = Math.max(120 * getResources().getDisplayMetrics().density,
+                    getResources().getDisplayMetrics().widthPixels / 4f);
+            if (tx < -threshold) delta = 1;
+            else if (tx > threshold) delta = -1;
+        }
+        if (delta == 0 || !hasGroup(delta)) {
+            bounceSwipeBack();
+            return;
+        }
+        // 过阈值：先把旧内容加速滑出屏（约 150ms），再切分组，新内容从另一侧减速滑进来（约 200ms）。
+        float width = getResources().getDisplayMetrics().widthPixels;
+        float outX = delta > 0 ? -width : width;
+        float enterX = -outX;
+        final int token = ++swipeSettleToken;
+        final int switchDelta = delta;
+        mBinding.recycler.animate().translationX(outX).setDuration(150)
+                .setInterpolator(new AccelerateInterpolator())
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (token != swipeSettleToken) return;
+                        if (isFinishing() || isDestroyed()) return;
+                        switchGroup(switchDelta);
+                        mBinding.recycler.setTranslationX(enterX);
+                        mBinding.recycler.animate().translationX(0).setDuration(200)
+                                .setInterpolator(new DecelerateInterpolator())
+                                .setListener(null);
+                    }
+                });
+    }
+
+    /** 不到阈值或滑到头：弹回原位（约 200ms）。 */
+    private void bounceSwipeBack() {
+        swipeFlingDelta = 0;
+        mBinding.recycler.animate().translationX(0).setDuration(200)
+                .setInterpolator(new DecelerateInterpolator())
+                .setListener(null);
     }
 
     @Override
@@ -755,17 +828,47 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     }
 
     /**
-     * 内容区横向 fling 切分组。
+     * 内容区横向拖动切分组（跟手）。
      *
-     * <p>只看 fling，不看慢拖：GestureDetector 自己已经按最小 fling 速度过滤过一次，
-     * 这里再要求横向位移与速度都占优（纵向 fling 不触发），且一次横向位移至少 80dp，
-     * 避免上下滚动时手一歪就误切分组。返回 true 只表示手势被认领，
-     * 事件本身仍由 OnTouchListener 原样放行给列表，点卡片、纵向滚动不受影响。
+     * <p>onScroll 里方向锁定后内容跟着手指平移（纵向占优时不跟，纵向滚动、下拉刷新、点卡片原样不动）；
+     * onFling 只记录方向不直接切组，松手时 onSwipeTouch 统一结算：fling 优先，其次看位移是否过阈值，
+     * 过阈值先滑出屏再切组、新内容从另一侧滑进来，不到阈值或滑到头就弹回原位。
+     * 返回 true 只表示手势被认领，事件本身仍由 OnTouchListener 原样放行给列表。
      */
     private final class GroupSwipeListener extends GestureDetector.SimpleOnGestureListener {
 
         @Override
         public boolean onDown(MotionEvent e) {
+            // 新手势打断正在跑的结算动画（代次 +1 让它的结束回调不再切分组），从当前偏移接着拖，不跳变。
+            swipeSettleToken++;
+            mBinding.recycler.animate().cancel();
+            swipeDragBaseX = mBinding.recycler.getTranslationX();
+            swipeHorizontal = false;
+            swipeVertical = false;
+            swipeFlingDelta = 0;
+            return true;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            if (e1 == null || e2 == null || swipeVertical) return false;
+            float dx = e2.getX() - e1.getX();
+            float dy = e2.getY() - e1.getY();
+            if (!swipeHorizontal) {
+                int slop = ViewConfiguration.get(LabActivity.this).getScaledTouchSlop();
+                if (Math.abs(dx) > slop && Math.abs(dx) > Math.abs(dy)) swipeHorizontal = true;
+                else if (Math.abs(dy) > slop && Math.abs(dy) > Math.abs(dx)) swipeVertical = true;
+                else return false;
+            }
+            if (!swipeHorizontal) return false;
+            // 跟手平移：滑到头（该方向没分组）时给 0.35 阻力，提示到头了但不越界。
+            float raw = swipeDragBaseX + dx;
+            float width = getResources().getDisplayMetrics().widthPixels;
+            float tx = raw;
+            if ((raw < 0 && !hasGroup(1)) || (raw > 0 && !hasGroup(-1))) {
+                tx = swipeDragBaseX + (raw - swipeDragBaseX) * 0.35f;
+            }
+            mBinding.recycler.setTranslationX(Math.max(-width, Math.min(width, tx)));
             return true;
         }
 
@@ -776,11 +879,11 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
             float dx = e2.getX() - e1.getX();
             float minDistance = 80 * getResources().getDisplayMetrics().density;
             if (dx < -minDistance) {
-                switchGroup(1);
+                swipeFlingDelta = 1;
                 return true;
             }
             if (dx > minDistance) {
-                switchGroup(-1);
+                swipeFlingDelta = -1;
                 return true;
             }
             return false;
