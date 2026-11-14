@@ -10,8 +10,10 @@ import android.provider.OpenableColumns;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.view.KeyEvent;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -72,6 +74,10 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private LabGroupAdapter groupAdapter;
     private LabPackageAdapter packageAdapter;
     private String currentGroup = GROUP_ALL;
+    /** 分组 id 顺序，与顶部标签一致；左右滑动切分组就按这个走（含本地源分组）。 */
+    private final List<String> groupIds = new ArrayList<>();
+    /** 内容区横向滑动手势：只观察事件，不拦截，纵向滚动与点卡片原样不动。 */
+    private GestureDetector groupSwipeDetector;
     private final Set<String> autoInstallAttempted = new HashSet<>();
     private AlertDialog settingsDialog;
     /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
@@ -130,6 +136,15 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         mBinding.recycler.setAdapter(packageAdapter);
         mBinding.swipeRefresh.setColorSchemeColors(getColor(R.color.accent));
         mBinding.swipeRefresh.setOnRefreshListener(this::onRefresh);
+        // 内容区左右滑动切分组：TV 没有触摸滑动，只在手机端挂手势，TV 上零影响。
+        // OnTouchListener 只观察、不消费事件，纵向滚动、下拉刷新、点卡片都走原来的路。
+        if (!Util.isLeanback()) {
+            groupSwipeDetector = new GestureDetector(this, new GroupSwipeListener());
+            mBinding.recycler.setOnTouchListener((v, event) -> {
+                groupSwipeDetector.onTouchEvent(event);
+                return false;
+            });
+        }
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
         reload();
@@ -202,7 +217,12 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         }
         groupAdapter.setRows(groups);
         if (currentGroup == null || !containsGroup(groups, currentGroup)) currentGroup = GROUP_ALL;
-        groupAdapter.select(indexOfGroup(groups, currentGroup));
+        groupIds.clear();
+        for (LabGroupAdapter.Row row : groups) groupIds.add(row.id);
+        int selectedIndex = indexOfGroup(groups, currentGroup);
+        groupAdapter.select(selectedIndex);
+        // 选中标签可能在横向标签栏可视区之外（分组多时），滚到可见位置。
+        mBinding.groupRecycler.smoothScrollToPosition(selectedIndex);
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
             showLocalSources();
             return;
@@ -252,6 +272,16 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         currentGroup = id;
         LabModels.LabRoot root = LabConfig.get().getLabRoot();
         render(root);
+    }
+
+    /** 左滑下一个分组、右滑上一个；滑到头不动，不越界。 */
+    private void switchGroup(int delta) {
+        if (groupIds.isEmpty()) return;
+        int index = groupIds.indexOf(currentGroup);
+        if (index < 0) index = 0;
+        int next = index + delta;
+        if (next < 0 || next >= groupIds.size()) return;
+        onGroup(groupIds.get(next));
     }
 
     @Override
@@ -659,6 +689,39 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 cycle.run();
                 return true;
             });
+        }
+    }
+
+    /**
+     * 内容区横向 fling 切分组。
+     *
+     * <p>只看 fling，不看慢拖：GestureDetector 自己已经按最小 fling 速度过滤过一次，
+     * 这里再要求横向位移与速度都占优（纵向 fling 不触发），且一次横向位移至少 80dp，
+     * 避免上下滚动时手一歪就误切分组。返回 true 只表示手势被认领，
+     * 事件本身仍由 OnTouchListener 原样放行给列表，点卡片、纵向滚动不受影响。
+     */
+    private final class GroupSwipeListener extends GestureDetector.SimpleOnGestureListener {
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+            return true;
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            if (e1 == null || e2 == null) return false;
+            if (Math.abs(velocityX) < Math.abs(velocityY)) return false;
+            float dx = e2.getX() - e1.getX();
+            float minDistance = 80 * getResources().getDisplayMetrics().density;
+            if (dx < -minDistance) {
+                switchGroup(1);
+                return true;
+            }
+            if (dx > minDistance) {
+                switchGroup(-1);
+                return true;
+            }
+            return false;
         }
     }
 
