@@ -15,6 +15,7 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkPlayer;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
@@ -29,8 +30,8 @@ import java.util.List;
  * 后台线程调 {@link HkExecutor#detail(HkRule, String)} 取详情卡片，
  * {@link HkDetailHelper#split(List, String, String, String)} 切成信息头 +
  * 分线路选集，单 RecyclerView（GridLayoutManager + SpanSizeLookup）渲染：
- * 信息与线路头占满整行，选集占 1 列。点选集进播放是第 5 步，本步只弹
- * “播放还在做”，不进播放器。
+ * 信息与线路头占满整行，选集占 1 列。点选集经 {@link HkPlayer} 进播放器
+ * （第 5 步：懒加载解析出地址后复用 VideoActivity 播放入口）。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
@@ -51,6 +52,7 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     private FragmentHkDetailBinding mBinding;
     private HkDetailAdapter mAdapter;
     private HkRule mRule;
+    private HkDetailHelper.Detail mDetail;
     private int mLoadSeq;
 
     private String arg(String key) {
@@ -123,6 +125,7 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
             mBinding.progressLayout.showError(R.string.hk_detail_error, error == null ? "" : error, R.string.hk_detail_retry, v -> loadDetail());
             return;
         }
+        mDetail = detail;
         if (detail.lines.isEmpty()) {
             // 有信息无选集也是成功态：补一行“暂无选集”，不显示空态。
             HkDetailHelper.Line empty = new HkDetailHelper.Line();
@@ -147,9 +150,10 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         loadDetail();
     }
 
-    /** 点选集：懒加载播放是第 5 步，先弹一句，不进播放器。 */
+    /** 点选集：拼 Vod 进播放器，懒加载解析在播放器取流时跑（第 5 步）。 */
     @Override
-    public void onEpisodeClick(HkCard episode) {
-        Notify.show(R.string.hk_detail_play_pending);
+    public void onEpisodeClick(HkDetailHelper.Line line, HkCard episode) {
+        if (mDetail == null) return;
+        HkPlayer.play(requireActivity(), mRule, mDetail, line, episode, arg("url"));
     }
 }

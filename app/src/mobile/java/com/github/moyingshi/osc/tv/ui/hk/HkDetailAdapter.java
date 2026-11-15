@@ -32,11 +32,22 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     public static final int TYPE_EPISODE = 2;
 
     public interface Listener {
-        void onEpisodeClick(HkCard episode);
+        void onEpisodeClick(HkDetailHelper.Line line, HkCard episode);
     }
 
     private final Listener listener;
     private final List<Object> items = new ArrayList<>();
+
+    /** 选集与其所属线路的配对（铺平时线路信息不能丢，点选集要拿线路名当播放线路）。 */
+    static final class Ep {
+        final HkDetailHelper.Line line;
+        final HkCard card;
+
+        Ep(HkDetailHelper.Line line, HkCard card) {
+            this.line = line;
+            this.card = card;
+        }
+    }
 
     public HkDetailAdapter(Listener listener) {
         this.listener = listener;
@@ -52,7 +63,7 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         items.add(detail.info);
         for (HkDetailHelper.Line line : detail.lines) {
             items.add(line);
-            items.addAll(line.episodes);
+            for (HkCard episode : line.episodes) items.add(new Ep(line, episode));
         }
         notifyDataSetChanged();
     }
@@ -96,10 +107,10 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (holder instanceof LineHolder) {
             ((LineHolder) holder).binding.text.setText(((HkDetailHelper.Line) item).title);
         } else if (holder instanceof EpisodeHolder) {
-            HkCard episode = (HkCard) item;
+            Ep ep = (Ep) item;
             EpisodeHolder h = (EpisodeHolder) holder;
-            h.binding.text.setText(episode.getTitle());
-            h.binding.text.setOnClickListener(v -> listener.onEpisodeClick(episode));
+            h.binding.text.setText(ep.card.getTitle());
+            h.binding.text.setOnClickListener(v -> listener.onEpisodeClick(ep.line, ep.card));
         }
     }
 

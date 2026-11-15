@@ -65,11 +65,12 @@ public class HkEngine {
     /**
      * 规则 JS 里用的内置 API（注入 scope 的 JS 函数，见 {@link #BOOTSTRAP}）。
      * 覆盖 js_api.md 里列表解析真正用到的那部分：输出（setResult/setError/log/
-     * toast）、请求（fetch/post/getResCode）、DOM（parseDom/pdfh/pdfa）、
-     * 编解码（md5/base64）、变量（putVar/getVar/putMyVar/getMyVar/getParam）、
-     * 域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
-     * PC_UA）与 $ 工具（$.toString/$.stringify）。
-     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr/require/request 等）
+     * toast）、请求（fetch/post/request/getResCode）、DOM（parseDom/pdfh/pdfa）、
+     * 编解码（md5/base64）、变量（putVar/getVar/putMyVar/getMyVar/getParam，
+     * putVar 支持 {key, value} 对象形式）、域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
+     * PC_UA）与 $ 工具（$.toString/$.stringify）；getUrl() 返回当前页地址，
+     * refreshPage() 是空操作（tab 切换是第 7 步）。
+     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr/require 等）
      * 在 BOOTSTRAP 里是会抛明确错误的桩，不是静默缺失——规则用到了能在日志里
      * 一眼看到缺的是哪个 API。
      */
@@ -95,6 +96,8 @@ public class HkEngine {
             function base64Encode(x) { return __hk.base64Encode(x); }
             function base64Decode(x) { return __hk.base64Decode(x); }
             function putVar(k, v) { __hk.putVar(k, v); }
+            function getUrl() { return __hk.getPageUrl(); }
+            function refreshPage() { __hk.log('refreshPage (no-op: tab switch not implemented)'); }
             function getVar(k, d) { return __hk.getVar(k, d); }
             function clearVar() { __hk.clearVar(); }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
@@ -125,7 +128,8 @@ public class HkEngine {
             var aesEncode = __unsupported('aesEncode');
             var aesDecode = __unsupported('aesDecode');
             var require = __unsupported('require');
-            var request = __unsupported('request');
+            function request(url, options) { return __hk.fetch(url, options); }
+            if (typeof unescape === 'undefined') { var unescape = function(s) { try { return decodeURIComponent(String(s)); } catch (e) { return String(s); } }; }
             """;
 
     /** 引擎抛出的异常：JS 语法/运行错、preRule 失败、网络失败都包成这个。 */
@@ -260,6 +264,19 @@ public class HkEngine {
 
         public void putVar(String k, Object v) {
             if (k != null) engine.vars.put(k, v);
+        }
+
+        /**
+         * putVar 对象形式（臻品fix 的 tab 懒加载用 putVar({key, value})；只写 vars，
+         * 不触发刷新——tab 切换本身是第 7 步）。Rhino 按参数个数选重载：
+         * 1 个对象参数走这里，2 参数走 putVar(String, Object)，互不干扰。
+         */
+        public void putVar(Scriptable obj) {
+            if (obj == null) return;
+            Object k = ScriptableObject.getProperty(obj, "key");
+            Object v = ScriptableObject.getProperty(obj, "value");
+            if (k == null || k instanceof Undefined) return;
+            engine.vars.put(Context.toString(k), v);
         }
 
         public Object getVar(String k) {

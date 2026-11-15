@@ -4,9 +4,12 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.github.catvod.net.OkHttp;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import org.jsoup.Jsoup;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -128,6 +131,197 @@ public class HkExecutor {
             return engine.evalFindRule(detailRule);
         }
         return HkParser.parseDetailList(pageText, detailRule, pageUrl, engine);
+    }
+
+    /** 懒加载播放解析结果：最终播放地址 + 请求头；url 为空表示未解析出地址。 */
+    public static class PlayOutcome {
+        public String url = "";
+        public Map<String, String> headers = new HashMap<>();
+
+        public boolean isEmpty() {
+            return TextUtils.isEmpty(url);
+        }
+    }
+
+    /**
+     * 懒加载播放解析（对应 f22.t 的重写版，见 docs/miniapp-playback.md）。
+     * 流程（报告里可读的 f/b/u 链）：在第一个 @lazyRule=（或 @rule=）处切分 →
+     * 规则部分过 e() 转义 → .js:/js: 走 Rhino（input 是选集页地址），否则抓页
+     * 后走选择器 → 结果再分发（递归懒链 / 多线路 JSON / 直链）。
+     * 调用方必须在后台线程跑。返回空地址表示未解析出播放地址，调用方弹提示、
+     * 不进播放器。
+     */
+    public static PlayOutcome play(HkRule rule, String episodeUrl) throws HkEngine.HkException {
+        if (rule == null) throw new HkEngine.HkException("规则为空");
+        String err = rule.validate();
+        if (err != null) throw new HkEngine.HkException(err);
+        if (TextUtils.isEmpty(episodeUrl)) return new PlayOutcome();
+        return playResolved(rule, episodeUrl.trim(), 0);
+    }
+
+    /** 一级懒解析：切分选集地址与懒规则，求值后把结果交给 dispatchResolved。 */
+    private static PlayOutcome playResolved(HkRule rule, String raw, int depth) throws HkEngine.HkException {
+        PlayOutcome empty = new PlayOutcome();
+        int at = raw.indexOf("@lazyRule=");
+        int markerLen = "@lazyRule=".length();
+        if (at < 0) {
+            at = raw.indexOf("@rule=");
+            markerLen = "@rule=".length();
+        }
+        String pagePart = at >= 0 ? raw.substring(0, at).trim() : raw.trim();
+        String lazyPart = at >= 0 ? raw.substring(at + markerLen).trim() : "";
+        // URL 部分的 #...# 标记先剥掉（b() 在递归前对 URL 部分做的事）。
+        pagePart = stripHashMarkers(pagePart);
+        String pageUrl = HkParser.resolveUrl(rule.getUrl(), pagePart);
+        if (TextUtils.isEmpty(pageUrl)) return empty;
+        if (TextUtils.isEmpty(lazyPart)) {
+            // 直链：归一化（;{headers} 后缀 + # 标记），Referer 默认补选集页地址。
+            return normalizeDirect(pageUrl, pageUrl);
+        }
+        // 规则部分过 e() 转义，再剥尾部 ;now（“立即执行”标记，不是 JS）。
+        String lazy = stripNowSuffix(unescapeLazy(lazyPart));
+        String resolved;
+        if (lazy.startsWith(".js:") || lazy.startsWith("js:")) {
+            String js = lazy.startsWith(".js:") ? lazy.substring(4) : lazy.substring(3);
+            if (TextUtils.isEmpty(js.trim())) return empty;
+            HkEngine engine = new HkEngine();
+            engine.prepare(rule, pageUrl, 1, "play", "");
+            engine.evalPreRule();
+            resolved = engine.evalExpression(js, pageUrl);
+        } else {
+            RequestSpec spec = buildDetailRequest(rule, pageUrl);
+            String pageText = fetch(spec);
+            HkEngine engine = new HkEngine();
+            engine.prepare(rule, pageUrl, 1, "play", pageText);
+            engine.evalPreRule();
+            resolved = HkParser.extract(Jsoup.parse(pageText, pageUrl), lazy, true, pageUrl, engine);
+        }
+        return dispatchResolved(rule, resolved == null ? "" : resolved.trim(), pageUrl, depth);
+    }
+
+    /** 对懒求值的结果再分发（对应 f22.b）：递归懒链 / 多线路 JSON / 动作 URL / 直链。 */
+    private static PlayOutcome dispatchResolved(HkRule rule, String s, String referer, int depth) throws HkEngine.HkException {
+        PlayOutcome empty = new PlayOutcome();
+        if (TextUtils.isEmpty(s)) return empty;
+        String text = s.trim();
+        if (text.contains("@lazyRule=") || text.contains("@rule=")) {
+            if (depth >= 3) {
+                Log.w(TAG, "lazy chain too deep rule=" + rule.getTitle());
+                return empty;
+            }
+            return playResolved(rule, text, depth + 1);
+        }
+        if (text.startsWith("{")) {
+            try {
+                JsonObject obj = JsonParser.parseString(text).getAsJsonObject();
+                if (obj.has("urls") && obj.get("urls").isJsonArray()) {
+                    return outcomeFromMultiLine(obj, referer);
+                }
+            } catch (Exception ignored) {
+            }
+            // { 开头但不是多线路 JSON：是规则结果对象，不是可播地址，直接丢掉。
+            Log.w(TAG, "lazy result is a JSON object without urls, dropped");
+            return empty;
+        }
+        if (text.startsWith("video://")) {
+            return normalizeDirect(text.substring("video://".length()), referer);
+        }
+        if (text.startsWith("pics://") || text.startsWith("webRule://")) {
+            Log.w(TAG, "unsupported lazy result prefix: " + text.substring(0, Math.min(text.length(), 16)));
+            return empty;
+        }
+        return normalizeDirect(text, referer);
+    }
+
+    /** 多线路 JSON（{urls, names, headers, ...}）：本步只取首条；names/subtitle/danmu/lyric 不接（第 7 步）。 */
+    private static PlayOutcome outcomeFromMultiLine(JsonObject obj, String referer) {
+        PlayOutcome out = new PlayOutcome();
+        JsonArray urls = obj.getAsJsonArray("urls");
+        if (urls == null || urls.size() == 0) return out;
+        String first = urls.get(0).isJsonPrimitive() ? urls.get(0).getAsString() : "";
+        Map<String, String> headers = new HashMap<>();
+        if (obj.has("headers")) {
+            JsonElement h = obj.get("headers");
+            if (h.isJsonArray() && h.getAsJsonArray().size() == urls.size()) {
+                // 与 urls 下标一一对应：取首条的头。
+                mergeJsonHeaders(h.getAsJsonArray().get(0), headers);
+            } else {
+                // 数量对不上：合并全部（与报告 s() 的口径一致）。
+                mergeJsonHeaders(h, headers);
+            }
+        }
+        PlayOutcome direct = normalizeDirect(first, referer);
+        for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (!hasHeaderIgnoreCase(direct.headers, e.getKey())) direct.headers.put(e.getKey(), e.getValue());
+        }
+        return direct;
+    }
+
+    /** 合并 JSON 形式的头：对象直接取；数组逐项取（对象项或 "Key@Value" 字符串项，值过 e() 转义）。 */
+    private static void mergeJsonHeaders(JsonElement h, Map<String, String> out) {
+        if (h == null) return;
+        if (h.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> e : h.getAsJsonObject().entrySet()) {
+                if (e.getValue().isJsonPrimitive()) out.put(e.getKey(), e.getValue().getAsString());
+            }
+        } else if (h.isJsonArray()) {
+            for (JsonElement el : h.getAsJsonArray()) mergeJsonHeaders(el, out);
+        } else if (h.isJsonPrimitive()) {
+            String s = h.getAsString();
+            int at = s.indexOf('@');
+            if (at > 0) out.put(s.substring(0, at).trim(), unescapeLazy(s.substring(at + 1).trim()));
+        }
+    }
+
+    /** 直链归一：剥 ;{headers} 后缀（头解析出来）与 # 标记；Referer 默认补 referer。 */
+    private static PlayOutcome normalizeDirect(String directUrl, String referer) {
+        PlayOutcome out = new PlayOutcome();
+        String url = directUrl == null ? "" : directUrl.trim();
+        Map<String, String> headers = new HashMap<>();
+        int semi = url.indexOf(';');
+        if (semi >= 0) {
+            String suffix = url.substring(semi + 1).trim();
+            url = url.substring(0, semi).trim();
+            if (suffix.startsWith("{")) parseJsonHeaders(suffix, headers);
+        }
+        url = stripHashMarkers(url);
+        out.url = url;
+        if (!hasHeaderIgnoreCase(headers, "Referer") && !TextUtils.isEmpty(referer)
+                && (referer.startsWith("http://") || referer.startsWith("https://"))) {
+            headers.put("Referer", referer);
+        }
+        out.headers = headers;
+        return out;
+    }
+
+    /** 从第一个 # 起截断（#...# 是嗅探标记，不是地址的一部分）。 */
+    private static String stripHashMarkers(String url) {
+        if (TextUtils.isEmpty(url)) return "";
+        int hash = url.indexOf('#');
+        return hash >= 0 ? url.substring(0, hash).trim() : url.trim();
+    }
+
+    /** 海阔转义还原（只对规则部分）：？？→?、＆＆→&、；；→;、，，→,。 */
+    private static String unescapeLazy(String lazy) {
+        if (TextUtils.isEmpty(lazy)) return "";
+        return lazy.replace("？？", "?").replace("＆＆", "&").replace("；；", ";").replace("，，", ",");
+    }
+
+    /** 剥掉懒规则尾部的 ;now（“立即执行”标记，不是 JS；童话的选集懒加载用它）。 */
+    private static String stripNowSuffix(String lazy) {
+        if (TextUtils.isEmpty(lazy)) return "";
+        String s = lazy.trim();
+        if (s.length() > 4 && s.substring(s.length() - 4).equalsIgnoreCase(";now")) {
+            return s.substring(0, s.length() - 4).trim();
+        }
+        return s;
+    }
+
+    /** 请求头里是否已有该键（大小写不敏感，Referer/referer 同算）。 */
+    private static boolean hasHeaderIgnoreCase(Map<String, String> headers, String key) {
+        if (headers == null || TextUtils.isEmpty(key)) return false;
+        for (String k : headers.keySet()) if (key.equalsIgnoreCase(k)) return true;
+        return false;
     }
 
     /** 详情请求：URL 来自卡片（无 fy 占位符），请求头与首页同款（firstHeader + ua），编码默认 UTF-8。 */

@@ -67,6 +67,9 @@ import com.github.moyingshi.osc.tv.api.DanmakuApi;
 import com.github.moyingshi.osc.tv.api.SiteApi;
 import com.github.moyingshi.osc.tv.api.config.AdBlockStatsStore;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkRule;
+import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.AdDetectionRequest;
 import com.github.moyingshi.osc.tv.bean.AdDetectionResult;
 import com.github.moyingshi.osc.tv.bean.AiConfig;
@@ -787,6 +790,29 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         intent.putExtra("pic", vod.getPic());
         intent.putExtra("mark", vod.getRemarks());
         intent.putExtra("content", vod.getContent());
+        putDetailVodCache(intent, vod);
+        activity.startActivity(intent);
+    }
+
+    /**
+     * 海阔小程序播放入口（第 5 步）：详情页点选集后，带已拼好的 Vod 与目标选集进播放器。
+     * 与 startDirectResolved 同款 intent，只多一个 putIntentPlaybackSelection（点哪集选中哪集）。
+     */
+    public static void startHk(Activity activity, Vod vod, String playFlag, String playEpisodeName, String playEpisodeUrl) {
+        if (activity == null || vod == null) return;
+        Intent intent = new Intent(activity, VideoActivity.class);
+        intent.putExtra("detail_mode", Setting.DETAIL_OPEN_DIRECT);
+        intent.putExtra(EXTRA_DETAIL_RUNTIME_MODE, Setting.DETAIL_OPEN_DIRECT);
+        intent.putExtra("scan", false);
+        intent.putExtra("collect", false);
+        intent.putExtra("cast", false);
+        intent.putExtra("key", vod.getSiteKey());
+        intent.putExtra("id", vod.getId());
+        intent.putExtra("name", vod.getName());
+        intent.putExtra("pic", vod.getPic());
+        intent.putExtra("mark", vod.getRemarks());
+        intent.putExtra("content", vod.getContent());
+        putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);
         putDetailVodCache(intent, vod);
         activity.startActivity(intent);
     }
@@ -3029,7 +3055,9 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         if (shouldUseImmersiveAudio()) setAudioStageVisible(true);
         beginPlayerContentRequest(getKey(), playFlag, episode.getUrl());
         mPlaybackFlagKey = playbackFlagKey(flag);
-        if (isOriginSession()) {
+        if (isHkSite()) {
+            resolveHkPlayerContent(episode, playFlag);
+        } else if (isOriginSession()) {
             if (!mOrigin.requestPlay(flag, episode)) {
                 invalidatePlayerContent();
                 showOriginError("原源会话已结束，请返回后重新打开");
@@ -3039,6 +3067,53 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.control.title.setSelected(true);
         updateHistory(episode);
         showProgress();
+    }
+
+    /** 当前站是不是海阔小程序（key 即 hk://&lt;标题&gt;，与 HkStore.isMiniapp 同款判定）。 */
+    private boolean isHkSite() {
+        return getKey().startsWith("hk://");
+    }
+
+    /**
+     * 海阔小程序取流（第 5 步）：后台线程跑懒加载解析，解析出地址后喂给 setPlayer；
+     * 空地址或失败时弹“小程序未解析出播放地址”，不进空白播放器。
+     * generation 快照防串位：切集/切线路后旧解析结果回来直接丢掉。
+     */
+    private void resolveHkPlayerContent(Episode episode, String playFlag) {
+        String episodeUrl = episode.getUrl();
+        String episodeName = episode.getName();
+        String key = getKey();
+        int generation = playerContentGeneration;
+        new Thread(() -> {
+            Result resolved = null;
+            String error = null;
+            try {
+                HkRule rule = HkStore.read(key.substring("hk://".length()));
+                HkExecutor.PlayOutcome outcome = rule == null ? null : HkExecutor.play(rule, episodeUrl);
+                if (outcome != null && !outcome.isEmpty()) {
+                    resolved = new Result();
+                    resolved.setUrl(outcome.url);
+                    resolved.setHeader(outcome.headers);
+                    resolved.setFlag(playFlag);
+                    resolved.setParse(0);
+                }
+            } catch (Exception e) {
+                error = e.getMessage();
+            }
+            final Result result = resolved;
+            final String err = error;
+            App.post(() -> {
+                if (isFinishing() || isDestroyed() || generation != playerContentGeneration) return;
+                if (result != null) {
+                    setPlayer(result);
+                    return;
+                }
+                SpiderDebug.log("video-flow", "hk play empty key=%s episode=%s error=%s", key, episodeName, err);
+                invalidatePlayerContent();
+                hideProgress();
+                Notify.show(R.string.hk_play_no_url);
+            });
+        }).start();
     }
 
     /**
