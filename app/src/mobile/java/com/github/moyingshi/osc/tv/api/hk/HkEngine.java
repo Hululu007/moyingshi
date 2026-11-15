@@ -90,8 +90,17 @@ public class HkEngine {
      * saveFile/fileExist/deleteFile、getItem/setItem；myVar 与 item 都落盘到
      * plugins/hk/data/&lt;标题&gt;/，见 {@link HkStore}）、子页面与库
      * （require/$.require 走 {@link HkSubpage}，库 URL 走 require.json 清单）、
-     * 规则配置（config 对象 + initConfig(o) 合并 + rc(url) 走 require 取库；
-     * config 每次求值新建，initConfig 在 preRule 里设的值同求值内可见）、
+     * 规则配置（对齐第 1 项，照官方 plugin.js 的 JS 版：`config` 是全局上的
+     * accessor，get 时 `config0` 为空才从 `getMyVar('initConfig')` 懒加载并缓存，
+     * set 只写 `config0`、不回写存储；`initConfig(o)` 把对象**合并**进
+     * `getMyVar('initConfig')` 的 JSON（非对象/空对象入参时返回现有 config、
+     * 不写不抛，见 docs/miniapp-align-1-config.md §3.1/§3.3）；存储是
+     * per-rule 的 `putMyVar`/`getMyVar`（内存 + `data/&lt;标题&gt;/myvar.json`，
+     * 按标题隔离，等价于官方 varMap 的 `&lt;标题&gt;@initConfig` 键）——preRule
+     * 每次求值前都跑，播种后同进程后续求值都读得到；`config/*.json` 磁盘文件
+     * 官方 JS 版不写、且在我们这里是 require.json 清单的存放处，故不写它。
+     * `rc(url, hours)` 走 `requireCache`：小时数兑现（默认 24，-1 永久，0 永不
+     * 命中，见 {@link #isCacheFresh}）；plain `require` 传 -1，与官方一致。
      * 域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
      * PC_UA）与 $ 工具（$.toString/$.stringify/$.require/$.hiker/$.importParam/
      * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
@@ -147,9 +156,38 @@ public class HkEngine {
             function confirm(o) { return __hk.confirm(o); }
             function select(o) { return __hk.select(o); }
             function require(url, params) { return __hk.require(url, params); }
-            var config = {};
-            function initConfig(o) { if (o && typeof o === 'object') { for (var k in o) { config[k] = o[k]; } } return config; }
-            function rc(url, hours) { return __hk.require(url); }
+            (function(windows) {
+              function initConfig(obj) {
+                if (obj == null || typeof obj !== 'object') { return windows.config; }
+                var merged = {};
+                try { var s = getMyVar('initConfig', '{}'); if (s) { merged = JSON.parse(s); } } catch (e) {}
+                var empty = true;
+                try { empty = (JSON.stringify(obj) === '{}'); } catch (e) { empty = true; }
+                if (empty) { return windows.config; }
+                var keys = Object.keys(obj);
+                for (var i = 0; i < keys.length; i++) { merged[keys[i]] = obj[keys[i]]; }
+                putMyVar('initConfig', JSON.stringify(merged));
+                windows.config = merged;
+                return windows.config;
+              }
+              windows.initConfig = initConfig;
+              try {
+                Object.defineProperty(windows, "config", {
+                  enumerable: true,
+                  configurable: true,
+                  get: function() {
+                    if (windows.config0 == null) {
+                      var c = {};
+                      try { var s = getMyVar('initConfig', '{}'); if (s) { c = JSON.parse(s); } } catch (e) {}
+                      windows.config0 = c;
+                    }
+                    return windows.config0;
+                  },
+                  set: function(v) { windows.config0 = v; }
+                });
+              } catch (e) { log(e.toString()); }
+            })(this);
+            function rc(url, hours) { return __hk.requireCache(url, hours); }
             function getRule() { return JSON.parse(__hk.getRuleJson()); }
             var MY_RULE = JSON.parse(__hk.getRuleJson());
             var MY_PARAMS = JSON.parse(__hk.getParamsJson());
@@ -442,6 +480,17 @@ public class HkEngine {
          */
         public Object require(String url, Object params) throws HkException {
             return engine.require(url, params);
+        }
+
+        /**
+         * 海阔 rc(url, hours) = requireCache（对齐第 1 项）：小时数兑现。
+         * hours 解析照官方 cacheHoursValue：Number → int，缺失/Undefined/
+         * 非数字 → 24。-1 = 永久有效，0 = 永不命中缓存（见 {@link HkEngine#isCacheFresh}）。
+         */
+        public Object requireCache(String url, Object hours) throws HkException {
+            int cacheHours = 24;
+            if (hours instanceof Number) cacheHours = ((Number) hours).intValue();
+            return engine.require(url, null, cacheHours);
         }
 
         /** 取某个 URL 的主页地址（协议 + host + 端口 + /），对应海阔 getHome()。 */
@@ -1055,8 +1104,21 @@ public class HkEngine {
      * 库文件 URL 先查 require.json 清单（plugins/hk/libs/），命中读本地文件，
      * 否则 http(s) 抓下来；同一个库 URL 在同一引擎里只 eval 一次（防 let 重声明）；
      * 其余地址抛明确错。库文件 eval 后若设了 $.exports，返回它，否则返回 eval 值。
+     * plain require 的缓存小时数是 -1（永久有效），与官方 require0 调用一致；
+     * rc(url, hours) 走 {@link #require(String, Object, int)}。
      */
     Object require(String url, Object params) throws HkException {
+        return require(url, params, -1);
+    }
+
+    /**
+     * 带缓存小时数的 require（对齐第 1 项，照官方 require0 的有效期判定）：
+     * http(s) 库先查 `plugins/hk/libs/&lt;md5(url)&gt;.js` 缓存，命中且在有效期内
+     * 直接用，不发网络；未命中时抓下来，成功后写缓存再 eval。
+     * 子页面分支与 require.json 清单分支在缓存检查之前，不变。
+     * 坏内容（HTML/空）仍按现有行为抛明确错，不回退旧缓存——回退是第 2 项。
+     */
+    Object require(String url, Object params, int cacheHours) throws HkException {
         if (TextUtils.isEmpty(url)) throw new HkException("require 地址为空");
         String u = url.trim();
         if (HkSubpage.isSubpageUrl(u)) {
@@ -1071,19 +1133,29 @@ public class HkEngine {
             code = HkStore.readTextFile(lib);
             if (code == null) throw new HkException("require 库文件读取失败：" + lib.getName());
         } else if (u.startsWith("http://") || u.startsWith("https://")) {
-            code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
-            if (TextUtils.isEmpty(code)) {
-                throw new HkException(lastHttpCode >= 0
-                        ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
-                        : "require 取数失败（空内容）：" + u);
+            String cachedCode = null;
+            File cached = HkStore.rcCacheFile(u);
+            if (cached != null && cached.exists() && isCacheFresh(cached, cacheHours)) {
+                cachedCode = HkStore.readTextFile(cached);
             }
-            // 取到的是 HTML 错误页/拦截页（例如 WAF 418）时不再当 JS 执行——
-            // 那样只会在第 1 行报含糊的语法错；直接报清楚（见 docs/miniapp-nodata-fix.md）。
-            String lower = code.trim().toLowerCase(Locale.ROOT);
-            if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
-                throw new HkException(lastHttpCode >= 0
-                        ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
-                        : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+            if (!TextUtils.isEmpty(cachedCode)) {
+                code = cachedCode;
+            } else {
+                code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
+                if (TextUtils.isEmpty(code)) {
+                    throw new HkException(lastHttpCode >= 0
+                            ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
+                            : "require 取数失败（空内容）：" + u);
+                }
+                // 取到的是 HTML 错误页/拦截页（例如 WAF 418）时不再当 JS 执行——
+                // 那样只会在第 1 行报含糊的语法错；直接报清楚（见 docs/miniapp-nodata-fix.md）。
+                String lower = code.trim().toLowerCase(Locale.ROOT);
+                if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
+                    throw new HkException(lastHttpCode >= 0
+                            ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
+                            : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+                }
+                HkStore.saveRcCache(u, code);
             }
         } else {
             throw new HkException("require 不支持的地址：" + u + "（只支持 hiker://page/... 与库文件 URL）");
@@ -1094,6 +1166,20 @@ public class HkEngine {
         Object exports = getExports();
         if (exports != null && !(exports instanceof Undefined)) return exports;
         return result;
+    }
+
+    /**
+     * rc/require 缓存是否有效（对齐第 1 项，照官方 require0 的判定式，
+     * `HkJsRuntime.java:24457`：版本检查无版本信息时按通过计）：
+     * hours &lt; 0（plain require 的 -1）→ 文件存在即永久有效；
+     * hours == 0 → 永不命中；hours &gt; 0 → `age &lt;= hours * 3600000`。
+     * 用文件 lastModified 计 age，与官方一致（写缓存时即更新 mtime）。
+     */
+    static boolean isCacheFresh(File file, int hours) {
+        if (file == null) return false;
+        if (hours < 0) return true;
+        if (hours == 0) return false;
+        return System.currentTimeMillis() - file.lastModified() <= (long) hours * 3600000L;
     }
 
     /** 把 $.exports 重置为 undefined（库文件 eval 前调，防拿到上一个库的旧导出）。 */
