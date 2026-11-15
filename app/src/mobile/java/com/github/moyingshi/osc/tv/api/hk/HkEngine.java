@@ -253,6 +253,7 @@ public class HkEngine {
 
         public void setResult(Object d) {
             engine.resultSet = true;
+            engine.resultRaw = d;
             engine.result = engine.cardsFromJs(d);
         }
 
@@ -606,6 +607,12 @@ public class HkEngine {
     private String resCode = "";
     private List<HkCard> result;
     private boolean resultSet;
+    /**
+     * setResult 交的原始值（第 7 步之九）：cardsFromJs 会把纯字符串结果
+     * （如 last_chapter_rule 的 setResult("更新至第10集")）丢掉，原始值留
+     * 在这里供 evalTextRule 取字符串结果；prepare 时随 result 一起重置。
+     */
+    private Object resultRaw;
     private final Map<String, Object> vars = new HashMap<>();
     private final Map<String, Object> myVars = new HashMap<>();
     private final Map<String, String> params = new HashMap<>();
@@ -641,6 +648,7 @@ public class HkEngine {
         this.resCode = resCode == null ? "" : resCode;
         this.result = null;
         this.resultSet = false;
+        this.resultRaw = null;
         this.refreshRequested = false;
         this.requiredLibs.clear();
         this.vars.clear();
@@ -833,6 +841,51 @@ public class HkEngine {
         if (result != null) return result;
         List<HkCard> fromReturn = cardsFromJs(returned);
         return fromReturn == null ? new ArrayList<>() : fromReturn;
+    }
+
+    /**
+     * 执行一段返回字符串的 JS 规则（第 7 步之九，last_chapter_rule 用）。
+     * 优先取 JS 调 setResult 交的原值（字符串直接取；字符串数组取首个非空元素；
+     * 其它类型回落到卡片首标题）；没调 setResult 时取 JS 直接返回值（同款转换）；
+     * 都没有返回 ""。调用方须先 prepare + evalPreRule。
+     */
+    public String evalTextRule(String rule) throws HkException {
+        String js = HkParser.jsBody(rule);
+        Object returned = eval(js, "text_rule");
+        if (resultSet) {
+            String fromRaw = rawToString(resultRaw);
+            if (!TextUtils.isEmpty(fromRaw)) return fromRaw;
+            if (result != null && !result.isEmpty()) {
+                String title = result.get(0).getTitle();
+                if (!TextUtils.isEmpty(title)) return title;
+            }
+            return "";
+        }
+        String fromReturn = rawToString(returned);
+        if (!TextUtils.isEmpty(fromReturn)) return fromReturn;
+        List<HkCard> fromCards = cardsFromJs(returned);
+        if (fromCards != null && !fromCards.isEmpty()) {
+            String title = fromCards.get(0).getTitle();
+            if (!TextUtils.isEmpty(title)) return title;
+        }
+        return "";
+    }
+
+    /** setResult 原值 / JS 返回值转字符串：字符串本身、数字/布尔、字符串数组首元素；其余回 ""。 */
+    private static String rawToString(Object value) {
+        if (value == null || value instanceof Undefined) return "";
+        if (value instanceof String) return ((String) value).trim();
+        if (value instanceof Number || value instanceof Boolean) return Context.toString(value);
+        if (value instanceof NativeArray) {
+            NativeArray array = (NativeArray) value;
+            for (int i = 0; i < array.getLength(); i++) {
+                Object item = array.get(i);
+                if (item instanceof String && !TextUtils.isEmpty(((String) item).trim())) {
+                    return ((String) item).trim();
+                }
+            }
+        }
+        return "";
     }
 
     /**

@@ -126,7 +126,17 @@ public class HkParser {
             return outcome;
         }
         Document doc = Jsoup.parse(html, baseUrl == null ? "" : baseUrl);
-        Elements items = selectElements(doc, fields.get(0).trim());
+        // 第 7 步之九：列表字段是 `*` 且走详情路（keepTitleOnly）时，整页当一个
+        // 条目（唯一一条 chapter_find 样本 ` *;*;body&&div@option;Text;value`
+        // 的语义；否则 select("*") 会返回全部后代元素）。首页路不动。
+        Elements items;
+        if ("*".equals(fields.get(0).trim()) && keepTitleOnly) {
+            items = new Elements();
+            Element body = doc.body();
+            if (body != null) items.add(body);
+        } else {
+            items = selectElements(doc, fields.get(0).trim());
+        }
         outcome.matched = items.size();
         for (Element item : items) {
             String title = extract(item, fields.get(1), false, baseUrl, engine);
@@ -317,15 +327,26 @@ public class HkParser {
             if (seg.isEmpty()) continue;
             Elements next = new Elements();
             Set<Element> seen = new LinkedHashSet<>();
-            for (Element el : current) {
-                for (Element found : el.select(seg)) {
-                    if (seen.add(found)) next.add(found);
+            try {
+                for (Element el : current) {
+                    for (Element found : el.select(seg)) {
+                        if (seen.add(found)) next.add(found);
+                    }
                 }
+            } catch (Exception e) {
+                // 第 7 步之九：非法 CSS（如 chapter_find 样本里的 div@option）记日志
+                // 跳过这一段，不抛 SelectorParseException 炸掉整次解析。
+                Log.w(TAG, "选择器非法，已跳过: " + seg);
             }
             if (next.isEmpty()) {
                 // 自身兜底：后代里没有，但当前元素自己就是这个选择器（如列表项本身就是 <a>）。
-                for (Element el : current) {
-                    if (el.is(seg) && seen.add(el)) next.add(el);
+                // 非法选择器同样跳过（与上面同款容错）。
+                try {
+                    for (Element el : current) {
+                        if (el.is(seg) && seen.add(el)) next.add(el);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "选择器非法，已跳过: " + seg);
                 }
             }
             if (excludeFirst && !next.isEmpty()) next.remove(0);

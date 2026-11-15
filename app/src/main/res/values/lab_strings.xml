@@ -93,6 +93,8 @@
     <string name="hk_detail_error">详情加载失败</string>
     <string name="hk_detail_retry">重试</string>
     <string name="hk_detail_no_episodes">暂无选集</string>
+    <string name="hk_detail_last_chapter">最新章节：%1$s</string>
+    <string name="hk_nonvideo_no_content">章节内容未解析出</string>
     <string name="hk_play_no_url">小程序未解析出播放地址</string>
     <string name="hk_search_hint">搜影片名</string>
     <string name="hk_search_submit">搜索</string>

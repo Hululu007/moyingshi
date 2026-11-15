@@ -290,6 +290,22 @@ public class HkExecutor {
      */
     public static List<HkCard> detail(HkRule rule, String detailUrl, Map<String, Object> initialVars,
                                       HkEngine.DialogHost host) throws HkEngine.HkException {
+        return detailOutcome(rule, detailUrl, initialVars, host).cards;
+    }
+
+    /** 详情取数结果：详情卡片 + 最新章节（last_chapter_rule 求值结果，无则 ""）。 */
+    public static class DetailOutcome {
+        public List<HkCard> cards = new ArrayList<>();
+        public String lastChapter = "";
+    }
+
+    /**
+     * 详情（第 7 步之九重载，带最新章节）：与 detail() 同款流程，另在小说/漫画类
+     * 规则（type 为 read/cartoon）且 last_chapter_rule 非空时，对已抓的详情页
+     * 正文求一次最新章节（不另发请求；求值失败回 ""，绝不炸详情页）。
+     */
+    public static DetailOutcome detailOutcome(HkRule rule, String detailUrl, Map<String, Object> initialVars,
+                                              HkEngine.DialogHost host) throws HkEngine.HkException {
         if (rule == null) throw new HkEngine.HkException("规则为空");
         String err = rule.validate();
         if (err != null) throw new HkEngine.HkException(err);
@@ -298,7 +314,9 @@ public class HkExecutor {
         String url = HkParser.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
         if (HkSubpage.isSubpageUrl(url)) {
             // 子页面卡片点开：展开子页面，不走 detail_find_rule（阅动漫的 detail_find_rule 为空）。
-            return HkSubpage.expand(rule, url);
+            DetailOutcome sub = new DetailOutcome();
+            sub.cards = HkSubpage.expand(rule, url);
+            return sub;
         }
         if (raw.contains("@lazyRule=") || raw.contains("@input=")) {
             // 懒加载动作链接（$(...).lazyRule/input 产出的卡片 url）：点击应由
@@ -313,14 +331,69 @@ public class HkExecutor {
         // 与 homeDetailed 同款 guard：详情地址不是 http/https 时不抓页，JS 在空页上跑，
         // 选择器得 0 张卡片（详情页显示“暂无选集”），不抛 OkHttp scheme 错。
         String pageText = isHttpUrl(spec.url) ? fetch(spec) : "";
-        List<HkCard> cards = evalDetailRule(rule, rule.getDetailFindRule(), spec.url, pageText, initialVars, host);
-        if (cards.isEmpty()) {
+        DetailOutcome outcome = new DetailOutcome();
+        outcome.cards = evalDetailRule(rule, rule.getDetailFindRule(), spec.url, pageText, initialVars, host);
+        if (outcome.cards.isEmpty()) {
             String alt = !TextUtils.isEmpty(rule.getChapterFind()) ? rule.getChapterFind() : rule.getMovieFind();
             if (!TextUtils.isEmpty(alt)) {
-                cards = evalDetailRule(rule, alt, spec.url, pageText, initialVars, host);
+                outcome.cards = evalDetailRule(rule, alt, spec.url, pageText, initialVars, host);
             }
         }
-        return cards;
+        if (HkNonVideo.isReadRule(rule) && !TextUtils.isEmpty(rule.getLastChapterRule())) {
+            outcome.lastChapter = lastChapter(rule, spec.url, pageText);
+        }
+        return outcome;
+    }
+
+    /**
+     * 最新章节（第 7 步之九，last_chapter_rule）：对已抓的详情页正文求值，
+     * 不另发请求。JS 规则走 evalTextRule（setResult 交的纯字符串，如全看网的
+     * pdfh 取最后一集名）；选择器规则走 HkParser.extract 取文本。任何失败都
+     * 回 ""（装饰信息，不能炸详情页）。
+     */
+    static String lastChapter(HkRule rule, String detailUrl, String pageText) {
+        String field = rule.getLastChapterRule();
+        if (TextUtils.isEmpty(field) || TextUtils.isEmpty(pageText)) return "";
+        try {
+            HkEngine engine = new HkEngine();
+            engine.prepare(rule, detailUrl, 1, "detail", pageText);
+            engine.evalPreRule();
+            if (HkParser.isJsRule(field)) return engine.evalTextRule(field);
+            String text = HkParser.extract(Jsoup.parse(pageText, detailUrl), field, false, detailUrl, engine);
+            return text == null ? "" : text.trim();
+        } catch (Exception e) {
+            Log.w(TAG, "last_chapter_rule 求值失败 rule=" + rule.getTitle(), e);
+            return "";
+        }
+    }
+
+    /**
+     * 二级详情（第 7 步之九，sdetail_find_rule）：对目标 URL（通常是章节页）
+     * 再跑一次详情规则。字段为空回空列表；`*` 继承主规则（主规则为空也不抛错，
+     * 回空列表）；非 `*` 跑二级规则；子页面地址走展开；http(s) 才抓页。
+     * 调用方必须在后台线程跑。返回原始卡片，内容拼装由 HkNonVideo 做。
+     */
+    public static List<HkCard> sdetail(HkRule rule, String url, Map<String, Object> initialVars,
+                                       HkEngine.DialogHost host) throws HkEngine.HkException {
+        if (rule == null) throw new HkEngine.HkException("规则为空");
+        String err = rule.validate();
+        if (err != null) throw new HkEngine.HkException(err);
+        String field = rule.getSdetailFindRule();
+        if (TextUtils.isEmpty(field)) return new ArrayList<>();
+        String raw = url == null ? "" : url.trim();
+        if (TextUtils.isEmpty(raw)) throw new HkEngine.HkException("二级详情地址为空");
+        String clean = HkParser.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
+        if (HkSubpage.isSubpageUrl(clean)) return HkSubpage.expand(rule, clean);
+        if (raw.contains("@lazyRule=") || raw.contains("@input=")) {
+            throw new HkEngine.HkException("懒加载动作链接请从卡片点击执行（详情页动作行）");
+        }
+        String target = field.trim();
+        if ("*".equals(target)) target = rule.getDetailFindRule();
+        if (TextUtils.isEmpty(target)) return new ArrayList<>();
+        if (TextUtils.isEmpty(clean)) throw new HkEngine.HkException("二级详情地址为空");
+        RequestSpec spec = buildDetailRequest(rule, clean);
+        String pageText = isHttpUrl(spec.url) ? fetch(spec) : "";
+        return evalDetailRule(rule, target, spec.url, pageText, initialVars, host);
     }
 
     /** 对一页详情正文跑一条详情规则（JS 或选择器）；与 home() 的执行顺序一致。 */
@@ -365,6 +438,12 @@ public class HkExecutor {
         public List<String> danmaku = new ArrayList<>();
         /** 歌词原值（lyric）：.lrc 地址（已按 referer 补全）或内嵌歌词文本。 */
         public String lyric = "";
+        /**
+         * 图集 payload（第 7 步之九）：懒结果是 {@code pics://...} 时这里是
+         * 完整原串（与 notice 并存；老调用方只读 notice，行为不变），新分流
+         * （HkNonVideo）读它进图集阅读器；不是 pics:// 时为空。
+         */
+        public String pics = "";
 
         public boolean isEmpty() {
             return TextUtils.isEmpty(url);
@@ -511,8 +590,10 @@ public class HkExecutor {
             return out;
         }
         if (lowerText.startsWith("pics://")) {
-            // 图集浏览本步仍不支持（报明确错，不静默回空）。
+            // 图集浏览：第 7 步之七/八只报明确提示；第 7 步之九起把原串也交回
+            // 调用方（HkNonVideo 读 pics 进图集阅读器），notice 口径不变。
             PlayOutcome out = new PlayOutcome();
+            out.pics = text;
             out.notice = App.get().getString(R.string.hk_action_pics_unsupported);
             return out;
         }

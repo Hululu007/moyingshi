@@ -2,6 +2,7 @@ package com.github.moyingshi.osc.tv.ui.hk;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -18,6 +19,7 @@ import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkEngine;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkNonVideo;
 import com.github.moyingshi.osc.tv.api.hk.HkParser;
 import com.github.moyingshi.osc.tv.api.hk.HkPlayer;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
@@ -27,7 +29,6 @@ import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.utils.Notify;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -115,8 +116,13 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
             int columns = 4;
             String error = null;
             try {
-                List<HkCard> cards = HkExecutor.detail(rule, url, vars, dialogHost);
-                detail = HkDetailHelper.split(cards, fbName, fbPic, fbDesc);
+                HkExecutor.DetailOutcome outcome = HkExecutor.detailOutcome(rule, url, vars, dialogHost);
+                detail = HkDetailHelper.split(outcome.cards, fbName, fbPic, fbDesc);
+                if (!TextUtils.isEmpty(outcome.lastChapter)) {
+                    // 第 7 步之九：小说/漫画规则的最新章节，追加到简介末尾。
+                    String line = App.get().getString(R.string.hk_detail_last_chapter, outcome.lastChapter);
+                    detail.info.desc = TextUtils.isEmpty(detail.info.desc) ? line : detail.info.desc + "\n" + line;
+                }
                 columns = HkDetailHelper.columnsFor(rule.getDetailColType());
             } catch (Exception e) {
                 // HkException（请求/解析失败）与解析器里的未预料异常都走同一条错误态。
@@ -164,10 +170,17 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         loadDetail();
     }
 
-    /** 点选集：拼 Vod 进播放器，懒加载解析在播放器取流时跑（第 5 步）。 */
+    /**
+     * 点选集：影视类拼 Vod 进播放器（第 5 步）；非影视类（小说/漫画/音乐/图片）
+     * 走 HkNonVideo 分流（第 7 步之九：阅读器 / 音频页 / 图集 / 明确提示）。
+     */
     @Override
     public void onEpisodeClick(HkDetailHelper.Line line, HkCard episode) {
         if (mDetail == null) return;
+        if (HkNonVideo.isNonVideoRule(mRule)) {
+            HkNonVideo.routeEpisode(requireActivity(), mRule, mDetail, line, episode, arg("url"));
+            return;
+        }
         HkPlayer.play(requireActivity(), mRule, mDetail, line, episode, arg("url"));
     }
 
