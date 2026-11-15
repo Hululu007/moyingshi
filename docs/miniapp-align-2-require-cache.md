@@ -233,7 +233,7 @@ Node 转写校验的决策表（`isJsCode` 逐字转写 + `isGoodLib` 的状态/
 
 ## 7. 验收记录（2026-11-15 22:44+ 本地做完）
 
-- 提交：`（guard finish 后填）`；recovery tag：`（随后填）`；回滚锚点 4022e7bc。
+- 提交：`9f30f109`；recovery tag：`recovery/miniapp-align-2-require-cache/20261115224835-9f30f109c291`；回滚锚点 4022e7bc。
 - Node 转写校验 `/tmp/miniapp-align-2-check.js`：**30 项全过**（exit 0）。覆盖：真库（var/function、let、eval(、call(、`(a,b)=>`）判好；纯 `$.exports`、`(e=>e.data)` 无标记判坏（与官方一致）；418 HTML（含内联 function）判坏；小写 doctype 判坏（小写兜底；对照项证实纯官方 `isJsCode` 对不以 `</html>` 结尾的小写 doctype 样本确实漏判）；`<?xml` 开头、`</rss>` 结尾、空/空白/null、404/301 状态判坏；取后分支三场景：好内容→eval-fetched、418/空/200非JS+有缓存→eval-fallback、无缓存→throw-empty/throw-notjs。
 - 校验中小插曲（实现本身无错，都是校验脚本期望写错）：① `(e=>e.data)` 不含 `)=>`/` => `，官方同样判否，改期望为坏；② 小写 doctype 完整页以 `</html>` 结尾，官方靠后缀已拦住，漏判只发生在不以 `</html>` 结尾的样本上，改样本并修正文档 §3.2/§4 表述。实现代码一次写成，未返工。
 - diff 逐行重读：只改 `HkEngine.java` 一处（+74/−16），三元表达式沿用原有两条报错文案（双分支均为 String），无新增泛型；`git diff --check` 干净；`menu_nav.xml` 仍 6 项。
