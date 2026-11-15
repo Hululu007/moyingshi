@@ -165,6 +165,12 @@
             android:screenOrientation="fullUser" />
 
         <activity
+            android:name=".ui.hk.HkSearchActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout"
+            android:parentActivityName=".ui.hk.HkListActivity"
+            android:screenOrientation="fullUser" />
+
+        <activity
             android:name=".ui.activity.LocalSourceDialogActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"
             android:parentActivityName=".lab.LabActivity"

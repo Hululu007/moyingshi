@@ -81,6 +81,35 @@ public class HkParser {
         return parseHomeListDetailed(html, findRule, baseUrl, engine, true).cards;
     }
 
+    /**
+     * 搜索选择器解析（见 docs/miniapp-search.md）：字段顺序与首页不同，是
+     * 列表;标题;链接;描述;详情;图片（官方文档“搜索解析规则”，前三个必选）。
+     * desc 取第 4 字段（描述），为空时用第 5 字段（详情）回落；第 5 字段除回落
+     * 外不另展示。只留 usable()（标题 + 链接双全）的卡片，与首页同款过滤。
+     */
+    public static List<HkCard> parseSearchList(String html, String searchFind, String baseUrl, HkEngine engine) {
+        List<HkCard> cards = new ArrayList<>();
+        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(searchFind)) return cards;
+        List<String> fields = splitOutsideQuotes(searchFind, ";");
+        if (fields.size() < 3) {
+            Log.w(TAG, "searchFind 字段不足 3 个: " + searchFind);
+            return cards;
+        }
+        Document doc = Jsoup.parse(html, baseUrl == null ? "" : baseUrl);
+        Elements items = selectElements(doc, fields.get(0).trim());
+        for (Element item : items) {
+            String title = extract(item, fields.get(1), false, baseUrl, engine);
+            String url = extract(item, fields.get(2), true, baseUrl, engine);
+            String desc = fields.size() >= 4 ? extract(item, fields.get(3), false, baseUrl, engine) : "";
+            String detail = fields.size() >= 5 ? extract(item, fields.get(4), false, baseUrl, engine) : "";
+            String pic = fields.size() >= 6 ? extract(item, fields.get(5), true, baseUrl, engine) : "";
+            if (TextUtils.isEmpty(desc)) desc = detail;
+            HkCard card = new HkCard(title, url, pic, desc);
+            if (card.usable()) cards.add(card);
+        }
+        return cards;
+    }
+
     /** 首页解析结果（含命中数，供命中诊断用）。matched = 列表选择器选到的元素数（不过滤）。 */
     static class ParseOutcome {
         List<HkCard> cards = new ArrayList<>();

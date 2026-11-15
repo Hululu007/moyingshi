@@ -82,6 +82,11 @@
     <string name="hk_detail_retry">重试</string>
     <string name="hk_detail_no_episodes">暂无选集</string>
     <string name="hk_play_no_url">小程序未解析出播放地址</string>
+    <string name="hk_search_hint">搜影片名</string>
+    <string name="hk_search_submit">搜索</string>
+    <string name="hk_search_no_rule">该规则不支持搜索（没有写 search_url/searchFind）</string>
+    <string name="hk_search_empty">没有搜到相关结果，换个关键词试试</string>
+    <string name="hk_search_empty_keyword">搜索关键词不能为空</string>
     <string name="hk_miniapp_paste_hint">粘贴 rule.json 内容</string>
     <string name="hk_miniapp_pick_title">选择文件或目录</string>
     <string name="hk_miniapp_pick_file">选择文件</string>

@@ -3,12 +3,15 @@ package com.github.moyingshi.osc.tv.ui.hk;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
 import android.view.MenuItem;
 
 import androidx.annotation.NonNull;
 import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.api.hk.HkRule;
+import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.databinding.ActivityHkListBinding;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 
@@ -35,6 +38,9 @@ public class HkListActivity extends BaseActivity {
     public static final String EXTRA_TITLE = "title";
 
     private ActivityHkListBinding binding;
+    private String mTitle = "";
+    /** 当前规则是否可搜索（search_url 与 searchFind 都非空）：不可搜索时工具栏不显示搜索项。 */
+    private boolean mSearchable;
 
     /** mobile 内启动列表页：传规则标题即可。 */
     public static void open(Context context, String title) {
@@ -55,6 +61,9 @@ public class HkListActivity extends BaseActivity {
     protected void initView(Bundle savedInstanceState) {
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         if (title == null) title = "";
+        mTitle = title;
+        HkRule rule = HkStore.read(title);
+        mSearchable = rule != null && rule.isSearchable();
         setSupportActionBar(binding.toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -68,9 +77,21 @@ public class HkListActivity extends BaseActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_hk_list, menu);
+        MenuItem search = menu.findItem(R.id.action_search);
+        if (search != null) search.setVisible(mSearchable);
+        return true;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
             finish();
+            return true;
+        }
+        if (item.getItemId() == R.id.action_search) {
+            HkSearchActivity.open(this, mTitle);
             return true;
         }
         return super.onOptionsItemSelected(item);

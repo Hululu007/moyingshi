@@ -11,6 +11,7 @@ import com.google.gson.JsonParser;
 
 import org.jsoup.Jsoup;
 
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -21,8 +22,10 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 /**
@@ -32,8 +35,11 @@ import okhttp3.Response;
  * 首页流程（f22.k 的同款顺序）：校验 → 拼 URL（fy 占位符）→ OkHttp 抓页 →
  * preRule 先跑 → find_rule 是 js: 走 Rhino（w02），否则走选择器解析（b32）。
  * <p>
- * 第 1 步只做到首页（home），且只实现 GET；搜索、详情、懒加载播放、云口令、
- * 导出都是后面的阶段。调用方必须在后台线程跑（网络同步 + Rhino 执行）。
+ * 第 1 步只做到首页（home），且只实现 GET；详情、懒加载播放、云口令、导出
+ * 是后面的阶段。第 6 步补了搜索（search）：search_url 的 ** 占位替换 +
+ * searchFind 解析，走与首页同款的执行路径；POST 只在搜索路径支持
+ * （首页 buildHomeRequest 遇 POST 仍抛错，见 buildSearchRequest）。
+ * 调用方必须在后台线程跑（网络同步 + Rhino 执行）。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
@@ -47,6 +53,10 @@ public class HkExecutor {
         public String url = "";
         public Map<String, String> headers = new HashMap<>();
         public String charset = "UTF-8";
+        /** 请求方法：默认 GET；搜索路径的 ;post 修饰符会写成 POST。 */
+        public String method = "GET";
+        /** POST body：已是编码后的 query 字符串（不再二次编码），GET 时为空。 */
+        public String body = "";
     }
 
     /** 首页，默认第 1 页、第一个分类。 */
@@ -98,6 +108,161 @@ public class HkExecutor {
                     : outcome.cards.isEmpty() ? "（命中了但卡片都不可用，缺标题或链接）" : "");
         }
         return outcome;
+    }
+
+    /**
+     * 搜索（对应报告 §7.1 的 search()，见 docs/miniapp-search.md）。
+     * 流程与 homeDetailed 同款：校验 → 拼搜索请求 → OkHttp 抓页 → preRule →
+     * searchFind 是 js: 走 Rhino，否则走 {@link HkParser#parseSearchList}。
+     * 规则不可搜索（search_url/searchFind 任一为空）时返回空列表，不要假数据；
+     * 关键词为空、请求/解析失败时抛 HkException（调用方显示错误态）。
+     * 调用方必须在后台线程跑。返回原始搜索卡片，筛选由 HkListHelper.pickCards 做。
+     */
+    public static List<HkCard> search(HkRule rule, String keyword, int page) throws HkEngine.HkException {
+        if (rule == null) throw new HkEngine.HkException("规则为空");
+        String err = rule.validate();
+        if (err != null) throw new HkEngine.HkException(err);
+        if (TextUtils.isEmpty(keyword) || keyword.trim().isEmpty()) {
+            throw new HkEngine.HkException("搜索关键词不能为空");
+        }
+        // E() 为假（没有搜索规则）时返回空列表，不要假数据（报告 search() 同款）。
+        if (!rule.isSearchable()) return new ArrayList<>();
+        RequestSpec spec = buildSearchRequest(rule, keyword.trim(), page);
+        // 与 homeDetailed 同款 guard：搜索地址不是 http/https 时不抓页，JS 在空页上跑，
+        // 选择器得 0 条卡片，不抛 OkHttp scheme 错。
+        boolean skippedFetch = !isHttpUrl(spec.url);
+        String pageText = skippedFetch ? "" : fetch(spec);
+        HkEngine engine = new HkEngine();
+        engine.prepare(rule, spec.url, page, "search", pageText);
+        engine.evalPreRule();
+        if (HkParser.isJsRule(rule.getSearchFind())) {
+            return engine.evalFindRule(rule.getSearchFind());
+        }
+        return HkParser.parseSearchList(pageText, rule.getSearchFind(), spec.url, engine);
+    }
+
+    /**
+     * 拼搜索请求。模板是规则 search_url：关键词占位是 **（官方文档；冲突时用 %%），
+     * fykey 是任务描述里的写法、真实规则里没有，当无害别名一起换；页码是 fypage。
+     * 修饰符与首页同款（;get/;post/;charset/;{headers JSON}）；POST 时问号后的
+     * 参数进 body（官方“POST传参和get一样，真正请求时会自动转到body里面”）。
+     * JsonBody 的 JSON POST 本步不支持（见任务文档“已知缺口”）。
+     */
+    public static RequestSpec buildSearchRequest(HkRule rule, String keyword, int page) throws HkEngine.HkException {
+        String template = rule.getSearchUrl();
+        if (TextUtils.isEmpty(template)) throw new HkEngine.HkException("规则缺少 search_url");
+        // ？？ 转回 ?（官方 POST 一节：链接里有问号时用两个中文问号代替）。
+        template = template.replace("？？", "?");
+        UrlModifiers mods = splitUrlModifiers(template);
+        String url = mods.url;
+
+        // [firstPage=N] 与 fypage（含 @...@ 运算）与首页同款。
+        int effectivePage = Math.max(1, page);
+        Matcher firstPage = FIRST_PAGE.matcher(url);
+        if (firstPage.find()) {
+            if (effectivePage == 1) {
+                try {
+                    effectivePage = Integer.parseInt(firstPage.group(1).trim());
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            url = firstPage.replaceAll("");
+        }
+        url = replacePagePlaceholders(url, effectivePage);
+
+        // 关键词先 URL 编码（用规则 charset，默认 UTF-8）再替换占位符。
+        String encoded = encodeKeyword(keyword, mods.charset);
+        url = url.replace("**", encoded).replace("%%", encoded).replace("fykey", encoded);
+
+        RequestSpec spec = new RequestSpec();
+        spec.method = mods.method;
+        spec.charset = mods.charset;
+        Map<String, String> headers = new HashMap<>();
+        parseFirstHeader(rule.getFirstHeader(), headers);
+        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", rule.getUa());
+        headers.putAll(mods.headers);
+        spec.headers = headers;
+        if ("POST".equals(mods.method)) {
+            int q = url.indexOf('?');
+            if (q >= 0) {
+                spec.body = url.substring(q + 1);
+                url = url.substring(0, q);
+            } else {
+                spec.body = "";
+            }
+        }
+        spec.url = url;
+        return spec;
+    }
+
+    /** 关键词 URL 编码（URLEncoder：空格编成 +，query/form 都适用）；编码失败回落原文。 */
+    private static String encodeKeyword(String keyword, String charset) {
+        String text = keyword == null ? "" : keyword;
+        try {
+            return URLEncoder.encode(text, charsetFor(charset).name());
+        } catch (Exception e) {
+            try {
+                return URLEncoder.encode(text, StandardCharsets.UTF_8.name());
+            } catch (Exception ignored) {
+                return text;
+            }
+        }
+    }
+
+    /** URL 模板里 ; 修饰符的拆分结果：干净 URL + 方法 + 编码 + URL 内 headers。 */
+    private static class UrlModifiers {
+        String url = "";
+        String method = "GET";
+        String charset = "UTF-8";
+        Map<String, String> headers = new HashMap<>();
+    }
+
+    /**
+     * 拆 URL 模板的 ; 修饰符（首页与搜索共用；从 buildHomeRequest 原样抽出，
+     * 行为不变）：get/post（大小写不敏感）、编码（UTF-8/GBK/GB2312/GB18030）、
+     * {headers JSON}。引号内保护，JSON 里的 ; 不切；修饰符还没开始前的 ;
+     * 是 URL 本身的一部分，拼回去。
+     */
+    private static UrlModifiers splitUrlModifiers(String template) {
+        UrlModifiers mods = new UrlModifiers();
+        List<String> segments = HkParser.splitOutsideQuotes(template, ";");
+        StringBuilder urlPart = new StringBuilder(segments.get(0));
+        boolean modifiersStarted = false;
+        for (int i = 1; i < segments.size(); i++) {
+            String seg = segments.get(i).trim();
+            if (seg.equalsIgnoreCase("get")) {
+                mods.method = "GET";
+                modifiersStarted = true;
+                continue;
+            }
+            if (seg.equalsIgnoreCase("post")) {
+                mods.method = "POST";
+                modifiersStarted = true;
+                continue;
+            }
+            if (isCharset(seg)) {
+                mods.charset = seg.toUpperCase();
+                modifiersStarted = true;
+                continue;
+            }
+            if (seg.startsWith("{")) {
+                String json = seg;
+                while (!bracesBalanced(json) && i + 1 < segments.size()) {
+                    json += ";" + segments.get(++i);
+                }
+                parseJsonHeaders(json, mods.headers);
+                modifiersStarted = true;
+                continue;
+            }
+            if (!modifiersStarted) {
+                // 修饰符还没开始：这个 ; 是 URL 本身的一部分，拼回去。
+                urlPart.append(';').append(segments.get(i));
+            } else {
+                Log.w(TAG, "忽略无法识别的 URL 修饰符: " + seg);
+            }
+        }
+        mods.url = urlPart.toString();
+        return mods;
     }
 
     /**
@@ -395,50 +560,14 @@ public class HkExecutor {
         }
         if (TextUtils.isEmpty(template)) throw new HkEngine.HkException("规则缺少 url");
 
-        // 1. 拆 ; 修饰符（引号内保护，JSON 里的 ; 不切）。
-        List<String> segments = HkParser.splitOutsideQuotes(template, ";");
-        StringBuilder urlPart = new StringBuilder(segments.get(0));
-        String method = "GET";
-        String charset = "UTF-8";
-        Map<String, String> urlHeaders = new HashMap<>();
-        boolean modifiersStarted = false;
-        for (int i = 1; i < segments.size(); i++) {
-            String seg = segments.get(i).trim();
-            if (seg.equalsIgnoreCase("get")) {
-                method = "GET";
-                modifiersStarted = true;
-                continue;
-            }
-            if (seg.equalsIgnoreCase("post")) {
-                method = "POST";
-                modifiersStarted = true;
-                continue;
-            }
-            if (isCharset(seg)) {
-                charset = seg.toUpperCase();
-                modifiersStarted = true;
-                continue;
-            }
-            if (seg.startsWith("{")) {
-                String json = seg;
-                while (!bracesBalanced(json) && i + 1 < segments.size()) {
-                    json += ";" + segments.get(++i);
-                }
-                parseJsonHeaders(json, urlHeaders);
-                modifiersStarted = true;
-                continue;
-            }
-            if (!modifiersStarted) {
-                // 修饰符还没开始：这个 ; 是 URL 本身的一部分，拼回去。
-                urlPart.append(';').append(segments.get(i));
-            } else {
-                Log.w(TAG, "忽略无法识别的 URL 修饰符: " + seg);
-            }
-        }
-        if ("POST".equals(method)) {
+        // 1. 拆 ; 修饰符（与搜索路径共用 splitUrlModifiers，行为与原来一致）。
+        UrlModifiers mods = splitUrlModifiers(template);
+        if ("POST".equals(mods.method)) {
             throw new HkEngine.HkException("POST 请求暂不支持（第 1 步仅实现 GET）");
         }
-        String url = urlPart.toString();
+        String url = mods.url;
+        String charset = mods.charset;
+        Map<String, String> urlHeaders = mods.headers;
 
         // 2. [firstPage=N]：第 1 页用 N 做页码。
         int effectivePage = Math.max(1, page);
@@ -504,6 +633,11 @@ public class HkExecutor {
         Request.Builder builder = new Request.Builder().url(spec.url);
         for (Map.Entry<String, String> e : spec.headers.entrySet()) {
             builder.header(e.getKey(), e.getValue());
+        }
+        if ("POST".equalsIgnoreCase(spec.method)) {
+            // body 已是编码后的 query 字符串，不再二次编码（搜索路径用，首页不用）。
+            builder.post(RequestBody.create(spec.body == null ? "" : spec.body,
+                    MediaType.parse("application/x-www-form-urlencoded")));
         }
         try (Response res = client.newCall(builder.build()).execute()) {
             if (!res.isSuccessful()) {

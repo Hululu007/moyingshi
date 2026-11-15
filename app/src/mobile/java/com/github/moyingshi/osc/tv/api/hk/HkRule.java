@@ -144,6 +144,14 @@ public class HkRule {
     }
 
     /**
+     * 是否可搜索，对应 g22.E()：search_url 和 searchFind 都非空。
+     * 为假时搜索返回空列表（不要假数据），见 docs/miniapp-search.md。
+     */
+    public boolean isSearchable() {
+        return !TextUtils.isEmpty(searchUrl) && !TextUtils.isEmpty(searchFind);
+    }
+
+    /**
      * 校验，对应 g22.a0() 的三条提示（只返回提示，不弹 toast，调用方决定怎么展示）：
      * 缺 title →「规则缺少 title」；缺 url 且 find_rule 不是 JS →「规则缺少 url」；
      * 缺 find_rule →「规则缺少 find_rule」。通过返回 null。
