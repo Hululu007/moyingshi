@@ -42,8 +42,9 @@
    （`putVar`/`getVar`/`putMyVar`/`getMyVar`/`getParam`）、域内变量
    （`MY_URL`/`MY_HOME`/`MY_RULE`/`MY_PAGE`/`MY_TYPE`/`MY_PARAMS`/
    `MOBILE_UA`/`PC_UA`）、`$` 工具（`$.toString`/`$.stringify`）。
-   暂不支持的（`xpath`/`batchFetch`/`getCryptoJS`/`aesEncode`/`encodeStr`/
-   `require`/`request` 等）在 BOOTSTRAP 里是会抛明确错误的桩。
+   暂不支持的（`xpath`/`getCryptoJS`/`aesEncode`/`encodeStr` 等）在 BOOTSTRAP
+   里是会抛明确错误的桩；`batchFetch`/`require`/`request` 已实现（见
+   `docs/miniapp-nodata-fix.md`、`docs/miniapp-subpage.md`）。
    `setResult` 同时认 `img` 与 `pic_url`；JS 直接返回数组时也认（没调
    setResult 的兜底）。
 3. **规则模型 g22**（`HkRule`）：按逆向报告 §3 / §7.9 的全部字段建
@@ -101,7 +102,7 @@
 - **`.js:` 代码里的 `;` 语句分隔符切不开**：字段按 `;` 切分（引号内保护），
   `.js:` 请写表达式，别写多语句。
 - **XPath 不支持**：jsoup 没有 XPath 引擎；`xpath`/`xpa` 是抛错的桩。
-- **`batchFetch`/`getCryptoJS`/`aesEncode`/`require` 等未实现**：同上，抛错的桩。
+- **`batchFetch` 已实现**（见 `docs/miniapp-nodata-fix.md`）；**`require`/`request` 已实现**（见 `docs/miniapp-subpage.md`）；`getCryptoJS`/`aesEncode` 等仍未实现，同上，抛错的桩。
 - **`encodeStr`/`decodeStr` 未实现**：语义（字符集转换方向）未核实，不猜。
 - **`fetch` 的 `onlyHeaders`/`withHeaders`/`toHex` 等选项未实现**：只认
   headers/method/body/timeout。

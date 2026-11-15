@@ -90,6 +90,8 @@ public class HkEngine {
      * saveFile/fileExist/deleteFile、getItem/setItem；myVar 与 item 都落盘到
      * plugins/hk/data/&lt;标题&gt;/，见 {@link HkStore}）、子页面与库
      * （require/$.require 走 {@link HkSubpage}，库 URL 走 require.json 清单）、
+     * 规则配置（config 对象 + initConfig(o) 合并 + rc(url) 走 require 取库；
+     * config 每次求值新建，initConfig 在 preRule 里设的值同求值内可见）、
      * 域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
      * PC_UA）与 $ 工具（$.toString/$.stringify/$.require/$.hiker/$.importParam/
      * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
@@ -145,6 +147,9 @@ public class HkEngine {
             function confirm(o) { return __hk.confirm(o); }
             function select(o) { return __hk.select(o); }
             function require(url, params) { return __hk.require(url, params); }
+            var config = {};
+            function initConfig(o) { if (o && typeof o === 'object') { for (var k in o) { config[k] = o[k]; } } return config; }
+            function rc(url, hours) { return __hk.require(url); }
             function getRule() { return JSON.parse(__hk.getRuleJson()); }
             var MY_RULE = JSON.parse(__hk.getRuleJson());
             var MY_PARAMS = JSON.parse(__hk.getParamsJson());
@@ -650,6 +655,9 @@ public class HkEngine {
     private int page = 1;
     private String pageType = "home";
     private String resCode = "";
+
+    /** 最近一次真实 HTTP 抓取的状态码（require 报错用；-1 = 未抓到/未知）。 */
+    private int lastHttpCode = -1;
     private List<HkCard> result;
     private boolean resultSet;
     /**
@@ -1064,12 +1072,18 @@ public class HkEngine {
             if (code == null) throw new HkException("require 库文件读取失败：" + lib.getName());
         } else if (u.startsWith("http://") || u.startsWith("https://")) {
             code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
-            if (TextUtils.isEmpty(code)) throw new HkException("require 取数失败（空内容）：" + u);
+            if (TextUtils.isEmpty(code)) {
+                throw new HkException(lastHttpCode >= 0
+                        ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
+                        : "require 取数失败（空内容）：" + u);
+            }
             // 取到的是 HTML 错误页/拦截页（例如 WAF 418）时不再当 JS 执行——
             // 那样只会在第 1 行报含糊的语法错；直接报清楚（见 docs/miniapp-nodata-fix.md）。
             String lower = code.trim().toLowerCase(Locale.ROOT);
             if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
-                throw new HkException("require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+                throw new HkException(lastHttpCode >= 0
+                        ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
+                        : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
             }
         } else {
             throw new HkException("require 不支持的地址：" + u + "（只支持 hiker://page/... 与库文件 URL）");
@@ -1215,6 +1229,7 @@ public class HkEngine {
      * </ul>
      */
     private String httpFetch(String url, Map<String, String> headers, String method, Object body, long timeout) throws HkException {
+        lastHttpCode = -1;
         if (!TextUtils.isEmpty(url)) {
             String u = url.trim();
             if (HkSubpage.isSubpageUrl(u)) {
@@ -1247,6 +1262,7 @@ public class HkEngine {
                 builder.method(method, body == null ? null : buildBody(body));
             }
             try (Response res = client.newCall(builder.build()).execute()) {
+                lastHttpCode = res.code();
                 if (res.body() == null) return "";
                 byte[] bytes = res.body().bytes();
                 String contentType = res.header("Content-Type", "");
