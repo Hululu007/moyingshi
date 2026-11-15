@@ -37,6 +37,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -214,7 +219,7 @@ public class HkEngine {
             var xpath = __unsupported('xpath');
             var xpa = xpath;
             var xpathArray = __unsupported('xpathArray');
-            function batchFetch(arr) { return __hk.batchFetch(arr); }
+            function batchFetch(arr, threadNum) { return __hk.batchFetch(arr, threadNum); }
             var bf = batchFetch;
             var getCryptoJS = __unsupported('getCryptoJS');
             var encodeStr = __unsupported('encodeStr');
@@ -257,6 +262,50 @@ public class HkEngine {
         }
     }
 
+    /**
+     * fetch/batchFetch 共用的抓取选项。纯 Java 持有者，可跨线程（batchFetch 的
+     * 工作线程只碰它，不碰 Rhino 对象；见 docs/miniapp-align-4-batch-fetch.md）。
+     * body 只取线程安全的形态：String、表单 Map&lt;String,String&gt;（ArrayMap）、null。
+     */
+    private static final class FetchOpts {
+        final Map<String, String> headers;
+        final String method;
+        final Object body;
+        final long timeout;
+        /** withHeaders 或 withStatusCode：返回 wrapFetch 包络 JSON，而不是纯体。 */
+        final boolean envelope;
+        /** redirect:false 时为 false（不跟随重定向）。 */
+        final boolean followRedirects;
+        /** onlyHeaders：只要状态码 + 头，不读体。 */
+        final boolean onlyHeaders;
+
+        FetchOpts(Map<String, String> headers, String method, Object body, long timeout,
+                  boolean envelope, boolean followRedirects, boolean onlyHeaders) {
+            this.headers = headers;
+            this.method = method;
+            this.body = body;
+            this.timeout = timeout;
+            this.envelope = envelope;
+            this.followRedirects = followRedirects;
+            this.onlyHeaders = onlyHeaders;
+        }
+
+        static FetchOpts defaults() {
+            return new FetchOpts(new HashMap<>(), "GET", null, DEFAULT_TIMEOUT_MS, false, true, false);
+        }
+    }
+
+    /** batchFetch 的一项：调用线程上从 JS 值抽出的纯 Java 持有者，可安全跨线程。 */
+    private static final class BatchItem {
+        final String url;
+        final FetchOpts opts;
+
+        BatchItem(String url, FetchOpts opts) {
+            this.url = url;
+            this.opts = opts;
+        }
+    }
+
     /** JS 通过 __hk 调到的 Java 桥。必须是 public static 类，否则 Rhino 反射调不到方法。 */
     public static class Bridge {
         private final HkEngine engine;
@@ -269,32 +318,17 @@ public class HkEngine {
             return fetch(url, null);
         }
 
-        /** 同步请求，返回响应体字符串；options 支持 headers/method/body/timeout。 */
+        /**
+         * 同步请求，返回响应体字符串；options 支持 headers/method/body/timeout，
+         * 以及 withHeaders/withStatusCode（返回 wrapFetch 包络 JSON）、
+         * redirect:false（不跟随重定向）、onlyHeaders（只要状态码 + 头，不读体）。
+         * 官方 fetchSync 同款语义，见 docs/miniapp-align-4-batch-fetch.md §3.2。
+         */
         public String fetch(String url, Object options) throws HkException {
             if (TextUtils.isEmpty(url)) return "";
-            Map<String, String> headers = new HashMap<>();
-            String method = "GET";
-            Object body = null;
-            long timeout = DEFAULT_TIMEOUT_MS;
-            if (options instanceof NativeObject) {
-                NativeObject opt = (NativeObject) options;
-                Object h = ScriptableObject.getProperty(opt, "headers");
-                if (h instanceof NativeObject) {
-                    NativeObject headersObj = (NativeObject) h;
-                    for (Object id : headersObj.getIds()) {
-                        String key = String.valueOf(id);
-                        Object value = ScriptableObject.getProperty(headersObj, key);
-                        if (value != null && !(value instanceof Undefined)) headers.put(key, Context.toString(value));
-                    }
-                }
-                Object m = ScriptableObject.getProperty(opt, "method");
-                if (m instanceof String && !((String) m).isEmpty()) method = ((String) m).toUpperCase();
-                body = ScriptableObject.getProperty(opt, "body");
-                if (body instanceof Undefined) body = null;
-                Object t = ScriptableObject.getProperty(opt, "timeout");
-                if (t instanceof Number) timeout = ((Number) t).longValue();
-            }
-            return engine.httpFetch(url, headers, method, body, timeout);
+            FetchOpts opts = options instanceof NativeObject
+                    ? fetchOptsFromNativeObject((NativeObject) options) : FetchOpts.defaults();
+            return engine.httpFetch(url, opts);
         }
 
         public String post(String url, Object options) throws HkException {
@@ -306,34 +340,241 @@ public class HkEngine {
         }
 
         /**
-         * 批量抓取（地基第 1 步留下的抛错桩在此实现）：入参是
-         * [{url, method?, headers?, body?, timeout?}] 或纯 URL 字符串数组；
-         * 逐项同步抓（顺序），单项失败记 "" 不抛，让规则自己的循环跳过；
-         * 返回 NativeArray 字符串数组。非数组入参返回空数组。
+         * 批量抓取（对齐第 4 项，照官方 batchFetchImpl）：入参是
+         * [{url, options}]（options 是嵌套对象）或纯 URL 字符串数组，也接受
+         * JSON 字符串形式的数组；并发 min(n,16)，第二参 threadNum 可覆盖；
+         * 整体超时 (n/16)*10+10 秒；单项失败记 "" 不抛，超时未完成位为 null；
+         * 返回按下标对齐的 NativeArray。非数组入参返回空数组。
+         * 入参在调用线程上抽成纯 Java 的 BatchItem，Rhino 对象不跨线程；
+         * 工作线程只调 {@link HkEngine#httpFetch(String, FetchOpts)}（纯 Java，
+         * 不碰 Rhino，不需进 Context）。见 docs/miniapp-align-4-batch-fetch.md。
          */
         public Object batchFetch(Object arg) {
-            List<String> out = new ArrayList<>();
-            if (arg instanceof NativeArray) {
-                NativeArray arr = (NativeArray) arg;
-                for (int i = 0; i < arr.size(); i++) {
-                    Object item = arr.get(i, arr);
-                    try {
-                        if (item instanceof String) {
-                            out.add(fetch((String) item));
-                        } else if (item instanceof NativeObject) {
-                            Object u = ScriptableObject.getProperty((NativeObject) item, "url");
-                            out.add(u == null || u instanceof Undefined ? "" : fetch(Context.toString(u), item));
-                        } else {
-                            out.add("");
-                        }
-                    } catch (Exception e) {
-                        out.add("");
-                    }
+            return batchFetch(arg, null);
+        }
+
+        public Object batchFetch(Object arg, Object threadNum) {
+            List<BatchItem> items = extractBatchItems(arg);
+            int size = items.size();
+            Context cx = Context.getCurrentContext();
+            if (size == 0) return emptyJsArray(cx);
+            int poolSize = Math.min(size, 16);
+            if (threadNum != null && !(threadNum instanceof Undefined)) {
+                try {
+                    poolSize = Math.max(1, Math.min(size, (int) toBatchThreadNum(threadNum)));
+                } catch (Exception ignored) {
+                    // 解析失败回落默认 min(size,16)，与官方一致。
                 }
             }
-            Context cx = Context.getCurrentContext();
-            if (cx == null) return out.toArray(new String[0]);
-            return cx.newArray(engine.scope, out.toArray(new String[0]));
+            ExecutorService pool = Executors.newFixedThreadPool(poolSize);
+            ConcurrentHashMap<Integer, String> results = new ConcurrentHashMap<>();
+            CountDownLatch latch = new CountDownLatch(size);
+            try {
+                for (int i = 0; i < size; i++) {
+                    final int index = i;
+                    final BatchItem item = items.get(i);
+                    pool.execute(() -> {
+                        try {
+                            String text = item.url == null ? "" : engine.httpFetch(item.url, item.opts);
+                            results.put(index, text == null ? "" : text);
+                        } catch (Throwable t) {
+                            // 官方同款：单项失败该位 ""，不抛。
+                            results.put(index, "");
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                }
+                // 官方同款：(size/16)*10+10 秒（整除）；超时后未入位的槽组装时为 null。
+                latch.await((size / 16) * 10 + 10, TimeUnit.SECONDS);
+            } catch (Throwable t) {
+                Log.w(TAG, "batchFetch failed: " + t.getMessage());
+                return emptyJsArray(cx);
+            } finally {
+                pool.shutdownNow();
+            }
+            Object[] out = new Object[size];
+            for (int i = 0; i < size; i++) out[i] = results.get(i);
+            if (cx == null) return out;
+            return cx.newArray(engine.scope, out);
+        }
+
+        private Object emptyJsArray(Context cx) {
+            if (cx == null) return new Object[0];
+            return cx.newArray(engine.scope, new Object[0]);
+        }
+
+        private static double toBatchThreadNum(Object v) {
+            if (v instanceof Number) return ((Number) v).doubleValue();
+            if (v instanceof String) return Double.parseDouble(((String) v).trim());
+            throw new IllegalArgumentException("not a number: " + v);
+        }
+
+        /** 调用线程上把 batchFetch 入参抽成 BatchItem 列表；非法入参 → 空列表。 */
+        private static List<BatchItem> extractBatchItems(Object arg) {
+            List<BatchItem> items = new ArrayList<>();
+            if (arg instanceof NativeArray) {
+                NativeArray arr = (NativeArray) arg;
+                for (int i = 0; i < arr.size(); i++) items.add(batchItemFromJs(arr.get(i, arr)));
+            } else if (arg instanceof String) {
+                // 官方同款：字符串入参按 JSON 数组解析，不是数组则空数组。
+                try {
+                    JsonElement parsed = JsonParser.parseString((String) arg);
+                    if (parsed != null && parsed.isJsonArray()) {
+                        for (JsonElement el : parsed.getAsJsonArray()) items.add(batchItemFromJson(el));
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+            return items;
+        }
+
+        private static BatchItem batchItemFromJs(Object item) {
+            if (item instanceof String) {
+                return new BatchItem((String) item, FetchOpts.defaults());
+            }
+            if (item instanceof NativeObject) {
+                NativeObject obj = (NativeObject) item;
+                Object u = ScriptableObject.getProperty(obj, "url");
+                String url = (u == null || u instanceof Undefined) ? null : Context.toString(u);
+                Object options = ScriptableObject.getProperty(obj, "options");
+                FetchOpts opts = options instanceof NativeObject
+                        ? fetchOptsFromNativeObject((NativeObject) options) : FetchOpts.defaults();
+                return new BatchItem(url, opts);
+            }
+            return new BatchItem(null, FetchOpts.defaults());
+        }
+
+        private static BatchItem batchItemFromJson(JsonElement el) {
+            if (el == null || el.isJsonNull()) return new BatchItem(null, FetchOpts.defaults());
+            if (el.isJsonPrimitive()) {
+                JsonPrimitive p = el.getAsJsonPrimitive();
+                return new BatchItem(p.isString() ? p.getAsString() : p.toString(), FetchOpts.defaults());
+            }
+            if (el.isJsonObject()) {
+                JsonObject obj = el.getAsJsonObject();
+                String url = obj.has("url") && !obj.get("url").isJsonNull()
+                        ? jsonToString(obj.get("url")) : null;
+                FetchOpts opts = obj.has("options") && obj.get("options").isJsonObject()
+                        ? fetchOptsFromJson(obj.getAsJsonObject("options")) : FetchOpts.defaults();
+                return new BatchItem(url, opts);
+            }
+            return new BatchItem(null, FetchOpts.defaults());
+        }
+
+        /** 从 JS options 对象抽取抓取选项（调用线程上读 NativeObject，不跨线程）。 */
+        private static FetchOpts fetchOptsFromNativeObject(NativeObject opt) {
+            Map<String, String> headers = new HashMap<>();
+            String method = "GET";
+            Object body = null;
+            long timeout = DEFAULT_TIMEOUT_MS;
+            boolean envelope = false;
+            boolean followRedirects = true;
+            boolean onlyHeaders = false;
+            if (opt != null) {
+                Object h = ScriptableObject.getProperty(opt, "headers");
+                if (h instanceof NativeObject) {
+                    NativeObject headersObj = (NativeObject) h;
+                    for (Object id : headersObj.getIds()) {
+                        String key = String.valueOf(id);
+                        Object value = ScriptableObject.getProperty(headersObj, key);
+                        if (value != null && !(value instanceof Undefined)) headers.put(key, Context.toString(value));
+                    }
+                }
+                Object m = ScriptableObject.getProperty(opt, "method");
+                if (m instanceof String && !((String) m).isEmpty()) method = ((String) m).toUpperCase(Locale.ROOT);
+                body = ScriptableObject.getProperty(opt, "body");
+                if (body instanceof Undefined) body = null;
+                else if (body instanceof NativeObject) body = formParams((NativeObject) body);
+                Object t = ScriptableObject.getProperty(opt, "timeout");
+                if (t instanceof Number) timeout = ((Number) t).longValue();
+                envelope = jsTruthy(ScriptableObject.getProperty(opt, "withHeaders"))
+                        || jsTruthy(ScriptableObject.getProperty(opt, "withStatusCode"));
+                Object r = ScriptableObject.getProperty(opt, "redirect");
+                if (r instanceof Boolean) followRedirects = (Boolean) r;
+                onlyHeaders = jsTruthy(ScriptableObject.getProperty(opt, "onlyHeaders"));
+            }
+            return new FetchOpts(headers, method, body, timeout, envelope, followRedirects, onlyHeaders);
+        }
+
+        /** 从 JSON options 对象抽取抓取选项（字符串入参路径，与上面同款语义）。 */
+        private static FetchOpts fetchOptsFromJson(JsonObject opt) {
+            Map<String, String> headers = new HashMap<>();
+            String method = "GET";
+            Object body = null;
+            long timeout = DEFAULT_TIMEOUT_MS;
+            boolean envelope = false;
+            boolean followRedirects = true;
+            boolean onlyHeaders = false;
+            if (opt != null) {
+                if (opt.has("headers") && opt.get("headers").isJsonObject()) {
+                    for (Map.Entry<String, JsonElement> e : opt.getAsJsonObject("headers").entrySet()) {
+                        if (e.getValue() != null && !e.getValue().isJsonNull()) headers.put(e.getKey(), jsonToString(e.getValue()));
+                    }
+                }
+                if (opt.has("method") && opt.get("method").isJsonPrimitive()) {
+                    String m = opt.get("method").getAsString();
+                    if (!m.isEmpty()) method = m.toUpperCase(Locale.ROOT);
+                }
+                if (opt.has("body") && !opt.get("body").isJsonNull()) {
+                    JsonElement b = opt.get("body");
+                    if (b.isJsonPrimitive()) body = b.isString() ? b.getAsString() : b.toString();
+                    else if (b.isJsonObject()) {
+                        ArrayMap<String, String> params = new ArrayMap<>();
+                        for (Map.Entry<String, JsonElement> e : b.getAsJsonObject().entrySet()) {
+                            if (e.getValue() != null && !e.getValue().isJsonNull()) params.put(e.getKey(), jsonToString(e.getValue()));
+                        }
+                        body = params;
+                    } else body = b.toString();
+                }
+                if (opt.has("timeout") && opt.get("timeout").isJsonPrimitive()) {
+                    try {
+                        timeout = opt.get("timeout").getAsLong();
+                    } catch (Exception ignored) {
+                    }
+                }
+                envelope = jsonTruthy(opt.get("withHeaders")) || jsonTruthy(opt.get("withStatusCode"));
+                if (opt.has("redirect") && opt.get("redirect").isJsonPrimitive()
+                        && opt.get("redirect").getAsJsonPrimitive().isBoolean()) {
+                    followRedirects = opt.get("redirect").getAsBoolean();
+                }
+                onlyHeaders = jsonTruthy(opt.get("onlyHeaders"));
+            }
+            return new FetchOpts(headers, method, body, timeout, envelope, followRedirects, onlyHeaders);
+        }
+
+        /** NativeObject 形式的表单 body 在调用线程转成 ArrayMap（线程安全形态）。 */
+        private static ArrayMap<String, String> formParams(NativeObject obj) {
+            ArrayMap<String, String> params = new ArrayMap<>();
+            for (Object id : obj.getIds()) {
+                String key = String.valueOf(id);
+                Object value = ScriptableObject.getProperty(obj, key);
+                if (value != null && !(value instanceof Undefined)) params.put(key, Context.toString(value));
+            }
+            return params;
+        }
+
+        private static boolean jsTruthy(Object v) {
+            if (v == null || v instanceof Undefined) return false;
+            if (v instanceof Boolean) return (Boolean) v;
+            if (v instanceof Number) return ((Number) v).doubleValue() != 0.0d;
+            if (v instanceof String) return "true".equalsIgnoreCase((String) v);
+            return false;
+        }
+
+        private static boolean jsonTruthy(JsonElement v) {
+            if (v == null || v.isJsonNull() || !v.isJsonPrimitive()) return false;
+            JsonPrimitive p = v.getAsJsonPrimitive();
+            if (p.isBoolean()) return p.getAsBoolean();
+            if (p.isNumber()) return p.getAsDouble() != 0.0d;
+            if (p.isString()) return "true".equalsIgnoreCase(p.getAsString());
+            return false;
+        }
+
+        private static String jsonToString(JsonElement v) {
+            if (v == null || v.isJsonNull()) return "";
+            if (v.isJsonPrimitive() && v.getAsJsonPrimitive().isString()) return v.getAsString();
+            return v.toString();
         }
 
         public String getResCode() {
@@ -1409,6 +1650,32 @@ public class HkEngine {
      * </ul>
      */
     private String httpFetch(String url, Map<String, String> headers, String method, Object body, long timeout) throws HkException {
+        return httpFetch(url, new FetchOpts(
+                headers == null ? new HashMap<>() : headers,
+                method == null ? "GET" : method, body, timeout, false, true, false));
+    }
+
+    /**
+     * 桥里 fetch/post/batchFetch 的实现：同步请求，charset 按 Content-Type 猜，默认 UTF-8。
+     * hiker:// 不走 OkHttp（OkHttp 只认 http/https）：
+     * <ul>
+     *   <li>{@code hiker://page/...}：子页面展开，返回页面 JSON（含 rule 字段）；
+     *       页不存在抛 HkException（带页名），不返回 ""——否则 JS 侧
+     *       {@code JSON.parse('')} 报错含糊。</li>
+     *   <li>{@code hiker://files/...}：读 data/&lt;标题&gt;/ 下对应文件，缺失返回 ""。</li>
+     *   <li>其他 {@code hiker://}（empty/search/collection/history 等导航类地址）：
+     *       取不到正文，返回 ""。</li>
+     * </ul>
+     * <p>
+     * 线程安全：只读 rule、只写 lastHttpCode（诊断用，batchFetch 并发下最后
+     * 完成的写胜出，无他用），工作线程可直接调。
+     * <p>
+     * opts.envelope（withHeaders/withStatusCode）时返回官方 wrapFetch 包络 JSON
+     * {@code {"body","headers","url","statusCode","error"}}，headers 值是数组、
+     * 键小写；失败时 statusCode 为 -1。opts.followRedirects 为 false 时不跟随
+     * 重定向。opts.onlyHeaders 时只拿状态码 + 头、不读体。
+     */
+    private String httpFetch(String url, FetchOpts opts) throws HkException {
         lastHttpCode = -1;
         if (!TextUtils.isEmpty(url)) {
             String u = url.trim();
@@ -1424,11 +1691,13 @@ public class HkEngine {
             }
         }
         try {
-            OkHttpClient client = timeout > 0 ? OkHttp.client(timeout) : OkHttp.client();
+            OkHttpClient base = opts.timeout > 0 ? OkHttp.client(opts.timeout) : OkHttp.client();
+            OkHttpClient client = opts.followRedirects ? base
+                    : base.newBuilder().followRedirects(false).followSslRedirects(false).build();
             Request.Builder builder = new Request.Builder().url(url);
             boolean hasUa = false;
-            if (headers != null) {
-                for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (opts.headers != null) {
+                for (Map.Entry<String, String> e : opts.headers.entrySet()) {
                     builder.header(e.getKey(), e.getValue());
                     if ("User-Agent".equalsIgnoreCase(e.getKey())) hasUa = true;
                 }
@@ -1436,27 +1705,65 @@ public class HkEngine {
             // JS 侧 fetch()/require() 没带 UA 时默认补真浏览器 UA：OkHttp 默认的
             // okhttp/4.x 会被不少站点/WAF 当爬虫挡掉（见 docs/miniapp-nodata-fix.md）。
             if (!hasUa) builder.header("User-Agent", MOBILE_UA);
-            if ("POST".equalsIgnoreCase(method)) {
-                builder.post(buildBody(body));
-            } else if (!"GET".equalsIgnoreCase(method)) {
-                builder.method(method, body == null ? null : buildBody(body));
+            if ("POST".equalsIgnoreCase(opts.method)) {
+                builder.post(buildBody(opts.body));
+            } else if (!"GET".equalsIgnoreCase(opts.method)) {
+                builder.method(opts.method, opts.body == null ? null : buildBody(opts.body));
             }
             try (Response res = client.newCall(builder.build()).execute()) {
                 lastHttpCode = res.code();
-                if (res.body() == null) return "";
+                if (opts.onlyHeaders) {
+                    return opts.envelope ? envelope(url, "", res, null) : "";
+                }
+                if (res.body() == null) return opts.envelope ? envelope(url, "", res, null) : "";
                 byte[] bytes = res.body().bytes();
                 String contentType = res.header("Content-Type", "");
-                return new String(bytes, charsetOf(contentType));
+                String text = new String(bytes, charsetOf(contentType));
+                return opts.envelope ? envelope(url, text, res, null) : text;
             }
         } catch (Exception e) {
             Log.w(TAG, "fetch failed: " + url, e);
-            return "";
+            return opts.envelope ? envelope(url, "", null, e.getMessage()) : "";
         }
+    }
+
+    /**
+     * 照官方 wrapFetch（HkJsRuntime.wrapFetch）：包络键固定为
+     * body / headers / url / statusCode / error；headers 值是数组、键统一小写
+     * （规则一律用小写 location / set-cookie 访问）；失败时 res 为 null，
+     * statusCode 为 -1。
+     */
+    private static String envelope(String url, String body, Response res, String error) {
+        JsonObject o = new JsonObject();
+        o.addProperty("body", body == null ? "" : body);
+        JsonObject headers = new JsonObject();
+        if (res != null) {
+            for (Map.Entry<String, List<String>> e : res.headers().toMultimap().entrySet()) {
+                JsonArray arr = new JsonArray();
+                if (e.getValue() != null) {
+                    for (String v : e.getValue()) arr.add(v == null ? "" : v);
+                }
+                headers.add(e.getKey() == null ? "" : e.getKey().toLowerCase(Locale.ROOT), arr);
+            }
+        }
+        o.add("headers", headers);
+        o.addProperty("url", url == null ? "" : url);
+        o.addProperty("statusCode", res == null ? -1 : res.code());
+        o.addProperty("error", error == null ? "" : error);
+        return o.toString();
     }
 
     private RequestBody buildBody(Object body) {
         if (body == null) return RequestBody.create(new byte[0]);
         if (body instanceof String) return RequestBody.create(((String) body).getBytes(StandardCharsets.UTF_8));
+        if (body instanceof Map) {
+            // batchFetch 在调用线程上已把 NativeObject body 转成的表单（见 Bridge.formParams）。
+            ArrayMap<String, String> params = new ArrayMap<>();
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) body).entrySet()) {
+                if (e.getKey() != null && e.getValue() != null) params.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
+            }
+            return OkHttp.toBody(params);
+        }
         if (body instanceof NativeObject) {
             ArrayMap<String, String> params = new ArrayMap<>();
             NativeObject obj = (NativeObject) body;
