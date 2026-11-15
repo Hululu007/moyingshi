@@ -368,14 +368,52 @@ public class HkStore {
         return writeDataFile(title, "myvar.json", json);
     }
 
-    /** getItem/setItem 的后端：data/&lt;标题&gt;/items.json，字符串 KV 的整文件读。 */
+    /**
+     * getItem/setItem 的后端：data/&lt;标题&gt;/kv.json（官方 kvFile()，对齐第 5 项）。
+     * 旧版写的是 items.json：kv.json 为空且旧文件存在时读旧文件（一次性迁移读，
+     * 下次 setItem 即写 kv.json；旧文件原地保留，删不删都不影响读取）。
+     */
     public static String readItems(String title) {
-        return readDataFile(title, "items.json");
+        String json = readDataFile(title, "kv.json");
+        if (!TextUtils.isEmpty(json)) return json;
+        if (dataFile(title, "items.json").exists()) return readDataFile(title, "items.json");
+        return json;
     }
 
-    /** getItem/setItem 的后端：data/&lt;标题&gt;/items.json 的整文件写。 */
+    /** getItem/setItem 的后端：data/&lt;标题&gt;/kv.json 的整文件写（官方 kvFile()）。 */
     public static boolean saveItems(String title, String json) {
-        return writeDataFile(title, "items.json", json);
+        return writeDataFile(title, "kv.json", json);
+    }
+
+    /**
+     * 公共 KV 文件（getPublicItem/setPublicItem/clearPublicItem 的后端，全规则共享）：
+     * filesDir/plugins/hk/rules/_item00.json。官方是外部 Documents 下的
+     * rules/_item00.json（HkJsRuntime.publicKvFile 经 getFilePath）；这里用内部
+     * 存储同名文件，规则看不到路径差异，也无外部存储不可用的边角。
+     */
+    public static File publicKvFile() {
+        File file = new File(new File(dir(), "rules"), "_item00.json");
+        if (file.getParentFile() != null) file.getParentFile().mkdirs();
+        return file;
+    }
+
+    /** 公共 KV 的整文件读，缺失回 ""。 */
+    public static String readPublicItems() {
+        File file = publicKvFile();
+        if (!file.exists() || file.isDirectory()) return "";
+        String text = readFile(file);
+        return text == null ? "" : text;
+    }
+
+    /** 公共 KV 的整文件写。 */
+    public static boolean savePublicItems(String json) {
+        try {
+            writeFile(publicKvFile(), json == null ? new byte[0] : json.getBytes(StandardCharsets.UTF_8));
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "savePublicItems failed", e);
+            return false;
+        }
     }
 
     /**

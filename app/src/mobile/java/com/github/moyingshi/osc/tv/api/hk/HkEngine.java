@@ -92,7 +92,11 @@ public class HkEngine {
      * toast）、请求（fetch/post/request/getResCode）、DOM（parseDom/pdfh/pdfa）、
      * 编解码（md5/base64）、变量（putVar/getVar/putMyVar/getMyVar/getParam，
      * putVar 支持 {key, value} 对象形式）、文件与持久 KV（readFile/writeFile/
-     * saveFile/fileExist/deleteFile、getItem/setItem；myVar 与 item 都落盘到
+     * saveFile/fileExist/deleteFile、getItem/setItem（对齐第 5 项：落盘
+     * data/&lt;标题&gt;/kv.json，三参可跨规则读写；`storage0` 对象照官方
+     * plugin.js，getItem/setItem/getPublicItem/setPublicItem/getVar/putVar/
+     * getMyVar/putMyVar，JSON 自动转换；公共 KV 在 rules/_item00.json，
+     * 全规则共享）；myVar 与 item 都落盘到
      * plugins/hk/data/&lt;标题&gt;/，见 {@link HkStore}）、子页面与库
      * （require/$.require 走 {@link HkSubpage}，库 URL 走 require.json 清单）、
      * 规则配置（对齐第 1 项，照官方 plugin.js 的 JS 版：`config` 是全局上的
@@ -157,8 +161,52 @@ public class HkEngine {
             function saveFile(name, content) { return __hk.saveFile(name, content); }
             function fileExist(name) { return __hk.fileExist(name); }
             function deleteFile(name) { return __hk.deleteFile(name); }
-            function getItem(k, d) { return __hk.getItem(k, d); }
-            function setItem(k, v) { __hk.setItem(k, v); }
+            function getItem(k, d, t) { return __hk.getItem(k, d, t); }
+            function setItem(k, v, t) { __hk.setItem(k, v, t); }
+            function getPublicItem(k, d) { return __hk.getPublicItem(k, d); }
+            function setPublicItem(k, v) { __hk.setPublicItem(k, v); }
+            function clearPublicItem(k) { __hk.clearPublicItem(k); }
+            // storage0（对齐第 5 项，照官方 plugin.js）：与官方两处必要改写——
+            // toJsonObj 先判 typeof（我们的 getVar/getMyVar 可能返回真对象，
+            // 官方只返回字符串）；{ / [ 判断用 charAt 而不用 startsWith/endsWith。
+            function toJsonStr(obj) {
+              if (obj == null) { obj = ''; }
+              if (typeof obj !== 'string') { obj = JSON.stringify(obj); }
+              return obj;
+            }
+            function toJsonObj(a) {
+              if (!a) { return a; }
+              if (typeof a !== 'string') { return a; }
+              if (a.charAt(0) === '{' && a.charAt(a.length - 1) === '}') {
+                try { return JSON.parse(a); } catch (e) {}
+              }
+              if (a.charAt(0) === '[' && a.charAt(a.length - 1) === ']') {
+                try { return JSON.parse(a); } catch (e) {}
+              }
+              return a;
+            }
+            var storage0 = {
+              getItem: function(key, defaultVal) {
+                var a = getItem(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              setItem: function(key, obj) { setItem(key, toJsonStr(obj)); },
+              getPublicItem: function(key, defaultVal) {
+                var a = getPublicItem(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              setPublicItem: function(key, obj) { setPublicItem(key, toJsonStr(obj)); },
+              getVar: function(key, defaultVal) {
+                var a = getVar(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              putVar: function(key, obj) { putVar(key, toJsonStr(obj)); },
+              getMyVar: function(key, defaultVal) {
+                var a = getMyVar(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              putMyVar: function(key, obj) { putMyVar(key, toJsonStr(obj)); }
+            };
             function confirm(o) { return __hk.confirm(o); }
             function select(o) { return __hk.select(o); }
             function require(url, params) { return __hk.require(url, params); }
@@ -792,19 +840,70 @@ public class HkEngine {
             return HkStore.deleteDataFile(engine.ruleTitle(), name);
         }
 
-        /** 海阔 getItem()：读规则持久 KV（items.json），缺失回默认值（默认 ""）。 */
+        /**
+         * 海阔 getItem()：读规则持久 KV（data/&lt;标题&gt;/kv.json），缺失回默认值。
+         * 默认值照官方 getString：字符串才有效，其余（null/Undefined/数字/对象）
+         * 一律按 null 计——缺失时返回 null 而非 ""（对齐第 5 项）。
+         */
         public String getItem(String key, Object def) {
-            String fallback = (def == null || def instanceof Undefined) ? "" : Context.toString(def);
-            return engine.getItem(key, fallback);
+            return engine.getItem(key, toItemStringOrNull(def));
         }
 
         public String getItem(String key) {
-            return engine.getItem(key, "");
+            return engine.getItem(key, null);
         }
 
-        /** 海阔 setItem()：写规则持久 KV（items.json），立即落盘。 */
+        /** 三参版 getItem(key, def, ruleTitle)：跨规则读（官方公开签名）。 */
+        public String getItem(String key, Object def, Object ruleTitle) {
+            return engine.getItem(key, toItemStringOrNull(def), toTitleString(ruleTitle));
+        }
+
+        /**
+         * 海阔 setItem()：写规则持久 KV（data/&lt;标题&gt;/kv.json），立即落盘。
+         * 值照官方 mustBeString：只有字符串才存；null/Undefined/数字/布尔/对象
+         * 不存（官方存 null、落盘时 Gson 丢 null，键等于不存在；这里直接删键，
+         * 可观测结果相同）。
+         */
         public void setItem(String key, Object value) {
-            engine.setItem(key, value == null || value instanceof Undefined ? "" : Context.toString(value));
+            engine.setItem(key, toItemStringOrNull(value));
+        }
+
+        /** 三参版 setItem(key, value, ruleTitle)：跨规则写（官方公开签名）。 */
+        public void setItem(String key, Object value, Object ruleTitle) {
+            engine.setItem(key, toItemStringOrNull(value), toTitleString(ruleTitle));
+        }
+
+        /**
+         * 海阔 getPublicItem()：读全规则共享的公共 KV（rules/_item00.json），
+         * 缺失回默认值（非字符串默认值按 null 计，与 getItem 同款）。
+         */
+        public String getPublicItem(String key, Object def) {
+            return engine.getPublicItem(key, toItemStringOrNull(def));
+        }
+
+        /** 海阔 setPublicItem()：写公共 KV，立即落盘；非字符串值删键（同 setItem）。 */
+        public void setPublicItem(String key, Object value) {
+            engine.setPublicItem(key, toItemStringOrNull(value));
+        }
+
+        /** 海阔 clearPublicItem()：删公共 KV 里的键，立即落盘。 */
+        public void clearPublicItem(String key) {
+            engine.clearPublicItem(key);
+        }
+
+        /** getItem/setItem 的字符串参数归一化：CharSequence → 字符串，其余 → null。 */
+        private static String toItemStringOrNull(Object value) {
+            if (value instanceof CharSequence) return value.toString();
+            return null;
+        }
+
+        /** 三参版的规则标题归一化：非字符串或空串 → null（= 当前规则）。 */
+        private static String toTitleString(Object title) {
+            if (title instanceof CharSequence) {
+                String s = title.toString();
+                return s.isEmpty() ? null : s;
+            }
+            return null;
         }
 
         /** clearVar(name)：只清一个页面变量（无参版清全部，见 {@link #clearVar()}）。 */
@@ -996,15 +1095,18 @@ public class HkEngine {
     private final Map<String, String> params = new HashMap<>();
     /** 同一引擎里已 require 过的库 URL（防同一 scope 里 let 重声明）。 */
     private final Set<String> requiredLibs = new HashSet<>();
-    /** getItem/setItem 的内存缓存（items.json 的内容，prepare 时加载）。 */
+    /** getItem/setItem 的内存缓存（kv.json 的内容，prepare 时加载）。 */
     private final Map<String, String> items = new HashMap<>();
     private boolean itemsLoaded;
+    /** getPublicItem/setPublicItem/clearPublicItem 的内存缓存（rules/_item00.json，首次访问现读）。 */
+    private final Map<String, String> publicItems = new HashMap<>();
+    private boolean publicItemsLoaded;
 
     /**
      * 准备一次页面执行：建 scope、注入 __hk 桥与 BOOTSTRAP、设置域内变量。
      * 必须在 eval* 之前调；resCode 是本页已抓到的原文（getResCode() 返回它）。
      * myVars 不再清空，改为从 data/&lt;标题&gt;/myvar.json 加载（持久变量跨页可见）；
-     * items 同样从 items.json 加载。
+     * items 同样从 kv.json 加载。
      */
     public void prepare(HkRule rule, String pageUrl, int page, String pageType, String resCode) throws HkException {
         prepare(rule, pageUrl, page, pageType, resCode, null);
@@ -1166,37 +1268,122 @@ public class HkEngine {
         }
     }
 
-    /** 从 data/&lt;标题&gt;/items.json 加载 getItem/setItem 的缓存（prepare 时调）。 */
-    private void loadItems() {
-        items.clear();
-        itemsLoaded = true;
-        String json = HkStore.readItems(ruleTitle());
-        if (TextUtils.isEmpty(json)) return;
+    /** 解析 kv.json 文本成字符串 map（解析失败/非对象回空 map，不抛错）。 */
+    private static Map<String, String> parseItems(String json) {
+        Map<String, String> map = new HashMap<>();
+        if (TextUtils.isEmpty(json)) return map;
         try {
             JsonElement parsed = JsonParser.parseString(json);
-            if (!parsed.isJsonObject()) return;
+            if (!parsed.isJsonObject()) return map;
             for (Map.Entry<String, JsonElement> e : parsed.getAsJsonObject().entrySet()) {
-                if (e.getValue().isJsonPrimitive()) items.put(e.getKey(), e.getValue().getAsString());
+                if (e.getValue().isJsonPrimitive()) map.put(e.getKey(), e.getValue().getAsString());
             }
         } catch (Exception e) {
             Log.w(TAG, "load items failed, starting empty", e);
         }
+        return map;
     }
 
-    /** getItem：读规则持久 KV，缺失回默认值（默认 ""）。 */
+    /** 从 data/&lt;标题&gt;/kv.json 加载 getItem/setItem 的缓存（prepare 时调）。 */
+    private void loadItems() {
+        items.clear();
+        itemsLoaded = true;
+        items.putAll(parseItems(HkStore.readItems(ruleTitle())));
+    }
+
+    /** getItem：读规则持久 KV，缺失回默认值（可为 null，官方 getString 语义）。 */
     String getItem(String key, String def) {
-        if (key == null) return def == null ? "" : def;
+        if (key == null || key.isEmpty()) return def;
         if (!itemsLoaded) loadItems();
         String value = items.get(key);
-        return value == null ? (def == null ? "" : def) : value;
+        return value == null ? def : value;
     }
 
-    /** setItem：写规则持久 KV，立即落盘。 */
+    /**
+     * 三参版 getItem（官方公开签名）：title 为空或等于当前规则走本规则缓存；
+     * 规则不存在回 ""（不是 def，官方 getItemNow 语义）；存在则现读该规则 kv.json。
+     */
+    String getItem(String key, String def, String ruleTitle) {
+        if (key == null || key.isEmpty()) return def;
+        if (ruleTitle == null || ruleTitle.isEmpty() || ruleTitle.equals(ruleTitle())) {
+            return getItem(key, def);
+        }
+        if (!HkStore.exists(ruleTitle)) return "";
+        String value = parseItems(HkStore.readItems(ruleTitle)).get(key);
+        return value == null ? def : value;
+    }
+
+    /** setItem：写规则持久 KV，立即落盘；value 为 null 时删键（官方存 null 语义）。 */
     void setItem(String key, String value) {
-        if (key == null) return;
-        if (!itemsLoaded) loadItems();
-        items.put(key, value == null ? "" : value);
-        HkStore.saveItems(ruleTitle(), App.gson().toJson(items));
+        setItem(key, value, null);
+    }
+
+    /**
+     * 三参版 setItem（官方公开签名）：空 key 空操作；title 为空或等于当前规则
+     * 写本规则缓存，否则规则不存在空操作、存在则现读现改现写该规则 kv.json。
+     */
+    void setItem(String key, String value, String ruleTitle) {
+        if (key == null || key.isEmpty()) return;
+        if (ruleTitle == null || ruleTitle.isEmpty() || ruleTitle.equals(ruleTitle())) {
+            if (!itemsLoaded) loadItems();
+            if (value == null) items.remove(key);
+            else items.put(key, value);
+            String json = App.gson().toJson(items);
+            checkItemSize(json, key, value);
+            HkStore.saveItems(ruleTitle(), json);
+            return;
+        }
+        if (!HkStore.exists(ruleTitle)) return;
+        Map<String, String> other = parseItems(HkStore.readItems(ruleTitle));
+        if (value == null) other.remove(key);
+        else other.put(key, value);
+        String json = App.gson().toJson(other);
+        checkItemSize(json, key, value);
+        HkStore.saveItems(ruleTitle, json);
+    }
+
+    /** 官方 checkSetItemSize：只记日志，不拦截（整表超 1MB / 单值超 512KB）。 */
+    private static void checkItemSize(String json, String key, String value) {
+        try {
+            if (value != null && value.getBytes(StandardCharsets.UTF_8).length > 524288) {
+                Log.d(TAG, "setItem 内容过大（512K）: " + key);
+            }
+            if (json != null && json.getBytes(StandardCharsets.UTF_8).length > 1048576) {
+                Log.d(TAG, "setItem 私有存储内容过大（1MB）");
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void loadPublicItems() {
+        publicItems.clear();
+        publicItemsLoaded = true;
+        publicItems.putAll(parseItems(HkStore.readPublicItems()));
+    }
+
+    /** getPublicItem：读全规则共享的公共 KV，缺失回默认值（可为 null）。 */
+    String getPublicItem(String key, String def) {
+        if (key == null || key.isEmpty()) return def;
+        if (!publicItemsLoaded) loadPublicItems();
+        String value = publicItems.get(key);
+        return value == null ? def : value;
+    }
+
+    /** setPublicItem：写公共 KV，立即落盘；value 为 null 时删键。 */
+    void setPublicItem(String key, String value) {
+        if (key == null || key.isEmpty()) return;
+        if (!publicItemsLoaded) loadPublicItems();
+        if (value == null) publicItems.remove(key);
+        else publicItems.put(key, value);
+        HkStore.savePublicItems(App.gson().toJson(publicItems));
+    }
+
+    /** clearPublicItem：删公共 KV 里的键，立即落盘。 */
+    void clearPublicItem(String key) {
+        if (key == null || key.isEmpty()) return;
+        if (!publicItemsLoaded) loadPublicItems();
+        publicItems.remove(key);
+        HkStore.savePublicItems(App.gson().toJson(publicItems));
     }
 
     /** 执行规则的 preRule（有才跑，与 find_rule 共用 scope），失败抛异常。 */
