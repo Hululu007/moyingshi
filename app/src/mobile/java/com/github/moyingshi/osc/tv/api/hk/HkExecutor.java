@@ -182,7 +182,7 @@ public class HkExecutor {
         spec.charset = mods.charset;
         Map<String, String> headers = new HashMap<>();
         parseFirstHeader(rule.getFirstHeader(), headers);
-        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", rule.getUa());
+        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", HkEngine.resolveUa(rule.getUa()));
         headers.putAll(mods.headers);
         spec.headers = headers;
         if ("POST".equals(mods.method)) {
@@ -865,7 +865,7 @@ public class HkExecutor {
         spec.charset = "UTF-8";
         Map<String, String> headers = new HashMap<>();
         parseFirstHeader(rule.getFirstHeader(), headers);
-        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", rule.getUa());
+        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", HkEngine.resolveUa(rule.getUa()));
         spec.headers = headers;
         return spec;
     }
@@ -973,7 +973,7 @@ public class HkExecutor {
         spec.charset = charset;
         Map<String, String> headers = new HashMap<>();
         parseFirstHeader(rule.getFirstHeader(), headers);
-        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", rule.getUa());
+        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", HkEngine.resolveUa(rule.getUa()));
         headers.putAll(urlHeaders);
         spec.headers = headers;
         return spec;

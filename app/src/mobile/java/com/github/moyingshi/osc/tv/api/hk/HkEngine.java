@@ -69,6 +69,19 @@ public class HkEngine {
     private static final String PC_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
     /**
+     * 把规则 ua 简写映射成真浏览器 UA（海阔规则的 ua 是 "mobile"/"auto"/"pc"
+     * 这类简写；原样发出会被站点当爬虫/非浏览器挡掉，见 docs/miniapp-nodata-fix.md）。
+     * 已是 Mozilla/ 开头的真 UA 或其它自定义值原样通过。
+     */
+    public static String resolveUa(String ua) {
+        if (TextUtils.isEmpty(ua)) return MOBILE_UA;
+        String v = ua.trim();
+        if ("mobile".equalsIgnoreCase(v) || "auto".equalsIgnoreCase(v)) return MOBILE_UA;
+        if ("pc".equalsIgnoreCase(v)) return PC_UA;
+        return v;
+    }
+
+    /**
      * 规则 JS 里用的内置 API（注入 scope 的 JS 函数，见 {@link #BOOTSTRAP}）。
      * 覆盖 js_api.md 里列表解析真正用到的那部分：输出（setResult/setError/log/
      * toast）、请求（fetch/post/request/getResCode）、DOM（parseDom/pdfh/pdfa）、
@@ -82,8 +95,9 @@ public class HkEngine {
      * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
      * 点击执行走 {@link HkActionHandler}（第 7 步之七）；getUrl()/getHome()
      * 取当前页/主页地址，refreshPage() 置位后由点击执行路径决定是否重跑当前页。
-     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr 等）在 BOOTSTRAP 里是会抛
+     * 暂不支持的（xpath/getCryptoJS/aes/encodeStr 等）在 BOOTSTRAP 里是会抛
      * 明确错误的桩，不是静默缺失——规则用到了能在日志里一眼看到缺的是哪个 API。
+     * batchFetch 已实现（见 {@link Bridge#batchFetch}），不再是桩。
      * confirm/select/input 对话框是第 7 步之七接通的（经 {@link DialogHost} 弹框，
      * 无 host 时仍抛明确错）。注意：没有全局 input() 函数——
      * {@code input} 是懒加载求值时的输入变量名（见 {@link #evalExpression}），
@@ -156,7 +170,7 @@ public class HkEngine {
             var xpath = __unsupported('xpath');
             var xpa = xpath;
             var xpathArray = __unsupported('xpathArray');
-            var batchFetch = __unsupported('batchFetch');
+            function batchFetch(arr) { return __hk.batchFetch(arr); }
             var bf = batchFetch;
             var getCryptoJS = __unsupported('getCryptoJS');
             var encodeStr = __unsupported('encodeStr');
@@ -245,6 +259,37 @@ public class HkEngine {
                 return fetch(url, options);
             }
             return fetch(url, null);
+        }
+
+        /**
+         * 批量抓取（地基第 1 步留下的抛错桩在此实现）：入参是
+         * [{url, method?, headers?, body?, timeout?}] 或纯 URL 字符串数组；
+         * 逐项同步抓（顺序），单项失败记 "" 不抛，让规则自己的循环跳过；
+         * 返回 NativeArray 字符串数组。非数组入参返回空数组。
+         */
+        public Object batchFetch(Object arg) {
+            List<String> out = new ArrayList<>();
+            if (arg instanceof NativeArray) {
+                NativeArray arr = (NativeArray) arg;
+                for (int i = 0; i < arr.size(); i++) {
+                    Object item = arr.get(i, arr);
+                    try {
+                        if (item instanceof String) {
+                            out.add(fetch((String) item));
+                        } else if (item instanceof NativeObject) {
+                            Object u = ScriptableObject.getProperty((NativeObject) item, "url");
+                            out.add(u == null || u instanceof Undefined ? "" : fetch(Context.toString(u), item));
+                        } else {
+                            out.add("");
+                        }
+                    } catch (Exception e) {
+                        out.add("");
+                    }
+                }
+            }
+            Context cx = Context.getCurrentContext();
+            if (cx == null) return out.toArray(new String[0]);
+            return cx.newArray(engine.scope, out.toArray(new String[0]));
         }
 
         public String getResCode() {
@@ -1020,6 +1065,12 @@ public class HkEngine {
         } else if (u.startsWith("http://") || u.startsWith("https://")) {
             code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
             if (TextUtils.isEmpty(code)) throw new HkException("require 取数失败（空内容）：" + u);
+            // 取到的是 HTML 错误页/拦截页（例如 WAF 418）时不再当 JS 执行——
+            // 那样只会在第 1 行报含糊的语法错；直接报清楚（见 docs/miniapp-nodata-fix.md）。
+            String lower = code.trim().toLowerCase(Locale.ROOT);
+            if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
+                throw new HkException("require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+            }
         } else {
             throw new HkException("require 不支持的地址：" + u + "（只支持 hiker://page/... 与库文件 URL）");
         }
@@ -1180,9 +1231,16 @@ public class HkEngine {
         try {
             OkHttpClient client = timeout > 0 ? OkHttp.client(timeout) : OkHttp.client();
             Request.Builder builder = new Request.Builder().url(url);
+            boolean hasUa = false;
             if (headers != null) {
-                for (Map.Entry<String, String> e : headers.entrySet()) builder.header(e.getKey(), e.getValue());
+                for (Map.Entry<String, String> e : headers.entrySet()) {
+                    builder.header(e.getKey(), e.getValue());
+                    if ("User-Agent".equalsIgnoreCase(e.getKey())) hasUa = true;
+                }
             }
+            // JS 侧 fetch()/require() 没带 UA 时默认补真浏览器 UA：OkHttp 默认的
+            // okhttp/4.x 会被不少站点/WAF 当爬虫挡掉（见 docs/miniapp-nodata-fix.md）。
+            if (!hasUa) builder.header("User-Agent", MOBILE_UA);
             if ("POST".equalsIgnoreCase(method)) {
                 builder.post(buildBody(body));
             } else if (!"GET".equalsIgnoreCase(method)) {
