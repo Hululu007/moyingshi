@@ -279,7 +279,7 @@ public class HkStore {
     public static boolean writeDataFile(String title, String name, String content) {
         if (TextUtils.isEmpty(title) || TextUtils.isEmpty(name)) return false;
         try {
-            writeFile(dataFile(title, name), content == null ? "" : content.getBytes(StandardCharsets.UTF_8));
+            writeFile(dataFile(title, name), content == null ? new byte[0] : content.getBytes(StandardCharsets.UTF_8));
             return true;
         } catch (Exception e) {
             Log.w(TAG, "writeDataFile failed: " + name, e);

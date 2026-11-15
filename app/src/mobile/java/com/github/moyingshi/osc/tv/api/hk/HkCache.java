@@ -62,7 +62,7 @@ public final class HkCache {
     private static final Map<String, Entry> CACHE = Collections.synchronizedMap(
             new LinkedHashMap<String, Entry>(INITIAL_CAPACITY, 0.75f, true) {
                 @Override
-                protected boolean removeEldestEntry(Map.Entry<String, Entry> eldest) {
+                protected boolean removeEldestEntry(Map.Entry<String, HkCache.Entry> eldest) {
                     return size() > CACHE_MAX;
                 }
             });
