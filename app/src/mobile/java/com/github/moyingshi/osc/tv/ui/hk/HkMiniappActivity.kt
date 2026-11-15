@@ -11,10 +11,12 @@ import androidx.appcompat.widget.AppCompatEditText
 import androidx.viewbinding.ViewBinding
 import com.github.moyingshi.osc.tv.R
 import com.github.moyingshi.osc.tv.api.config.VodConfig
+import com.github.moyingshi.osc.tv.api.hk.HkCache
 import com.github.moyingshi.osc.tv.api.hk.HkCloudExport
 import com.github.moyingshi.osc.tv.api.hk.HkCloudImport
 import com.github.moyingshi.osc.tv.api.hk.HkImportPicker
 import com.github.moyingshi.osc.tv.api.hk.HkStore
+import com.github.moyingshi.osc.tv.api.hk.HkWarmup
 import com.github.moyingshi.osc.tv.bean.Config
 import com.github.moyingshi.osc.tv.bean.Site
 import com.github.moyingshi.osc.tv.databinding.ActivityHkMiniappBinding
@@ -182,9 +184,11 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
                                 onImported(added)
                             } else {
                                 // 部分成功：报成功数 + 最后一条失败的原因，再重载配置 + 刷新列表。
+                                // 部分成功也是“导入完成”，同样触发预热（第 7 步之十）。
                                 Notify.show(getString(R.string.hk_miniapp_cloud_code_partial, added, error))
                                 reloadLocalConfig()
                                 refreshList()
+                                HkWarmup.warmUpAfterImport()
                             }
                         } else {
                             val error = HkCloudImport.lastError().orEmpty()
@@ -269,11 +273,12 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
         }.start()
     }
 
-    /** 导入回调（已在主线程）：报数 + 重载配置 + 刷新列表。 */
+    /** 导入回调（已在主线程）：报数 + 重载配置 + 刷新列表 + 触发后台预热（第 7 步之十）。 */
     private fun onImported(added: Int) {
         if (added > 0) {
             Notify.show(getString(R.string.hk_miniapp_imported, added))
             reloadLocalConfig()
+            HkWarmup.warmUpAfterImport()
         } else {
             val error = HkStore.lastError().orEmpty()
             if (error.isEmpty()) Notify.show(R.string.hk_miniapp_no_rule)
@@ -300,7 +305,11 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
     override fun onDeleteClick(item: Site) {
         LocalSource.removeByKeys(listOf(item.key))
         val title = HkStore.titleOf(item).orEmpty()
-        if (title.isNotEmpty()) HkStore.delete(title)
+        if (title.isNotEmpty()) {
+            HkStore.delete(title)
+            // 删了规则，对应缓存立即失效，不等下次 get() 的 mtime 比对（第 7 步之十）。
+            HkCache.invalidate(title)
+        }
         Notify.show(getString(R.string.lab_local_source_deleted, 1))
         reloadLocalConfig()
         refreshList()

@@ -2,6 +2,7 @@ package com.github.moyingshi.osc.tv.ui.hk;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,6 +19,7 @@ import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
+import com.github.moyingshi.osc.tv.api.hk.HkCache;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
@@ -74,6 +76,8 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private HkRule mRule;
     private String mClassId;
     private int mLoadSeq;
+
+    private static final String TAG = "HkListFragment";
 
     public static HkListFragment newInstance(String title) {
         return newInstance(title, false);
@@ -197,12 +201,38 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
 
     /** 取一页：第 1 页先清列表。后台线程跑，回来带序号防串位（切分类/下拉时旧结果丢掉）。 */
     private void loadPage(int page, boolean append) {
+        loadPage(page, append, false);
+    }
+
+    /**
+     * 取一页（第 7 步之十，缓存版）：force=true（下拉刷新）跳过缓存查、成功后覆盖写回；
+     * 否则先查 {@link HkCache}，命中直接渲染、不发请求。缓存键是规则标题 + 分类 + 页码，
+     * 与 HkWarmup 预热写入的键同一口径；规则文件 mtime 变了时 get() 内部即判失效。
+     */
+    private void loadPage(int page, boolean append, boolean force) {
+        final int seq = ++mLoadSeq;
+        if (!force) {
+            List<Vod> cached = HkCache.get(getTitle(), mClassId, page);
+            if (cached != null) {
+                // 命中缓存：不显示 loading、不发请求，直接走现成的 onPageLoaded 渲染；
+                // !append 时仍先 reset + 隐藏诊断行，与网络路径的 loadPage 前半段一致。
+                if (!append) {
+                    mScroller.reset();
+                    mBinding.diagText.setVisibility(View.GONE);
+                }
+                Log.i(TAG, "cache hit, render without network title=" + getTitle() + " page=" + page);
+                App.post(() -> {
+                    if (!isAdded() || seq != mLoadSeq) return;
+                    onPageLoaded(page, append, cached, "", null);
+                });
+                return;
+            }
+        }
         if (!append) {
             mScroller.reset();
             mBinding.diagText.setVisibility(View.GONE);
             if (!mBinding.swipeLayout.isRefreshing()) mBinding.progressLayout.showProgress();
         }
-        final int seq = ++mLoadSeq;
         final HkRule rule = mRule;
         final String classId = mClassId;
         new Thread(() -> {
@@ -213,6 +243,11 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
                 HkExecutor.HomeOutcome outcome = HkExecutor.homeDetailed(rule, page, classId);
                 vods = HkListHelper.toVods(HkListHelper.pickCards(outcome.cards, rule), rule.getType());
                 diag = outcome.diag;
+                if (vods != null && !vods.isEmpty()) {
+                    // 成功且非空才进缓存（0 条不存，见 HkCache.put）；规则文件 mtime
+                    // 随条目一起记，文件变了下次 get() 即失效。
+                    HkCache.put(rule.getTitle(), classId, page, vods, HkStore.lastModified(rule.getTitle()));
+                }
             } catch (Exception e) {
                 // HkException（请求/解析失败）与解析器里的未预料异常都走同一条错误态。
                 error = e.getMessage();
@@ -271,7 +306,8 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
 
     @Override
     public void onRefresh() {
-        loadPage(1, false);
+        // 下拉刷新 = 强制重取：绕过缓存，成功后覆盖写回同一键。
+        loadPage(1, false, true);
     }
 
     @Override
