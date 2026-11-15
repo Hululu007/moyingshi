@@ -1,5 +1,6 @@
 package com.github.moyingshi.osc.tv.ui.hk
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
@@ -8,6 +9,7 @@ import androidx.appcompat.widget.AppCompatEditText
 import androidx.viewbinding.ViewBinding
 import com.github.moyingshi.osc.tv.R
 import com.github.moyingshi.osc.tv.api.config.VodConfig
+import com.github.moyingshi.osc.tv.api.hk.HkCloudExport
 import com.github.moyingshi.osc.tv.api.hk.HkImportPicker
 import com.github.moyingshi.osc.tv.api.hk.HkStore
 import com.github.moyingshi.osc.tv.bean.Config
@@ -23,8 +25,10 @@ import com.github.moyingshi.osc.tv.utils.Notify
 
 /**
  * 海阔小程序管理页（mobile 专属）：三个导入入口（文件/目录、粘贴 JSON、同步已装规则）
- * + 已导入规则列表（标题⁽ʰᵏ⁾┃[类型]）。点一条规则进它自己的列表页（第 3 步）。
+ * + 导出按钮 + 已导入规则列表（标题⁽ʰᵏ⁾┃[类型]）。点一条规则进它自己的列表页（第 3 步）。
  * 行末删除是彻底卸载：站源条目 + plugins/hk/ 下的规则文件一起删。
+ * 列表多选框为导出服务：勾选已导入的规则点“导出”，走云 2 textdb 上传生成云口令
+ * 再弹系统分享面板（第 6 步之二）；普通本地源不在这个列表里，不会触发导出。
  *
  * 从实验室“海阔小程序”分组用隐式 intent 打开（main 源集不能直接引用 mobile 的类，
  * action 是 ${applicationId}.hk_miniapp，见 mobile 的 AndroidManifest）。
@@ -46,11 +50,12 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         picker = HkImportPicker(this) { added -> onImported(added) }
-        adapter = LocalSourceAdapter(this).setCheckable(false)
+        adapter = LocalSourceAdapter(this).setCheckable(true)
         binding.recycler.adapter = adapter
         binding.btnImportFile.setOnClickListener { showPickChooser() }
         binding.btnImportPaste.setOnClickListener { showPasteDialog() }
         binding.btnSync.setOnClickListener { runSync() }
+        binding.btnExport.setOnClickListener { runExport() }
         refreshList()
     }
 
@@ -132,6 +137,65 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
         }.start()
     }
 
+    /**
+     * 导出已勾选的小程序规则（第 6 步之二）：逐条走云 2 textdb 上传生成云口令，
+     * 成功后弹系统分享面板让用户自己选发到哪。未勾选 / 勾选的不是小程序 /
+     * 上传失败时只 toast 真实原因，不弹分享、不崩。
+     * 注意：导出是把规则公开给拿到口令的人——云口令只是公开短链，不是加密，
+     * 分享文本首行（hk_miniapp_export_share_note）写清楚这一点。
+     */
+    private fun runExport() {
+        val selected = adapter.getSelected()
+        if (selected.isEmpty()) {
+            Notify.show(R.string.hk_miniapp_export_select_first)
+            return
+        }
+        val targets = adapter.getItems().filter { selected.contains(it.key) && HkStore.isMiniapp(it) }
+        if (targets.isEmpty()) {
+            Notify.show(R.string.hk_miniapp_export_not_miniapp)
+            return
+        }
+        val titles = LinkedHashSet<String>()
+        for (site in targets) {
+            val title = HkStore.titleOf(site)
+            if (title.isNotEmpty()) titles.add(title)
+        }
+        if (titles.isEmpty()) {
+            Notify.show(R.string.hk_miniapp_export_not_miniapp)
+            return
+        }
+        binding.btnExport.isEnabled = false
+        Thread {
+            val codes = LinkedHashMap<String, String>()
+            var firstError: String? = null
+            var failed = 0
+            for (title in titles) {
+                try {
+                    codes[title] = HkCloudExport.uploadTextDb(title)
+                } catch (e: Exception) {
+                    failed++
+                    if (firstError == null) firstError = e.message ?: e.toString()
+                }
+            }
+            runOnUiThread {
+                binding.btnExport.isEnabled = true
+                if (codes.isEmpty()) {
+                    Notify.show(getString(R.string.hk_miniapp_export_failed, firstError.orEmpty()))
+                    return@runOnUiThread
+                }
+                if (failed > 0) {
+                    Notify.show(getString(R.string.hk_miniapp_export_partial, codes.size, failed, firstError.orEmpty()))
+                }
+                val share = Intent(Intent.ACTION_SEND)
+                share.type = "text/plain"
+                share.putExtra(Intent.EXTRA_TEXT, HkCloudExport.shareText(codes, getString(R.string.hk_miniapp_export_share_note)))
+                val chooserTitle = if (codes.size == 1) getString(R.string.hk_miniapp_export_share_title_one, codes.keys.first())
+                else getString(R.string.hk_miniapp_export_share_title_many, codes.size)
+                startActivity(Intent.createChooser(share, chooserTitle))
+            }
+        }.start()
+    }
+
     /** 导入回调（已在主线程）：报数 + 重载配置 + 刷新列表。 */
     private fun onImported(added: Int) {
         if (added > 0) {
@@ -170,6 +234,6 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
     }
 
     override fun onSelectionChanged() {
-        // 管理页里多选框是关掉的，不会有选中变化。
+        // 多选框只为导出服务，不需要选中计数 UI。
     }
 }

@@ -69,6 +69,14 @@
     <string name="hk_miniapp_import_file">导入文件/目录</string>
     <string name="hk_miniapp_import_paste">粘贴 JSON</string>
     <string name="hk_miniapp_sync">同步已装规则</string>
+    <string name="hk_miniapp_export">导出</string>
+    <string name="hk_miniapp_export_select_first">请先勾选要导出的小程序</string>
+    <string name="hk_miniapp_export_not_miniapp">勾选的源不是小程序，无法导出</string>
+    <string name="hk_miniapp_export_failed">导出失败：%1$s</string>
+    <string name="hk_miniapp_export_partial">已导出 %1$d 条，%2$d 条失败：%3$s</string>
+    <string name="hk_miniapp_export_share_title_one">导出：%1$s</string>
+    <string name="hk_miniapp_export_share_title_many">导出 %1$d 个小程序</string>
+    <string name="hk_miniapp_export_share_note">云口令是公开短链，不是加密，拿到口令的人都能取回这条规则。</string>
     <string name="hk_miniapp_empty">还没有导入小程序</string>
     <string name="hk_miniapp_imported">已导入 %1$d 条小程序</string>
     <string name="hk_miniapp_synced">已同步 %1$d 条小程序</string>
