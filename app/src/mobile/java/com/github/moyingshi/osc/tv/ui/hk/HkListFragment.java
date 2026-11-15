@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -51,6 +52,17 @@ import java.util.List;
  */
 public class HkListFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, TypeAdapter.OnClickListener {
 
+    /**
+     * 内嵌宿主（首页 VodFragment）：内嵌模式下规则缺失/首屏取数失败时不由 Fragment
+     * 自己收尾（不能 finish() 掉 HomeActivity），而是问宿主是否接管（回落开列表页）。
+     * 返回 true = 宿主已接管，Fragment 不再显示错误态；false = Fragment 自己显示错误态。
+     */
+    public interface EmbedHost {
+        boolean onHkEmbedUnavailable(String title);
+
+        boolean onHkEmbedFailed(String title, String error);
+    }
+
     private FragmentHkListBinding mBinding;
     private CustomScroller mScroller;
     private VodAdapter mAdapter;
@@ -60,8 +72,14 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private int mLoadSeq;
 
     public static HkListFragment newInstance(String title) {
+        return newInstance(title, false);
+    }
+
+    /** 内嵌模式（第 7 步之五）：挂在首页 VodFragment 的 hkContainer 里，失败时通知宿主回落。 */
+    public static HkListFragment newInstance(String title, boolean embedded) {
         Bundle args = new Bundle();
         args.putString("title", title);
+        args.putBoolean("embedded", embedded);
         HkListFragment fragment = new HkListFragment();
         fragment.setArguments(args);
         return fragment;
@@ -70,6 +88,23 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private String getTitle() {
         Bundle args = getArguments();
         return args == null ? "" : args.getString("title", "");
+    }
+
+    private boolean isEmbedded() {
+        Bundle args = getArguments();
+        return args != null && args.getBoolean("embedded", false);
+    }
+
+    private boolean notifyEmbedUnavailable() {
+        Fragment parent = getParentFragment();
+        if (parent instanceof EmbedHost) return ((EmbedHost) parent).onHkEmbedUnavailable(getTitle());
+        return false;
+    }
+
+    private boolean notifyEmbedFailed(String error) {
+        Fragment parent = getParentFragment();
+        if (parent instanceof EmbedHost) return ((EmbedHost) parent).onHkEmbedFailed(getTitle(), error);
+        return false;
     }
 
     @Override
@@ -83,14 +118,37 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         mScroller = new CustomScroller(this);
         mRule = HkStore.read(getTitle());
         if (mRule == null) {
-            // 规则文件被删但站源条目还在：报一句就走，不进空白页。
+            // 规则文件被删但站源条目还在：列表页报一句就走，不进空白页。
+            // 内嵌模式不能 finish() 掉 HomeActivity：先问宿主是否回落开列表页，
+            // 宿主未接管则在内嵌页自己显示错误态，重试重读规则。
+            if (isEmbedded() && notifyEmbedUnavailable()) return;
+            if (isEmbedded()) {
+                mBinding.progressLayout.showError(R.string.hk_list_error, getString(R.string.hk_list_rule_missing), R.string.hk_list_retry, v -> retryBindRule());
+                return;
+            }
             Notify.show(R.string.hk_list_rule_missing);
             requireActivity().finish();
             return;
         }
+        bindRuleLoaded();
+    }
+
+    /** 规则已读到：建分类、定样式、取第 1 页。 */
+    private void bindRuleLoaded() {
         setClasses();
         setStyle(HkListHelper.styleFor(mRule.getColType()));
         loadPage(1, false);
+    }
+
+    /** 内嵌模式重试：重读规则文件，读到了继续建分类取数，仍读不到继续显示错误态。 */
+    private void retryBindRule() {
+        mBinding.progressLayout.showProgress();
+        mRule = HkStore.read(getTitle());
+        if (mRule == null) {
+            mBinding.progressLayout.showError(R.string.hk_list_error, getString(R.string.hk_list_rule_missing), R.string.hk_list_retry, v -> retryBindRule());
+            return;
+        }
+        bindRuleLoaded();
     }
 
     @Override
@@ -164,7 +222,9 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         mBinding.swipeLayout.setRefreshing(false);
         if (vods == null) {
             if (!append) {
-                // 首页失败：错误态 + 点重试跑当前页。
+                // 首页失败：内嵌模式先问宿主是否回落开列表页（首页不停在报错页）；
+                // 宿主未接管（已回落过一次）才显示错误态 + 点重试跑当前页。
+                if (isEmbedded() && notifyEmbedFailed(error)) return;
                 mBinding.progressLayout.showError(R.string.hk_list_error, error == null ? "" : error, R.string.hk_list_retry, v -> loadPage(1, false));
             } else {
                 // 翻页失败：只报一句，页码回退，下次滑到底再试。
