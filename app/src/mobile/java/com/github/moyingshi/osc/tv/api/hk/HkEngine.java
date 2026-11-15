@@ -105,7 +105,8 @@ public class HkEngine {
      * PC_UA）与 $ 工具（$.toString/$.stringify/$.require/$.hiker/$.importParam/
      * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
      * 点击执行走 {@link HkActionHandler}（第 7 步之七）；getUrl()/getHome()
-     * 取当前页/主页地址，refreshPage() 置位后由点击执行路径决定是否重跑当前页。
+     * 取当前页/主页地址，refreshPage() 置位并发事件驱动当前页重求值（对齐第 3 项，
+     * 见 {@link HkRefreshPageEvent}；点击懒规则求值时事件关掉、只置位，由调用方消费）。
      * 暂不支持的（xpath/getCryptoJS/aes/encodeStr 等）在 BOOTSTRAP 里是会抛
      * 明确错误的桩，不是静默缺失——规则用到了能在日志里一眼看到缺的是哪个 API。
      * batchFetch 已实现（见 {@link Bridge#batchFetch}），不再是桩。
@@ -139,7 +140,7 @@ public class HkEngine {
             function getUrl() { return __hk.getPageUrl(); }
             function getHome(url) { return __hk.getHome(url); }
             function setPageTitle(t) { __hk.setPageTitle(t); }
-            function refreshPage() { __hk.refreshPage(); }
+            function refreshPage(scrollTop) { if (scrollTop === undefined) { __hk.refreshPage(); } else { __hk.refreshPage(scrollTop); } }
             function getVar(k, d) { return __hk.getVar(k, d); }
             function clearVar(k) { if (k === undefined || k === null) { __hk.clearVar(); } else { __hk.clearVar(String(k)); } }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
@@ -367,12 +368,33 @@ public class HkEngine {
         }
 
         /**
-         * 海阔 refreshPage()：记一条日志 + 置位（点击执行路径读它，决定是否重跑当前页；
-         * 别的路径不读，行为不变）。
+         * 海阔 refreshPage(scrollTop?)：置位 + 事件驱动当前页重求值（对齐第 3 项，
+         * 照官方 lambda$registerApi$138：refreshRequested / refreshToTop 无条件置位，
+         * 事件 200ms 节流；scrollTop 无参/非布尔参回顶，false 不回顶，见 refreshScrollTop）。
+         * 事件开关关时（如点击懒规则求值，见 {@link HkEngine#setRefreshEventEnabled}）
+         * 只置位不发事件，刷新由调用方经 wasRefreshRequested() 消费。
          */
         public void refreshPage() {
+            requestRefresh(true);
+        }
+
+        public void refreshPage(Object scrollTop) {
+            requestRefresh(scrollTop instanceof Boolean ? (Boolean) scrollTop : true);
+        }
+
+        private void requestRefresh(boolean toTop) {
             engine.refreshRequested = true;
-            Log.i(TAG, "rule refreshPage requested");
+            engine.refreshToTop = toTop;
+            if (!engine.refreshEventEnabled) {
+                Log.i(TAG, "rule refreshPage requested (event suppressed) toTop=" + toTop);
+                return;
+            }
+            long now = System.currentTimeMillis();
+            if (now - lastRefreshPageAt >= REFRESH_PAGE_THROTTLE_MS) {
+                lastRefreshPageAt = now;
+                HkRefreshPageEvent.post(toTop);
+            }
+            Log.i(TAG, "rule refreshPage requested toTop=" + toTop);
         }
 
         public String parseDom(String html, String sel) {
@@ -673,8 +695,21 @@ public class HkEngine {
 
     /** 弹框宿主（第 7 步之七）：confirm/select/input 经它问用户；没挂时抛明确错。 */
     private DialogHost dialogHost;
-    /** 本次执行里规则 JS 是否调过 refreshPage()（点击执行路径读它，决定是否重跑当前页）。 */
+    /** 本次执行里规则 JS 是否调过 refreshPage()（点击执行路径读它，决定是否重跑当前页；页面求值路径则发事件驱动重载，见 {@link HkRefreshPageEvent}）。 */
     private boolean refreshRequested;
+    /** 本次执行里 refreshPage() 的回顶意图（无参/非布尔参为 true，false 才不回顶）。 */
+    private boolean refreshToTop;
+    /** 是否发 refreshPage 事件（默认开；点击懒规则/播放/最新章节求值关，刷新由调用方消费，见 {@link HkExecutor}）。 */
+    private boolean refreshEventEnabled = true;
+    /** 进程内上次发 refreshPage 事件的时间（静态：引擎每次求值新建，实例位拦不住 200ms 节流）。 */
+    private static volatile long lastRefreshPageAt;
+    /** refreshPage 事件节流阈值（官方 lambda$registerApi$138 同款 200ms）。 */
+    private static final long REFRESH_PAGE_THROTTLE_MS = 200;
+
+    /** 设是否发 refreshPage 事件（关时 Bridge 只置位不发事件，调用方读 wasRefreshRequested() 消费）。 */
+    public void setRefreshEventEnabled(boolean enabled) {
+        this.refreshEventEnabled = enabled;
+    }
 
     /** 挂弹框宿主（调用方在 prepare 之前调；子引擎从父引擎抄，见 HkSubpage.require）。 */
     public void setDialogHost(DialogHost host) {
@@ -752,6 +787,7 @@ public class HkEngine {
         this.resultSet = false;
         this.resultRaw = null;
         this.refreshRequested = false;
+        this.refreshToTop = false;
         this.requiredLibs.clear();
         this.vars.clear();
         if (initialVars != null) this.vars.putAll(initialVars);

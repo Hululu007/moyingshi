@@ -23,6 +23,7 @@ import com.github.moyingshi.osc.tv.api.hk.HkCache;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
+import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Class;
@@ -35,6 +36,10 @@ import com.github.moyingshi.osc.tv.ui.adapter.VodAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.ui.custom.CustomScroller;
 import com.github.moyingshi.osc.tv.utils.Notify;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -76,6 +81,12 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private HkRule mRule;
     private String mClassId;
     private int mLoadSeq;
+    /** refreshPage 事件驱动重载进行中（对齐第 3 项）：loadPage 开始置 true，onPageLoaded 清掉。 */
+    private boolean mLoading;
+    /** 加载进行中收到的 refreshPage：等本次加载完成后再重载一次（不重入、不丢）。 */
+    private boolean mPendingRefresh;
+    /** 攒下的刷新是否回顶（多事件按 OR 合并，有一个要回顶就回顶）。 */
+    private boolean mPendingRefreshToTop;
 
     private static final String TAG = "HkListFragment";
 
@@ -165,6 +176,54 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         mBinding.recycler.addOnScrollListener(mScroller);
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
+
+    @Override
+    public void onStop() {
+        EventBus.getDefault().unregister(this);
+        super.onStop();
+    }
+
+    /**
+     * refreshPage 事件（对齐第 3 项，照官方 vr1.onRefreshPage）：只对已 resumed 且可见的
+     * 当前页生效，回顶在重跑之前；加载进行中时攒下来等完成后再重载一次（不重入、不丢）。
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onHkRefreshPage(HkRefreshPageEvent event) {
+        if (event == null || getActivity() == null || getActivity().isFinishing()) return;
+        if (mRule == null) return;
+        if (!isResumed() || !getUserVisibleHint()) {
+            Log.i(TAG, "onHkRefreshPage guard: resumed=" + isResumed() + " visible=" + getUserVisibleHint());
+            return;
+        }
+        if (mLoading) {
+            mPendingRefresh = true;
+            mPendingRefreshToTop = mPendingRefreshToTop || event.isToTop();
+            Log.i(TAG, "onHkRefreshPage deferred: loading in flight");
+            return;
+        }
+        if (event.isToTop() && mBinding != null && mBinding.recycler != null) {
+            mBinding.recycler.scrollToPosition(0);
+        }
+        reloadPage();
+    }
+
+    /** 本次加载完成时消费进行中攒下的 refreshPage：只重载一次（回顶按攒下的值）。 */
+    private void consumePendingRefresh() {
+        if (!mPendingRefresh) return;
+        mPendingRefresh = false;
+        boolean toTop = mPendingRefreshToTop;
+        mPendingRefreshToTop = false;
+        if (toTop && mBinding != null && mBinding.recycler != null) {
+            mBinding.recycler.scrollToPosition(0);
+        }
+        reloadPage();
+    }
+
     /** 分类 chips：规则的 class_name（多于 1 个才显示；默认选中第一个）。 */
     private void setClasses() {
         String[] names = mRule.classNames();
@@ -211,6 +270,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
      */
     private void loadPage(int page, boolean append, boolean force) {
         final int seq = ++mLoadSeq;
+        mLoading = true;
         if (!force) {
             List<Vod> cached = HkCache.get(getTitle(), mClassId, page);
             if (cached != null) {
@@ -222,8 +282,10 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
                 }
                 Log.i(TAG, "cache hit, render without network title=" + getTitle() + " page=" + page);
                 App.post(() -> {
-                    if (!isAdded() || seq != mLoadSeq) return;
+                    if (!isAdded()) { mLoading = false; return; }
+                    if (seq != mLoadSeq) return;
                     onPageLoaded(page, append, cached, "", null);
+                    consumePendingRefresh();
                 });
                 return;
             }
@@ -256,13 +318,16 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
             final String diagText = diag;
             final String err = error;
             App.post(() -> {
-                if (!isAdded() || seq != mLoadSeq) return;
+                if (!isAdded()) { mLoading = false; return; }
+                if (seq != mLoadSeq) return;
                 onPageLoaded(page, append, result, diagText, err);
+                consumePendingRefresh();
             });
         }).start();
     }
 
     private void onPageLoaded(int page, boolean append, List<Vod> vods, String diag, String error) {
+        mLoading = false;
         mBinding.swipeLayout.setRefreshing(false);
         if (vods == null) {
             if (!append) {

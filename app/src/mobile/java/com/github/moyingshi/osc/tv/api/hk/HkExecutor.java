@@ -356,6 +356,8 @@ public class HkExecutor {
         if (TextUtils.isEmpty(field) || TextUtils.isEmpty(pageText)) return "";
         try {
             HkEngine engine = new HkEngine();
+            // 装饰性求值（对齐第 3 项）：不发 refreshPage 事件，防详情页多一次重载。
+            engine.setRefreshEventEnabled(false);
             engine.prepare(rule, detailUrl, 1, "detail", pageText);
             engine.evalPreRule();
             if (HkParser.isJsRule(field)) return engine.evalTextRule(field);
@@ -521,6 +523,8 @@ public class HkExecutor {
             if (TextUtils.isEmpty(js.trim())) return empty;
             HkEngine engine = new HkEngine();
             engine.setDialogHost(host);
+            // 播放链求值（对齐第 3 项）：没有页面可刷，不发 refreshPage 事件。
+            engine.setRefreshEventEnabled(false);
             engine.prepare(rule, pageUrl, 1, "play", "");
             engine.evalPreRule();
             resolved = engine.evalExpression(js, pageUrl);
@@ -529,6 +533,8 @@ public class HkExecutor {
             String pageText = fetch(spec);
             HkEngine engine = new HkEngine();
             engine.setDialogHost(host);
+            // 播放链求值（对齐第 3 项）：没有页面可刷，不发 refreshPage 事件。
+            engine.setRefreshEventEnabled(false);
             engine.prepare(rule, pageUrl, 1, "play", pageText);
             engine.evalPreRule();
             resolved = HkParser.extract(Jsoup.parse(pageText, pageUrl), lazy, true, pageUrl, engine);
@@ -643,6 +649,9 @@ public class HkExecutor {
         String page = pageUrl == null ? "" : pageUrl;
         HkEngine engine = new HkEngine();
         engine.setDialogHost(host);
+        // 点击懒规则求值（对齐第 3 项）：不发 refreshPage 事件，刷新由 LazyOutcome.refreshRequested
+        // 经 HkActionHandler.dispatchLazyResult 消费（host.reloadPage()），发事件会双重重载。
+        engine.setRefreshEventEnabled(false);
         String resolved;
         if (js.startsWith(".js:") || js.startsWith("js:")) {
             String body = js.startsWith(".js:") ? js.substring(4) : js.substring(3);
