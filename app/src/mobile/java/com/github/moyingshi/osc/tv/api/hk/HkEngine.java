@@ -8,6 +8,7 @@ import androidx.collection.ArrayMap;
 
 import com.github.catvod.net.OkHttp;
 import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.utils.Notify;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -79,11 +80,12 @@ public class HkEngine {
      * 域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
      * PC_UA）与 $ 工具（$.toString/$.stringify/$.require/$.hiker/$.importParam/
      * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
-     * 点击执行是后续步骤）；getUrl()/getHome() 取当前页/主页地址，
-     * refreshPage() 是空操作（tab 切换是第 7 步）。
-     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr、confirm/select
-     * 对话框等）在 BOOTSTRAP 里是会抛明确错误的桩，不是静默缺失——规则用到了
-     * 能在日志里一眼看到缺的是哪个 API。注意：没有全局 input() 函数——
+     * 点击执行走 {@link HkActionHandler}（第 7 步之七）；getUrl()/getHome()
+     * 取当前页/主页地址，refreshPage() 置位后由点击执行路径决定是否重跑当前页。
+     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr 等）在 BOOTSTRAP 里是会抛
+     * 明确错误的桩，不是静默缺失——规则用到了能在日志里一眼看到缺的是哪个 API。
+     * confirm/select/input 对话框是第 7 步之七接通的（经 {@link DialogHost} 弹框，
+     * 无 host 时仍抛明确错）。注意：没有全局 input() 函数——
      * {@code input} 是懒加载求值时的输入变量名（见 {@link #evalExpression}），
      * 同名函数会把它盖掉；输入框用 $(...).input(fn) 构造器。
      */
@@ -112,7 +114,7 @@ public class HkEngine {
             function getUrl() { return __hk.getPageUrl(); }
             function getHome(url) { return __hk.getHome(url); }
             function setPageTitle(t) { __hk.setPageTitle(t); }
-            function refreshPage() { __hk.log('refreshPage (no-op: tab switch not implemented)'); }
+            function refreshPage() { __hk.refreshPage(); }
             function getVar(k, d) { return __hk.getVar(k, d); }
             function clearVar(k) { if (k === undefined || k === null) { __hk.clearVar(); } else { __hk.clearVar(String(k)); } }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
@@ -169,6 +171,22 @@ public class HkEngine {
     public static class HkException extends Exception {
         public HkException(String message) { super(message); }
         public HkException(String message, Throwable cause) { super(message, cause); }
+    }
+
+    /**
+     * 弹框宿主（第 7 步之七）：规则 JS 调 {@code confirm/select/input} 时，
+     * 引擎经它弹框问用户；返回 null/false = 用户取消。宿主由调用方
+     * （Fragment/Activity）在后台线程求值前通过 {@link #setDialogHost} 挂上；
+     * 没挂 host 时 confirm/select 仍抛明确错（第 1–6 步的原行为）。
+     * 实现方（见 {@code HkDialogs}）必须在主线程弹框、后台线程 latch 等结果，
+     * 取消路径（按钮/返回键/点框外/Activity 销毁）都要回取消默认值，不悬挂。
+     */
+    public interface DialogHost {
+        boolean confirm(String title, String message);
+
+        String select(String title, List<String> options);
+
+        String input(String title, String hint, String preset);
     }
 
     /** 强制解释器模式的 ContextFactory：optimizationLevel 一律 -1。 */
@@ -249,8 +267,23 @@ public class HkEngine {
         }
 
         public void toast(String msg) {
-            // 第 1 步没有 UI，记一条日志即可；列表页阶段再决定要不要真弹 toast。
-            Log.i(TAG, "rule toast: " + msg);
+            if (msg == null) return;
+            if (engine.dialogHost != null) {
+                // 有 UI 宿主（第 7 步之七）：真弹提示；调用方在后台线程，post 到主线程弹。
+                App.post(() -> Notify.show(msg));
+            } else {
+                // 没有 UI 宿主时记一条日志即可（第 1 步的原行为）。
+                Log.i(TAG, "rule toast: " + msg);
+            }
+        }
+
+        /**
+         * 海阔 refreshPage()：记一条日志 + 置位（点击执行路径读它，决定是否重跑当前页；
+         * 别的路径不读，行为不变）。
+         */
+        public void refreshPage() {
+            engine.refreshRequested = true;
+            Log.i(TAG, "rule refreshPage requested");
         }
 
         public String parseDom(String html, String sel) {
@@ -416,14 +449,77 @@ public class HkEngine {
             if (key != null) engine.vars.remove(key);
         }
 
-        /** 海阔 confirm() 对话框：第 7 步未实现，抛明确错（不是静默缺失）。 */
+        /**
+         * 海阔 confirm() 对话框（第 7 步之七）：经 DialogHost 弹确认框，返回用户是否确认；
+         * 用户取消回 false。参数是字符串（当 message）或对象（取 title + message|msg|content|text）。
+         * 没挂 host 时抛明确错（第 1–6 步的原行为）。
+         */
         public Object confirm(Object options) throws HkException {
-            throw new HkException("confirm 暂不支持（小程序第 7 步未实现）");
+            DialogHost host = engine.dialogHost;
+            if (host == null) throw new HkException("confirm 需要页面上下文（未接入弹框）");
+            String title = "请确认";
+            String message = "";
+            if (options instanceof String) {
+                message = (String) options;
+            } else if (options instanceof NativeObject) {
+                NativeObject obj = (NativeObject) options;
+                title = optString(obj, "请确认", "title");
+                message = optString(obj, "", "message", "msg", "content", "text");
+            } else if (options != null && !(options instanceof Undefined)) {
+                message = Context.toString(options);
+            }
+            return host.confirm(title, message);
         }
 
-        /** 海阔 select() 对话框：第 7 步未实现，抛明确错（不是静默缺失）。 */
+        /**
+         * 海阔 select() 对话框（第 7 步之七）：经 DialogHost 弹选项列表，返回选中项文本；
+         * 用户取消回 null（JS 侧得 null，不断链）。参数是数组（当选项列表）或对象
+         * （取 title + options|list|items 数组）。没挂 host 时抛明确错。
+         */
         public Object select(Object options) throws HkException {
-            throw new HkException("select 暂不支持（小程序第 7 步未实现）");
+            DialogHost host = engine.dialogHost;
+            if (host == null) throw new HkException("select 需要页面上下文（未接入弹框）");
+            String title = "请选择";
+            List<String> items = new ArrayList<>();
+            if (options instanceof NativeArray) {
+                items.addAll(stringList((NativeArray) options));
+            } else if (options instanceof NativeObject) {
+                NativeObject obj = (NativeObject) options;
+                title = optString(obj, "请选择", "title");
+                for (String key : new String[]{"options", "list", "items"}) {
+                    Object value = ScriptableObject.getProperty(obj, key);
+                    if (value instanceof NativeArray) {
+                        items.addAll(stringList((NativeArray) value));
+                        break;
+                    }
+                }
+            } else if (options instanceof String) {
+                title = (String) options;
+            }
+            if (items.isEmpty()) throw new HkException("select 没有可选项");
+            return host.select(title, items);
+        }
+
+        /** 取 NativeObject 里第一个非空字符串属性（没有返回 fallback）。 */
+        private String optString(NativeObject obj, String fallback, String... keys) {
+            for (String key : keys) {
+                Object value = ScriptableObject.getProperty(obj, key);
+                if (value instanceof String && !((String) value).trim().isEmpty()) {
+                    return ((String) value).trim();
+                }
+            }
+            return fallback;
+        }
+
+        /** NativeArray 转字符串列表（null/Undefined 跳过）。 */
+        private List<String> stringList(NativeArray array) {
+            List<String> out = new ArrayList<>();
+            for (int i = 0; i < array.getLength(); i++) {
+                Object item = array.get(i, array);
+                if (item == null || item instanceof Undefined) continue;
+                out.add(Context.toString(item));
+            }
+            return out;
         }
 
         public String getParam(String key) {
@@ -475,6 +571,31 @@ public class HkEngine {
     private final HkContextFactory factory = new HkContextFactory();
     private final Bridge bridge = new Bridge(this);
 
+    /** 弹框宿主（第 7 步之七）：confirm/select/input 经它问用户；没挂时抛明确错。 */
+    private DialogHost dialogHost;
+    /** 本次执行里规则 JS 是否调过 refreshPage()（点击执行路径读它，决定是否重跑当前页）。 */
+    private boolean refreshRequested;
+
+    /** 挂弹框宿主（调用方在 prepare 之前调；子引擎从父引擎抄，见 HkSubpage.require）。 */
+    public void setDialogHost(DialogHost host) {
+        this.dialogHost = host;
+    }
+
+    /** 取弹框宿主（子引擎抄 host 时用；没挂返回 null）。 */
+    public DialogHost getDialogHost() {
+        return dialogHost;
+    }
+
+    /** 本次执行里规则 JS 是否调过 refreshPage()。 */
+    public boolean wasRefreshRequested() {
+        return refreshRequested;
+    }
+
+    /** 当前 vars 的一份拷贝（点击执行后写回调用方，供下次执行预填）。 */
+    public Map<String, Object> getVarsSnapshot() {
+        return new HashMap<>(vars);
+    }
+
     private Scriptable scope;
     private HkRule rule;
     private String ruleJson;
@@ -501,6 +622,16 @@ public class HkEngine {
      * items 同样从 items.json 加载。
      */
     public void prepare(HkRule rule, String pageUrl, int page, String pageType, String resCode) throws HkException {
+        prepare(rule, pageUrl, page, pageType, resCode, null);
+    }
+
+    /**
+     * prepare 的重载（第 7 步之七）：initialVars 非空时预填页面变量
+     * （点击执行 @lazyRule= 后重跑详情页时，把执行里 putVar 的值带过去，
+     * 臻品fix 的 tab/排序切换靠它；null 时 vars 从空开始，与原来一致）。
+     */
+    public void prepare(HkRule rule, String pageUrl, int page, String pageType, String resCode,
+                        Map<String, Object> initialVars) throws HkException {
         this.rule = rule;
         this.ruleJson = rule == null ? "{}" : rule.toJson();
         this.pageUrl = pageUrl == null ? "" : pageUrl;
@@ -510,7 +641,10 @@ public class HkEngine {
         this.resCode = resCode == null ? "" : resCode;
         this.result = null;
         this.resultSet = false;
+        this.refreshRequested = false;
         this.requiredLibs.clear();
+        this.vars.clear();
+        if (initialVars != null) this.vars.putAll(initialVars);
         parseParams(this.pageUrl);
         try (CxHandle handle = enterCx()) {
             Context cx = handle.cx;

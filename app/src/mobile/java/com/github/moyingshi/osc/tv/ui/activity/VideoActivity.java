@@ -67,9 +67,11 @@ import com.github.moyingshi.osc.tv.api.DanmakuApi;
 import com.github.moyingshi.osc.tv.api.SiteApi;
 import com.github.moyingshi.osc.tv.api.config.AdBlockStatsStore;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.hk.HkEngine;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
+import com.github.moyingshi.osc.tv.ui.hk.HkDialogs;
 import com.github.moyingshi.osc.tv.bean.AdDetectionRequest;
 import com.github.moyingshi.osc.tv.bean.AdDetectionResult;
 import com.github.moyingshi.osc.tv.bean.AiConfig;
@@ -3078,29 +3080,53 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
      * 海阔小程序取流（第 5 步）：后台线程跑懒加载解析，解析出地址后喂给 setPlayer；
      * 空地址或失败时弹“小程序未解析出播放地址”，不进空白播放器。
      * generation 快照防串位：切集/切线路后旧解析结果回来直接丢掉。
+     * 第 7 步之七：传当前 Activity 当 WebView 上下文（webRule:// 用）与弹框宿主
+     * （规则 JS 调 confirm/select 时用）；懒结果是 toast/pics/copy/download 时，
+     * 解析结果带 notice，弹 notice 文案而不是通用提示。
      */
     private void resolveHkPlayerContent(Episode episode, String playFlag) {
         String episodeUrl = episode.getUrl();
         String episodeName = episode.getName();
         String key = getKey();
         int generation = playerContentGeneration;
+        HkEngine.DialogHost dialogHost = new HkEngine.DialogHost() {
+            @Override
+            public boolean confirm(String title, String message) {
+                return HkDialogs.confirm(VideoActivity.this, title, message);
+            }
+
+            @Override
+            public String select(String title, List<String> options) {
+                return HkDialogs.select(VideoActivity.this, title, options);
+            }
+
+            @Override
+            public String input(String title, String hint, String preset) {
+                return HkDialogs.input(VideoActivity.this, title, hint, preset);
+            }
+        };
         new Thread(() -> {
             Result resolved = null;
+            String notice = null;
             String error = null;
             try {
                 HkRule rule = HkStore.read(key.substring("hk://".length()));
-                HkExecutor.PlayOutcome outcome = rule == null ? null : HkExecutor.play(rule, episodeUrl);
+                HkExecutor.PlayOutcome outcome = rule == null ? null
+                        : HkExecutor.play(rule, episodeUrl, VideoActivity.this, dialogHost);
                 if (outcome != null && !outcome.isEmpty()) {
                     resolved = new Result();
                     resolved.setUrl(outcome.url);
                     resolved.setHeader(outcome.headers);
                     resolved.setFlag(playFlag);
                     resolved.setParse(0);
+                } else if (outcome != null && !TextUtils.isEmpty(outcome.notice)) {
+                    notice = outcome.notice;
                 }
             } catch (Exception e) {
                 error = e.getMessage();
             }
             final Result result = resolved;
+            final String noticeText = notice;
             final String err = error;
             App.post(() -> {
                 if (isFinishing() || isDestroyed() || generation != playerContentGeneration) return;
@@ -3111,7 +3137,11 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 SpiderDebug.log("video-flow", "hk play empty key=%s episode=%s error=%s", key, episodeName, err);
                 invalidatePlayerContent();
                 hideProgress();
-                Notify.show(R.string.hk_play_no_url);
+                if (noticeText != null) {
+                    Notify.show(noticeText);
+                } else {
+                    Notify.show(R.string.hk_play_no_url);
+                }
             });
         }).start();
     }

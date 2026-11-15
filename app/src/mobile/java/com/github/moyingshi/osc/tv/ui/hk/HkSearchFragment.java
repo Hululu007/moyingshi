@@ -1,5 +1,6 @@
 package com.github.moyingshi.osc.tv.ui.hk;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,6 +16,7 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
@@ -31,6 +33,7 @@ import com.github.moyingshi.osc.tv.utils.Notify;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 海阔小程序搜索 Fragment，对应魔影 HkSearchActivity 里的结果列表部分
@@ -47,7 +50,7 @@ import java.util.List;
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
-public class HkSearchFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener {
+public class HkSearchFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, HkActionHandler.Host {
 
     private FragmentHkSearchBinding mBinding;
     private CustomScroller mScroller;
@@ -222,10 +225,52 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         return true;
     }
 
-    /** 点卡片：进详情页（第 4 步），不进空白蜘蛛页（与列表页同一行调用）。 */
+    /** 点卡片：动作 URL 先走 HkActionHandler 执行（第 7 步之七），普通卡片进详情页（第 4 步），不进空白蜘蛛页（与列表页同一行调用）。 */
     @Override
     public void onItemClick(Vod item) {
+        if (mRule != null) {
+            HkCard card = new HkCard(item.getName(), item.getId(), item.getPic(), item.getRemarks());
+            if (HkActionHandler.handle(this, card)) return;
+        }
         HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
+    }
+
+    /* ---------------- HkActionHandler.Host（第 7 步之七；搜索页不保留 vars） ---------------- */
+
+    @Override
+    public Activity activity() {
+        return getActivity();
+    }
+
+    @Override
+    public HkRule rule() {
+        return mRule;
+    }
+
+    @Override
+    public String pageUrl() {
+        return mRule == null ? "" : mRule.getUrl();
+    }
+
+    @Override
+    public Map<String, Object> vars() {
+        return HkActionHandler.emptyVars();
+    }
+
+    @Override
+    public void updateVars(Map<String, Object> vars) {
+        // 搜索页没有 tab 状态要留，putVar 结果不保留。
+    }
+
+    @Override
+    public void reloadPage() {
+        loadPage(1, false);
+    }
+
+    @Override
+    public void openDetail(String url, String title, String pic, String desc) {
+        if (mRule == null) return;
+        HkDetailActivity.open(requireContext(), mRule.getTitle(), url, title, pic, desc);
     }
 
     @Override

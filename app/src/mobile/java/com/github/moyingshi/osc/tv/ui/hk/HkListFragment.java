@@ -1,5 +1,6 @@
 package com.github.moyingshi.osc.tv.ui.hk;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,6 +17,8 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
+import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
@@ -33,6 +36,7 @@ import com.github.moyingshi.osc.tv.utils.Notify;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 海阔小程序列表 Fragment，对应魔影的 kv1（见逆向报告 §4：无源码，按
@@ -50,7 +54,7 @@ import java.util.List;
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
-public class HkListFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, TypeAdapter.OnClickListener {
+public class HkListFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, TypeAdapter.OnClickListener, HkActionHandler.Host {
 
     /**
      * 内嵌宿主（首页 VodFragment）：内嵌模式下规则缺失/首屏取数失败时不由 Fragment
@@ -282,10 +286,52 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         return true;
     }
 
-    /** 点卡片：进详情页（第 4 步），不进空白蜘蛛页。 */
+    /** 点卡片：动作 URL 先走 HkActionHandler 执行（第 7 步之七），普通卡片进详情页（第 4 步），不进空白蜘蛛页。 */
     @Override
     public void onItemClick(Vod item) {
+        if (mRule != null) {
+            HkCard card = new HkCard(item.getName(), item.getId(), item.getPic(), item.getRemarks());
+            if (HkActionHandler.handle(this, card)) return;
+        }
         HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
+    }
+
+    /* ---------------- HkActionHandler.Host（第 7 步之七；列表页不保留 vars） ---------------- */
+
+    @Override
+    public Activity activity() {
+        return getActivity();
+    }
+
+    @Override
+    public HkRule rule() {
+        return mRule;
+    }
+
+    @Override
+    public String pageUrl() {
+        return mRule == null ? "" : mRule.getUrl();
+    }
+
+    @Override
+    public Map<String, Object> vars() {
+        return HkActionHandler.emptyVars();
+    }
+
+    @Override
+    public void updateVars(Map<String, Object> vars) {
+        // 列表页没有 tab 状态要留，putVar 结果不保留。
+    }
+
+    @Override
+    public void reloadPage() {
+        loadPage(1, false);
+    }
+
+    @Override
+    public void openDetail(String url, String title, String pic, String desc) {
+        if (mRule == null) return;
+        HkDetailActivity.open(requireContext(), mRule.getTitle(), url, title, pic, desc);
     }
 
     @Override

@@ -30,9 +30,13 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     public static final int TYPE_INFO = 0;
     public static final int TYPE_LINE = 1;
     public static final int TYPE_EPISODE = 2;
+    /** 动作行（第 7 步之七）：点开执行动作的卡片，复用选集 chip 样式，全行一条。 */
+    public static final int TYPE_ACTION = 3;
 
     public interface Listener {
         void onEpisodeClick(HkDetailHelper.Line line, HkCard episode);
+
+        void onActionClick(HkCard action);
     }
 
     private final Listener listener;
@@ -53,7 +57,7 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         this.listener = listener;
     }
 
-    /** 整页数据：信息头 + 每条线路的头与选集（按 HkDetailHelper.Detail 的顺序铺平）。 */
+    /** 整页数据：信息头 + 动作行 + 每条线路的头与选集（按 HkDetailHelper.Detail 的顺序铺平）。 */
     public void setDetail(HkDetailHelper.Detail detail) {
         items.clear();
         if (detail == null) {
@@ -61,6 +65,7 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             return;
         }
         items.add(detail.info);
+        for (HkCard action : detail.actions) items.add(action);
         for (HkDetailHelper.Line line : detail.lines) {
             items.add(line);
             for (HkCard episode : line.episodes) items.add(new Ep(line, episode));
@@ -73,6 +78,7 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         Object item = items.get(position);
         if (item instanceof HkDetailHelper.Info) return TYPE_INFO;
         if (item instanceof HkDetailHelper.Line) return TYPE_LINE;
+        if (item instanceof HkCard) return TYPE_ACTION;
         return TYPE_EPISODE;
     }
 
@@ -107,10 +113,17 @@ public class HkDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (holder instanceof LineHolder) {
             ((LineHolder) holder).binding.text.setText(((HkDetailHelper.Line) item).title);
         } else if (holder instanceof EpisodeHolder) {
-            Ep ep = (Ep) item;
             EpisodeHolder h = (EpisodeHolder) holder;
-            h.binding.text.setText(ep.card.getTitle());
-            h.binding.text.setOnClickListener(v -> listener.onEpisodeClick(ep.line, ep.card));
+            if (item instanceof HkCard) {
+                // 动作行：复用选集 chip 样式，点开执行动作（第 7 步之七）。
+                HkCard action = (HkCard) item;
+                h.binding.text.setText(HkDetailHelper.stripHtml(action.getTitle()));
+                h.binding.text.setOnClickListener(v -> listener.onActionClick(action));
+            } else if (item instanceof Ep) {
+                Ep ep = (Ep) item;
+                h.binding.text.setText(ep.card.getTitle());
+                h.binding.text.setOnClickListener(v -> listener.onEpisodeClick(ep.line, ep.card));
+            }
         }
     }
 

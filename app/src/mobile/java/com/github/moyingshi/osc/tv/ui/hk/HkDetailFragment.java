@@ -1,5 +1,6 @@
 package com.github.moyingshi.osc.tv.ui.hk;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
@@ -12,9 +13,12 @@ import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
+import com.github.moyingshi.osc.tv.api.hk.HkEngine;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkParser;
 import com.github.moyingshi.osc.tv.api.hk.HkPlayer;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
@@ -22,7 +26,9 @@ import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.utils.Notify;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 海阔小程序详情 Fragment。
@@ -34,8 +40,12 @@ import java.util.List;
  * （第 5 步：懒加载解析出地址后复用 VideoActivity 播放入口）。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
+ * <p>
+ * 第 7 步之七：详情页多一行可点动作行（线路 tab / 排序切换 / toast 提示行），
+ * 点开走 {@link HkActionHandler} 执行；动作执行里 {@code putVar} 的值存在
+ * {@code mVars} 里，下次重跑详情时预填回去（tab/排序切换靠它）。
  */
-public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout.OnRefreshListener, HkDetailAdapter.Listener {
+public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout.OnRefreshListener, HkDetailAdapter.Listener, HkActionHandler.Host {
 
     public static HkDetailFragment newInstance(String ruleTitle, String url, String name, String pic, String desc) {
         Bundle args = new Bundle();
@@ -54,6 +64,8 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     private HkRule mRule;
     private HkDetailHelper.Detail mDetail;
     private int mLoadSeq;
+    /** 页面变量快照（第 7 步之七）：动作执行里 putVar 的值，下次重跑详情时预填。 */
+    private Map<String, Object> mVars = new HashMap<>();
 
     private String arg(String key) {
         Bundle args = getArguments();
@@ -96,12 +108,14 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         final String fbName = arg("name");
         final String fbPic = arg("pic");
         final String fbDesc = arg("desc");
+        final Map<String, Object> vars = mVars;
+        final HkEngine.DialogHost dialogHost = HkActionHandler.dialogHostFor(this);
         new Thread(() -> {
             HkDetailHelper.Detail detail = null;
             int columns = 4;
             String error = null;
             try {
-                List<HkCard> cards = HkExecutor.detail(rule, url);
+                List<HkCard> cards = HkExecutor.detail(rule, url, vars, dialogHost);
                 detail = HkDetailHelper.split(cards, fbName, fbPic, fbDesc);
                 columns = HkDetailHelper.columnsFor(rule.getDetailColType());
             } catch (Exception e) {
@@ -155,5 +169,53 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     public void onEpisodeClick(HkDetailHelper.Line line, HkCard episode) {
         if (mDetail == null) return;
         HkPlayer.play(requireActivity(), mRule, mDetail, line, episode, arg("url"));
+    }
+
+    /** 点动作行：走 HkActionHandler 执行（第 7 步之七），不进详情页。 */
+    @Override
+    public void onActionClick(HkCard action) {
+        if (mRule == null) return;
+        HkActionHandler.handle(this, action);
+    }
+
+    /* ---------------- HkActionHandler.Host（第 7 步之七） ---------------- */
+
+    @Override
+    public Activity activity() {
+        return getActivity();
+    }
+
+    @Override
+    public HkRule rule() {
+        return mRule;
+    }
+
+    @Override
+    public String pageUrl() {
+        // MY_URL 要与详情引擎里的 spec.url 是同一字符串：卡片地址是相对地址时
+        // 先按规则基地址补全（绝对地址原样返回，见 HkParser.resolveUrl）。
+        if (mRule == null) return arg("url");
+        return HkParser.resolveUrl(mRule.getUrl(), arg("url"));
+    }
+
+    @Override
+    public Map<String, Object> vars() {
+        return mVars;
+    }
+
+    @Override
+    public void updateVars(Map<String, Object> vars) {
+        if (vars != null) mVars = vars;
+    }
+
+    @Override
+    public void reloadPage() {
+        loadDetail();
+    }
+
+    @Override
+    public void openDetail(String url, String title, String pic, String desc) {
+        if (mRule == null) return;
+        HkDetailActivity.open(requireContext(), mRule.getTitle(), url, title, pic, desc);
     }
 }

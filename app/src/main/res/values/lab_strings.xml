@@ -104,4 +104,23 @@
     <string name="hk_miniapp_pick_file">选择文件</string>
     <string name="hk_miniapp_pick_dir">选择目录</string>
     <string name="hk_miniapp_no_rule">没有找到可导入的规则</string>
+    <string name="hk_action_copied">已复制</string>
+    <string name="hk_action_copy_failed">复制失败</string>
+    <string name="hk_action_download_queued">已加入下载</string>
+    <string name="hk_action_download_exists">已在下载列表中</string>
+    <string name="hk_action_download_bad_url">下载地址无效</string>
+    <string name="hk_action_cancelled">已取消</string>
+    <string name="hk_action_confirmed">已确认</string>
+    <string name="hk_action_chosen">已选择：%1$s</string>
+    <string name="hk_action_input_empty">内容不能为空</string>
+    <string name="hk_action_input_title">请输入</string>
+    <string name="hk_action_confirm_title">请确认</string>
+    <string name="hk_action_select_title">请选择</string>
+    <string name="hk_action_input_done">已输入：%1$s</string>
+    <string name="hk_action_no_result">未解析出结果</string>
+    <string name="hk_action_pics_unsupported">图集浏览暂不支持（pics://）</string>
+    <string name="hk_webrule_timeout">WebView 解析超时（30 秒）</string>
+    <string name="hk_webrule_load_failed">页面加载失败：%1$s</string>
+    <string name="hk_webrule_empty">WebView 未解析出结果</string>
+    <string name="hk_webrule_bad_format">webRule 格式错误（缺少 @）</string>
 </resources>

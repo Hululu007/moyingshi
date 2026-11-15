@@ -1,9 +1,12 @@
 package com.github.moyingshi.osc.tv.api.hk;
 
+import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.github.catvod.net.OkHttp;
+import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.R;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -272,11 +275,21 @@ public class HkExecutor {
      * 非空时，用那条对同一页再跑一次（小说/漫画类备选，语义见任务文档）。
      * 子页面例外（见 docs/miniapp-subpage.md）：地址是 hiker://page/... 时直接
      * 展开子页面，不要求 detail_find_rule；$(...).lazyRule/input 产出的懒加载
-     * 动作链接点开报明确错（点击执行是后续步骤）。
+     * 动作链接由 HkActionHandler 先拦截执行，直接调到这里仍报明确错（安全网）。
      * 调用方必须在后台线程跑。返回原始详情卡片（信息卡/线路头/选集都在里面），
      * 切分由 HkDetailHelper.split 做。
      */
     public static List<HkCard> detail(HkRule rule, String detailUrl) throws HkEngine.HkException {
+        return detail(rule, detailUrl, null, null);
+    }
+
+    /**
+     * 详情（第 7 步之七重载）：initialVars 预填页面变量（点击执行 @lazyRule= 后
+     * 重跑详情页时，把执行里 putVar 的值带过去，臻品fix 的 tab/排序切换靠它）；
+     * host 是弹框宿主（规则 JS 调 confirm/select 时用，没挂时仍抛明确错）。
+     */
+    public static List<HkCard> detail(HkRule rule, String detailUrl, Map<String, Object> initialVars,
+                                      HkEngine.DialogHost host) throws HkEngine.HkException {
         if (rule == null) throw new HkEngine.HkException("规则为空");
         String err = rule.validate();
         if (err != null) throw new HkEngine.HkException(err);
@@ -288,8 +301,9 @@ public class HkExecutor {
             return HkSubpage.expand(rule, url);
         }
         if (raw.contains("@lazyRule=") || raw.contains("@input=")) {
-            // 懒加载动作链接（$(...).lazyRule/input 产出的卡片 url）：点击执行是后续步骤，报明确错，不崩。
-            throw new HkEngine.HkException("懒加载动作链接暂不支持点击执行（第 7 步后续）");
+            // 懒加载动作链接（$(...).lazyRule/input 产出的卡片 url）：点击应由
+            // HkActionHandler 先拦截执行；直接调到这里报明确错，不崩。
+            throw new HkEngine.HkException("懒加载动作链接请从卡片点击执行（详情页动作行）");
         }
         if (TextUtils.isEmpty(rule.getDetailFindRule())) {
             throw new HkEngine.HkException("规则缺少 detail_find_rule");
@@ -299,20 +313,22 @@ public class HkExecutor {
         // 与 homeDetailed 同款 guard：详情地址不是 http/https 时不抓页，JS 在空页上跑，
         // 选择器得 0 张卡片（详情页显示“暂无选集”），不抛 OkHttp scheme 错。
         String pageText = isHttpUrl(spec.url) ? fetch(spec) : "";
-        List<HkCard> cards = evalDetailRule(rule, rule.getDetailFindRule(), spec.url, pageText);
+        List<HkCard> cards = evalDetailRule(rule, rule.getDetailFindRule(), spec.url, pageText, initialVars, host);
         if (cards.isEmpty()) {
             String alt = !TextUtils.isEmpty(rule.getChapterFind()) ? rule.getChapterFind() : rule.getMovieFind();
             if (!TextUtils.isEmpty(alt)) {
-                cards = evalDetailRule(rule, alt, spec.url, pageText);
+                cards = evalDetailRule(rule, alt, spec.url, pageText, initialVars, host);
             }
         }
         return cards;
     }
 
     /** 对一页详情正文跑一条详情规则（JS 或选择器）；与 home() 的执行顺序一致。 */
-    private static List<HkCard> evalDetailRule(HkRule rule, String detailRule, String pageUrl, String pageText) throws HkEngine.HkException {
+    private static List<HkCard> evalDetailRule(HkRule rule, String detailRule, String pageUrl, String pageText,
+                                               Map<String, Object> initialVars, HkEngine.DialogHost host) throws HkEngine.HkException {
         HkEngine engine = new HkEngine();
-        engine.prepare(rule, pageUrl, 1, "detail", pageText);
+        engine.setDialogHost(host);
+        engine.prepare(rule, pageUrl, 1, "detail", pageText, initialVars);
         engine.evalPreRule();
         if (HkParser.isJsRule(detailRule)) {
             return engine.evalFindRule(detailRule);
@@ -324,6 +340,12 @@ public class HkExecutor {
     public static class PlayOutcome {
         public String url = "";
         public Map<String, String> headers = new HashMap<>();
+        /**
+         * 非播放地址的解析结果提示（第 7 步之七）：懒结果是 {@code toast://} /
+         * {@code pics://} / {@code copy://} / {@code download://} 时，url 为空、
+         * notice 是给用户看的文案，调用方弹它、不进播放器。
+         */
+        public String notice = "";
 
         public boolean isEmpty() {
             return TextUtils.isEmpty(url);
@@ -339,15 +361,26 @@ public class HkExecutor {
      * 不进播放器。
      */
     public static PlayOutcome play(HkRule rule, String episodeUrl) throws HkEngine.HkException {
+        return play(rule, episodeUrl, null, null);
+    }
+
+    /**
+     * 懒加载播放解析（第 7 步之七重载）：context 是 WebView 解析用的 Activity
+     * （{@code webRule://} 时必须给，不给则 {@code webRule://} 抛明确错）；
+     * host 是弹框宿主（规则 JS 调 confirm/select 时用，没挂时仍抛明确错）。
+     */
+    public static PlayOutcome play(HkRule rule, String episodeUrl, Context context,
+                                   HkEngine.DialogHost host) throws HkEngine.HkException {
         if (rule == null) throw new HkEngine.HkException("规则为空");
         String err = rule.validate();
         if (err != null) throw new HkEngine.HkException(err);
         if (TextUtils.isEmpty(episodeUrl)) return new PlayOutcome();
-        return playResolved(rule, episodeUrl.trim(), 0);
+        return playResolved(rule, episodeUrl.trim(), 0, context, host);
     }
 
     /** 一级懒解析：切分选集地址与懒规则，求值后把结果交给 dispatchResolved。 */
-    private static PlayOutcome playResolved(HkRule rule, String raw, int depth) throws HkEngine.HkException {
+    private static PlayOutcome playResolved(HkRule rule, String raw, int depth,
+                                            Context context, HkEngine.DialogHost host) throws HkEngine.HkException {
         PlayOutcome empty = new PlayOutcome();
         int at = raw.indexOf("@lazyRule=");
         int markerLen = "@lazyRule=".length();
@@ -376,7 +409,7 @@ public class HkExecutor {
                 Log.w(TAG, "lazy chain too deep rule=" + rule.getTitle());
                 return empty;
             }
-            return playResolved(rule, playable, depth + 1);
+            return playResolved(rule, playable, depth + 1, context, host);
         }
         if (TextUtils.isEmpty(lazyPart)) {
             // 直链：归一化（;{headers} 后缀 + # 标记），Referer 默认补选集页地址。
@@ -389,6 +422,7 @@ public class HkExecutor {
             String js = lazy.startsWith(".js:") ? lazy.substring(4) : lazy.substring(3);
             if (TextUtils.isEmpty(js.trim())) return empty;
             HkEngine engine = new HkEngine();
+            engine.setDialogHost(host);
             engine.prepare(rule, pageUrl, 1, "play", "");
             engine.evalPreRule();
             resolved = engine.evalExpression(js, pageUrl);
@@ -396,15 +430,17 @@ public class HkExecutor {
             RequestSpec spec = buildDetailRequest(rule, pageUrl);
             String pageText = fetch(spec);
             HkEngine engine = new HkEngine();
+            engine.setDialogHost(host);
             engine.prepare(rule, pageUrl, 1, "play", pageText);
             engine.evalPreRule();
             resolved = HkParser.extract(Jsoup.parse(pageText, pageUrl), lazy, true, pageUrl, engine);
         }
-        return dispatchResolved(rule, resolved == null ? "" : resolved.trim(), pageUrl, depth);
+        return dispatchResolved(rule, resolved == null ? "" : resolved.trim(), pageUrl, depth, context, host);
     }
 
     /** 对懒求值的结果再分发（对应 f22.b）：递归懒链 / 多线路 JSON / 动作 URL / 直链。 */
-    private static PlayOutcome dispatchResolved(HkRule rule, String s, String referer, int depth) throws HkEngine.HkException {
+    private static PlayOutcome dispatchResolved(HkRule rule, String s, String referer, int depth,
+                                                Context context, HkEngine.DialogHost host) throws HkEngine.HkException {
         PlayOutcome empty = new PlayOutcome();
         if (TextUtils.isEmpty(s)) return empty;
         String text = s.trim();
@@ -413,7 +449,7 @@ public class HkExecutor {
                 Log.w(TAG, "lazy chain too deep rule=" + rule.getTitle());
                 return empty;
             }
-            return playResolved(rule, text, depth + 1);
+            return playResolved(rule, text, depth + 1, context, host);
         }
         if (text.startsWith("{")) {
             try {
@@ -430,11 +466,101 @@ public class HkExecutor {
         if (text.startsWith("video://")) {
             return normalizeDirect(text.substring("video://".length()), referer);
         }
-        if (text.startsWith("pics://") || text.startsWith("webRule://")) {
-            Log.w(TAG, "unsupported lazy result prefix: " + text.substring(0, Math.min(text.length(), 16)));
-            return empty;
+        String lowerText = text.toLowerCase(Locale.ROOT);
+        if (lowerText.startsWith("webRule://")) {
+            // 第 7 步之七：WebView 解析分支（对应 f22.v()）；没有页面上下文时抛明确错。
+            if (context == null) {
+                throw new HkEngine.HkException("webRule 需要页面上下文（WebView 解析未接通）");
+            }
+            String resolved = HkWebRule.resolve(context, text);
+            if (TextUtils.isEmpty(resolved)) {
+                Log.w(TAG, "webRule parse empty rule=" + rule.getTitle());
+                return empty;
+            }
+            String nested = resolved.trim();
+            if (nested.regionMatches(true, 0, "webRule://", 0, 10)) {
+                // 嵌套 webRule 结果按上游 v() 口径当失败处理（不再递归）。
+                Log.w(TAG, "webRule nested result rule=" + rule.getTitle());
+                return empty;
+            }
+            return dispatchResolved(rule, nested, referer, depth, context, host);
+        }
+        if (lowerText.startsWith("toast://")) {
+            // 懒结果是提示：不进播放器，把文案经 notice 交回调用方弹。
+            PlayOutcome out = new PlayOutcome();
+            out.notice = text.substring("toast://".length()).trim();
+            return out;
+        }
+        if (lowerText.startsWith("pics://")) {
+            // 图集浏览本步仍不支持（报明确错，不静默回空）。
+            PlayOutcome out = new PlayOutcome();
+            out.notice = App.get().getString(R.string.hk_action_pics_unsupported);
+            return out;
+        }
+        if (lowerText.startsWith("copy://")) {
+            PlayOutcome out = new PlayOutcome();
+            out.notice = HkActionHandler.copyToClipboard(context, text.substring("copy://".length()))
+                    ? App.get().getString(R.string.hk_action_copied)
+                    : App.get().getString(R.string.hk_action_copy_failed);
+            return out;
+        }
+        if (lowerText.startsWith("download://")) {
+            // 直链下载：走现有下载通道入队（后台线程，只入队不 toast，提示经 notice 回主线程）。
+            String notice = HkActionHandler.enqueueDownload(rule, rule.getTitle(), "",
+                    text.substring("download://".length()).trim());
+            if (notice == null) {
+                throw new HkEngine.HkException(App.get().getString(R.string.hk_action_download_bad_url));
+            }
+            PlayOutcome out = new PlayOutcome();
+            out.notice = notice;
+            return out;
         }
         return normalizeDirect(text, referer);
+    }
+
+    /** 点击执行 @lazyRule=/@input= 产出的懒规则的结果：求值字符串 + 执行后的 vars + 是否调过 refreshPage。 */
+    public static class LazyOutcome {
+        public String result = "";
+        public Map<String, Object> vars = new HashMap<>();
+        public boolean refreshRequested;
+    }
+
+    /**
+     * 点击执行一条懒规则（HkActionHandler 用）：{@code .js:}/{@code js:} 走 Rhino
+     * （input 进 scope），否则抓页后走选择器；与 playResolved 的求值路径同款
+     * （e() 转义与 ;now 去尾由调用方先做）。pageUrl 是当前页地址（MY_URL），
+     * input 是求值输入（.js: 路是懒链接的页地址，@input= 路是用户输入）。
+     * 调用方必须在后台线程跑。
+     */
+    public static LazyOutcome evalLazy(HkRule rule, String pageUrl, String lazy, String input,
+                                       Map<String, Object> initialVars, HkEngine.DialogHost host) throws HkEngine.HkException {
+        if (rule == null) throw new HkEngine.HkException("规则为空");
+        String err = rule.validate();
+        if (err != null) throw new HkEngine.HkException(err);
+        String js = lazy == null ? "" : lazy.trim();
+        LazyOutcome outcome = new LazyOutcome();
+        if (TextUtils.isEmpty(js)) return outcome;
+        String page = pageUrl == null ? "" : pageUrl;
+        HkEngine engine = new HkEngine();
+        engine.setDialogHost(host);
+        String resolved;
+        if (js.startsWith(".js:") || js.startsWith("js:")) {
+            String body = js.startsWith(".js:") ? js.substring(4) : js.substring(3);
+            if (TextUtils.isEmpty(body.trim())) return outcome;
+            engine.prepare(rule, page, 1, "action", "", initialVars);
+            engine.evalPreRule();
+            resolved = engine.evalExpression(body, input == null ? "" : input);
+        } else {
+            RequestSpec spec = buildDetailRequest(rule, page);
+            String pageText = isHttpUrl(spec.url) ? fetch(spec) : "";
+            engine.prepare(rule, page, 1, "action", pageText, initialVars);
+            engine.evalPreRule();
+            resolved = HkParser.extract(Jsoup.parse(pageText, page), js, true, page, engine);
+        }
+        outcome.result = resolved == null ? "" : resolved;
+        outcome.vars = engine.getVarsSnapshot();
+        outcome.refreshRequested = engine.wasRefreshRequested();
+        return outcome;
     }
 
     /** 多线路 JSON（{urls, names, headers, ...}）：本步只取首条；names/subtitle/danmu/lyric 不接（第 7 步）。 */
@@ -498,21 +624,21 @@ public class HkExecutor {
         return out;
     }
 
-    /** 从第一个 # 起截断（#...# 是嗅探标记，不是地址的一部分）。 */
-    private static String stripHashMarkers(String url) {
+    /** 从第一个 # 起截断（#...# 是嗅探标记，不是地址的一部分）。包内可见，供 HkActionHandler 复用。 */
+    static String stripHashMarkers(String url) {
         if (TextUtils.isEmpty(url)) return "";
         int hash = url.indexOf('#');
         return hash >= 0 ? url.substring(0, hash).trim() : url.trim();
     }
 
-    /** 海阔转义还原（只对规则部分）：？？→?、＆＆→&、；；→;、，，→,。 */
-    private static String unescapeLazy(String lazy) {
+    /** 海阔转义还原（只对规则部分）：？？→?、＆＆→&、；；→;、，，→,。包内可见，供 HkActionHandler 复用。 */
+    static String unescapeLazy(String lazy) {
         if (TextUtils.isEmpty(lazy)) return "";
         return lazy.replace("？？", "?").replace("＆＆", "&").replace("；；", ";").replace("，，", ",");
     }
 
-    /** 剥掉懒规则尾部的 ;now（“立即执行”标记，不是 JS；童话的选集懒加载用它）。 */
-    private static String stripNowSuffix(String lazy) {
+    /** 剥掉懒规则尾部的 ;now（“立即执行”标记，不是 JS；童话的选集懒加载用它）。包内可见，供 HkActionHandler 复用。 */
+    static String stripNowSuffix(String lazy) {
         if (TextUtils.isEmpty(lazy)) return "";
         String s = lazy.trim();
         if (s.length() > 4 && s.substring(s.length() - 4).equalsIgnoreCase(";now")) {

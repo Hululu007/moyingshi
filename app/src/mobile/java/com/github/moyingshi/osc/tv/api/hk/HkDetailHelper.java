@@ -38,10 +38,17 @@ public final class HkDetailHelper {
         public List<HkCard> episodes = new ArrayList<>();
     }
 
-    /** 切分结果：信息头 + 若干线路（0 集的空线路已丢掉）。 */
+    /** 切分结果：信息头 + 若干线路（0 集的空线路已丢掉）+ 可点动作行。 */
     public static class Detail {
         public Info info = new Info();
         public List<Line> lines = new ArrayList<>();
+        /**
+         * 可点动作行（第 7 步之七）：点开要执行动作的卡片（动作 URL，或含
+         * {@code @lazyRule=}/{@code @input=}/{@code @rule=} 的懒链接），按原顺序。
+         * 臻品fix 的线路 tab 与排序切换卡片都在这里；它们同时仍按原样参与
+         * 线路切分（见 split），行结构与行标题不变。
+         */
+        public List<HkCard> actions = new ArrayList<>();
     }
 
     private static final String DEFAULT_LINE_TITLE = "选集";
@@ -82,6 +89,10 @@ public final class HkDetailHelper {
         for (HkCard card : rest) {
             if (card == null) continue;
             if (isLineHeader(card)) {
+                // 可动作的线路头（臻品fix 的 tab/排序切换卡片）收进动作行点开执行，
+                // 同时仍按原样开线路：选集挂在哪条线路、行标题是什么，都与原来一致
+                // （排序卡片开的那条线仍是选集的归属；tab 卡片开的空线照常在第 3 步丢掉）。
+                if (isActionable(card)) detail.actions.add(card);
                 current = new Line();
                 current.title = stripHtml(card.getTitle());
                 if (TextUtils.isEmpty(current.title)) current.title = DEFAULT_LINE_TITLE;
@@ -95,7 +106,11 @@ public final class HkDetailHelper {
                     detail.lines.add(current);
                 }
                 current.episodes.add(card);
+                continue;
             }
+            // 非线路头、非选集、但 URL 可动作的卡片（如 col_type 不在 text 族的
+            // 动作卡片），也收进动作行（不参与线路切分）。
+            if (isActionable(card)) detail.actions.add(card);
         }
         // 3. 丢掉 0 集的空线路。
         List<Line> kept = new ArrayList<>();
@@ -104,6 +119,14 @@ public final class HkDetailHelper {
         }
         detail.lines = kept;
         return detail;
+    }
+
+    /** 这张卡片点开是不是要执行动作（动作 URL，或含 @lazyRule=/@input=/@rule= 的懒链接）。 */
+    static boolean isActionable(HkCard card) {
+        if (card == null || !card.usable()) return false;
+        String url = card.getUrl().trim();
+        return HkListHelper.isActionUrl(url)
+                || url.contains("@lazyRule=") || url.contains("@input=") || url.contains("@rule=");
     }
 
     /** 线路头：text_1/2/3/text_center_1，且 URL 为空、或为动作 URL、或以 # 开头。 */
@@ -144,8 +167,8 @@ public final class HkDetailHelper {
         return 4;
     }
 
-    /** 去掉标题里的 HTML 标签（规则标题常带 <small><font>）。 */
-    static String stripHtml(String text) {
+    /** 去掉标题里的 HTML 标签（规则标题常带 <small><font>）。ui.hk 的动作行渲染也用它。 */
+    public static String stripHtml(String text) {
         if (TextUtils.isEmpty(text)) return "";
         String out = Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString();
         return out == null ? "" : out.trim();

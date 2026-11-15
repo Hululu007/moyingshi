@@ -258,6 +258,8 @@ public final class HkSubpage {
             return Undefined.instance;
         }
         HkEngine engine = new HkEngine();
+        // 第 7 步之七：子引擎从父引擎抄弹框宿主（子页面规则 JS 调 confirm/select 时也能弹框）。
+        engine.setDialogHost(caller.getDialogHost());
         engine.prepare(rule, pageUrl, 1, "page", "");
         if (importParam != null && !(importParam instanceof Undefined)) {
             engine.setImportParam(importParam);
