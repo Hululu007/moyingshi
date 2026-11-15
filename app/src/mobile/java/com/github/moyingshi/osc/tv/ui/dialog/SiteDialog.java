@@ -227,11 +227,11 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private List<String> getGroups() {
-        return SiteGroupOrderStore.sort(Site.getGroups(SiteBlockSetting.filter(VodConfig.get().getSites(), block)));
+        return SiteGroupOrderStore.sort(Site.getGroups(HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), block))));
     }
 
     private List<String> getAllGroups() {
-        return Site.getGroups(SiteBlockSetting.filter(VodConfig.get().getSites(), true));
+        return Site.getGroups(HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), true)));
     }
 
     private void setGroupView() {
@@ -323,7 +323,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     @Override
     public void onStart() {
         super.onStart();
-        if (adapter.getItemCount() == 0 && SiteBlockSetting.filter(VodConfig.get().getSites(), true).isEmpty()) dismiss();
+        if (adapter.getItemCount() == 0 && HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), true)).isEmpty()) dismiss();
         else configureWindow();
     }
 

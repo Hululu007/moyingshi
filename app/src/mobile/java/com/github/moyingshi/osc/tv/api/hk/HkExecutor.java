@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -71,7 +72,11 @@ public class HkExecutor {
         String err = rule.validate();
         if (err != null) throw new HkEngine.HkException(err);
         RequestSpec spec = buildHomeRequest(rule, page, classId);
-        String pageText = fetch(spec);
+        // hiker://empty 等规则内地址不走 OkHttp 抓页（OkHttp 只认 http/https，
+        // 否则抛 scheme 错，见 docs/miniapp-hk-fixes.md）：JS 规则直接在空页上跑，
+        // 自己 fetch 取数；选择器规则对空页解析得 0 条，诊断里写明。
+        boolean skippedFetch = !isHttpUrl(spec.url);
+        String pageText = skippedFetch ? "" : fetch(spec);
         HkEngine engine = new HkEngine();
         engine.prepare(rule, spec.url, page, "home", pageText);
         engine.evalPreRule();
@@ -79,14 +84,17 @@ public class HkExecutor {
         String sizeKb = "约 " + (pageText.length() / 1024) + "KB";
         if (rule.isJsFindRule()) {
             outcome.cards = engine.evalFindRule(rule.getFindRule());
-            outcome.diag = "页面 " + sizeKb + "，规则返回 " + outcome.cards.size() + " 条"
+            outcome.diag = (skippedFetch ? "首页地址 " + spec.url + " 不抓页，" : "页面 " + sizeKb + "，")
+                    + "规则返回 " + outcome.cards.size() + " 条"
                     + (engine.wasResultSet() ? "" : "（规则未调用 setResult）");
         } else {
             HkParser.ParseOutcome parsed = HkParser.parseHomeListDetailed(pageText, rule.getFindRule(), spec.url, engine, false);
             outcome.cards = parsed.cards;
-            outcome.diag = "页面 " + sizeKb + "，列表选择器命中 " + parsed.matched + " 项，得到 "
+            outcome.diag = (skippedFetch ? "首页地址 " + spec.url + " 不抓页，" : "页面 " + sizeKb + "，")
+                    + "列表选择器命中 " + parsed.matched + " 项，得到 "
                     + outcome.cards.size() + " 张卡片"
-                    + (parsed.matched == 0 ? "（规则未命中页面结构）"
+                    + (skippedFetch ? "（选择器无页面可解析）"
+                    : parsed.matched == 0 ? "（规则未命中页面结构）"
                     : outcome.cards.isEmpty() ? "（命中了但卡片都不可用，缺标题或链接）" : "");
         }
         return outcome;
@@ -111,7 +119,9 @@ public class HkExecutor {
         url = HkParser.resolveUrl(rule.getUrl(), url);
         if (TextUtils.isEmpty(url)) throw new HkEngine.HkException("详情地址为空");
         RequestSpec spec = buildDetailRequest(rule, url);
-        String pageText = fetch(spec);
+        // 与 homeDetailed 同款 guard：详情地址不是 http/https 时不抓页，JS 在空页上跑，
+        // 选择器得 0 张卡片（详情页显示“暂无选集”），不抛 OkHttp scheme 错。
+        String pageText = isHttpUrl(spec.url) ? fetch(spec) : "";
         List<HkCard> cards = evalDetailRule(rule, rule.getDetailFindRule(), spec.url, pageText);
         if (cards.isEmpty()) {
             String alt = !TextUtils.isEmpty(rule.getChapterFind()) ? rule.getChapterFind() : rule.getMovieFind();
@@ -479,6 +489,13 @@ public class HkExecutor {
         headers.putAll(urlHeaders);
         spec.headers = headers;
         return spec;
+    }
+
+    /** 只有 http/https 才走 OkHttp：hiker://empty 等规则内地址不抓页（见 docs/miniapp-hk-fixes.md）。 */
+    static boolean isHttpUrl(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String lower = url.trim().toLowerCase(Locale.ROOT);
+        return lower.startsWith("http://") || lower.startsWith("https://");
     }
 
     /** 同步抓一页，按指定编码解码；失败抛 HkException（带 URL 与原因）。 */

@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.AdapterSiteBinding;
 import com.github.moyingshi.osc.tv.setting.Setting;
@@ -92,7 +93,7 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     }
 
     private void addAll() {
-        mAllItems.addAll(SiteBlockSetting.filter(VodConfig.get().getSites(), block));
+        mAllItems.addAll(HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), block)));
         if (Setting.isSiteHealthDialogSort()) SiteHealthStore.sortSites(mAllItems);
         SiteOrderStore.sortSites(mAllItems);
         filter(group, keyword);

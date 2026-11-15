@@ -258,6 +258,16 @@ public class HkStore {
         return "";
     }
 
+    /** 去掉列表里的小程序站源（切站弹窗不显示 hk，见 docs/miniapp-hk-fixes.md）；返回新列表，原列表不动。 */
+    public static List<Site> withoutMiniapps(List<Site> sites) {
+        List<Site> result = new ArrayList<>();
+        if (sites == null) return result;
+        for (Site site : sites) {
+            if (!isMiniapp(site)) result.add(site);
+        }
+        return result;
+    }
+
     /** 规则 type 字段对应的站源名字里的类型：空或 other →「小程序」，其余原样。 */
     public static String typeNameOf(HkRule rule) {
         if (rule == null) return "小程序";
