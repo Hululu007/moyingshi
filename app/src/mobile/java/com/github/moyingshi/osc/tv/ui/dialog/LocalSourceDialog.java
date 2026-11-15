@@ -22,6 +22,7 @@ import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.adapter.LocalSourceAdapter;
 import com.github.moyingshi.osc.tv.ui.custom.CustomTextListener;
+import com.github.moyingshi.osc.tv.ui.hk.HkListActivity;
 import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.LocalSource;
 import com.github.moyingshi.osc.tv.utils.Notify;
@@ -297,9 +298,10 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
 
     @Override
     public void onItemClick(Site item) {
-        // 小程序站源：列表页还在做（第 3 步），先弹一句，不切站源、不进蜘蛛空页。
+        // 小程序站源：进它自己的列表页（第 3 步），不切站源、不进蜘蛛空页；弹窗关掉，回来在列表页。
         if (HkStore.isMiniapp(item)) {
-            Notify.show(R.string.hk_miniapp_list_pending);
+            HkListActivity.open(requireContext(), HkStore.titleOf(item));
+            dismiss();
             return;
         }
         VodConfig.get().setHome(item);

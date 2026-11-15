@@ -140,6 +140,16 @@ public class LocalSource {
         return !TextUtils.isEmpty(key) && key.startsWith("hk://");
     }
 
+    /** 从小程序站源取规则标题（api/key 去掉 hk:// 前缀）；不是小程序站源返回 ""（HkStore.titleOf 的 main 源集版，纯字符串操作）。 */
+    public static String miniappTitle(Site site) {
+        if (site == null) return "";
+        String api = site.getApi();
+        if (!TextUtils.isEmpty(api) && api.startsWith("hk://")) return api.substring(5);
+        String key = site.getKey();
+        if (!TextUtils.isEmpty(key) && key.startsWith("hk://")) return key.substring(5);
+        return "";
+    }
+
     /** 读出本地源站点列表（api/ext 按当前本机服务端口换成本机地址；密源未开开关时过滤掉）。 */
     public static synchronized List<Site> getSites() {
         if (sites != null) return new ArrayList<>(sites);

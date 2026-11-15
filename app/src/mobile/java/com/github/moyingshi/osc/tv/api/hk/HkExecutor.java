@@ -164,15 +164,29 @@ public class HkExecutor {
         // 3. fypage（含 @...@ 运算，如 fypage@-1@*20@ = (page-1)*20）。
         url = replacePagePlaceholders(url, effectivePage);
 
-        // 4. fyclass / fyarea / fyyear / fysort。
-        if (urlStyle) {
-            url = url.replace("fyclass", TextUtils.isEmpty(className) ? "" : className);
+        // 4. fyAll / fyclass / fyarea / fyyear / fysort。官方文档：用 fyAll 时，
+        // 分类、年代和地区替换词都会去替换 fyAll，有 fyAll 就不能有别的替换词。
+        // 所以含 fyAll 的 URL 只换 fyAll（分类值 + 地区/年份/排序首值拼接），
+        // 跳过下面单独的 fyclass/fyarea/fyyear/fysort 替换。
+        if (url.contains("fyAll")) {
+            String fyAllValue;
+            if (urlStyle) {
+                fyAllValue = TextUtils.isEmpty(className) ? "" : className;
+            } else {
+                fyAllValue = (TextUtils.isEmpty(classValue) ? "" : classValue)
+                        + firstId(rule.getAreaUrl()) + firstId(rule.getYearUrl()) + firstId(rule.getSortUrl());
+            }
+            url = url.replace("fyAll", fyAllValue);
         } else {
-            url = url.replace("fyclass", TextUtils.isEmpty(classValue) ? "" : classValue);
+            if (urlStyle) {
+                url = url.replace("fyclass", TextUtils.isEmpty(className) ? "" : className);
+            } else {
+                url = url.replace("fyclass", TextUtils.isEmpty(classValue) ? "" : classValue);
+            }
+            url = url.replace("fyarea", firstId(rule.getAreaUrl()));
+            url = url.replace("fyyear", firstId(rule.getYearUrl()));
+            url = url.replace("fysort", firstId(rule.getSortUrl()));
         }
-        url = url.replace("fyarea", firstId(rule.getAreaUrl()));
-        url = url.replace("fyyear", firstId(rule.getYearUrl()));
-        url = url.replace("fysort", firstId(rule.getSortUrl()));
 
         RequestSpec spec = new RequestSpec();
         spec.url = url;

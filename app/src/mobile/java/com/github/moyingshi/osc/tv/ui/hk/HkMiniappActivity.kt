@@ -23,8 +23,8 @@ import com.github.moyingshi.osc.tv.utils.Notify
 
 /**
  * 海阔小程序管理页（mobile 专属）：三个导入入口（文件/目录、粘贴 JSON、同步已装规则）
- * + 已导入规则列表（标题⁽ʰᵏ⁾┃[类型]）。点一条规则先弹“小程序列表页还在做”
- * （点开进列表页是第 3 步）。行末删除是彻底卸载：站源条目 + plugins/hk/ 下的规则文件一起删。
+ * + 已导入规则列表（标题⁽ʰᵏ⁾┃[类型]）。点一条规则进它自己的列表页（第 3 步）。
+ * 行末删除是彻底卸载：站源条目 + plugins/hk/ 下的规则文件一起删。
  *
  * 从实验室“海阔小程序”分组用隐式 intent 打开（main 源集不能直接引用 mobile 的类，
  * action 是 ${applicationId}.hk_miniapp，见 mobile 的 AndroidManifest）。
@@ -154,9 +154,9 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
         })
     }
 
-    /** 点一条规则：列表页还没做（第 3 步），先弹一句，不切站源、不进蜘蛛空页。 */
+    /** 点一条规则：进它自己的列表页（第 3 步），不切站源、不进蜘蛛空页。 */
     override fun onItemClick(item: Site) {
-        Notify.show(R.string.hk_miniapp_list_pending)
+        HkListActivity.open(this, HkStore.titleOf(item))
     }
 
     /** 行末删除：站源条目 + 规则文件一起删（彻底卸载）；只删条目的话文件还在，同步会把它登记回来。 */

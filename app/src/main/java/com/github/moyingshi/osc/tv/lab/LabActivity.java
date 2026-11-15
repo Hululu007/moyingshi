@@ -521,11 +521,16 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         FileChooser.from(localSourceLauncher).showDirectory();
     }
 
-    /** 点一条本地源：小程序站源先弹一句（列表页还在做，第 3 步），不切站源、不进蜘蛛空页；其余设为当前站源并回首页（与弹窗一致；首页在后台已收到事件刷新）。 */
+    /** 点一条本地源：小程序站源进它自己的列表页（第 3 步），不切站源、不进蜘蛛空页，实验室页留在下面，返回键回来；其余设为当前站源并回首页（与弹窗一致；首页在后台已收到事件刷新）。 */
     @Override
     public void onItemClick(Site item) {
         if (isMiniappSite(item)) {
-            Notify.show(R.string.hk_miniapp_list_pending);
+            // 列表页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开（与管理页同款）；打不开时弹原占位句，不崩。
+            Intent intent = new Intent(App.get().getPackageName() + ".hk_list");
+            intent.addCategory(Intent.CATEGORY_DEFAULT);
+            intent.putExtra("title", LocalSource.miniappTitle(item));
+            if (intent.resolveActivity(getPackageManager()) != null) startActivity(intent);
+            else Notify.show(R.string.hk_miniapp_list_pending);
             return;
         }
         VodConfig.get().setHome(item);
