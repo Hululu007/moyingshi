@@ -1112,11 +1112,13 @@ public class HkEngine {
     }
 
     /**
-     * 带缓存小时数的 require（对齐第 1 项，照官方 require0 的有效期判定）：
+     * 带缓存小时数的 require（对齐第 1 项，照官方 require0 的有效期判定；
+     * 对齐第 2 项，坏内容回退旧缓存）：
      * http(s) 库先查 `plugins/hk/libs/&lt;md5(url)&gt;.js` 缓存，命中且在有效期内
-     * 直接用，不发网络；未命中时抓下来，成功后写缓存再 eval。
+     * 直接用，不发网络；未命中时抓下来，好内容（2xx + isJsCode）写缓存再 eval，
+     * 坏内容（空、非 2xx、HTML 拦截页、isJsCode 失败）静默回退磁盘上已有的旧
+     * 缓存（不论是否过期），无缓存才抛明确错。
      * 子页面分支与 require.json 清单分支在缓存检查之前，不变。
-     * 坏内容（HTML/空）仍按现有行为抛明确错，不回退旧缓存——回退是第 2 项。
      */
     Object require(String url, Object params, int cacheHours) throws HkException {
         if (TextUtils.isEmpty(url)) throw new HkException("require 地址为空");
@@ -1142,20 +1144,26 @@ public class HkEngine {
                 code = cachedCode;
             } else {
                 code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
-                if (TextUtils.isEmpty(code)) {
-                    throw new HkException(lastHttpCode >= 0
-                            ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
-                            : "require 取数失败（空内容）：" + u);
+                if (!isGoodLib(code)) {
+                    // 取到坏内容（空、非 2xx、HTML 拦截页、isJsCode 失败）：静默回退
+                    // 磁盘上已有的旧缓存（官方 require0 :24458-24461 同款行为），不论
+                    // 该缓存是否过期；无缓存才报清楚错（902c1e8c 的报错原样保留）。
+                    String fallback = readStaleLibCache(u);
+                    if (!TextUtils.isEmpty(fallback)) {
+                        Log.i(TAG, "require fallback to cached lib (bad fetch, HTTP " + lastHttpCode + "): " + u);
+                        code = fallback;
+                    } else if (TextUtils.isEmpty(code)) {
+                        throw new HkException(lastHttpCode >= 0
+                                ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
+                                : "require 取数失败（空内容）：" + u);
+                    } else {
+                        throw new HkException(lastHttpCode >= 0
+                                ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
+                                : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+                    }
+                } else {
+                    HkStore.saveRcCache(u, code);
                 }
-                // 取到的是 HTML 错误页/拦截页（例如 WAF 418）时不再当 JS 执行——
-                // 那样只会在第 1 行报含糊的语法错；直接报清楚（见 docs/miniapp-nodata-fix.md）。
-                String lower = code.trim().toLowerCase(Locale.ROOT);
-                if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
-                    throw new HkException(lastHttpCode >= 0
-                            ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
-                            : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
-                }
-                HkStore.saveRcCache(u, code);
             }
         } else {
             throw new HkException("require 不支持的地址：" + u + "（只支持 hiker://page/... 与库文件 URL）");
@@ -1180,6 +1188,56 @@ public class HkEngine {
         if (hours < 0) return true;
         if (hours == 0) return false;
         return System.currentTimeMillis() - file.lastModified() <= (long) hours * 3600000L;
+    }
+
+    /**
+     * 是否 JS 代码（对齐第 2 项，逐字照官方 `HkJsRuntime.java:4174` isJsCode）：
+     * 空 → 否；trim 后以 `<!DOCTYPE` / `<html` / `<?xml` 开头 → 否；
+     * 以 `</html>` / `</rss>` 结尾 → 否；含 `var ` / `let ` / `function` /
+     * `eval(` / `call(` / `eval (` / `call (` / ` => ` / `)=>` 任一 → 是；
+     * 官方还查 methodList（已注册 API 方法名表），我们没有等价物，该分支略过——
+     * 真实库总含上述标记之一。
+     */
+    static boolean isJsCode(String code) {
+        if (TextUtils.isEmpty(code)) return false;
+        String t = code.trim();
+        String[] badStarts = {"<!DOCTYPE", "<html", "<?xml"};
+        for (String s : badStarts) {
+            if (t.startsWith(s)) return false;
+        }
+        String[] badEnds = {"</html>", "</rss>"};
+        for (String s : badEnds) {
+            if (t.endsWith(s)) return false;
+        }
+        String[] markers = {"var ", "let ", "function", "eval(", "call(", "eval (", "call (", " => ", ")=>"};
+        for (String m : markers) {
+            if (t.contains(m)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 新取到的库内容是否可用（对齐第 2 项，照官方 require0 + requestForCode + isJsCode）：
+     * 空 → 坏；HTTP 状态非 2xx → 坏（官方 requestForCode :24389-24395 只认 2xx，
+     * 非 2xx 直接回 null）；isJsCode 失败 → 坏；另保留 f0c10fb7 的小写 doctype 兜底
+     * （官方 isJsCode 只判大写 `<!DOCTYPE`，小写 doctype 且结尾又不是 `</html>`/`</rss>`
+     * 的页面会漏进 marker 检查——拦截页内联脚本里常有 `function`；完整 HTML 页官方
+     * 靠 `</html>` 后缀已能拦住；JS 库不会以 `<!doctype`/`<html` 开头，多这一层
+     * 不会误伤真库）。
+     */
+    private boolean isGoodLib(String code) {
+        if (TextUtils.isEmpty(code)) return false;
+        if (lastHttpCode >= 0 && (lastHttpCode < 200 || lastHttpCode >= 300)) return false;
+        String lower = code.trim().toLowerCase(Locale.ROOT);
+        if (lower.startsWith("<!doctype") || lower.startsWith("<html")) return false;
+        return isJsCode(code);
+    }
+
+    /** 坏内容回退用：读磁盘上已有的库缓存（不论是否过期），没有/读失败/空返回 null。 */
+    private static String readStaleLibCache(String url) {
+        File cached = HkStore.rcCacheFile(url);
+        if (cached == null || !cached.exists()) return null;
+        return HkStore.readTextFile(cached);
     }
 
     /** 把 $.exports 重置为 undefined（库文件 eval 前调，防拿到上一个库的旧导出）。 */
