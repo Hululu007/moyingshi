@@ -136,7 +136,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     /** 规则已读到：建分类、定样式、取第 1 页。 */
     private void bindRuleLoaded() {
         setClasses();
-        setStyle(HkListHelper.styleFor(mRule.getColType()));
+        setStyle(mRule.getColType());
         loadPage(1, false);
     }
 
@@ -181,9 +181,14 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         mClassAdapter.addAll(result);
     }
 
-    private void setStyle(Style style) {
-        mBinding.recycler.setAdapter(mAdapter = new VodAdapter(this, style, Product.getSpec(requireActivity(), style)));
-        mBinding.recycler.setLayoutManager(style.isList() ? new LinearLayoutManager(requireActivity()) : new GridLayoutManager(getContext(), Product.getColumn(requireActivity(), style)));
+    /** 按规则 col_type 定样式与列数（单源：HkListHelper 全表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
+    private void setStyle(String colType) {
+        Style style = HkListHelper.styleFor(colType);
+        int columns = HkListHelper.columnsFor(colType);
+        int span = columns > 0 ? columns : Product.getColumn(requireActivity(), style);
+        int[] spec = columns > 0 ? Product.getSpec(requireActivity(), style, columns) : Product.getSpec(requireActivity(), style);
+        mBinding.recycler.setAdapter(mAdapter = new VodAdapter(this, style, spec));
+        mBinding.recycler.setLayoutManager(style.isList() ? new LinearLayoutManager(requireActivity()) : new GridLayoutManager(getContext(), span));
     }
 
     /** 取一页：第 1 页先清列表。后台线程跑，回来带序号防串位（切分类/下拉时旧结果丢掉）。 */

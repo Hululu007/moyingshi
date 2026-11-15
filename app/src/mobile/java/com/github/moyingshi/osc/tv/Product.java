@@ -48,6 +48,13 @@ public class Product {
         return getSpec(context, space, column, style);
     }
 
+    /** 按显式列数算卡片尺寸（海阔小程序 col_type 字面列数用，与 getSpec(Context, Style) 同款算式）。 */
+    public static int[] getSpec(Context context, Style style, int column) {
+        int space = ResUtil.dp2px(32) + ResUtil.dp2px(16 * (column - 1)) + getCutout(context);
+        if (style.isOval()) space += ResUtil.dp2px(column * 16);
+        return getSpec(context, space, column, style);
+    }
+
     private static int[] getSpec(Context context, int space, int column, Style style) {
         int base = MobileWindow.getWidth(context) - space;
         int width = base / column;

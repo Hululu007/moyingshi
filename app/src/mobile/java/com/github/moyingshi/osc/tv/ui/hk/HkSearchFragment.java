@@ -90,7 +90,7 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             requireActivity().finish();
             return;
         }
-        setStyle(HkListHelper.styleFor(mRule.getColType()));
+        setStyle(mRule.getColType());
         if (!mRule.isSearchable()) {
             // 没有搜索规则（search_url/searchFind 任一为空）：不发请求，显示空态 + 原因。
             mBinding.progressLayout.showContent(true, 0);
@@ -113,9 +113,14 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         mBinding.recycler.addOnScrollListener(mScroller);
     }
 
-    private void setStyle(Style style) {
-        mBinding.recycler.setAdapter(mAdapter = new VodAdapter(this, style, Product.getSpec(requireActivity(), style)));
-        mBinding.recycler.setLayoutManager(style.isList() ? new LinearLayoutManager(requireActivity()) : new GridLayoutManager(getContext(), Product.getColumn(requireActivity(), style)));
+    /** 按规则 col_type 定样式与列数（单源：HkListHelper 全表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
+    private void setStyle(String colType) {
+        Style style = HkListHelper.styleFor(colType);
+        int columns = HkListHelper.columnsFor(colType);
+        int span = columns > 0 ? columns : Product.getColumn(requireActivity(), style);
+        int[] spec = columns > 0 ? Product.getSpec(requireActivity(), style, columns) : Product.getSpec(requireActivity(), style);
+        mBinding.recycler.setAdapter(mAdapter = new VodAdapter(this, style, spec));
+        mBinding.recycler.setLayoutManager(style.isList() ? new LinearLayoutManager(requireActivity()) : new GridLayoutManager(getContext(), span));
     }
 
     /** 搜索页换关键词再搜：回到第 1 页。空关键词不发请求（Activity 提交前已判空，这里再守一道）。 */
