@@ -253,7 +253,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         groups.add(new LabGroupAdapter.Row(GROUP_ALL, "全部"));
         // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
         if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_LOCAL_SOURCE, getString(R.string.setting_local_source)));
-        // 海阔小程序分组紧跟本地源之后，同样只在手机端出现；点开进管理页（HkMiniappActivity），这里是返回后看到的内嵌列表。
+        // 海阔小程序分组紧跟本地源之后，同样只在手机端出现；点开只显示内嵌列表，不再跳管理页（管理页改走工具栏 +，海阔小程序分组时）。
         // 增强设置里“海阔小程序”开关关掉时不显示这个分组。
         if (!Util.isLeanback() && Setting.isHkMiniapp()) groups.add(new LabGroupAdapter.Row(GROUP_MINIAPP, "海阔小程序"));
         List<LabModels.Item> all = new ArrayList<>();
@@ -324,7 +324,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         currentGroup = id;
         LabModels.LabRoot root = LabConfig.get().getLabRoot();
         render(root);
-        if (GROUP_MINIAPP.equals(id)) openMiniappManager();
     }
 
     /** 悬浮 tune 按钮：底部面板列出全部分组 chips，点哪个切到哪个分组（和点顶部标签栏同一个 onGroup）。 */
@@ -446,7 +445,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         mBinding.swipeRefresh.setRefreshing(false);
     }
 
-    /** 海阔小程序分组的内嵌列表：本地源里登记的 hk:// 站源（标题⁽ʰᵏ⁾┃[类型]）；导入按钮在管理页里，点分组会打开管理页，这里是返回后看到的列表。 */
+    /** 海阔小程序分组的内嵌列表：本地源里登记的 hk:// 站源（标题⁽ʰᵏ⁾┃[类型]）；点分组只显示这个列表，管理页改走工具栏 +（海阔小程序分组时）。 */
     private void showMiniappList() {
         if (localSourceAdapter == null) {
             localSourceAdapter = new LocalSourceAdapter(this);
