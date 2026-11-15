@@ -24,6 +24,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
+            android:textColor="@android:color/white"
             android:textSize="15sp" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -32,6 +33,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="middle"
             android:maxLines="1"
+            android:textColor="#E6FFFFFF"
             android:textSize="12sp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
