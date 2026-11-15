@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.ui.hk
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
@@ -10,6 +12,7 @@ import androidx.viewbinding.ViewBinding
 import com.github.moyingshi.osc.tv.R
 import com.github.moyingshi.osc.tv.api.config.VodConfig
 import com.github.moyingshi.osc.tv.api.hk.HkCloudExport
+import com.github.moyingshi.osc.tv.api.hk.HkCloudImport
 import com.github.moyingshi.osc.tv.api.hk.HkImportPicker
 import com.github.moyingshi.osc.tv.api.hk.HkStore
 import com.github.moyingshi.osc.tv.bean.Config
@@ -24,7 +27,7 @@ import com.github.moyingshi.osc.tv.utils.LocalSource
 import com.github.moyingshi.osc.tv.utils.Notify
 
 /**
- * 海阔小程序管理页（mobile 专属）：三个导入入口（文件/目录、粘贴 JSON、同步已装规则）
+ * 海阔小程序管理页（mobile 专属）：导入入口（文件/目录、粘贴 JSON、云口令、同步已装规则）
  * + 导出按钮 + 已导入规则列表（标题⁽ʰᵏ⁾┃[类型]）。点一条规则进它自己的列表页（第 3 步）。
  * 行末删除是彻底卸载：站源条目 + plugins/hk/ 下的规则文件一起删。
  * 列表多选框为导出服务：勾选已导入的规则点“导出”，走云 2 textdb 上传生成云口令
@@ -54,6 +57,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
         binding.recycler.adapter = adapter
         binding.btnImportFile.setOnClickListener { showPickChooser() }
         binding.btnImportPaste.setOnClickListener { showPasteDialog() }
+        binding.btnCloudCode.setOnClickListener { showCloudCodeDialog() }
         binding.btnSync.setOnClickListener { runSync() }
         binding.btnExport.setOnClickListener { runExport() }
         refreshList()
@@ -120,6 +124,75 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
                 Thread {
                     val added = HkStore.importJsonText(text)
                     runOnUiThread { onImported(added) }
+                }.start()
+            }
+        }
+        dialog.show()
+    }
+
+    /**
+     * 云口令导入（第 7 步之四）：输入框贴入云口令（每行一条，也支持直接粘一整段分享文本），
+     * 按口令里的云号分流取回规则 JSON，走 HkStore.importJsonText 落盘登记。
+     * 打开时读剪贴板预提取口令填进去（与魔影 bc0 case 2 同款行为）；提取不到口令时
+     * 只 toast、不关框、不发请求。注意：云口令只是公开短链，不是加密，拿到口令的人
+     * 都能取回同一份规则，对话框 message 里写清楚这一点。
+     */
+    private fun showCloudCodeDialog() {
+        val edit = AppCompatEditText(this).apply {
+            hint = getString(R.string.hk_miniapp_cloud_code_hint)
+            minLines = 5
+            maxLines = 12
+            textSize = 12f
+            typeface = android.graphics.Typeface.MONOSPACE
+        }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        edit.setPadding(pad, pad, pad, pad)
+        try {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val clip = clipboard?.takeIf { it.hasPrimaryClip() }?.primaryClip
+            val clipText = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this)?.toString().orEmpty() else ""
+            val codes = HkCloudImport.extractCloudCodes(clipText)
+            if (codes.isNotEmpty()) edit.setText(codes.joinToString("\n"))
+        } catch (ignored: Throwable) {
+            // 读剪贴板失败不阻断导入，用户可手动粘贴。
+        }
+        val dialog = WebHtvAlertDialogBuilder(this, R.style.Theme_App_Lab_DayNight_Dialog)
+            .setTitle(R.string.hk_miniapp_cloud_code)
+            .setMessage(R.string.hk_miniapp_export_share_note)
+            .setView(edit)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.lab_import, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val codes = HkCloudImport.extractCloudCodes(edit.text?.toString().orEmpty())
+                if (codes.isEmpty()) {
+                    Notify.show(R.string.hk_miniapp_cloud_code_none)
+                    return@setOnClickListener
+                }
+                dialog.dismiss()
+                binding.btnCloudCode.isEnabled = false
+                Thread {
+                    val added = HkCloudImport.importCloudCodes(codes)
+                    runOnUiThread {
+                        binding.btnCloudCode.isEnabled = true
+                        if (added > 0) {
+                            val error = HkCloudImport.lastError().orEmpty()
+                            if (error.isEmpty()) {
+                                onImported(added)
+                            } else {
+                                // 部分成功：报成功数 + 最后一条失败的原因，再重载配置 + 刷新列表。
+                                Notify.show(getString(R.string.hk_miniapp_cloud_code_partial, added, error))
+                                reloadLocalConfig()
+                                refreshList()
+                            }
+                        } else {
+                            val error = HkCloudImport.lastError().orEmpty()
+                            if (error.isEmpty()) Notify.show(R.string.hk_miniapp_no_rule)
+                            else Notify.show(getString(R.string.hk_miniapp_import_error, error))
+                            refreshList()
+                        }
+                    }
                 }.start()
             }
         }

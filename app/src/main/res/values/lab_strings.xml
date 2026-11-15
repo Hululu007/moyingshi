@@ -70,6 +70,10 @@
     <string name="hk_miniapp_import_paste">粘贴 JSON</string>
     <string name="hk_miniapp_sync">同步已装规则</string>
     <string name="hk_miniapp_export">导出</string>
+    <string name="hk_miniapp_cloud_code">云口令导入</string>
+    <string name="hk_miniapp_cloud_code_hint">每行一条，例：云6oooole/xxxxxx/yyy\n直接粘一整段分享文本也可以</string>
+    <string name="hk_miniapp_cloud_code_none">没有识别到云口令（需 云1~云10 开头）</string>
+    <string name="hk_miniapp_cloud_code_partial">已导入 %1$d 条，部分失败：%2$s</string>
     <string name="hk_miniapp_export_select_first">请先勾选要导出的小程序</string>
     <string name="hk_miniapp_export_not_miniapp">勾选的源不是小程序，无法导出</string>
     <string name="hk_miniapp_export_failed">导出失败：%1$s</string>
