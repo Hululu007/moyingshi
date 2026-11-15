@@ -253,6 +253,11 @@ public class Result implements Parcelable {
         this.url = getUrl().replace(url);
     }
 
+    /** 海阔多线路用（第 7 步之八）：直接换整个多值 Url（含各线路名）；纯新增，无现有调用方。 */
+    public void setUrl(Url url) {
+        this.url = url;
+    }
+
     public String getMsg() {
         return TextUtils.isEmpty(msg) || getCode() != 0 ? "" : msg;
     }
@@ -315,6 +320,11 @@ public class Result implements Parcelable {
 
     public List<Danmaku> getDanmaku() {
         return !DanmakuSetting.isLoad() || danmaku == null ? new ArrayList<>() : danmaku;
+    }
+
+    /** 海阔弹幕用（第 7 步之八）：把规则给的 danmu 地址写进 Result；纯新增，无现有调用方。 */
+    public void setDanmaku(List<Danmaku> danmaku) {
+        this.danmaku = danmaku;
     }
 
     public String getFormat() {

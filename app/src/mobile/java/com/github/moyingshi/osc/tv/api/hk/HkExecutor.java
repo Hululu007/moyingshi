@@ -347,6 +347,25 @@ public class HkExecutor {
          */
         public String notice = "";
 
+        /** 多线路 JSON 的一条线路：归一后的地址 + 线路名 + 该线路的请求头（含 Referer 默认）。 */
+        public static class PlayLine {
+            public String url = "";
+            public String name = "";
+            public Map<String, String> headers = new HashMap<>();
+        }
+
+        /**
+         * 多线路 JSON 的全部线路（第 7 步之八）：空 = 不是多线路 JSON（直链路径）。
+         * url/headers 仍是首条线路的值（现有调用方契约不变）。
+         */
+        public List<PlayLine> lines = new ArrayList<>();
+        /** 外挂字幕地址（subtitle，已按 referer 补全；字符串或字符串数组都收）。 */
+        public List<String> subtitles = new ArrayList<>();
+        /** 弹幕地址（danmu，已按 referer 补全；web:// 形式已滤掉，现有弹幕通道不认它）。 */
+        public List<String> danmaku = new ArrayList<>();
+        /** 歌词原值（lyric）：.lrc 地址（已按 referer 补全）或内嵌歌词文本。 */
+        public String lyric = "";
+
         public boolean isEmpty() {
             return TextUtils.isEmpty(url);
         }
@@ -563,28 +582,132 @@ public class HkExecutor {
         return outcome;
     }
 
-    /** 多线路 JSON（{urls, names, headers, ...}）：本步只取首条；names/subtitle/danmu/lyric 不接（第 7 步）。 */
+    /**
+     * 多线路 JSON（{urls, names, headers, subtitle, danmu, lyric}）全量解析
+     * （第 7 步之八，见 docs/miniapp-playback-params.md；口径照官方文档格式 +
+     * 报告 s()：names 缺补“线路N”、多的截掉；headers 等长按下标、否则合并）。
+     * url/headers 仍填首条线路（现有调用方契约不变）；其余线路进 lines；
+     * subtitle/danmu/lyric 另存字段交播放器。audioUrls 不接。
+     */
     private static PlayOutcome outcomeFromMultiLine(JsonObject obj, String referer) {
         PlayOutcome out = new PlayOutcome();
-        JsonArray urls = obj.getAsJsonArray("urls");
+        JsonArray urls = obj.has("urls") && obj.get("urls").isJsonArray() ? obj.getAsJsonArray("urls") : null;
         if (urls == null || urls.size() == 0) return out;
-        String first = urls.get(0).isJsonPrimitive() ? urls.get(0).getAsString() : "";
-        Map<String, String> headers = new HashMap<>();
+        // names：与 urls 对齐，缺的按 s() 口径补“线路N”（按 urls 原下标），多的截掉。
+        // 位置对齐：非字符串项占位为空串（走“线路N”回落），不能跳过，否则下标错位。
+        List<String> names = new ArrayList<>();
+        if (obj.has("names") && obj.get("names").isJsonArray()) {
+            for (JsonElement n : obj.getAsJsonArray("names")) {
+                names.add(n != null && n.isJsonPrimitive() && n.getAsJsonPrimitive().isString()
+                        ? n.getAsString().trim() : "");
+            }
+        }
+        // headers：数组且长度 == urls 长度时按下标一一对应，否则全部对象合并成一个 map 给每条线路。
+        List<Map<String, String>> lineJsonHeaders = new ArrayList<>();
+        Map<String, String> mergedHeaders = new HashMap<>();
+        boolean perLineHeaders = false;
         if (obj.has("headers")) {
             JsonElement h = obj.get("headers");
             if (h.isJsonArray() && h.getAsJsonArray().size() == urls.size()) {
-                // 与 urls 下标一一对应：取首条的头。
-                mergeJsonHeaders(h.getAsJsonArray().get(0), headers);
+                perLineHeaders = true;
+                for (JsonElement el : h.getAsJsonArray()) {
+                    Map<String, String> one = new HashMap<>();
+                    mergeJsonHeaders(el, one);
+                    lineJsonHeaders.add(one);
+                }
             } else {
-                // 数量对不上：合并全部（与报告 s() 的口径一致）。
-                mergeJsonHeaders(h, headers);
+                mergeJsonHeaders(h, mergedHeaders);
             }
         }
-        PlayOutcome direct = normalizeDirect(first, referer);
-        for (Map.Entry<String, String> e : headers.entrySet()) {
-            if (!hasHeaderIgnoreCase(direct.headers, e.getKey())) direct.headers.put(e.getKey(), e.getValue());
+        for (int i = 0; i < urls.size(); i++) {
+            JsonElement el = urls.get(i);
+            if (el == null || !el.isJsonPrimitive()) continue;
+            String raw = el.getAsString();
+            if (TextUtils.isEmpty(raw) || TextUtils.isEmpty(raw.trim())) continue;
+            PlayOutcome direct = normalizeDirect(raw, referer);
+            if (TextUtils.isEmpty(direct.url)) continue;
+            PlayOutcome.PlayLine line = new PlayOutcome.PlayLine();
+            line.url = direct.url;
+            line.headers.putAll(direct.headers);
+            Map<String, String> jsonHeaders = perLineHeaders && i < lineJsonHeaders.size()
+                    ? lineJsonHeaders.get(i) : mergedHeaders;
+            for (Map.Entry<String, String> e : jsonHeaders.entrySet()) {
+                if (!hasHeaderIgnoreCase(line.headers, e.getKey())) line.headers.put(e.getKey(), e.getValue());
+            }
+            String name = i < names.size() ? names.get(i) : "";
+            line.name = TextUtils.isEmpty(name) ? "线路" + (i + 1) : name;
+            out.lines.add(line);
         }
-        return direct;
+        if (out.lines.isEmpty()) return out;
+        PlayOutcome.PlayLine first = out.lines.get(0);
+        out.url = first.url;
+        out.headers = new HashMap<>(first.headers);
+        // subtitle：字符串或字符串数组，相对地址按选集页地址补全。
+        for (String s : stringListOf(obj, "subtitle")) {
+            String resolved = resolveMediaUrl(referer, s);
+            if (!TextUtils.isEmpty(resolved)) out.subtitles.add(resolved);
+        }
+        // danmu：同款；web:// 形式现有弹幕通道不认（DanmakuUrlPolicy 不认 web scheme），直接滤掉。
+        for (String d : stringListOf(obj, "danmu")) {
+            if (d.toLowerCase(Locale.ROOT).startsWith("web://")) {
+                Log.w(TAG, "danmu web:// 形式暂不支持，已丢弃");
+                continue;
+            }
+            String resolved = resolveMediaUrl(referer, d);
+            if (!TextUtils.isEmpty(resolved)) out.danmaku.add(resolved);
+        }
+        // lyric：字符串（数组只取第 1 项）；像地址时补全，像内嵌定时文本时原样保留。
+        List<String> lyrics = stringListOf(obj, "lyric");
+        if (!lyrics.isEmpty()) {
+            String value = lyrics.get(0);
+            out.lyric = looksLikeInlineLyrics(value) ? value : resolveMediaUrl(referer, value);
+        }
+        return out;
+    }
+
+    /** 取 JSON 字段的字符串值：字符串取 1 条，字符串数组取全部字符串项，其余返回空列表。 */
+    private static List<String> stringListOf(JsonObject obj, String key) {
+        List<String> values = new ArrayList<>();
+        if (obj == null || !obj.has(key)) return values;
+        JsonElement el = obj.get(key);
+        if (el == null || el.isJsonNull()) return values;
+        if (el.isJsonPrimitive() && el.getAsJsonPrimitive().isString()) {
+            String s = el.getAsString();
+            if (!TextUtils.isEmpty(s) && !TextUtils.isEmpty(s.trim())) values.add(s.trim());
+        } else if (el.isJsonArray()) {
+            for (JsonElement item : el.getAsJsonArray()) {
+                if (item != null && item.isJsonPrimitive() && item.getAsJsonPrimitive().isString()) {
+                    String s = item.getAsString();
+                    if (!TextUtils.isEmpty(s) && !TextUtils.isEmpty(s.trim())) values.add(s.trim());
+                }
+            }
+        }
+        return values;
+    }
+
+    /**
+     * 补全外挂地址：http(s)/file 原样返回，相对地址按 referer（选集页地址）补全；
+     * 其它 scheme 与空值返回空（记日志）。
+     */
+    private static String resolveMediaUrl(String referer, String value) {
+        if (TextUtils.isEmpty(value) || TextUtils.isEmpty(value.trim())) return "";
+        String v = value.trim();
+        String resolved = HkParser.resolveUrl(referer, v);
+        if (TextUtils.isEmpty(resolved)) return "";
+        String lower = resolved.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("file://")) return resolved;
+        Log.w(TAG, "丢弃非 http(s)/file 的外挂地址: " + resolved);
+        return "";
+    }
+
+    /** 是不是内嵌歌词文本（任一行以 “[数字” 开头的定时行，如 [00:12.34]），是则原样保留、不当地址补全。 */
+    private static boolean looksLikeInlineLyrics(String value) {
+        if (TextUtils.isEmpty(value)) return false;
+        for (String line : value.split("\n")) {
+            String t = line.trim();
+            if (t.length() > 1 && t.charAt(0) == '[' && Character.isDigit(t.charAt(1))) return true;
+        }
+        return false;
     }
 
     /** 合并 JSON 形式的头：对象直接取；数组逐项取（对象项或 "Key@Value" 字符串项，值过 e() 转义）。 */

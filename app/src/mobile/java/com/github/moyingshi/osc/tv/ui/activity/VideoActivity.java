@@ -95,6 +95,7 @@ import com.github.moyingshi.osc.tv.bean.TmdbEpisode;
 import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.bean.TmdbConfig;
 import com.github.moyingshi.osc.tv.bean.TmdbSourcePayload;
+import com.github.moyingshi.osc.tv.bean.Url;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.ActivityVideoBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
@@ -205,6 +206,7 @@ import com.github.moyingshi.osc.tv.utils.BatteryUtil;
 import com.github.moyingshi.osc.tv.utils.Clock;
 import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
+import com.github.moyingshi.osc.tv.utils.LyricUtil;
 import com.github.moyingshi.osc.tv.utils.EpisodeHistoryTitleResolver;
 import com.github.moyingshi.osc.tv.utils.EpisodeTitleFormatter;
 import com.github.moyingshi.osc.tv.utils.Formatters;
@@ -218,6 +220,7 @@ import com.github.moyingshi.osc.tv.utils.Timer;
 import com.github.moyingshi.osc.tv.utils.TmdbDetailCache;
 import com.github.moyingshi.osc.tv.utils.Traffic;
 import com.github.moyingshi.osc.tv.utils.Util;
+import com.github.moyingshi.osc.tv.utils.UrlUtil;
 import com.github.moyingshi.osc.tv.utils.VodDetailCache;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -471,6 +474,8 @@ private int mAudioBackgroundRandomNonce;
     private AutoDanmakuToken mDecodeRestoreToken;
     private Object mDecodeRestoreOwner;
     private boolean mDanmakuRetired;
+    /** 海阔多线路各线路的请求头（与当前 Result 的 Url values 下标一一对应；切线路时按 position 换 header，见 applyHkLineHeaders）。 */
+    private List<Map<String, String>> mHkLineHeaders;
 
     private static final class AutoDanmakuToken {
         final PlaybackService binding;
@@ -3105,6 +3110,8 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 return HkDialogs.input(VideoActivity.this, title, hint, preset);
             }
         };
+        // 新一次解析开始，旧的多线路 headers 暂存作废（成功回调里与新 Result 同步重写）。
+        mHkLineHeaders = null;
         new Thread(() -> {
             Result resolved = null;
             String notice = null;
@@ -3115,10 +3122,48 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                         : HkExecutor.play(rule, episodeUrl, VideoActivity.this, dialogHost);
                 if (outcome != null && !outcome.isEmpty()) {
                     resolved = new Result();
-                    resolved.setUrl(outcome.url);
+                    if (!outcome.lines.isEmpty()) {
+                        // 多线路（含单条）：Url 多值进画质切换器，names 即切换器选项名；
+                        // 各线路 headers 记进 stash，切线路时按 Url position 换（见 applyHkLineHeaders）。
+                        Url url = Url.create();
+                        List<Map<String, String>> lineHeaders = new ArrayList<>();
+                        for (HkExecutor.PlayOutcome.PlayLine line : outcome.lines) {
+                            url.add(line.name, line.url);
+                            lineHeaders.add(line.headers);
+                        }
+                        resolved.setUrl(url);
+                        mHkLineHeaders = lineHeaders;
+                    } else {
+                        resolved.setUrl(outcome.url);
+                    }
                     resolved.setHeader(outcome.headers);
                     resolved.setFlag(playFlag);
                     resolved.setParse(0);
+                    if (!outcome.subtitles.isEmpty()) {
+                        // 外挂字幕：Sub.from(地址) → Result.setSubs，进现有外挂字幕通道。
+                        List<Sub> subs = new ArrayList<>();
+                        for (String subtitle : outcome.subtitles) subs.add(Sub.from(subtitle));
+                        resolved.setSubs(subs);
+                    }
+                    if (!outcome.danmaku.isEmpty()) {
+                        // 弹幕：Danmaku → Result.setDanmaku，进现有弹幕通道（PlaySpec → setDanmakus）。
+                        List<Danmaku> items = new ArrayList<>();
+                        for (String danmaku : outcome.danmaku) {
+                            Danmaku item = Danmaku.from(danmaku);
+                            item.setName(UrlUtil.path(danmaku));
+                            items.add(item);
+                        }
+                        resolved.setDanmaku(items);
+                    }
+                    if (!TextUtils.isEmpty(outcome.lyric)) {
+                        // 歌词：后台线程取文本（URL 抓、内嵌原样），失败只丢歌词、不影响播放。
+                        try {
+                            String text = LyricUtil.loadProvided(outcome.lyric);
+                            if (!TextUtils.isEmpty(text)) resolved.setLrc(text);
+                        } catch (Exception e) {
+                            SpiderDebug.log("hk", "lyric load failed: %s", e.getMessage());
+                        }
+                    }
                 } else if (outcome != null && !TextUtils.isEmpty(outcome.notice)) {
                     notice = outcome.notice;
                 }
@@ -3144,6 +3189,24 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 }
             });
         }).start();
+    }
+
+    /**
+     * 海阔多线路切线路（第 7 步之八）：按 Url 当前 position，把 stash 里该线路的
+     * headers 换进 Result 再重播。字幕/弹幕/歌词都在同一个 Result 里，切线路时
+     * 原样跟着走。只在 hk 播放时调；非 hk 结果或无 stash 时什么都不做。
+     * 注意：Result.getHeader() 在 header 已设时返回 live map（resolveHkPlayerContent
+     * 里一定调过 setHeader，所以这里的原地换内容是有效的）。
+     */
+    private void applyHkLineHeaders(Result result) {
+        if (result == null || mHkLineHeaders == null) return;
+        int position = result.getUrl().getPosition();
+        if (position < 0 || position >= mHkLineHeaders.size()) return;
+        Map<String, String> headers = mHkLineHeaders.get(position);
+        if (headers == null) return;
+        Map<String, String> current = result.getHeader();
+        current.clear();
+        current.putAll(headers);
     }
 
     /**
@@ -3553,6 +3616,9 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
             setText(mBinding.content, 0, result.getDesc());
             setPlaybackLyrics(result.getDesc());
         }
+        // 海阔歌词（第 7 步之八）：Result.lrc 是后台取好的歌词文本，hk-only 喂内嵌歌词通道；
+        // 蜘蛛结果的 lrc 只在 AudioActivity 里读，这里不碰，零回归。
+        if (isHkSite() && !TextUtils.isEmpty(result.getLrc())) setPlaybackLyrics(result.getLrc());
         applyAudioQueueMetadata(getPlaybackEpisode());
         mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() && PlayerButtonSetting.isVisible(PlayerButtonSetting.PARSE) ? View.VISIBLE : View.GONE);
         if (redirectToAudioIfNeeded(result)) return;
@@ -3693,6 +3759,8 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     public void onItemClick(Result result) {
         invalidateShortDramaQueue("quality");
         updateActionQuality(result);
+        // 海阔多线路：切线路时把该线路的 headers 换进 Result 再重播（见 applyHkLineHeaders）。
+        if (isHkSite()) applyHkLineHeaders(result);
         PlayerManager manager = service() != null ? player() : null;
         String beforeTrace = manager != null ? manager.getPlaybackTraceId() : null;
         beginPlayHealth();
