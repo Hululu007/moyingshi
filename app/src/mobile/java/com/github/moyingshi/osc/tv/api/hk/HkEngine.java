@@ -12,6 +12,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
@@ -23,14 +24,18 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 
+import java.io.File;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -67,12 +72,20 @@ public class HkEngine {
      * 覆盖 js_api.md 里列表解析真正用到的那部分：输出（setResult/setError/log/
      * toast）、请求（fetch/post/request/getResCode）、DOM（parseDom/pdfh/pdfa）、
      * 编解码（md5/base64）、变量（putVar/getVar/putMyVar/getMyVar/getParam，
-     * putVar 支持 {key, value} 对象形式）、域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
-     * PC_UA）与 $ 工具（$.toString/$.stringify）；getUrl() 返回当前页地址，
+     * putVar 支持 {key, value} 对象形式）、文件与持久 KV（readFile/writeFile/
+     * saveFile/fileExist/deleteFile、getItem/setItem；myVar 与 item 都落盘到
+     * plugins/hk/data/&lt;标题&gt;/，见 {@link HkStore}）、子页面与库
+     * （require/$.require 走 {@link HkSubpage}，库 URL 走 require.json 清单）、
+     * 域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
+     * PC_UA）与 $ 工具（$.toString/$.stringify/$.require/$.hiker/$.importParam/
+     * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
+     * 点击执行是后续步骤）；getUrl()/getHome() 取当前页/主页地址，
      * refreshPage() 是空操作（tab 切换是第 7 步）。
-     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr/require 等）
-     * 在 BOOTSTRAP 里是会抛明确错误的桩，不是静默缺失——规则用到了能在日志里
-     * 一眼看到缺的是哪个 API。
+     * 暂不支持的（xpath/batchFetch/getCryptoJS/aes/encodeStr、confirm/select
+     * 对话框等）在 BOOTSTRAP 里是会抛明确错误的桩，不是静默缺失——规则用到了
+     * 能在日志里一眼看到缺的是哪个 API。注意：没有全局 input() 函数——
+     * {@code input} 是懒加载求值时的输入变量名（见 {@link #evalExpression}），
+     * 同名函数会把它盖掉；输入框用 $(...).input(fn) 构造器。
      */
     private static final String BOOTSTRAP = """
             function __unsupported(name) { return function() { throw new Error(name + ' 暂不支持（小程序地基第 1 步未实现）'); }; }
@@ -97,13 +110,25 @@ public class HkEngine {
             function base64Decode(x) { return __hk.base64Decode(x); }
             function putVar(k, v) { __hk.putVar(k, v); }
             function getUrl() { return __hk.getPageUrl(); }
+            function getHome(url) { return __hk.getHome(url); }
+            function setPageTitle(t) { __hk.setPageTitle(t); }
             function refreshPage() { __hk.log('refreshPage (no-op: tab switch not implemented)'); }
             function getVar(k, d) { return __hk.getVar(k, d); }
-            function clearVar() { __hk.clearVar(); }
+            function clearVar(k) { if (k === undefined || k === null) { __hk.clearVar(); } else { __hk.clearVar(String(k)); } }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
             function getMyVar(k, d) { return __hk.getMyVar(k, d); }
             function clearMyVar() { __hk.clearMyVar(); }
             function getParam(k, d) { return __hk.getParam(k, d); }
+            function readFile(name) { return __hk.readFile(name); }
+            function writeFile(name, content) { return __hk.writeFile(name, content); }
+            function saveFile(name, content) { return __hk.saveFile(name, content); }
+            function fileExist(name) { return __hk.fileExist(name); }
+            function deleteFile(name) { return __hk.deleteFile(name); }
+            function getItem(k, d) { return __hk.getItem(k, d); }
+            function setItem(k, v) { __hk.setItem(k, v); }
+            function confirm(o) { return __hk.confirm(o); }
+            function select(o) { return __hk.select(o); }
+            function require(url, params) { return __hk.require(url, params); }
             function getRule() { return JSON.parse(__hk.getRuleJson()); }
             var MY_RULE = JSON.parse(__hk.getRuleJson());
             var MY_PARAMS = JSON.parse(__hk.getParamsJson());
@@ -113,10 +138,19 @@ public class HkEngine {
             var MY_TYPE = __hk.getPageType();
             var MOBILE_UA = __hk.getMobileUa();
             var PC_UA = __hk.getPcUa();
-            var $ = {
-              toString: function(fn) { var args = Array.prototype.slice.call(arguments, 1); return '(' + fn.toString() + ')(' + args.map(function(a) { return JSON.stringify(a); }).join(',') + ')'; },
-              stringify: function(o) { return JSON.stringify(o); }
-            };
+            function $(sel, hint) {
+              var s = (sel === undefined || sel === null) ? '' : String(sel);
+              return {
+                lazyRule: function(fn) { var args = Array.prototype.slice.call(arguments, 1); return s + '@lazyRule=' + $.toString.apply(null, [fn].concat(args)); },
+                input: function(fn) { var args = Array.prototype.slice.call(arguments, 1); return s + '@input=' + $.toString.apply(null, [fn].concat(args)); }
+              };
+            }
+            $.toString = function(fn) { var args = Array.prototype.slice.call(arguments, 1); return '(' + fn.toString() + ')(' + args.map(function(a) { return JSON.stringify(a); }).join(',') + ')'; };
+            $.stringify = function(o) { return JSON.stringify(o); };
+            $.require = function(url, params) { return __hk.require(url, params); };
+            $.hiker = {};
+            $.importParam = {};
+            $.exports = undefined;
             var xpath = __unsupported('xpath');
             var xpa = xpath;
             var xpathArray = __unsupported('xpathArray');
@@ -127,7 +161,6 @@ public class HkEngine {
             var decodeStr = __unsupported('decodeStr');
             var aesEncode = __unsupported('aesEncode');
             var aesDecode = __unsupported('aesDecode');
-            var require = __unsupported('require');
             function request(url, options) { return __hk.fetch(url, options); }
             if (typeof unescape === 'undefined') { var unescape = function(s) { try { return decodeURIComponent(String(s)); } catch (e) { return String(s); } }; }
             """;
@@ -156,12 +189,12 @@ public class HkEngine {
             this.engine = engine;
         }
 
-        public String fetch(String url) {
+        public String fetch(String url) throws HkException {
             return fetch(url, null);
         }
 
         /** 同步请求，返回响应体字符串；options 支持 headers/method/body/timeout。 */
-        public String fetch(String url, Object options) {
+        public String fetch(String url, Object options) throws HkException {
             if (TextUtils.isEmpty(url)) return "";
             Map<String, String> headers = new HashMap<>();
             String method = "GET";
@@ -188,7 +221,7 @@ public class HkEngine {
             return engine.httpFetch(url, headers, method, body, timeout);
         }
 
-        public String post(String url, Object options) {
+        public String post(String url, Object options) throws HkException {
             if (options instanceof NativeObject) {
                 ScriptableObject.putProperty((Scriptable) options, "method", "POST");
                 return fetch(url, options);
@@ -299,7 +332,7 @@ public class HkEngine {
         }
 
         public void putMyVar(String k, Object v) {
-            if (k != null) engine.myVars.put(k, v);
+            if (k != null) engine.putMyVarValue(k, v);
         }
 
         public Object getMyVar(String k) {
@@ -316,6 +349,81 @@ public class HkEngine {
 
         public void clearMyVar() {
             engine.myVars.clear();
+        }
+
+        /**
+         * require()：hiker://page/... 走子页面展开（见 {@link HkSubpage}），
+         * 库文件 URL 走 require.json 清单/HTTP；params 是 require 的第二个参数
+         * （子页面的 $.importParam），不传时是 Undefined。
+         */
+        public Object require(String url, Object params) throws HkException {
+            return engine.require(url, params);
+        }
+
+        /** 取某个 URL 的主页地址（协议 + host + 端口 + /），对应海阔 getHome()。 */
+        public String getHome(String url) {
+            return engine.homeOf(url);
+        }
+
+        /** 海阔 setPageTitle()：本引擎没有页面标题可改，记一条日志即可。 */
+        public void setPageTitle(String title) {
+            Log.i(TAG, "rule setPageTitle: " + title);
+        }
+
+        /** 海阔 readFile()：读规则私有数据文件，缺失返回 ""（不抛错）。 */
+        public String readFile(String name) {
+            return HkStore.readDataFile(engine.ruleTitle(), name);
+        }
+
+        /** 海阔 writeFile()：写规则私有数据文件，返回是否写成功。 */
+        public boolean writeFile(String name, String content) {
+            return HkStore.writeDataFile(engine.ruleTitle(), name, content);
+        }
+
+        /** 海阔 saveFile()：writeFile 的别名。 */
+        public boolean saveFile(String name, String content) {
+            return writeFile(name, content);
+        }
+
+        /** 海阔 fileExist()：规则私有数据文件是否存在。 */
+        public boolean fileExist(String name) {
+            if (TextUtils.isEmpty(name)) return false;
+            return HkStore.dataFile(engine.ruleTitle(), name).exists();
+        }
+
+        /** 海阔 deleteFile()：删规则私有数据文件，返回是否删掉。 */
+        public boolean deleteFile(String name) {
+            return HkStore.deleteDataFile(engine.ruleTitle(), name);
+        }
+
+        /** 海阔 getItem()：读规则持久 KV（items.json），缺失回默认值（默认 ""）。 */
+        public String getItem(String key, Object def) {
+            String fallback = (def == null || def instanceof Undefined) ? "" : Context.toString(def);
+            return engine.getItem(key, fallback);
+        }
+
+        public String getItem(String key) {
+            return engine.getItem(key, "");
+        }
+
+        /** 海阔 setItem()：写规则持久 KV（items.json），立即落盘。 */
+        public void setItem(String key, Object value) {
+            engine.setItem(key, value == null || value instanceof Undefined ? "" : Context.toString(value));
+        }
+
+        /** clearVar(name)：只清一个页面变量（无参版清全部，见 {@link #clearVar()}）。 */
+        public void clearVar(String key) {
+            if (key != null) engine.vars.remove(key);
+        }
+
+        /** 海阔 confirm() 对话框：第 7 步未实现，抛明确错（不是静默缺失）。 */
+        public Object confirm(Object options) throws HkException {
+            throw new HkException("confirm 暂不支持（小程序第 7 步未实现）");
+        }
+
+        /** 海阔 select() 对话框：第 7 步未实现，抛明确错（不是静默缺失）。 */
+        public Object select(Object options) throws HkException {
+            throw new HkException("select 暂不支持（小程序第 7 步未实现）");
         }
 
         public String getParam(String key) {
@@ -380,10 +488,17 @@ public class HkEngine {
     private final Map<String, Object> vars = new HashMap<>();
     private final Map<String, Object> myVars = new HashMap<>();
     private final Map<String, String> params = new HashMap<>();
+    /** 同一引擎里已 require 过的库 URL（防同一 scope 里 let 重声明）。 */
+    private final Set<String> requiredLibs = new HashSet<>();
+    /** getItem/setItem 的内存缓存（items.json 的内容，prepare 时加载）。 */
+    private final Map<String, String> items = new HashMap<>();
+    private boolean itemsLoaded;
 
     /**
      * 准备一次页面执行：建 scope、注入 __hk 桥与 BOOTSTRAP、设置域内变量。
      * 必须在 eval* 之前调；resCode 是本页已抓到的原文（getResCode() 返回它）。
+     * myVars 不再清空，改为从 data/&lt;标题&gt;/myvar.json 加载（持久变量跨页可见）；
+     * items 同样从 items.json 加载。
      */
     public void prepare(HkRule rule, String pageUrl, int page, String pageType, String resCode) throws HkException {
         this.rule = rule;
@@ -395,18 +510,172 @@ public class HkEngine {
         this.resCode = resCode == null ? "" : resCode;
         this.result = null;
         this.resultSet = false;
-        this.myVars.clear();
+        this.requiredLibs.clear();
         parseParams(this.pageUrl);
-        Context cx = factory.enterContext();
-        try {
+        try (CxHandle handle = enterCx()) {
+            Context cx = handle.cx;
             scope = cx.initStandardObjects();
             ScriptableObject.putProperty(scope, "__hk", Context.javaToJS(bridge, scope));
-            cx.evaluateString(scope, BOOTSTRAP, "hk-bootstrap", 1, null);
-        } catch (RhinoException e) {
-            throw new HkException("JS 环境初始化失败: " + e.getMessage(), e);
-        } finally {
-            Context.exit();
+            try {
+                cx.evaluateString(scope, BOOTSTRAP, "hk-bootstrap", 1, null);
+            } catch (RhinoException e) {
+                throw new HkException("JS 环境初始化失败: " + e.getMessage(), e);
+            }
+            loadMyVars(cx);
+            loadItems();
         }
+    }
+
+    /**
+     * 进 Context 的句柄：require 在 JS 回调里建子引擎时，当前线程已有 Context
+     * （调用方 JS 正在跑），复用它而不是再进一个——Rhino 嵌套 enter() 的行为
+     * 本地无法实测，不赌它；没有 Context 时才新进一个。配套 close() 只在新进
+     * 时才 exit，复用时不 exit（调用方自己负责）。
+     */
+    private final class CxHandle implements AutoCloseable {
+        final Context cx;
+        private final boolean entered;
+
+        CxHandle(Context cx, boolean entered) {
+            this.cx = cx;
+            this.entered = entered;
+        }
+
+        @Override
+        public void close() {
+            if (entered) Context.exit();
+        }
+    }
+
+    private CxHandle enterCx() {
+        Context current = Context.getCurrentContext();
+        if (current != null) return new CxHandle(current, false);
+        return new CxHandle(factory.enterContext(), true);
+    }
+
+    /** 当前规则标题（持久变量/文件 API 的分区键）；无规则返回 ""。 */
+    String ruleTitle() {
+        return rule == null ? "" : rule.getTitle();
+    }
+
+    /**
+     * 从 data/&lt;标题&gt;/myvar.json 加载持久变量进内存（prepare 时调；require 返回
+     * 后重载也调）。字符串/数字/布尔直接进 map；对象/数组在 scope 里 JSON.parse
+     * 还原成真 JS 值。文件缺失或解析失败时从空开始，不抛错。
+     */
+    private void loadMyVars(Context cx) {
+        myVars.clear();
+        String json = HkStore.readMyVars(ruleTitle());
+        if (TextUtils.isEmpty(json)) return;
+        try {
+            JsonElement parsed = JsonParser.parseString(json);
+            if (!parsed.isJsonObject()) return;
+            for (Map.Entry<String, JsonElement> e : parsed.getAsJsonObject().entrySet()) {
+                JsonElement v = e.getValue();
+                if (v.isJsonPrimitive()) {
+                    JsonPrimitive p = v.getAsJsonPrimitive();
+                    if (p.isString()) myVars.put(e.getKey(), p.getAsString());
+                    else if (p.isNumber()) myVars.put(e.getKey(), p.getAsDouble());
+                    else if (p.isBoolean()) myVars.put(e.getKey(), p.getAsBoolean());
+                } else if (v.isJsonObject() || v.isJsonArray()) {
+                    try {
+                        Object restored = cx.evaluateString(scope,
+                                "JSON.parse(" + App.gson().toJson(v.toString()) + ")", "hk-myvar", 1, null);
+                        if (restored != null && !(restored instanceof Undefined)) myVars.put(e.getKey(), restored);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "load myvars failed, starting empty", e);
+        }
+    }
+
+    /** require 返回后重载一次持久变量（子引擎可能 putMyVar 写盘）。 */
+    void reloadMyVars() {
+        if (scope == null) return;
+        try (CxHandle handle = enterCx()) {
+            loadMyVars(handle.cx);
+        }
+    }
+
+    /** putMyVar：写内存 + 直写回盘（子引擎/下次执行能读到）。 */
+    void putMyVarValue(String key, Object value) {
+        if (key == null) return;
+        myVars.put(key, value);
+        saveMyVars();
+    }
+
+    /** 把内存里的 myVars 整文件写回 data/&lt;标题&gt;/myvar.json。 */
+    private void saveMyVars() {
+        JsonObject obj = new JsonObject();
+        for (Map.Entry<String, Object> e : myVars.entrySet()) {
+            Object v = e.getValue();
+            if (v == null || v instanceof Undefined) continue;
+            if (v instanceof String) obj.addProperty(e.getKey(), (String) v);
+            else if (v instanceof Number) obj.addProperty(e.getKey(), (Number) v);
+            else if (v instanceof Boolean) obj.addProperty(e.getKey(), (Boolean) v);
+            else {
+                String json = stringifyInScope(v);
+                if (json != null) {
+                    try {
+                        obj.add(e.getKey(), JsonParser.parseString(json));
+                        continue;
+                    } catch (Exception ignored) {
+                    }
+                }
+                obj.addProperty(e.getKey(), Context.toString(v));
+            }
+        }
+        HkStore.saveMyVars(ruleTitle(), obj.toString());
+    }
+
+    /** 在当前 Context 里把一个 JS 值 JSON.stringify（供 saveMyVars 用；不在 JS 回调里时返回 null）。 */
+    private String stringifyInScope(Object value) {
+        Context cx = Context.getCurrentContext();
+        if (cx == null || scope == null) return null;
+        try {
+            ScriptableObject.putProperty(scope, "__hk_tmp", value);
+            Object json = cx.evaluateString(scope, "JSON.stringify(__hk_tmp)", "hk-stringify", 1, null);
+            return json instanceof String ? (String) json : null;
+        } catch (Exception e) {
+            return null;
+        } finally {
+            ScriptableObject.deleteProperty(scope, "__hk_tmp");
+        }
+    }
+
+    /** 从 data/&lt;标题&gt;/items.json 加载 getItem/setItem 的缓存（prepare 时调）。 */
+    private void loadItems() {
+        items.clear();
+        itemsLoaded = true;
+        String json = HkStore.readItems(ruleTitle());
+        if (TextUtils.isEmpty(json)) return;
+        try {
+            JsonElement parsed = JsonParser.parseString(json);
+            if (!parsed.isJsonObject()) return;
+            for (Map.Entry<String, JsonElement> e : parsed.getAsJsonObject().entrySet()) {
+                if (e.getValue().isJsonPrimitive()) items.put(e.getKey(), e.getValue().getAsString());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "load items failed, starting empty", e);
+        }
+    }
+
+    /** getItem：读规则持久 KV，缺失回默认值（默认 ""）。 */
+    String getItem(String key, String def) {
+        if (key == null) return def == null ? "" : def;
+        if (!itemsLoaded) loadItems();
+        String value = items.get(key);
+        return value == null ? (def == null ? "" : def) : value;
+    }
+
+    /** setItem：写规则持久 KV，立即落盘。 */
+    void setItem(String key, String value) {
+        if (key == null) return;
+        if (!itemsLoaded) loadItems();
+        items.put(key, value == null ? "" : value);
+        HkStore.saveItems(ruleTitle(), App.gson().toJson(items));
     }
 
     /** 执行规则的 preRule（有才跑，与 find_rule 共用 scope），失败抛异常。 */
@@ -455,13 +724,132 @@ public class HkEngine {
     /** 在当前 scope 里执行一段 JS，返回求值结果（调用方决定怎么解读）。 */
     public Object eval(String js, String sourceName) throws HkException {
         if (scope == null) throw new HkException("引擎未 prepare");
-        Context cx = factory.enterContext();
-        try {
-            return cx.evaluateString(scope, js, sourceName, 1, null);
-        } catch (RhinoException e) {
-            throw new HkException("JS 执行失败: " + e.getMessage(), e);
-        } finally {
-            Context.exit();
+        try (CxHandle handle = enterCx()) {
+            try {
+                return handle.cx.evaluateString(scope, js, sourceName, 1, null);
+            } catch (RhinoException e) {
+                throw new HkException("JS 执行失败: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /** 读当前 scope 里 $.exports（页面规则用它交导出值；未设置返回 Undefined）。 */
+    public Object getExports() {
+        if (scope == null) return Undefined.instance;
+        try (CxHandle handle = enterCx()) {
+            Scriptable dollar = dollarObject();
+            if (dollar == null) return Undefined.instance;
+            Object value = ScriptableObject.getProperty(dollar, "exports");
+            return value == null ? Undefined.instance : value;
+        }
+    }
+
+    /** 把 $.importParam 设为 require 的第二个参数（任意 JS 值；Undefined 时不改）。 */
+    public void setImportParam(Object value) {
+        if (scope == null || value == null || value instanceof Undefined) return;
+        try (CxHandle handle = enterCx()) {
+            Scriptable dollar = dollarObject();
+            if (dollar != null) ScriptableObject.putProperty(dollar, "importParam", value);
+        }
+    }
+
+    /** 把 $.importParam 设为给定的 query 参数对象（子页面展开时用）。 */
+    public void setImportParams(Map<String, String> params) {
+        if (scope == null) return;
+        try (CxHandle handle = enterCx()) {
+            Scriptable dollar = dollarObject();
+            if (dollar == null) return;
+            NativeObject obj = new NativeObject();
+            if (params != null) {
+                for (Map.Entry<String, String> e : params.entrySet()) {
+                    ScriptableObject.putProperty(obj, e.getKey(), e.getValue());
+                }
+            }
+            ScriptableObject.putProperty(dollar, "importParam", obj);
+        }
+    }
+
+    /** 取 scope 里的 $ 对象（函数）；没有返回 null。 */
+    private Scriptable dollarObject() {
+        if (scope == null) return null;
+        Object dollar = ScriptableObject.getProperty(scope, "$");
+        return dollar instanceof Scriptable ? (Scriptable) dollar : null;
+    }
+
+    /** JS 调过 setResult 后交的卡片列表（require 取子引擎结果时用）；没调过返回 null。 */
+    List<HkCard> getResultCards() {
+        return result;
+    }
+
+    /**
+     * 把卡片列表转回调用方 scope 里的 JS 数组（require 返回子引擎的 setResult
+     * 结果时用，供调用方 .filter/.map；空列表返回 []）。
+     */
+    public Object jsValueFromCards(List<HkCard> cards) throws HkException {
+        if (scope == null) throw new HkException("引擎未 prepare");
+        if (cards == null || cards.isEmpty()) return eval("[]", "hk-cards");
+        List<Map<String, Object>> plain = new ArrayList<>();
+        for (HkCard card : cards) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("title", card.getTitle());
+            m.put("url", card.getUrl());
+            m.put("img", card.getPic());
+            m.put("pic", card.getPic());
+            m.put("desc", card.getDesc());
+            m.put("col_type", card.getColType());
+            if (!TextUtils.isEmpty(card.getExtra())) {
+                try {
+                    m.put("extra", JsonParser.parseString(card.getExtra()));
+                } catch (Exception ignored) {
+                    m.put("extra", card.getExtra());
+                }
+            }
+            plain.add(m);
+        }
+        String json = App.gson().toJson(plain);
+        return eval("JSON.parse(" + App.gson().toJson(json) + ")", "hk-cards");
+    }
+
+    /**
+     * JS 的 require()：hiker://page/... 走子页面（见 {@link HkSubpage}）；
+     * 库文件 URL 先查 require.json 清单（plugins/hk/libs/），命中读本地文件，
+     * 否则 http(s) 抓下来；同一个库 URL 在同一引擎里只 eval 一次（防 let 重声明）；
+     * 其余地址抛明确错。库文件 eval 后若设了 $.exports，返回它，否则返回 eval 值。
+     */
+    Object require(String url, Object params) throws HkException {
+        if (TextUtils.isEmpty(url)) throw new HkException("require 地址为空");
+        String u = url.trim();
+        if (HkSubpage.isSubpageUrl(u)) {
+            Object result = HkSubpage.require(this, rule, u, params);
+            reloadMyVars();
+            return result;
+        }
+        if (requiredLibs.contains(u)) return Undefined.instance;
+        File lib = HkStore.resolveLibFile(ruleTitle(), u);
+        String code;
+        if (lib != null) {
+            code = HkStore.readTextFile(lib);
+            if (code == null) throw new HkException("require 库文件读取失败：" + lib.getName());
+        } else if (u.startsWith("http://") || u.startsWith("https://")) {
+            code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
+            if (TextUtils.isEmpty(code)) throw new HkException("require 取数失败（空内容）：" + u);
+        } else {
+            throw new HkException("require 不支持的地址：" + u + "（只支持 hiker://page/... 与库文件 URL）");
+        }
+        requiredLibs.add(u);
+        clearExports();
+        Object result = eval(code, "require:" + u);
+        Object exports = getExports();
+        if (exports != null && !(exports instanceof Undefined)) return exports;
+        return result;
+    }
+
+    /** 把 $.exports 重置为 undefined（库文件 eval 前调，防拿到上一个库的旧导出）。 */
+    private void clearExports() {
+        if (scope == null) return;
+        try (CxHandle handle = enterCx()) {
+            Scriptable dollar = dollarObject();
+            if (dollar != null) ScriptableObject.putProperty(dollar, "exports", Undefined.instance);
         }
     }
 
@@ -576,8 +964,32 @@ public class HkEngine {
         return Context.toString(value);
     }
 
-    /** 桥里 fetch/post 的实现：同步请求，charset 按 Content-Type 猜，默认 UTF-8。 */
-    private String httpFetch(String url, Map<String, String> headers, String method, Object body, long timeout) {
+    /**
+     * 桥里 fetch/post 的实现：同步请求，charset 按 Content-Type 猜，默认 UTF-8。
+     * hiker:// 不走 OkHttp（OkHttp 只认 http/https）：
+     * <ul>
+     *   <li>{@code hiker://page/...}：子页面展开，返回页面 JSON（含 rule 字段）；
+     *       页不存在抛 HkException（带页名），不返回 ""——否则 JS 侧
+     *       {@code JSON.parse('')} 报错含糊。</li>
+     *   <li>{@code hiker://files/...}：读 data/&lt;标题&gt;/ 下对应文件，缺失返回 ""。</li>
+     *   <li>其他 {@code hiker://}（empty/search/collection/history 等导航类地址）：
+     *       取不到正文，返回 ""。</li>
+     * </ul>
+     */
+    private String httpFetch(String url, Map<String, String> headers, String method, Object body, long timeout) throws HkException {
+        if (!TextUtils.isEmpty(url)) {
+            String u = url.trim();
+            if (HkSubpage.isSubpageUrl(u)) {
+                return HkSubpage.pageJson(rule, u);
+            }
+            if (u.toLowerCase(Locale.ROOT).startsWith("hiker://files/")) {
+                return HkStore.readDataFile(ruleTitle(), u);
+            }
+            if (u.toLowerCase(Locale.ROOT).startsWith("hiker://")) {
+                Log.i(TAG, "fetch unsupported hiker url, empty: " + u);
+                return "";
+            }
+        }
         try {
             OkHttpClient client = timeout > 0 ? OkHttp.client(timeout) : OkHttp.client();
             Request.Builder builder = new Request.Builder().url(url);

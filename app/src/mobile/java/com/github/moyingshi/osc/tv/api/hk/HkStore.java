@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -237,6 +238,133 @@ public class HkStore {
         File file = new File(dir(), "libs");
         if (!file.exists()) file.mkdirs();
         return file;
+    }
+
+    /**
+     * 某条规则的私有数据文件：plugins/hk/data/&lt;标题&gt;/&lt;name&gt;。
+     * name 可带 hiker://files/ 前缀（剥掉）或子路径（如 libs/&lt;md5&gt;.js）；
+     * 含 .. 越界时回落到 basename，根目录恒为该规则的 data 目录，不会写到外面。
+     */
+    public static File dataFile(String title, String name) {
+        File root = dataDir(title);
+        if (TextUtils.isEmpty(name)) return new File(root, "unnamed");
+        String n = name.trim();
+        String lower = n.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("hiker://files/")) n = n.substring("hiker://files/".length());
+        else if (lower.startsWith("hiker://")) n = n.substring("hiker://".length());
+        while (n.startsWith("/")) n = n.substring(1);
+        if (n.isEmpty()) return new File(root, "unnamed");
+        File file = new File(root, n);
+        try {
+            String canonicalRoot = root.getCanonicalPath();
+            String canonical = file.getCanonicalPath();
+            if (!canonical.equals(canonicalRoot) && !canonical.startsWith(canonicalRoot + File.separator)) {
+                file = new File(root, new File(n).getName());
+            }
+        } catch (Exception ignored) {
+        }
+        return file;
+    }
+
+    /** 读规则私有数据文件，缺失/是目录返回 ""（海阔 readFile 语义：缺失不抛错）。 */
+    public static String readDataFile(String title, String name) {
+        if (TextUtils.isEmpty(title) || TextUtils.isEmpty(name)) return "";
+        File file = dataFile(title, name);
+        if (!file.exists() || file.isDirectory()) return "";
+        String text = readFile(file);
+        return text == null ? "" : text;
+    }
+
+    /** 写规则私有数据文件（海阔 writeFile/saveFile 语义），返回是否写成功。 */
+    public static boolean writeDataFile(String title, String name, String content) {
+        if (TextUtils.isEmpty(title) || TextUtils.isEmpty(name)) return false;
+        try {
+            writeFile(dataFile(title, name), content == null ? "" : content.getBytes(StandardCharsets.UTF_8));
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "writeDataFile failed: " + name, e);
+            return false;
+        }
+    }
+
+    /** 删规则私有数据文件（海阔 deleteFile 语义），返回是否删掉。 */
+    public static boolean deleteDataFile(String title, String name) {
+        if (TextUtils.isEmpty(title) || TextUtils.isEmpty(name)) return false;
+        File file = dataFile(title, name);
+        return file.exists() && file.delete();
+    }
+
+    /** 读任意文件成字符串，失败返回 null（供 require 读 lib 文件用）。 */
+    public static String readTextFile(File file) {
+        if (file == null) return null;
+        return readFile(file);
+    }
+
+    /** 规则持久变量文件 data/&lt;标题&gt;/myvar.json 的整文件读（getMyVar/putMyVar 的后端）。 */
+    public static String readMyVars(String title) {
+        return readDataFile(title, "myvar.json");
+    }
+
+    /** 规则持久变量文件 data/&lt;标题&gt;/myvar.json 的整文件写。 */
+    public static boolean saveMyVars(String title, String json) {
+        return writeDataFile(title, "myvar.json", json);
+    }
+
+    /** getItem/setItem 的后端：data/&lt;标题&gt;/items.json，字符串 KV 的整文件读。 */
+    public static String readItems(String title) {
+        return readDataFile(title, "items.json");
+    }
+
+    /** getItem/setItem 的后端：data/&lt;标题&gt;/items.json 的整文件写。 */
+    public static boolean saveItems(String title, String json) {
+        return writeDataFile(title, "items.json", json);
+    }
+
+    /**
+     * 读某条规则的 require.json 清单（导入时由 saveConfig 存到 config/&lt;标题&gt;.json，
+     * file 已改写到 plugins/hk/libs/）。不是数组/解析失败/不存在返回 null。
+     */
+    public static JsonArray readRequireManifest(String title) {
+        if (TextUtils.isEmpty(title)) return null;
+        String json = readConfig(title);
+        if (TextUtils.isEmpty(json)) return null;
+        try {
+            JsonElement parsed = JsonParser.parseString(json.trim());
+            return parsed.isJsonArray() ? parsed.getAsJsonArray() : null;
+        } catch (Exception e) {
+            Log.w(TAG, "require manifest parse failed: " + title, e);
+            return null;
+        }
+    }
+
+    /**
+     * 按 URL 在 require.json 清单里找对应的本地库文件：先取清单里 file 字段的
+     * 绝对路径（存在即返回），否则按 URL 的 basename 在 plugins/hk/libs/ 里找。
+     * 清单里没有这条 URL、或文件不存在，返回 null（调用方再决定是 fetch 还是报明确错）。
+     */
+    public static File resolveLibFile(String title, String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        JsonArray manifest = readRequireManifest(title);
+        if (manifest == null) return null;
+        for (JsonElement element : manifest) {
+            if (!element.isJsonObject()) continue;
+            JsonObject obj = element.getAsJsonObject();
+            JsonElement urlEl = obj.get("url");
+            if (urlEl == null || !urlEl.isJsonPrimitive()) continue;
+            if (!url.equals(urlEl.getAsString())) continue;
+            JsonElement fileEl = obj.get("file");
+            if (fileEl != null && fileEl.isJsonPrimitive()) {
+                File file = new File(fileEl.getAsString());
+                if (file.exists() && file.isFile()) return file;
+            }
+            String base = url.substring(url.lastIndexOf('/') + 1);
+            if (!base.isEmpty()) {
+                File inLibs = new File(libsDir(), base);
+                if (inLibs.exists() && inLibs.isFile()) return inLibs;
+            }
+            return null;
+        }
+        return null;
     }
 
     /** 是不是小程序站源：api 或 key 以 hk:// 开头（与 i94.w(site) 的判定一致）。 */

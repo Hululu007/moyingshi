@@ -35,6 +35,9 @@ public final class HkListHelper {
     /**
      * 卡片筛选（直译报告 §7.1 pickCards）：第一遍只留 colType 与规则 col_type
      * 一致的可用卡片；空了第二遍留可用且非动作 URL 的；还空第三遍留全部可用卡片。
+     * 第四遍（第 7 步之三，西瓜影院）：前三遍都空时，留 URL 非空但标题为空的
+     * {@code x5_webview_single} 卡片（内联 WebView 页），当一张可点卡片；
+     * 内联 WebView 渲染是后续步骤，点开目前是详情错误态。
      */
     public static List<HkCard> pickCards(List<HkCard> list, HkRule rule) {
         List<HkCard> picked = new ArrayList<>();
@@ -61,6 +64,14 @@ public final class HkListHelper {
                 }
             }
         }
+        if (picked.isEmpty()) {
+            for (HkCard card : list) {
+                if (card != null && "x5_webview_single".equalsIgnoreCase(card.getColType().trim())
+                        && !TextUtils.isEmpty(card.getUrl().trim())) {
+                    picked.add(card);
+                }
+            }
+        }
         return picked;
     }
 
@@ -72,7 +83,13 @@ public final class HkListHelper {
             if (card == null) continue;
             String url = card.getUrl().trim();
             String title = card.getTitle().trim();
-            if (url.isEmpty() || title.isEmpty()) continue;
+            if (url.isEmpty()) continue;
+            if (title.isEmpty()) {
+                // 只有 x5_webview_single 卡片允许标题为空（第 7 步之三第四遍筛出来的），
+                // 回落标题“网页”；其他无标题卡片仍丢掉。
+                if (!"x5_webview_single".equalsIgnoreCase(card.getColType().trim())) continue;
+                title = "网页";
+            }
             Vod vod = new Vod();
             vod.setId(url);
             vod.setName(title);

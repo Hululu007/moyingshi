@@ -270,6 +270,9 @@ public class HkExecutor {
      * 流程与 home() 同款：校验 → 抓详情页 → preRule → detail_find_rule 是 js:
      * 走 Rhino，否则走选择器解析。主规则出 0 张卡片且 chapter_find/movie_find
      * 非空时，用那条对同一页再跑一次（小说/漫画类备选，语义见任务文档）。
+     * 子页面例外（见 docs/miniapp-subpage.md）：地址是 hiker://page/... 时直接
+     * 展开子页面，不要求 detail_find_rule；$(...).lazyRule/input 产出的懒加载
+     * 动作链接点开报明确错（点击执行是后续步骤）。
      * 调用方必须在后台线程跑。返回原始详情卡片（信息卡/线路头/选集都在里面），
      * 切分由 HkDetailHelper.split 做。
      */
@@ -277,11 +280,20 @@ public class HkExecutor {
         if (rule == null) throw new HkEngine.HkException("规则为空");
         String err = rule.validate();
         if (err != null) throw new HkEngine.HkException(err);
+        String raw = detailUrl == null ? "" : detailUrl.trim();
+        if (TextUtils.isEmpty(raw)) throw new HkEngine.HkException("详情地址为空");
+        String url = HkParser.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
+        if (HkSubpage.isSubpageUrl(url)) {
+            // 子页面卡片点开：展开子页面，不走 detail_find_rule（阅动漫的 detail_find_rule 为空）。
+            return HkSubpage.expand(rule, url);
+        }
+        if (raw.contains("@lazyRule=") || raw.contains("@input=")) {
+            // 懒加载动作链接（$(...).lazyRule/input 产出的卡片 url）：点击执行是后续步骤，报明确错，不崩。
+            throw new HkEngine.HkException("懒加载动作链接暂不支持点击执行（第 7 步后续）");
+        }
         if (TextUtils.isEmpty(rule.getDetailFindRule())) {
             throw new HkEngine.HkException("规则缺少 detail_find_rule");
         }
-        String url = stripLazyMarkers(detailUrl);
-        url = HkParser.resolveUrl(rule.getUrl(), url);
         if (TextUtils.isEmpty(url)) throw new HkEngine.HkException("详情地址为空");
         RequestSpec spec = buildDetailRequest(rule, url);
         // 与 homeDetailed 同款 guard：详情地址不是 http/https 时不抓页，JS 在空页上跑，
@@ -349,6 +361,23 @@ public class HkExecutor {
         pagePart = stripHashMarkers(pagePart);
         String pageUrl = HkParser.resolveUrl(rule.getUrl(), pagePart);
         if (TextUtils.isEmpty(pageUrl)) return empty;
+        if (HkSubpage.isSubpageUrl(pageUrl)
+                && !(lazyPart.startsWith(".js:") || lazyPart.startsWith("js:"))) {
+            // 选集地址是子页面：先展开，在展开卡片里找第一条可播地址继续解析；
+            // 展开不到可播地址时报明确错（不抛 OkHttp scheme 错，见 docs/miniapp-hk-fixes.md 遗留）。
+            // .js: 懒规则不走这里：它只对地址字符串求值，不抓页，没有 scheme 问题。
+            List<HkCard> cards = HkSubpage.expand(rule, pageUrl);
+            String playable = HkSubpage.findPlayableUrl(cards);
+            if (TextUtils.isEmpty(playable)) {
+                throw new HkEngine.HkException("子页面未解析出播放地址：" + HkSubpage.subpageName(pageUrl)
+                        + "（展开得 " + cards.size() + " 张卡片）");
+            }
+            if (depth >= 3) {
+                Log.w(TAG, "lazy chain too deep rule=" + rule.getTitle());
+                return empty;
+            }
+            return playResolved(rule, playable, depth + 1);
+        }
         if (TextUtils.isEmpty(lazyPart)) {
             // 直链：归一化（;{headers} 后缀 + # 标记），Referer 默认补选集页地址。
             return normalizeDirect(pageUrl, pageUrl);
