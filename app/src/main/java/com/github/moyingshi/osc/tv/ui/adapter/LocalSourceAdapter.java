@@ -7,8 +7,10 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.ItemLocalSourceBinding;
+import com.github.moyingshi.osc.tv.utils.ResUtil;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,9 +24,17 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
     private final Set<String> selected = new HashSet<>();
     /** 多选框显隐：弹窗里要勾选删除，默认开；嵌进实验室页时只要点源切换，关掉多选框。 */
     private boolean checkable = true;
+    /** 实验室卡片底：嵌进实验室页时行套实验室卡片（shape_lab_card，与包列表行同款），白字在亮壁纸上才看得清；弹窗里的行仍是裸底。 */
+    private boolean cardBackground = false;
 
     public LocalSourceAdapter setCheckable(boolean checkable) {
         this.checkable = checkable;
+        notifyDataSetChanged();
+        return this;
+    }
+
+    public LocalSourceAdapter setCardBackground(boolean cardBackground) {
+        this.cardBackground = cardBackground;
         notifyDataSetChanged();
         return this;
     }
@@ -92,6 +102,17 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
         notifyDataSetChanged();
     }
 
+    /** 卡片底只在实验室页开：行套 shape_lab_card（与包列表行同款：12dp 圆角 + 黑 20% 底），白字压在亮壁纸上能看清；关掉时恢复弹窗的裸底（无背景、无边距、无内边距）。 */
+    private void applyCardBackground(View root) {
+        int side = cardBackground ? ResUtil.dp2px(12) : 0;
+        int vertical = cardBackground ? ResUtil.dp2px(6) : 0;
+        root.setBackgroundResource(cardBackground ? R.drawable.shape_lab_card : 0);
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) root.getLayoutParams();
+        lp.setMargins(side, vertical, side, vertical);
+        root.setLayoutParams(lp);
+        root.setPadding(side, root.getPaddingTop(), side, root.getPaddingBottom());
+    }
+
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -103,6 +124,7 @@ public class LocalSourceAdapter extends RecyclerView.Adapter<LocalSourceAdapter.
         Site site = mItems.get(position);
         holder.binding.name.setText(site.getName());
         holder.binding.api.setText(site.getApi());
+        applyCardBackground(holder.binding.getRoot());
         holder.binding.check.setVisibility(checkable ? View.VISIBLE : View.GONE);
         holder.binding.check.setChecked(selected.contains(site.getKey()));
         holder.binding.check.setOnCheckedChangeListener((button, checked) -> {

@@ -1,5 +1,6 @@
 <resources>
 <string name="lab_title">实验室</string>
+<string name="lab_switch_group">切换分组</string>
 <string name="lab_refresh">刷新</string>
 <string name="lab_terminal">终端</string>
 <string name="lab_source">配置源</string>

@@ -80,6 +80,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private String currentGroup = GROUP_ALL;
     /** 分组 id 顺序，与顶部标签一致；左右滑动切分组就按这个走（含本地源分组）。 */
     private final List<String> groupIds = new ArrayList<>();
+    /** render() 拼出的全部分组（含名字），供悬浮按钮的底部面板用；与 groupIds 同源同顺序。 */
+    private final List<LabGroupAdapter.Row> groupRows = new ArrayList<>();
     /** 内容区横向滑动手势：只观察事件，不拦截，纵向滚动与点卡片原样不动。 */
     private GestureDetector groupSwipeDetector;
     /** 拖动跟手的状态：手势起始时的 translationX、方向锁定、待结算的 fling 方向（+1 下一组、-1 上一组、0 无）。 */
@@ -166,6 +168,9 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
             mBinding.recycler.setOnTouchListener((v, event) -> onSwipeTouch(event));
             // 占位页（海阔小程序）和空态时列表是隐藏的，手势挂到空态视图上，左右滑动一样能切分组。
             mBinding.empty.getRoot().setOnTouchListener((v, event) -> onSwipeTouch(event));
+            // 悬浮 tune 按钮：底部面板列出全部分组，点哪个切哪个分组；TV 没有触摸滑动，不显示。
+            mBinding.fabGroup.setVisibility(View.VISIBLE);
+            mBinding.fabGroup.setOnClickListener(v -> showGroupSheet());
         }
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
@@ -262,6 +267,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         if (currentGroup == null || !containsGroup(groups, currentGroup)) currentGroup = GROUP_ALL;
         groupIds.clear();
         for (LabGroupAdapter.Row row : groups) groupIds.add(row.id);
+        groupRows.clear();
+        groupRows.addAll(groups);
         int selectedIndex = indexOfGroup(groups, currentGroup);
         groupAdapter.select(selectedIndex);
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
@@ -318,6 +325,13 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         LabModels.LabRoot root = LabConfig.get().getLabRoot();
         render(root);
         if (GROUP_MINIAPP.equals(id)) openMiniappManager();
+    }
+
+    /** 悬浮 tune 按钮：底部面板列出全部分组 chips，点哪个切到哪个分组（和点顶部标签栏同一个 onGroup）。 */
+    private void showGroupSheet() {
+        if (groupRows.isEmpty()) return;
+        LabGroupSheetDialog.create(new ArrayList<>(groupRows), currentGroup, this::onGroup)
+                .show(getSupportFragmentManager());
     }
 
     /** 海阔小程序分组：管理页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开；打不开时只留内嵌列表。 */
@@ -417,7 +431,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private void showLocalSources() {
         if (localSourceAdapter == null) {
             localSourceAdapter = new LocalSourceAdapter(this);
-            localSourceAdapter.setCheckable(false);
+            localSourceAdapter.setCheckable(false).setCardBackground(true);
         }
         if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
         List<Site> sites = new ArrayList<>();
@@ -436,7 +450,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private void showMiniappList() {
         if (localSourceAdapter == null) {
             localSourceAdapter = new LocalSourceAdapter(this);
-            localSourceAdapter.setCheckable(false);
+            localSourceAdapter.setCheckable(false).setCardBackground(true);
         }
         if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
         List<Site> sites = new ArrayList<>();

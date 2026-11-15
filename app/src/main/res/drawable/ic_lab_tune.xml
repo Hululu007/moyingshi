@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 实验室悬浮 tune 按钮图标：首页同款（3 条横向滑轨 + 3 个错开的竖向滑块），自画。
+     main 源集引用不到 mobile 的 ic_fab_tune，故在此另存一份同内容；改图标时两边一起改。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="@color/white"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M3,5h18v2H3zM13,3h2v6h-2zM3,11h18v2H3zM7,9h2v6H7zM3,17h18v2H3zM16,15h2v6h-2z" />
+</vector>
