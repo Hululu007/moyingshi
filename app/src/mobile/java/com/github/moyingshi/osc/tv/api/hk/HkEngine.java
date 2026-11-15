@@ -566,7 +566,7 @@ public class HkEngine {
                 }
                 if (opt.has("body") && !opt.get("body").isJsonNull()) {
                     JsonElement b = opt.get("body");
-                    if (b.isJsonPrimitive()) body = b.isString() ? b.getAsString() : b.toString();
+                    if (b.isJsonPrimitive()) body = b.getAsJsonPrimitive().isString() ? b.getAsString() : b.toString();
                     else if (b.isJsonObject()) {
                         ArrayMap<String, String> params = new ArrayMap<>();
                         for (Map.Entry<String, JsonElement> e : b.getAsJsonObject().entrySet()) {
