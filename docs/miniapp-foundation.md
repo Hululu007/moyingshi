@@ -95,8 +95,6 @@
   `java.util.Base64`（API 26+）已换成 `android.util.Base64`（minSdk 24 可用）。
 - **POST 不支持**：`buildHomeRequest` 遇到 `;POST` 直接抛错（body 格式未核实，
   不静默发 GET）。首页 URL 绝大多数是 GET；搜索/详情阶段再核实 POST 体格式。
-- **`fyAll` 未替换**：占位符含义未核实，留在 URL 里原样发出（会请求失败，
-  失败信息里能看到）；筛选阶段核实。
 - **`firstHeader` 格式是外推**：JSON 或 `key: value` 行两种都认，待真实规则验证。
 - **字段级 `js:` 是外推**：整段 `js:` 有文档，字段级 `js:` 按同款语义实现
   （`input` = 本行 outer HTML），待真实规则验证。

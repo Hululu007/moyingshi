@@ -2,6 +2,7 @@ package com.github.moyingshi.osc.tv.ui.hk;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -14,7 +15,6 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
@@ -43,8 +43,9 @@ import java.util.List;
  * <p>
  * 取数走第 1 步的 {@link HkExecutor#home(HkRule, int, String)}（后台线程，
  * 同步网络 + Rhino），回来先 {@link HkListHelper#pickCards} 再转 Vod，
- * 直接复用首页同款 {@link VodAdapter} 渲染。点卡片进详情是第 4 步，
- * 本步只弹“详情页还在做”，不进空白蜘蛛页。
+ * 直接复用首页同款 {@link VodAdapter} 渲染。点卡片进详情页（第 4 步，
+ * {@link HkDetailActivity}）；首屏 0 条时显示命中诊断（区分真没内容还是
+ * find_rule 未命中）。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
@@ -131,6 +132,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private void loadPage(int page, boolean append) {
         if (!append) {
             mScroller.reset();
+            mBinding.diagText.setVisibility(View.GONE);
             if (!mBinding.swipeLayout.isRefreshing()) mBinding.progressLayout.showProgress();
         }
         final int seq = ++mLoadSeq;
@@ -138,24 +140,27 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         final String classId = mClassId;
         new Thread(() -> {
             List<Vod> vods = null;
+            String diag = "";
             String error = null;
             try {
-                List<HkCard> cards = HkExecutor.home(rule, page, classId);
-                vods = HkListHelper.toVods(HkListHelper.pickCards(cards, rule), rule.getType());
+                HkExecutor.HomeOutcome outcome = HkExecutor.homeDetailed(rule, page, classId);
+                vods = HkListHelper.toVods(HkListHelper.pickCards(outcome.cards, rule), rule.getType());
+                diag = outcome.diag;
             } catch (Exception e) {
                 // HkException（请求/解析失败）与解析器里的未预料异常都走同一条错误态。
                 error = e.getMessage();
             }
             final List<Vod> result = vods;
+            final String diagText = diag;
             final String err = error;
             App.post(() -> {
                 if (!isAdded() || seq != mLoadSeq) return;
-                onPageLoaded(page, append, result, err);
+                onPageLoaded(page, append, result, diagText, err);
             });
         }).start();
     }
 
-    private void onPageLoaded(int page, boolean append, List<Vod> vods, String error) {
+    private void onPageLoaded(int page, boolean append, List<Vod> vods, String diag, String error) {
         mBinding.swipeLayout.setRefreshing(false);
         if (vods == null) {
             if (!append) {
@@ -175,6 +180,13 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         boolean first = mScroller.first();
         mBinding.progressLayout.showContent(first, vods.size());
         mScroller.endLoading(result);
+        // 首屏 0 条：显示命中诊断（区分真没内容还是 find_rule 未命中）；有内容或翻页时隐藏。
+        if (!append && vods.isEmpty()) {
+            mBinding.diagText.setText(diag);
+            mBinding.diagText.setVisibility(View.VISIBLE);
+        } else {
+            mBinding.diagText.setVisibility(View.GONE);
+        }
         if (!vods.isEmpty()) {
             if (append) {
                 mAdapter.addAll(vods, this::checkMore);
@@ -205,10 +217,10 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         return true;
     }
 
-    /** 点卡片：详情页是第 4 步，先弹一句，不进空白蜘蛛页。 */
+    /** 点卡片：进详情页（第 4 步），不进空白蜘蛛页。 */
     @Override
     public void onItemClick(Vod item) {
-        Notify.show(R.string.hk_list_detail_pending);
+        HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
     }
 
     @Override

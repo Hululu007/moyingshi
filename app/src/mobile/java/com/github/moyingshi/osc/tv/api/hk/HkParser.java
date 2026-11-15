@@ -70,15 +70,35 @@ public class HkParser {
      * 为 null 时 .js: 不跑、返回原值）。
      */
     public static List<HkCard> parseHomeList(String html, String findRule, String baseUrl, HkEngine engine) {
+        return parseHomeListDetailed(html, findRule, baseUrl, engine, false).cards;
+    }
+
+    /**
+     * 详情选择器解析：与 parseHomeList 同字段格式，唯一区别是标题-only 的头卡片
+     * 也保留（详情需要无链接的线路头；首页只要 usable 的卡片）。
+     */
+    public static List<HkCard> parseDetailList(String html, String findRule, String baseUrl, HkEngine engine) {
+        return parseHomeListDetailed(html, findRule, baseUrl, engine, true).cards;
+    }
+
+    /** 首页解析结果（含命中数，供命中诊断用）。matched = 列表选择器选到的元素数（不过滤）。 */
+    static class ParseOutcome {
         List<HkCard> cards = new ArrayList<>();
-        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(findRule)) return cards;
+        int matched;
+    }
+
+    /** 同 parseHomeList，另返回列表选择器命中数；keepTitleOnly 为真时标题-only 的卡片也保留（详情用）。 */
+    static ParseOutcome parseHomeListDetailed(String html, String findRule, String baseUrl, HkEngine engine, boolean keepTitleOnly) {
+        ParseOutcome outcome = new ParseOutcome();
+        if (TextUtils.isEmpty(html) || TextUtils.isEmpty(findRule)) return outcome;
         List<String> fields = splitOutsideQuotes(findRule, ";");
         if (fields.size() < 5) {
             Log.w(TAG, "find_rule 字段不足 5 个: " + findRule);
-            return cards;
+            return outcome;
         }
         Document doc = Jsoup.parse(html, baseUrl == null ? "" : baseUrl);
         Elements items = selectElements(doc, fields.get(0).trim());
+        outcome.matched = items.size();
         for (Element item : items) {
             String title = extract(item, fields.get(1), false, baseUrl, engine);
             String pic = extract(item, fields.get(2), true, baseUrl, engine);
@@ -88,9 +108,9 @@ public class HkParser {
             if (fields.size() >= 6) {
                 card.setColType(extract(item, fields.get(5), false, baseUrl, engine));
             }
-            if (card.usable()) cards.add(card);
+            if (card.usable() || (keepTitleOnly && !TextUtils.isEmpty(title))) outcome.cards.add(card);
         }
-        return cards;
+        return outcome;
     }
 
     /** pd：取单个值，URL 类属性默认自动补全。 */

@@ -9,6 +9,7 @@ import androidx.collection.ArrayMap;
 import com.github.catvod.net.OkHttp;
 import com.github.moyingshi.osc.tv.App;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -94,10 +95,10 @@ public class HkEngine {
             function base64Encode(x) { return __hk.base64Encode(x); }
             function base64Decode(x) { return __hk.base64Decode(x); }
             function putVar(k, v) { __hk.putVar(k, v); }
-            function getVar(k) { return __hk.getVar(k); }
+            function getVar(k, d) { return __hk.getVar(k, d); }
             function clearVar() { __hk.clearVar(); }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
-            function getMyVar(k) { return __hk.getMyVar(k); }
+            function getMyVar(k, d) { return __hk.getMyVar(k, d); }
             function clearMyVar() { __hk.clearMyVar(); }
             function getParam(k, d) { return __hk.getParam(k, d); }
             function getRule() { return JSON.parse(__hk.getRuleJson()); }
@@ -196,6 +197,7 @@ public class HkEngine {
         }
 
         public void setResult(Object d) {
+            engine.resultSet = true;
             engine.result = engine.cardsFromJs(d);
         }
 
@@ -261,8 +263,18 @@ public class HkEngine {
         }
 
         public Object getVar(String k) {
+            return getVar(k, null);
+        }
+
+        /**
+         * 取变量，带默认值（第 4 步补：臻品fix 详情用 getVar(MY_URL, '0') 选线路，
+         * 缺省要回 '0'；1 参数版缺省回 null，与原来一致）。
+         */
+        public Object getVar(String k, Object def) {
+            if (def instanceof Undefined) def = null;
             Object v = k == null ? null : engine.vars.get(k);
-            return v == null ? null : v;
+            if (v == null || v instanceof Undefined) return def;
+            return v;
         }
 
         public void clearVar() {
@@ -274,8 +286,15 @@ public class HkEngine {
         }
 
         public Object getMyVar(String k) {
+            return getMyVar(k, null);
+        }
+
+        /** 与 getVar 同款：缺省回默认值（阅动漫用 getMyVar，第 7 步用得上，先对齐）。 */
+        public Object getMyVar(String k, Object def) {
+            if (def instanceof Undefined) def = null;
             Object v = k == null ? null : engine.myVars.get(k);
-            return v == null ? null : v;
+            if (v == null || v instanceof Undefined) return def;
+            return v;
         }
 
         public void clearMyVar() {
@@ -340,6 +359,7 @@ public class HkEngine {
     private String pageType = "home";
     private String resCode = "";
     private List<HkCard> result;
+    private boolean resultSet;
     private final Map<String, Object> vars = new HashMap<>();
     private final Map<String, Object> myVars = new HashMap<>();
     private final Map<String, String> params = new HashMap<>();
@@ -357,6 +377,7 @@ public class HkEngine {
         this.pageType = TextUtils.isEmpty(pageType) ? "home" : pageType;
         this.resCode = resCode == null ? "" : resCode;
         this.result = null;
+        this.resultSet = false;
         this.myVars.clear();
         parseParams(this.pageUrl);
         Context cx = factory.enterContext();
@@ -375,6 +396,11 @@ public class HkEngine {
     public void evalPreRule() throws HkException {
         if (rule == null || TextUtils.isEmpty(rule.getPreRule())) return;
         eval(rule.getPreRule(), "preRule");
+    }
+
+    /** JS 是否调过 setResult/setHomeResult/setSearchResult（命中诊断用）。 */
+    public boolean wasResultSet() {
+        return resultSet;
     }
 
     /**
@@ -427,29 +453,29 @@ public class HkEngine {
         if (d == null || d instanceof Undefined) return null;
         if (d instanceof String) {
             try {
-                JsonArray array = JsonParser.parseString((String) d).getAsJsonArray();
-                List<HkCard> cards = new ArrayList<>();
-                for (int i = 0; i < array.size(); i++) {
-                    if (array.get(i).isJsonObject()) cards.add(cardFromJson(array.get(i).getAsJsonObject()));
+                JsonElement parsed = JsonParser.parseString((String) d);
+                // 规则常以 res.data = d; setHomeResult(res) 交结果：先拆 data 数组。
+                if (parsed.isJsonObject() && parsed.getAsJsonObject().has("data")
+                        && parsed.getAsJsonObject().get("data").isJsonArray()) {
+                    return cardsFromJsonArray(parsed.getAsJsonObject().getAsJsonArray("data"));
                 }
-                return cards;
+                if (parsed.isJsonArray()) return cardsFromJsonArray(parsed.getAsJsonArray());
+                return null;
             } catch (Exception e) {
                 return null;
             }
         }
         if (d instanceof NativeArray) {
-            NativeArray array = (NativeArray) d;
-            List<HkCard> cards = new ArrayList<>();
-            for (int i = 0; i < array.getLength(); i++) {
-                Object item = array.get(i, array);
-                if (item instanceof Scriptable) {
-                    HkCard card = cardFromJsObject((Scriptable) item);
-                    if (card != null) cards.add(card);
-                }
-            }
-            return cards;
+            return cardsFromNativeArray((NativeArray) d);
         }
         if (d instanceof Scriptable) {
+            // 同上：对象带 data 数组时拆它（奇优/童话详情、臻品fix 首页都这么交结果）。
+            Object data = ScriptableObject.getProperty((Scriptable) d, "data");
+            if (data instanceof NativeArray) return cardsFromNativeArray((NativeArray) data);
+            if (data instanceof String) {
+                List<HkCard> fromData = cardsFromJs(data);
+                if (fromData != null) return fromData;
+            }
             HkCard card = cardFromJsObject((Scriptable) d);
             if (card == null) return null;
             List<HkCard> cards = new ArrayList<>();
@@ -457,6 +483,26 @@ public class HkEngine {
             return cards;
         }
         return null;
+    }
+
+    private List<HkCard> cardsFromJsonArray(JsonArray array) {
+        List<HkCard> cards = new ArrayList<>();
+        for (int i = 0; i < array.size(); i++) {
+            if (array.get(i).isJsonObject()) cards.add(cardFromJson(array.get(i).getAsJsonObject()));
+        }
+        return cards;
+    }
+
+    private List<HkCard> cardsFromNativeArray(NativeArray array) {
+        List<HkCard> cards = new ArrayList<>();
+        for (int i = 0; i < array.getLength(); i++) {
+            Object item = array.get(i, array);
+            if (item instanceof Scriptable) {
+                HkCard card = cardFromJsObject((Scriptable) item);
+                if (card != null) cards.add(card);
+            }
+        }
+        return cards;
     }
 
     private HkCard cardFromJsObject(Scriptable obj) {

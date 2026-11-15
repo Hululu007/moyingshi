@@ -74,11 +74,14 @@
     <string name="hk_miniapp_synced">已同步 %1$d 条小程序</string>
     <string name="hk_miniapp_import_error">导入失败：%1$s</string>
     <string name="hk_miniapp_list_pending">小程序列表页还在做</string>
-    <string name="hk_list_detail_pending">详情页还在做</string>
     <string name="hk_list_rule_missing">规则不存在或已删除</string>
     <string name="hk_list_load_failed">加载失败：%1$s</string>
     <string name="hk_list_error">加载失败</string>
     <string name="hk_list_retry">重试</string>
+    <string name="hk_detail_play_pending">播放还在做</string>
+    <string name="hk_detail_error">详情加载失败</string>
+    <string name="hk_detail_retry">重试</string>
+    <string name="hk_detail_no_episodes">暂无选集</string>
     <string name="hk_miniapp_paste_hint">粘贴 rule.json 内容</string>
     <string name="hk_miniapp_pick_title">选择文件或目录</string>
     <string name="hk_miniapp_pick_file">选择文件</string>

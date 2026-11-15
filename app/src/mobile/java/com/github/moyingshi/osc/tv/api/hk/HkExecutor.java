@@ -10,6 +10,7 @@ import com.google.gson.JsonParser;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,18 @@ public class HkExecutor {
 
     /** 首页。page 从 1 起；classId 为空取第一个分类（分类名或下标都行）。 */
     public static List<HkCard> home(HkRule rule, int page, String classId) throws HkEngine.HkException {
+        return homeDetailed(rule, page, classId).cards;
+    }
+
+    /** 首页取数结果（含命中诊断，供列表页 0 条时展示）。 */
+    public static class HomeOutcome {
+        public List<HkCard> cards = new ArrayList<>();
+        /** 命中诊断：页面大小、选择器命中数 / JS 返回情况（只在 0 条时有意义）。 */
+        public String diag = "";
+    }
+
+    /** 首页（带命中诊断，见 docs/miniapp-detail.md“列表 0 条命中诊断”）。 */
+    public static HomeOutcome homeDetailed(HkRule rule, int page, String classId) throws HkEngine.HkException {
         if (rule == null) throw new HkEngine.HkException("规则为空");
         String err = rule.validate();
         if (err != null) throw new HkEngine.HkException(err);
@@ -59,10 +72,85 @@ public class HkExecutor {
         HkEngine engine = new HkEngine();
         engine.prepare(rule, spec.url, page, "home", pageText);
         engine.evalPreRule();
+        HomeOutcome outcome = new HomeOutcome();
+        String sizeKb = "约 " + (pageText.length() / 1024) + "KB";
         if (rule.isJsFindRule()) {
-            return engine.evalFindRule(rule.getFindRule());
+            outcome.cards = engine.evalFindRule(rule.getFindRule());
+            outcome.diag = "页面 " + sizeKb + "，规则返回 " + outcome.cards.size() + " 条"
+                    + (engine.wasResultSet() ? "" : "（规则未调用 setResult）");
+        } else {
+            HkParser.ParseOutcome parsed = HkParser.parseHomeListDetailed(pageText, rule.getFindRule(), spec.url, engine, false);
+            outcome.cards = parsed.cards;
+            outcome.diag = "页面 " + sizeKb + "，列表选择器命中 " + parsed.matched + " 项，得到 "
+                    + outcome.cards.size() + " 张卡片"
+                    + (parsed.matched == 0 ? "（规则未命中页面结构）"
+                    : outcome.cards.isEmpty() ? "（命中了但卡片都不可用，缺标题或链接）" : "");
         }
-        return HkParser.parseHomeList(pageText, rule.getFindRule(), spec.url, engine);
+        return outcome;
+    }
+
+    /**
+     * 详情（对应 f22.detail 的重写版，见 docs/miniapp-detail.md）。
+     * 流程与 home() 同款：校验 → 抓详情页 → preRule → detail_find_rule 是 js:
+     * 走 Rhino，否则走选择器解析。主规则出 0 张卡片且 chapter_find/movie_find
+     * 非空时，用那条对同一页再跑一次（小说/漫画类备选，语义见任务文档）。
+     * 调用方必须在后台线程跑。返回原始详情卡片（信息卡/线路头/选集都在里面），
+     * 切分由 HkDetailHelper.split 做。
+     */
+    public static List<HkCard> detail(HkRule rule, String detailUrl) throws HkEngine.HkException {
+        if (rule == null) throw new HkEngine.HkException("规则为空");
+        String err = rule.validate();
+        if (err != null) throw new HkEngine.HkException(err);
+        if (TextUtils.isEmpty(rule.getDetailFindRule())) {
+            throw new HkEngine.HkException("规则缺少 detail_find_rule");
+        }
+        String url = stripLazyMarkers(detailUrl);
+        url = HkParser.resolveUrl(rule.getUrl(), url);
+        if (TextUtils.isEmpty(url)) throw new HkEngine.HkException("详情地址为空");
+        RequestSpec spec = buildDetailRequest(rule, url);
+        String pageText = fetch(spec);
+        List<HkCard> cards = evalDetailRule(rule, rule.getDetailFindRule(), spec.url, pageText);
+        if (cards.isEmpty()) {
+            String alt = !TextUtils.isEmpty(rule.getChapterFind()) ? rule.getChapterFind() : rule.getMovieFind();
+            if (!TextUtils.isEmpty(alt)) {
+                cards = evalDetailRule(rule, alt, spec.url, pageText);
+            }
+        }
+        return cards;
+    }
+
+    /** 对一页详情正文跑一条详情规则（JS 或选择器）；与 home() 的执行顺序一致。 */
+    private static List<HkCard> evalDetailRule(HkRule rule, String detailRule, String pageUrl, String pageText) throws HkEngine.HkException {
+        HkEngine engine = new HkEngine();
+        engine.prepare(rule, pageUrl, 1, "detail", pageText);
+        engine.evalPreRule();
+        if (HkParser.isJsRule(detailRule)) {
+            return engine.evalFindRule(detailRule);
+        }
+        return HkParser.parseDetailList(pageText, detailRule, pageUrl, engine);
+    }
+
+    /** 详情请求：URL 来自卡片（无 fy 占位符），请求头与首页同款（firstHeader + ua），编码默认 UTF-8。 */
+    private static RequestSpec buildDetailRequest(HkRule rule, String url) {
+        RequestSpec spec = new RequestSpec();
+        spec.url = url;
+        spec.charset = "UTF-8";
+        Map<String, String> headers = new HashMap<>();
+        parseFirstHeader(rule.getFirstHeader(), headers);
+        if (!TextUtils.isEmpty(rule.getUa())) headers.put("User-Agent", rule.getUa());
+        spec.headers = headers;
+        return spec;
+    }
+
+    /** 去掉详情地址里的二级解析标记（@lazyRule= / @rule= 后的部分只在第 5 步求值，取数时只要干净的页面地址）。 */
+    private static String stripLazyMarkers(String url) {
+        if (TextUtils.isEmpty(url)) return "";
+        String u = url.trim();
+        int at = u.indexOf("@lazyRule=");
+        if (at >= 0) u = u.substring(0, at);
+        at = u.indexOf("@rule=");
+        if (at >= 0) u = u.substring(0, at);
+        return u.trim();
     }
 
     /**
