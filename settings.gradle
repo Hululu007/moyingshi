@@ -13,7 +13,15 @@ plugins {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // B8 C0: PREFER_SETTINGS, not FAIL_ON_PROJECT_REPOS. The Flutter Gradle
+    // plugin (dev.flutter.flutter-gradle-plugin, applied by the generated
+    // flutter_module/.android wrapper) adds its own maven repository, and
+    // FAIL_ON_PROJECT_REPOS turns that into a configuration error. Under
+    // PREFER_SETTINGS the plugin-added repository is ignored (Gradle warns)
+    // and artifacts resolve from the central list below, which already
+    // includes the Flutter storage repository. No project build file in
+    // this repo declares repositories, so nothing else changes.
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     // B8 C0: Flutter engine artifacts repository, per the official add-to-app
     // project-setup doc. FLUTTER_STORAGE_BASE_URL supports mirror sites.
     String flutterStorageUrl = System.getenv('FLUTTER_STORAGE_BASE_URL') ?: 'https://storage.googleapis.com'
