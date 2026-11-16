@@ -8,9 +8,12 @@ import com.github.moyingshi.osc.tv.bean.Vod;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 列表页的卡片筛选与转换，对应魔影小程序 HkSiteAdapter 里的 pickCards / toVods
@@ -108,9 +111,43 @@ public final class HkListHelper {
             vod.setRemarks(desc);
             vod.setContent(desc);
             vod.setTypeName(typeName == null ? "" : typeName);
+            if ("x5_webview_single".equalsIgnoreCase(card.getColType().trim())) {
+                if (X5_URLS.size() > MAX_X5_URLS) X5_URLS.clear();
+                X5_URLS.add(url);
+            }
             vods.add(vod);
         }
         return vods;
+    }
+
+    /** x5_webview_single 卡片的 URL 记表：点卡时要知道 colType，但 Vod 上没有该字段。 */
+    private static final Set<String> X5_URLS = ConcurrentHashMap.newKeySet();
+    private static final int MAX_X5_URLS = 500;
+
+    /** 这条 URL 是不是 x5 网页卡（toVods 记表，点卡分支读）。 */
+    public static boolean isX5Url(String url) {
+        return url != null && X5_URLS.contains(url);
+    }
+
+    /**
+     * 同一列表内相同 URL 的卡只留一张：去掉已在列表里的与页内重复的。
+     * shown 为 null 按空处理；id 为空的不过滤（toVods 已滤掉空 URL）。
+     */
+    public static List<Vod> dedupeByUrl(List<Vod> shown, List<Vod> incoming) {
+        if (incoming == null) return new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        if (shown != null) {
+            for (Vod v : shown) {
+                if (v != null && v.getId() != null) seen.add(v.getId());
+            }
+        }
+        List<Vod> out = new ArrayList<>();
+        for (Vod v : incoming) {
+            if (v == null) continue;
+            String id = v.getId();
+            if (id == null || seen.add(id)) out.add(v);
+        }
+        return out;
     }
 
     /** 这张卡片是不是富文本/长文本行（标题与描述要去 HTML 标签再显示）。 */

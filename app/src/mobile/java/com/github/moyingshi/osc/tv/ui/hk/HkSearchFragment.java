@@ -31,6 +31,7 @@ import com.github.moyingshi.osc.tv.databinding.FragmentHkSearchBinding;
 import com.github.moyingshi.osc.tv.ui.adapter.VodAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.ui.custom.CustomScroller;
+import com.github.moyingshi.osc.tv.ui.web.CatWebActivity;
 import com.github.moyingshi.osc.tv.utils.Notify;
 
 import org.greenrobot.eventbus.EventBus;
@@ -244,6 +245,8 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             }
             return;
         }
+        // 同一列表内相同 URL 的卡只留一张（翻页每页都回同一张卡时去重；不同 URL 照常追加）。
+        vods = HkListHelper.dedupeByUrl(append ? mAdapter.getItems() : null, vods);
         Result result = new Result();
         result.setList(vods);
         boolean first = mScroller.first();
@@ -296,6 +299,12 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         if (mRule != null) {
             HkCard card = new HkCard(item.getName(), item.getId(), item.getPic(), item.getRemarks());
             if (HkActionHandler.handle(this, card)) return;
+        }
+        // x5_webview_single 卡是网页卡（官方 dealWithUrl：x5/web 分流不进详情页；
+        // 星辰无 X5 引擎，走系统 WebView 顶替）：点开进站内 WebView，不进详情页。
+        if (HkListHelper.isX5Url(item.getId())) {
+            startActivity(CatWebActivity.intent(requireContext(), item.getId()));
+            return;
         }
         HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
     }
