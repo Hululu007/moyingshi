@@ -1,0 +1,12 @@
+# Minimal analysis options for the B8 C0 shell module.
+# Deliberately no package:flutter_lints include: C0 pins only the Flutter SDK
+# and Pigeon, and CI runs `flutter analyze` as a fail-fast gate.
+analyzer:
+  errors:
+    unused_import: warning
+    unused_local_variable: warning
+linter:
+  rules:
+    - prefer_const_constructors
+    - prefer_final_fields
+    - avoid_print
