@@ -105,6 +105,23 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- B8 C0: Flutter shell validation entry (mobile only, clearly
+             labeled experimental; see docs/b8-c0-shell.md). Rotation and
+             size changes intentionally recreate this Activity so the
+             cached-engine restore path is exercised. -->
+        <activity
+            android:name=".flutter.C0ShellActivity"
+            android:configChanges="keyboard|keyboardHidden|uiMode"
+            android:exported="true"
+            android:label="@string/b8_c0_launcher_label"
+            android:screenOrientation="fullUser"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.activity.SearchActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"
