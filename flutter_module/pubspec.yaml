@@ -10,6 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Flutter 3.50 formally deprecates package:flutter/material.dart; the
+  # Material library is now the standalone material_ui package. Pinned
+  # exactly like Pigeon below: C0 keeps every Dart dependency reproducible.
+  material_ui: 1.11.0
 
 dev_dependencies:
   # Pinned exactly, no caret: both sides of a Pigeon channel must be
