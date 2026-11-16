@@ -135,7 +135,7 @@ SCHEME`）、`importCacheDir/libsDir`、`lastError/lastError()`、`readTextFile`
    data.zip 落外部 `Documents/data/<标题>/`；旧版是 require.json 写 `config/`、
    libs.zip 解到内部 `plugins/hk/libs/`。后果：`HkStore.readRequireManifest`
    对新导入的 hkzip 包回 null（它只读 `config/`），`resolveLibFile` 随之回 null，
-   hkzip 包内 require 在阶段 7 改走外部登记簿根之前走网络取回（`HkEngine` 既有
+   hkzip 包内 require 在阶段 3 改走外部登记簿根之前走网络取回（`HkEngine` 既有
    回退）。`migrateLegacyHkZipAssets` 仍会把旧内部落点 `data/<标题>/libs/` 与
    `require.json` 迁到官根；但注意我们第 2 步的旧导入从未往 `data/<标题>/` 写过
    libs/require.json（它写的是内部 `libs/` 与 `config/`），所以对现存用户该迁移
