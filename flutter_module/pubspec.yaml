@@ -1,0 +1,24 @@
+name: moyingshi_flutter
+description: "Mooyingshi Flutter module (B8 C0 shell). Hand-written equivalent of `flutter create -t module` output; see docs/b8-c0-shell.md."
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.14.0
+  flutter: ">=3.50.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  # Pinned exactly, no caret: both sides of a Pigeon channel must be
+  # generated with the same Pigeon version (pigeon README). CI generates
+  # both sides in one `dart run pigeon` invocation.
+  pigeon: 30.0.2
+
+flutter:
+  module:
+    androidX: true
+    androidPackage: com.github.moyingshi.osc.tv.flutter
+    iosBundleIdentifier: com.github.moyingshi.osc.tv.flutter
