@@ -62,6 +62,10 @@ public class C0ShellActivity extends AppCompatActivity {
         FlutterEngine engine = new FlutterEngine(this);
         // Register the Pigeon handler before Dart starts executing.
         C0Messages.C0HostApi.setUp(engine.getDartExecutor(), new C0HostApiImpl());
+        // B8 C1: the C0 screen also hosts the C1 flag switch, so this engine
+        // registers C1HostApi too (route "/" — only the flag methods are
+        // ever called on this engine). See docs/b8-c1-about-subtitle.md.
+        C1Messages.C1HostApi.setUp(engine.getDartExecutor(), new C1HostApiImpl(this, "/"));
         engine.getDartExecutor().executeDartEntrypoint(
                 DartExecutor.DartEntrypoint.createDefault());
         FlutterEngineCache.getInstance().put(ENGINE_ID, engine);

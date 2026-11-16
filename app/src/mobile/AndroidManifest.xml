@@ -122,6 +122,16 @@
             </intent-filter>
         </activity>
 
+        <!-- B8 C1: migrated screens (About, subtitle settings), mobile only,
+             no launcher entry; entered from SettingFragment behind the C1
+             flag (default native); see docs/b8-c1-about-subtitle.md. -->
+        <activity
+            android:name=".flutter.C1ScreenActivity"
+            android:configChanges="keyboard|keyboardHidden|uiMode"
+            android:exported="false"
+            android:screenOrientation="fullUser"
+            android:windowSoftInputMode="adjustResize" />
+
         <activity
             android:name=".ui.activity.SearchActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"

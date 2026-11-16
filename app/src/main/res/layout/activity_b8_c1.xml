@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- B8 C1: container for the FlutterFragment hosted by C1ScreenActivity.
+     Same shape as activity_b8_c0.xml (one fragment_container FrameLayout). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fragment_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />

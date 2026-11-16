@@ -45,3 +45,4 @@ flutter_module/.flutter-plugins-dependencies
 flutter_module/lib/pigeon/
 # Pigeon-generated host code (CI generates it from flutter_module/pigeons/).
 app/src/main/java/com/github/moyingshi/osc/tv/flutter/C0Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/C1Messages.java

@@ -91,7 +91,11 @@ public final class AboutDialog {
         Notify.show(enabled ? R.string.hidden_settings_enabled : R.string.hidden_settings_disabled);
     }
 
-    private static void showGithubProxy(FragmentActivity activity) {
+    /**
+     * B8 C1 reuses this dialog from the Flutter About screen via
+     * C1HostApiImpl; the dialog itself (latency probe, dpad nav) stays native.
+     */
+    public static void showGithubProxy(FragmentActivity activity) {
         MaterialAlertDialogBuilder builder = new WebHtvAlertDialogBuilder(activity, R.style.Theme_WebHTV_Dialog);
         Context context = builder.getContext();
         DialogGithubProxyBinding binding = DialogGithubProxyBinding.inflate(LayoutInflater.from(context));

@@ -101,12 +101,16 @@ jobs:
 
       # 必须在 Gradle 编译之前：生成的 Dart 文件供 Flutter 编译，生成的
       # Java 文件供宿主编译。两边同一版本 Pigeon 一次生成。
+      # C1 合约（c1_messages.dart，关于 + 字幕设置）与 C0 合约同法生成。
       - name: Generate Pigeon bindings
         run: |
           cd flutter_module
           dart run pigeon --input pigeons/c0_messages.dart
           test -f lib/pigeon/c0_messages.g.dart
           test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/C0Messages.java
+          dart run pigeon --input pigeons/c1_messages.dart
+          test -f lib/pigeon/c1_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/C1Messages.java
 
       # Fail fast：Dart 侧问题在这里暴露，而不是在 20+ 分钟的 Gradle 构建后。
       - name: Analyze Dart code (fail fast)

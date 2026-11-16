@@ -412,6 +412,15 @@ public class Setting {
         Prefers.put("hidden_settings_enabled", enabled);
     }
 
+    /** B8 C1: route the mobile About / subtitle screens to Flutter when true; default false = native. */
+    public static boolean isFlutterC1Enabled() {
+        return Prefers.getBoolean("flutter_c1_enabled", false);
+    }
+
+    public static void putFlutterC1Enabled(boolean enabled) {
+        Prefers.put("flutter_c1_enabled", enabled);
+    }
+
     public static boolean isDownloadEnabled() {
         return Prefers.getBoolean("download_enabled");
     }

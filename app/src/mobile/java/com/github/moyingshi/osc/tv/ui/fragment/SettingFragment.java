@@ -33,6 +33,7 @@ import com.github.moyingshi.osc.tv.download.DownloadTask;
 import com.github.moyingshi.osc.tv.download.VideoDownloadManager;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.gitcloud.GitCloudAccountStore;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.impl.ConfigListener;
@@ -215,7 +216,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 R.string.setting_danmaku, R.string.setting_danmaku_sub, ROW_DANMAKU, () -> getRoot().change(4));
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_subtitle, R.drawable.shape_setting_circle_green,
-                R.string.setting_subtitle, R.string.setting_subtitle_sub, ROW_SUBTITLE, () -> getRoot().change(6));
+                R.string.setting_subtitle, R.string.setting_subtitle_sub, ROW_SUBTITLE, this::onSubtitle);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_ai, R.drawable.shape_setting_circle_purple,
                 R.string.setting_ai, R.string.setting_ai_sub, ROW_AI, () -> getRoot().change(8));
@@ -595,7 +596,22 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     }
 
     private void onVersion() {
+        // B8 C1: flag on opens the Flutter About screen, flag off (default)
+        // keeps the native dialog; see docs/b8-c1-about-subtitle.md.
+        if (Setting.isFlutterC1Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_ABOUT);
+            return;
+        }
         AboutDialog.show(requireActivity(), () -> Updater.create().force().start(requireActivity()));
+    }
+
+    private void onSubtitle() {
+        // B8 C1: same flag split as onVersion(); native page is index 6.
+        if (Setting.isFlutterC1Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SUBTITLE);
+            return;
+        }
+        getRoot().change(6);
     }
 
     private void setWallDefault() {
