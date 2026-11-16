@@ -199,7 +199,7 @@ SCHEME`）、`importCacheDir/libsDir`、`lastError/lastError()`、`readTextFile`
 - **编译未验**：本地无 JDK/Android SDK，两文件只做了逐行重读 + difflib 对照 +
   括号平衡 + 逻辑模拟；GitHub 构建是唯一编译检查，推上去后须看构建结果。
 - **2a 文档 hash/tag 未回填**：已知小缺憾，留给父代理，不在本步修（任务要求）。
-- **hkzip 包内 require 在阶段 7 前走网络**：见有意偏差第 4 条；`阅动漫` 这类
+- **hkzip 包内 require 在阶段 3 前走网络**：见有意偏差第 4 条；`阅动漫` 这类
   框架型规则要 require 本地库才能跑通，完整验证等阶段 7。
 - **合集浏览面与 `.hkshell` 调用方缺失**：`extractCollectionPackage/
   executeHkShellText/isCollectionPackage` 已移植但暂无调用方，合集包“只解压、
