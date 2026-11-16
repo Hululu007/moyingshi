@@ -126,8 +126,9 @@ public class HkEngine {
      */
     private static final String BOOTSTRAP = """
             function __unsupported(name) { return function() { throw new Error(name + ' 暂不支持（小程序地基第 1 步未实现）'); }; }
-            function fetch(url, options) { return __hk.fetch(url, options); }
-            function post(url, options) { return __hk.post(url, options); }
+            function __jsStr(v) { if (v == null || typeof v === 'string') return v; try { if (v instanceof java.lang.String) return String(v); } catch (e) {} return v; }
+            function fetch(url, options) { return __jsStr(__hk.fetch(url, options)); }
+            function post(url, options) { return __jsStr(__hk.post(url, options)); }
             function getResCode() { return __hk.getResCode(); }
             function setResult(d) { __hk.setResult(d); }
             function setHomeResult(d) { __hk.setResult(d); }
@@ -142,28 +143,28 @@ public class HkEngine {
             var pdfh = parseDomForHtml;
             function parseDomForArray(html, sel) { return __hk.parseDomForArray(html, sel); }
             var pdfa = parseDomForArray;
-            function md5(x) { return __hk.md5(x); }
-            function base64Encode(x) { return __hk.base64Encode(x); }
-            function base64Decode(x) { return __hk.base64Decode(x); }
+            function md5(x) { return __jsStr(__hk.md5(x)); }
+            function base64Encode(x) { return __jsStr(__hk.base64Encode(x)); }
+            function base64Decode(x) { return __jsStr(__hk.base64Decode(x)); }
             function putVar(k, v) { __hk.putVar(k, v); }
-            function getUrl() { return __hk.getPageUrl(); }
-            function getHome(url) { return __hk.getHome(url); }
+            function getUrl() { return __jsStr(__hk.getPageUrl()); }
+            function getHome(url) { return __jsStr(__hk.getHome(url)); }
             function setPageTitle(t) { __hk.setPageTitle(t); }
             function refreshPage(scrollTop) { if (scrollTop === undefined) { __hk.refreshPage(); } else { __hk.refreshPage(scrollTop); } }
-            function getVar(k, d) { return __hk.getVar(k, d); }
+            function getVar(k, d) { return __jsStr(__hk.getVar(k, d)); }
             function clearVar(k) { if (k === undefined || k === null) { __hk.clearVar(); } else { __hk.clearVar(String(k)); } }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
-            function getMyVar(k, d) { return __hk.getMyVar(k, d); }
+            function getMyVar(k, d) { return __jsStr(__hk.getMyVar(k, d)); }
             function clearMyVar() { __hk.clearMyVar(); }
-            function getParam(k, d) { return __hk.getParam(k, d); }
-            function readFile(name) { return __hk.readFile(name); }
+            function getParam(k, d) { return __jsStr(__hk.getParam(k, d)); }
+            function readFile(name) { return __jsStr(__hk.readFile(name)); }
             function writeFile(name, content) { return __hk.writeFile(name, content); }
             function saveFile(name, content) { return __hk.saveFile(name, content); }
             function fileExist(name) { return __hk.fileExist(name); }
             function deleteFile(name) { return __hk.deleteFile(name); }
-            function getItem(k, d, t) { return __hk.getItem(k, d, t); }
+            function getItem(k, d, t) { return __jsStr(__hk.getItem(k, d, t)); }
             function setItem(k, v, t) { __hk.setItem(k, v, t); }
-            function getPublicItem(k, d) { return __hk.getPublicItem(k, d); }
+            function getPublicItem(k, d) { return __jsStr(__hk.getPublicItem(k, d)); }
             function setPublicItem(k, v) { __hk.setPublicItem(k, v); }
             function clearPublicItem(k) { __hk.clearPublicItem(k); }
             // storage0（对齐第 5 项，照官方 plugin.js）：与官方两处必要改写——
@@ -245,12 +246,12 @@ public class HkEngine {
             function getRule() { return JSON.parse(__hk.getRuleJson()); }
             var MY_RULE = JSON.parse(__hk.getRuleJson());
             var MY_PARAMS = JSON.parse(__hk.getParamsJson());
-            var MY_URL = __hk.getPageUrl();
-            var MY_HOME = __hk.getHomeUrl();
+            var MY_URL = __jsStr(__hk.getPageUrl());
+            var MY_HOME = __jsStr(__hk.getHomeUrl());
             var MY_PAGE = __hk.getPage();
-            var MY_TYPE = __hk.getPageType();
-            var MOBILE_UA = __hk.getMobileUa();
-            var PC_UA = __hk.getPcUa();
+            var MY_TYPE = __jsStr(__hk.getPageType());
+            var MOBILE_UA = __jsStr(__hk.getMobileUa());
+            var PC_UA = __jsStr(__hk.getPcUa());
             function $(sel, hint) {
               var s = (sel === undefined || sel === null) ? '' : String(sel);
               return {
@@ -274,7 +275,7 @@ public class HkEngine {
             var decodeStr = __unsupported('decodeStr');
             var aesEncode = __unsupported('aesEncode');
             var aesDecode = __unsupported('aesDecode');
-            function request(url, options) { return __hk.fetch(url, options); }
+            function request(url, options) { return __jsStr(__hk.fetch(url, options)); }
             if (typeof unescape === 'undefined') { var unescape = function(s) { try { return decodeURIComponent(String(s)); } catch (e) { return String(s); } }; }
             """;
 
