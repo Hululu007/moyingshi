@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- B8 C0: launcher label for the experimental Flutter shell entry.
+         Referenced only by the mobile manifest. -->
+    <string name="b8_c0_launcher_label">墨影视·Flutter 实验</string>
+</resources>
