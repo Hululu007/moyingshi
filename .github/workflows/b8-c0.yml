@@ -1,7 +1,9 @@
 name: B8 C0 Shell
 
-# B8 C0 壳工程验证：只构建，不发布。推送到 b8-flutter-rewrite 或手动触发。
-# 构建 4 个风味 release APK（含 Flutter module），上传 artifact 并记录包体积。
+# B8 C0 壳工程验证：推送到 b8-flutter-rewrite 或手动触发。
+# 构建 4 个风味 release APK（含 Flutter module），上传 artifact 并记录包体积，
+# 再把 4 个 APK + c0-sizes.txt 发布为 C0 专属 prerelease（tag b8-c0-<run>-<sha>），
+# 每个 APK 单独一个附件、可直接下载。不碰 update-channel 清单与正式版 tag。
 # 详见 docs/b8-c0-shell.md。现有 android-release.yml 未改动。
 
 on:
@@ -11,7 +13,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # 创建 C0 专属 prerelease 需要写 contents（仅本 workflow）。
+  contents: write
 
 concurrency:
   group: b8-c0-shell
@@ -182,3 +185,25 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 30
+
+      # C0 专属 prerelease：4 个 APK 各自一个附件、可直接下载，不用解 zip。
+      # Tag 形态 b8-c0-<run>-<sha7> 与正式版 v…-beta-…/v…-… 均不重合，且始终
+      # 标记 prerelease；不写 update-channel 清单，不影响应用内更新通道。
+      # 构建重跑时 tag 已存在，改走 upload --clobber 覆盖附件。
+      - name: Publish C0 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+          TAG="b8-c0-${{ github.run_number }}-$SHORT_SHA"
+          NOTES="B8 C0 shell test build. Commit $GITHUB_SHA. Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}. Phone install: mobile-arm64_v8a-b8-c0.apk."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.apk dist/c0-sizes.txt --clobber
+          else
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "B8 C0 shell build #${{ github.run_number }} ($SHORT_SHA)" \
+              --notes "$NOTES" \
+              --prerelease \
+              dist/*.apk dist/c0-sizes.txt
+          fi
