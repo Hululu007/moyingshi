@@ -1879,7 +1879,7 @@ public class HkEngine {
             }
         }
         try {
-            OkHttpClient base = opts.timeout > 0 ? OkHttp.client(opts.timeout) : OkHttp.client();
+            OkHttpClient base = HkHttpClient.client(opts.timeout);
             OkHttpClient client = opts.followRedirects ? base
                     : base.newBuilder().followRedirects(false).followSslRedirects(false).build();
             Request.Builder builder = new Request.Builder().url(url);

@@ -4,7 +4,6 @@ import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.github.catvod.net.OkHttp;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.google.gson.JsonArray;
@@ -997,7 +996,7 @@ public class HkExecutor {
 
     /** 同步抓一页，按指定编码解码；失败抛 HkException（带 URL 与原因）。 */
     static String fetch(RequestSpec spec) throws HkEngine.HkException {
-        OkHttpClient client = OkHttp.client();
+        OkHttpClient client = HkHttpClient.client();
         Request.Builder builder = new Request.Builder().url(spec.url);
         for (Map.Entry<String, String> e : spec.headers.entrySet()) {
             builder.header(e.getKey(), e.getValue());
