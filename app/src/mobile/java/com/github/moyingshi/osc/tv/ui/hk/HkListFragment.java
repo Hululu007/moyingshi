@@ -363,7 +363,9 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
             if (append) {
                 mAdapter.addAll(vods, this::checkMore);
             } else {
-                mAdapter.clear(() -> mAdapter.addAll(vods, this::checkMore));
+                // 去重后 vods 被重赋值，不再是 effectively final，lambda 里用定值拷贝。
+                final List<Vod> finalVods = vods;
+                mAdapter.clear(() -> mAdapter.addAll(finalVods, this::checkMore));
             }
         }
     }
