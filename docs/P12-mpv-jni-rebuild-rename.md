@@ -135,12 +135,19 @@ causeTypes=j14 <- java.io.IOException <- java.lang.ClassNotFoundException
 - 未验证：Java 编译、CI 构建、真机播放（见 §6、§7）。
 - 下一动作：把分支推到远端并触发 `mpv-native-rebuild` workflow（需 Wei 授权 push；本单元不 push）。
 
+## 9. Checkpoint 2：CI 首跑失败与 NDK 修复（2026-11-16）
+
+- Run #1（43829081150，16:11）1m40s 即失败：第 8 步 `Build MPV native stack` 0 秒退出，`error: NDK revision mismatch: expected 29.0.14206865 at /usr/local/lib/android/sdk/ndk/27.3.13750724`。
+- 双重原因：① runner 预装 NDK 27 并导出 `ANDROID_NDK_HOME` 指向它，构建脚本优先用 `ANDROID_NDK_HOME`，故即使装好 r29 也会读错；② `sdkmanager "ndk;29.0.14206865"` 一步 1 秒静默无操作（无下载行），r29 实际未装上。
+- 修复（本单元，workflow only）：改用官方 zip 直下 NDK r29（URL 已验 HTTP 200），校验 `source.properties` 的 `Pkg.Revision` 与 `llvm-strip` 可执行，并把 `ANDROID_NDK_HOME` 写入 `$GITHUB_ENV` 覆盖 runner 默认值。job2 不用 NDK，不动。
+- 下一动作：推修复后的 workflow 触发 run #2，取 job1 的 `strings` 校验结果。
+
 ## Recovery anchor
 
 - 目标：重编 `libplayer.so` 修复改名后 MPV 全灭 + 加固初始化失败路径；验收见 §7。
-- 计划状态：本地实施完成，待 push + CI + 真机验证。
+- 计划状态：CI 首跑因 NDK 问题失败，已修复 workflow，待第二跑。
 - 当前文件/符号：`MpvPlayer.ensureInitialized` / `releaseNativeContextLocked`；`.github/workflows/mpv-native-rebuild.yml`；本文件。
 - 已完成动作与结果：见 Checkpoint 1。
 - 未验证的工作区编辑：无（已提交）。
 - 未解决风险：§6 三项。
-- 下一动作：授权 push 后推分支、触发 CI，取 job1 的 `strings` 校验结果。
+- 下一动作：推修复后的 workflow 触发 run #2，取 job1 的 `strings` 校验结果。
