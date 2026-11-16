@@ -51,7 +51,7 @@ CI 增加 Flutter 构建步骤。验收标准见评估文档 §6（5 条），�
 | 渲染/路由 | 默认：新引擎默认值（opaque SurfaceView、路由 `/`、入口 `main()`） | C0 只需证明渲染 + 往返；不定制 renderMode/transparencyMode/initialRoute。 |
 | 返回键 | `onBackPressed()` 转发给 fragment（文档示例） | 不用 `shouldAutomaticallyHandleOnBackPressed` builder 选项：该选项在 cached-engine builder 上的可用性未核实，文档示例的转发写法是已确立的形态。 |
 | configChanges | 仅 `keyboard\|keyboardHidden\|uiMode` | 旋转/尺寸变化有意不声明，让 Activity 重建，从而验证缓存引擎恢复路径（验收标准 3 的一部分）。 |
-| CI | 专用 workflow `b8-c0.yml`，现有 workflow 不动 | 推送到 `b8-flutter-rewrite` + 手动触发；只构建不发布；复用现有 workflow 的 JDK/签名/Android 包约定。 |
+| CI | 专用 workflow `b8-c0.yml`，现有 workflow 不动 | 推送到 `b8-flutter-rewrite` + 手动触发；构建后发布 C0 专属 prerelease（tag `b8-c0-<run>-<sha7>`，4 个 APK 各自一个附件、可直接下载），不碰 update-channel；复用现有 workflow 的 JDK/签名/Android 包约定。 |
 
 未采纳的备选（已记录，不重议）：预构建 AAR 路由（多一步构建）；Lab/设置内
 加一行入口（要改现有屏，C0 坚持零现有代码改动）；Kotlin 生成（仓库 Java 为主，
@@ -92,7 +92,7 @@ M settings.gradle                        加 download.flutter.io 仓 + hook 求�
 M app/build.gradle                       加 implementation project(':flutter')
 M app/src/mobile/AndroidManifest.xml     加 C0ShellActivity 的 LAUNCHER 条目
 M .gitignore                             加 Flutter 生成物忽略规则
-* .github/workflows/b8-c0.yml            专用 CI workflow（只构建不发布）
+* .github/workflows/b8-c0.yml            专用 CI workflow（构建 + 发 C0 专属 prerelease）
 * docs/b8-c0-shell.md                    本文档
 ```
 
@@ -110,8 +110,8 @@ app/src/main/java/com/github/moyingshi/osc/tv/flutter/C0Messages.java
 
 ## 5. Wei 真机验收步骤（对照评估文档 §6 的 5 条标准）
 
-前置：CI 产物 `b8-c0-<run>-<sha>` 中的 `mobile-arm64_v8a-b8-c0.apk`（Wei 的手机
-用的就是 mobile arm64 包）。安装后桌面会出现两个图标：原“墨影视”和
+前置：C0 专属 prerelease（tag `b8-c0-<run>-<sha7>`）中的 `mobile-arm64_v8a-b8-c0.apk`
+（CI 产物 zip 里也有同一个文件）。安装后桌面会出现两个图标：原“墨影视”和
 “墨影视·Flutter 实验”（图标相同，标签不同）。
 
 标准 1——4 风味 APK 可构建/签名/安装/启动，`main` 零改动：
@@ -119,7 +119,7 @@ CI 侧看 `b8-c0.yml` 运行成功且 artifact 含 4 个 APK；手机侧安装 m
 包能正常打开主应用（原图标）。`main` 零改动由分支结构保证（本分支未合入）。
 
 标准 2——包体积与冷启动增量实测并记录：
-CI 侧看 artifact 内的 `c0-sizes.txt`（4 个 APK 的字节数与 sha256），与同基线
+CI 侧看 prerelease 附件或 artifact 内的 `c0-sizes.txt`（4 个 APK 的字节数与 sha256），与同基线
 原生构建（run 43711533935 的 353 MB 四包产物）对照；增量是否可接受由 Wei 判定，
 本文档不预设阈值。冷启动增量：手机侧分别冷启动原图标与实验图标，主观感受 +
 秒表即可，记录在验收回复里（无自动化测量）。
