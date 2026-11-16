@@ -2,6 +2,7 @@ package com.github.moyingshi.osc.tv.ui.hk;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +21,7 @@ import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
+import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Result;
@@ -29,7 +31,12 @@ import com.github.moyingshi.osc.tv.databinding.FragmentHkSearchBinding;
 import com.github.moyingshi.osc.tv.ui.adapter.VodAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.ui.custom.CustomScroller;
+import com.github.moyingshi.osc.tv.ui.web.CatWebActivity;
 import com.github.moyingshi.osc.tv.utils.Notify;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,11 +60,18 @@ import java.util.Map;
 public class HkSearchFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, HkActionHandler.Host {
 
     private FragmentHkSearchBinding mBinding;
+    private static final String TAG = "HkSearchFragment";
     private CustomScroller mScroller;
     private VodAdapter mAdapter;
     private HkRule mRule;
     private String mKeyword = "";
     private int mLoadSeq;
+    /** refreshPage 事件驱动重载进行中（对齐第 3 项）：loadPage 开始置 true，onPageLoaded 清掉。 */
+    private boolean mLoading;
+    /** 加载进行中收到的 refreshPage：等本次加载完成后再重载一次（不重入、不丢）。 */
+    private boolean mPendingRefresh;
+    /** 攒下的刷新是否回顶（多事件按 OR 合并，有一个要回顶就回顶）。 */
+    private boolean mPendingRefreshToTop;
 
     public static HkSearchFragment newInstance(String title, String keyword) {
         Bundle args = new Bundle();
@@ -116,6 +130,54 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         mBinding.recycler.addOnScrollListener(mScroller);
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
+
+    @Override
+    public void onStop() {
+        EventBus.getDefault().unregister(this);
+        super.onStop();
+    }
+
+    /**
+     * refreshPage 事件（对齐第 3 项，照官方 vr1.onRefreshPage）：只对已 resumed 且可见的
+     * 当前页生效，回顶在重跑之前；加载进行中时攒下来等完成后再重载一次（不重入、不丢）。
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onHkRefreshPage(HkRefreshPageEvent event) {
+        if (event == null || getActivity() == null || getActivity().isFinishing()) return;
+        if (mRule == null) return;
+        if (!isResumed() || !getUserVisibleHint()) {
+            Log.i(TAG, "onHkRefreshPage guard: resumed=" + isResumed() + " visible=" + getUserVisibleHint());
+            return;
+        }
+        if (mLoading) {
+            mPendingRefresh = true;
+            mPendingRefreshToTop = mPendingRefreshToTop || event.isToTop();
+            Log.i(TAG, "onHkRefreshPage deferred: loading in flight");
+            return;
+        }
+        if (event.isToTop() && mBinding != null && mBinding.recycler != null) {
+            mBinding.recycler.scrollToPosition(0);
+        }
+        reloadPage();
+    }
+
+    /** 本次加载完成时消费进行中攒下的 refreshPage：只重载一次（回顶按攒下的值）。 */
+    private void consumePendingRefresh() {
+        if (!mPendingRefresh) return;
+        mPendingRefresh = false;
+        boolean toTop = mPendingRefreshToTop;
+        mPendingRefreshToTop = false;
+        if (toTop && mBinding != null && mBinding.recycler != null) {
+            mBinding.recycler.scrollToPosition(0);
+        }
+        reloadPage();
+    }
+
     /** 按规则 col_type 定样式与列数（单源：HkListHelper 全表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
     private void setStyle(String colType) {
         Style style = HkListHelper.styleFor(colType);
@@ -143,6 +205,7 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             if (!mBinding.swipeLayout.isRefreshing()) mBinding.progressLayout.showProgress();
         }
         final int seq = ++mLoadSeq;
+        mLoading = true;
         final HkRule rule = mRule;
         final String keyword = mKeyword;
         new Thread(() -> {
@@ -158,13 +221,16 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             final List<Vod> result = vods;
             final String err = error;
             App.post(() -> {
-                if (!isAdded() || seq != mLoadSeq) return;
+                if (!isAdded()) { mLoading = false; return; }
+                if (seq != mLoadSeq) return;
                 onPageLoaded(page, append, result, err);
+                consumePendingRefresh();
             });
         }).start();
     }
 
     private void onPageLoaded(int page, boolean append, List<Vod> vods, String error) {
+        mLoading = false;
         mBinding.swipeLayout.setRefreshing(false);
         if (vods == null) {
             if (!append) {
@@ -179,6 +245,8 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             }
             return;
         }
+        // 同一列表内相同 URL 的卡只留一张（翻页每页都回同一张卡时去重；不同 URL 照常追加）。
+        vods = HkListHelper.dedupeByUrl(append ? mAdapter.getItems() : null, vods);
         Result result = new Result();
         result.setList(vods);
         boolean first = mScroller.first();
@@ -195,7 +263,9 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             if (append) {
                 mAdapter.addAll(vods, this::checkMore);
             } else {
-                mAdapter.clear(() -> mAdapter.addAll(vods, this::checkMore));
+                // 去重后 vods 被重赋值，不再是 effectively final，lambda 里用定值拷贝。
+                final List<Vod> finalVods = vods;
+                mAdapter.clear(() -> mAdapter.addAll(finalVods, this::checkMore));
             }
         }
     }
@@ -231,6 +301,12 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         if (mRule != null) {
             HkCard card = new HkCard(item.getName(), item.getId(), item.getPic(), item.getRemarks());
             if (HkActionHandler.handle(this, card)) return;
+        }
+        // x5_webview_single 卡是网页卡（官方 dealWithUrl：x5/web 分流不进详情页；
+        // 星辰无 X5 引擎，走系统 WebView 顶替）：点开进站内 WebView，不进详情页。
+        if (HkListHelper.isX5Url(item.getId())) {
+            startActivity(CatWebActivity.intent(requireContext(), item.getId()));
+            return;
         }
         HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
     }

@@ -3,6 +3,7 @@ package com.github.moyingshi.osc.tv.ui.hk;
 import android.app.Activity;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
@@ -22,11 +23,16 @@ import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkNonVideo;
 import com.github.moyingshi.osc.tv.api.hk.HkParser;
 import com.github.moyingshi.osc.tv.api.hk.HkPlayer;
+import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.utils.Notify;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -61,10 +67,17 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     }
 
     private FragmentHkDetailBinding mBinding;
+    private static final String TAG = "HkDetailFragment";
     private HkDetailAdapter mAdapter;
     private HkRule mRule;
     private HkDetailHelper.Detail mDetail;
     private int mLoadSeq;
+    /** refreshPage 事件驱动重载进行中（对齐第 3 项）：loadDetail 开始置 true，onDetailLoaded 清掉。 */
+    private boolean mLoading;
+    /** 加载进行中收到的 refreshPage：等本次加载完成后再重载一次（不重入、不丢）。 */
+    private boolean mPendingRefresh;
+    /** 攒下的刷新是否回顶（多事件按 OR 合并，有一个要回顶就回顶）。 */
+    private boolean mPendingRefreshToTop;
     /** 页面变量快照（第 7 步之七）：动作执行里 putVar 的值，下次重跑详情时预填。 */
     private Map<String, Object> mVars = new HashMap<>();
 
@@ -100,10 +113,59 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         mBinding.swipeLayout.setOnRefreshListener(this);
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        EventBus.getDefault().register(this);
+    }
+
+    @Override
+    public void onStop() {
+        EventBus.getDefault().unregister(this);
+        super.onStop();
+    }
+
+    /**
+     * refreshPage 事件（对齐第 3 项，照官方 vr1.onRefreshPage）：只对已 resumed 且可见的
+     * 当前页生效，回顶在重跑之前；加载进行中时攒下来等完成后再重载一次（不重入、不丢）。
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onHkRefreshPage(HkRefreshPageEvent event) {
+        if (event == null || getActivity() == null || getActivity().isFinishing()) return;
+        if (mRule == null) return;
+        if (!isResumed() || !getUserVisibleHint()) {
+            Log.i(TAG, "onHkRefreshPage guard: resumed=" + isResumed() + " visible=" + getUserVisibleHint());
+            return;
+        }
+        if (mLoading) {
+            mPendingRefresh = true;
+            mPendingRefreshToTop = mPendingRefreshToTop || event.isToTop();
+            Log.i(TAG, "onHkRefreshPage deferred: loading in flight");
+            return;
+        }
+        if (event.isToTop() && mBinding != null && mBinding.recycler != null) {
+            mBinding.recycler.scrollToPosition(0);
+        }
+        reloadPage();
+    }
+
+    /** 本次加载完成时消费进行中攒下的 refreshPage：只重载一次（回顶按攒下的值）。 */
+    private void consumePendingRefresh() {
+        if (!mPendingRefresh) return;
+        mPendingRefresh = false;
+        boolean toTop = mPendingRefreshToTop;
+        mPendingRefreshToTop = false;
+        if (toTop && mBinding != null && mBinding.recycler != null) {
+            mBinding.recycler.scrollToPosition(0);
+        }
+        reloadPage();
+    }
+
     /** 后台线程跑详情解析，回来带序号防串位（下拉重载时旧结果丢掉）。 */
     private void loadDetail() {
         if (!mBinding.swipeLayout.isRefreshing()) mBinding.progressLayout.showProgress();
         final int seq = ++mLoadSeq;
+        mLoading = true;
         final HkRule rule = mRule;
         final String url = arg("url");
         final String fbName = arg("name");
@@ -132,13 +194,16 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
             final int cols = columns;
             final String err = error;
             App.post(() -> {
-                if (!isAdded() || seq != mLoadSeq) return;
+                if (!isAdded()) { mLoading = false; return; }
+                if (seq != mLoadSeq) return;
                 onDetailLoaded(result, cols, err);
+                consumePendingRefresh();
             });
         }).start();
     }
 
     private void onDetailLoaded(HkDetailHelper.Detail detail, int columns, String error) {
+        mLoading = false;
         mBinding.swipeLayout.setRefreshing(false);
         if (detail == null) {
             // 取数失败：错误态 + 点重试重跑。

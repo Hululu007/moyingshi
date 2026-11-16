@@ -1835,18 +1835,35 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
                 throw new IOException("MPV native context creation is already in progress");
             }
             nativeContextOwner = this;
-            applyPreInitOptions();
-            mpvInit();
-            initialized = true;
-            activeAudioSpdif = config.audioSpdif();
-            dtsHdCoreFallbackAttempted = false;
-            MPVLib.addObserver(this);
-            MPVLib.addLogObserver(this);
-            applyPostInitOptions();
-            applyVideoAspect();
-            applyShaderPipeline(true);
-            observeProperties();
-            syncDiagnosticLogLevel();
+            try {
+                applyPreInitOptions();
+                mpvInit();
+                initialized = true;
+                activeAudioSpdif = config.audioSpdif();
+                dtsHdCoreFallbackAttempted = false;
+                MPVLib.addObserver(this);
+                MPVLib.addLogObserver(this);
+                applyPostInitOptions();
+                applyVideoAspect();
+                applyShaderPipeline(true);
+                observeProperties();
+                syncDiagnosticLogLevel();
+            } catch (Throwable t) {
+                // P12: a failure after the native context exists must not leak it.
+                // Destroy the just-created context and release the process-wide owner
+                // slot so the next playback can create a fresh context instead of
+                // wedging on "already in progress". Destroy is a no-op when init()
+                // itself failed (initializeCreatedContext already reset the flags).
+                if (nativeContextOwner == this) {
+                    try {
+                        mpvDestroyCreatedContext();
+                    } catch (Throwable ignored) {
+                    } finally {
+                        nativeContextOwner = null;
+                    }
+                }
+                throw t;
+            }
         }
     }
 
@@ -3895,8 +3912,11 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     }
 
     private void releaseNativeContextLocked(String reason) {
-        if (!initialized) return;
         boolean ownsNativeContext = nativeContextOwner == this;
+        // P12: an instance that owns the native context must be able to destroy it
+        // even when init never completed; skipping on !initialized alone leaks the
+        // context and wedges the process-wide creation gate forever.
+        if (!initialized && !ownsNativeContext) return;
         try {
             if (ownsNativeContext && (surfaceAttached || osdSurfaceAttached)) detachMpvSurface();
         } catch (Throwable ignored) {

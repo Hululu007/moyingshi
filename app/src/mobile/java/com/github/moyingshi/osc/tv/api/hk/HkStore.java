@@ -18,6 +18,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -241,6 +242,63 @@ public class HkStore {
     }
 
     /**
+     * rc/require 的远程库缓存文件（对齐第 1 项，照官方 require0 的命名）：
+     * `plugins/hk/libs/&lt;md5(url)&gt;.js`。与 hkzip 解包的 basename 文件同目录，
+     * 32 位 hex 名与真实库文件名基本不会撞；万一撞上，读到的就是那个同名文件
+     * （与官方共用 libs/ 目录的做法一致）。
+     * url 为空返回 null。
+     */
+    public static File rcCacheFile(String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        String hex = md5Hex(url.trim());
+        if (TextUtils.isEmpty(hex)) return null;
+        return new File(libsDir(), hex + ".js");
+    }
+
+    /** rc/require 缓存的版本 meta 文件：`plugins/hk/libs/&lt;md5(url)&gt;.json`。 */
+    public static File rcCacheMetaFile(String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        String hex = md5Hex(url.trim());
+        if (TextUtils.isEmpty(hex)) return null;
+        return new File(libsDir(), hex + ".json");
+    }
+
+    /**
+     * 写 rc/require 缓存：库代码写 `<md5>.js`，meta（url + fetchedAt）写
+     * `<md5>.json`。写盘失败只记日志、不抛错——缓存是 best-effort，绝不能
+     * 阻断本次 require（写失败时本次仍用刚抓到的代码 eval）。
+     * 有效期按文件 lastModified 计（写文件即更新 mtime），与官方一致。
+     */
+    public static void saveRcCache(String url, String code) {
+        if (TextUtils.isEmpty(url) || code == null) return;
+        try {
+            File js = rcCacheFile(url);
+            File meta = rcCacheMetaFile(url);
+            if (js == null || meta == null) return;
+            writeFile(js, code.getBytes(StandardCharsets.UTF_8));
+            JsonObject metaJson = new JsonObject();
+            metaJson.addProperty("url", url.trim());
+            metaJson.addProperty("fetchedAt", System.currentTimeMillis());
+            writeFile(meta, metaJson.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            Log.w(TAG, "saveRcCache failed: " + url, e);
+        }
+    }
+
+    /** md5 小写 hex（与 HkEngine.Bridge.md5 同款格式，供缓存文件名用）。 */
+    private static String md5Hex(String s) {
+        if (s == null) return "";
+        try {
+            byte[] digest = MessageDigest.getInstance("MD5").digest(s.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(32);
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
      * 某条规则的私有数据文件：plugins/hk/data/&lt;标题&gt;/&lt;name&gt;。
      * name 可带 hiker://files/ 前缀（剥掉）或子路径（如 libs/&lt;md5&gt;.js）；
      * 含 .. 越界时回落到 basename，根目录恒为该规则的 data 目录，不会写到外面。
@@ -310,14 +368,52 @@ public class HkStore {
         return writeDataFile(title, "myvar.json", json);
     }
 
-    /** getItem/setItem 的后端：data/&lt;标题&gt;/items.json，字符串 KV 的整文件读。 */
+    /**
+     * getItem/setItem 的后端：data/&lt;标题&gt;/kv.json（官方 kvFile()，对齐第 5 项）。
+     * 旧版写的是 items.json：kv.json 为空且旧文件存在时读旧文件（一次性迁移读，
+     * 下次 setItem 即写 kv.json；旧文件原地保留，删不删都不影响读取）。
+     */
     public static String readItems(String title) {
-        return readDataFile(title, "items.json");
+        String json = readDataFile(title, "kv.json");
+        if (!TextUtils.isEmpty(json)) return json;
+        if (dataFile(title, "items.json").exists()) return readDataFile(title, "items.json");
+        return json;
     }
 
-    /** getItem/setItem 的后端：data/&lt;标题&gt;/items.json 的整文件写。 */
+    /** getItem/setItem 的后端：data/&lt;标题&gt;/kv.json 的整文件写（官方 kvFile()）。 */
     public static boolean saveItems(String title, String json) {
-        return writeDataFile(title, "items.json", json);
+        return writeDataFile(title, "kv.json", json);
+    }
+
+    /**
+     * 公共 KV 文件（getPublicItem/setPublicItem/clearPublicItem 的后端，全规则共享）：
+     * filesDir/plugins/hk/rules/_item00.json。官方是外部 Documents 下的
+     * rules/_item00.json（HkJsRuntime.publicKvFile 经 getFilePath）；这里用内部
+     * 存储同名文件，规则看不到路径差异，也无外部存储不可用的边角。
+     */
+    public static File publicKvFile() {
+        File file = new File(new File(dir(), "rules"), "_item00.json");
+        if (file.getParentFile() != null) file.getParentFile().mkdirs();
+        return file;
+    }
+
+    /** 公共 KV 的整文件读，缺失回 ""。 */
+    public static String readPublicItems() {
+        File file = publicKvFile();
+        if (!file.exists() || file.isDirectory()) return "";
+        String text = readFile(file);
+        return text == null ? "" : text;
+    }
+
+    /** 公共 KV 的整文件写。 */
+    public static boolean savePublicItems(String json) {
+        try {
+            writeFile(publicKvFile(), json == null ? new byte[0] : json.getBytes(StandardCharsets.UTF_8));
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "savePublicItems failed", e);
+            return false;
+        }
     }
 
     /**

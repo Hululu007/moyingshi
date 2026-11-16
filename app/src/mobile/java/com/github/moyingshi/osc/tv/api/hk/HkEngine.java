@@ -37,6 +37,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -87,16 +92,30 @@ public class HkEngine {
      * toast）、请求（fetch/post/request/getResCode）、DOM（parseDom/pdfh/pdfa）、
      * 编解码（md5/base64）、变量（putVar/getVar/putMyVar/getMyVar/getParam，
      * putVar 支持 {key, value} 对象形式）、文件与持久 KV（readFile/writeFile/
-     * saveFile/fileExist/deleteFile、getItem/setItem；myVar 与 item 都落盘到
+     * saveFile/fileExist/deleteFile、getItem/setItem（对齐第 5 项：落盘
+     * data/&lt;标题&gt;/kv.json，三参可跨规则读写；`storage0` 对象照官方
+     * plugin.js，getItem/setItem/getPublicItem/setPublicItem/getVar/putVar/
+     * getMyVar/putMyVar，JSON 自动转换；公共 KV 在 rules/_item00.json，
+     * 全规则共享）；myVar 与 item 都落盘到
      * plugins/hk/data/&lt;标题&gt;/，见 {@link HkStore}）、子页面与库
      * （require/$.require 走 {@link HkSubpage}，库 URL 走 require.json 清单）、
-     * 规则配置（config 对象 + initConfig(o) 合并 + rc(url) 走 require 取库；
-     * config 每次求值新建，initConfig 在 preRule 里设的值同求值内可见）、
+     * 规则配置（对齐第 1 项，照官方 plugin.js 的 JS 版：`config` 是全局上的
+     * accessor，get 时 `config0` 为空才从 `getMyVar('initConfig')` 懒加载并缓存，
+     * set 只写 `config0`、不回写存储；`initConfig(o)` 把对象**合并**进
+     * `getMyVar('initConfig')` 的 JSON（非对象/空对象入参时返回现有 config、
+     * 不写不抛，见 docs/miniapp-align-1-config.md §3.1/§3.3）；存储是
+     * per-rule 的 `putMyVar`/`getMyVar`（内存 + `data/&lt;标题&gt;/myvar.json`，
+     * 按标题隔离，等价于官方 varMap 的 `&lt;标题&gt;@initConfig` 键）——preRule
+     * 每次求值前都跑，播种后同进程后续求值都读得到；`config/*.json` 磁盘文件
+     * 官方 JS 版不写、且在我们这里是 require.json 清单的存放处，故不写它。
+     * `rc(url, hours)` 走 `requireCache`：小时数兑现（默认 24，-1 永久，0 永不
+     * 命中，见 {@link #isCacheFresh}）；plain `require` 传 -1，与官方一致。
      * 域内变量（MY_URL/MY_HOME/MY_RULE/MY_PAGE/MY_TYPE/MY_PARAMS/MOBILE_UA/
      * PC_UA）与 $ 工具（$.toString/$.stringify/$.require/$.hiker/$.importParam/
      * $.exports；$ 本身可调用，返回带 lazyRule/input 的构造器，只产字符串，
      * 点击执行走 {@link HkActionHandler}（第 7 步之七）；getUrl()/getHome()
-     * 取当前页/主页地址，refreshPage() 置位后由点击执行路径决定是否重跑当前页。
+     * 取当前页/主页地址，refreshPage() 置位并发事件驱动当前页重求值（对齐第 3 项，
+     * 见 {@link HkRefreshPageEvent}；点击懒规则求值时事件关掉、只置位，由调用方消费）。
      * 暂不支持的（xpath/getCryptoJS/aes/encodeStr 等）在 BOOTSTRAP 里是会抛
      * 明确错误的桩，不是静默缺失——规则用到了能在日志里一眼看到缺的是哪个 API。
      * batchFetch 已实现（见 {@link Bridge#batchFetch}），不再是桩。
@@ -107,8 +126,9 @@ public class HkEngine {
      */
     private static final String BOOTSTRAP = """
             function __unsupported(name) { return function() { throw new Error(name + ' 暂不支持（小程序地基第 1 步未实现）'); }; }
-            function fetch(url, options) { return __hk.fetch(url, options); }
-            function post(url, options) { return __hk.post(url, options); }
+            function __jsStr(v) { if (v == null || typeof v === 'string') return v; try { if (v instanceof java.lang.String) return String(v); } catch (e) {} return v; }
+            function fetch(url, options) { return __jsStr(__hk.fetch(url, options)); }
+            function post(url, options) { return __jsStr(__hk.post(url, options)); }
             function getResCode() { return __hk.getResCode(); }
             function setResult(d) { __hk.setResult(d); }
             function setHomeResult(d) { __hk.setResult(d); }
@@ -123,42 +143,115 @@ public class HkEngine {
             var pdfh = parseDomForHtml;
             function parseDomForArray(html, sel) { return __hk.parseDomForArray(html, sel); }
             var pdfa = parseDomForArray;
-            function md5(x) { return __hk.md5(x); }
-            function base64Encode(x) { return __hk.base64Encode(x); }
-            function base64Decode(x) { return __hk.base64Decode(x); }
+            function md5(x) { return __jsStr(__hk.md5(x)); }
+            function base64Encode(x) { return __jsStr(__hk.base64Encode(x)); }
+            function base64Decode(x) { return __jsStr(__hk.base64Decode(x)); }
             function putVar(k, v) { __hk.putVar(k, v); }
-            function getUrl() { return __hk.getPageUrl(); }
-            function getHome(url) { return __hk.getHome(url); }
+            function getUrl() { return __jsStr(__hk.getPageUrl()); }
+            function getHome(url) { return __jsStr(__hk.getHome(url)); }
             function setPageTitle(t) { __hk.setPageTitle(t); }
-            function refreshPage() { __hk.refreshPage(); }
-            function getVar(k, d) { return __hk.getVar(k, d); }
+            function refreshPage(scrollTop) { if (scrollTop === undefined) { __hk.refreshPage(); } else { __hk.refreshPage(scrollTop); } }
+            function getVar(k, d) { return __jsStr(__hk.getVar(k, d)); }
             function clearVar(k) { if (k === undefined || k === null) { __hk.clearVar(); } else { __hk.clearVar(String(k)); } }
             function putMyVar(k, v) { __hk.putMyVar(k, v); }
-            function getMyVar(k, d) { return __hk.getMyVar(k, d); }
+            function getMyVar(k, d) { return __jsStr(__hk.getMyVar(k, d)); }
             function clearMyVar() { __hk.clearMyVar(); }
-            function getParam(k, d) { return __hk.getParam(k, d); }
-            function readFile(name) { return __hk.readFile(name); }
+            function getParam(k, d) { return __jsStr(__hk.getParam(k, d)); }
+            function readFile(name) { return __jsStr(__hk.readFile(name)); }
             function writeFile(name, content) { return __hk.writeFile(name, content); }
             function saveFile(name, content) { return __hk.saveFile(name, content); }
             function fileExist(name) { return __hk.fileExist(name); }
             function deleteFile(name) { return __hk.deleteFile(name); }
-            function getItem(k, d) { return __hk.getItem(k, d); }
-            function setItem(k, v) { __hk.setItem(k, v); }
+            function getItem(k, d, t) { return __jsStr(__hk.getItem(k, d, t)); }
+            function setItem(k, v, t) { __hk.setItem(k, v, t); }
+            function getPublicItem(k, d) { return __jsStr(__hk.getPublicItem(k, d)); }
+            function setPublicItem(k, v) { __hk.setPublicItem(k, v); }
+            function clearPublicItem(k) { __hk.clearPublicItem(k); }
+            // storage0（对齐第 5 项，照官方 plugin.js）：与官方两处必要改写——
+            // toJsonObj 先判 typeof（我们的 getVar/getMyVar 可能返回真对象，
+            // 官方只返回字符串）；{ / [ 判断用 charAt 而不用 startsWith/endsWith。
+            function toJsonStr(obj) {
+              if (obj == null) { obj = ''; }
+              if (typeof obj !== 'string') { obj = JSON.stringify(obj); }
+              return obj;
+            }
+            function toJsonObj(a) {
+              if (!a) { return a; }
+              if (typeof a !== 'string') { return a; }
+              if (a.charAt(0) === '{' && a.charAt(a.length - 1) === '}') {
+                try { return JSON.parse(a); } catch (e) {}
+              }
+              if (a.charAt(0) === '[' && a.charAt(a.length - 1) === ']') {
+                try { return JSON.parse(a); } catch (e) {}
+              }
+              return a;
+            }
+            var storage0 = {
+              getItem: function(key, defaultVal) {
+                var a = getItem(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              setItem: function(key, obj) { setItem(key, toJsonStr(obj)); },
+              getPublicItem: function(key, defaultVal) {
+                var a = getPublicItem(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              setPublicItem: function(key, obj) { setPublicItem(key, toJsonStr(obj)); },
+              getVar: function(key, defaultVal) {
+                var a = getVar(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              putVar: function(key, obj) { putVar(key, toJsonStr(obj)); },
+              getMyVar: function(key, defaultVal) {
+                var a = getMyVar(key, toJsonStr(defaultVal));
+                return toJsonObj(a);
+              },
+              putMyVar: function(key, obj) { putMyVar(key, toJsonStr(obj)); }
+            };
             function confirm(o) { return __hk.confirm(o); }
             function select(o) { return __hk.select(o); }
             function require(url, params) { return __hk.require(url, params); }
-            var config = {};
-            function initConfig(o) { if (o && typeof o === 'object') { for (var k in o) { config[k] = o[k]; } } return config; }
-            function rc(url, hours) { return __hk.require(url); }
+            (function(windows) {
+              function initConfig(obj) {
+                if (obj == null || typeof obj !== 'object') { return windows.config; }
+                var merged = {};
+                try { var s = getMyVar('initConfig', '{}'); if (s) { merged = JSON.parse(s); } } catch (e) {}
+                var empty = true;
+                try { empty = (JSON.stringify(obj) === '{}'); } catch (e) { empty = true; }
+                if (empty) { return windows.config; }
+                var keys = Object.keys(obj);
+                for (var i = 0; i < keys.length; i++) { merged[keys[i]] = obj[keys[i]]; }
+                putMyVar('initConfig', JSON.stringify(merged));
+                windows.config = merged;
+                return windows.config;
+              }
+              windows.initConfig = initConfig;
+              try {
+                Object.defineProperty(windows, "config", {
+                  enumerable: true,
+                  configurable: true,
+                  get: function() {
+                    if (windows.config0 == null) {
+                      var c = {};
+                      try { var s = getMyVar('initConfig', '{}'); if (s) { c = JSON.parse(s); } } catch (e) {}
+                      windows.config0 = c;
+                    }
+                    return windows.config0;
+                  },
+                  set: function(v) { windows.config0 = v; }
+                });
+              } catch (e) { log(e.toString()); }
+            })(this);
+            function rc(url, hours) { return __hk.requireCache(url, hours); }
             function getRule() { return JSON.parse(__hk.getRuleJson()); }
             var MY_RULE = JSON.parse(__hk.getRuleJson());
             var MY_PARAMS = JSON.parse(__hk.getParamsJson());
-            var MY_URL = __hk.getPageUrl();
-            var MY_HOME = __hk.getHomeUrl();
+            var MY_URL = __jsStr(__hk.getPageUrl());
+            var MY_HOME = __jsStr(__hk.getHomeUrl());
             var MY_PAGE = __hk.getPage();
-            var MY_TYPE = __hk.getPageType();
-            var MOBILE_UA = __hk.getMobileUa();
-            var PC_UA = __hk.getPcUa();
+            var MY_TYPE = __jsStr(__hk.getPageType());
+            var MOBILE_UA = __jsStr(__hk.getMobileUa());
+            var PC_UA = __jsStr(__hk.getPcUa());
             function $(sel, hint) {
               var s = (sel === undefined || sel === null) ? '' : String(sel);
               return {
@@ -175,14 +268,14 @@ public class HkEngine {
             var xpath = __unsupported('xpath');
             var xpa = xpath;
             var xpathArray = __unsupported('xpathArray');
-            function batchFetch(arr) { return __hk.batchFetch(arr); }
+            function batchFetch(arr, threadNum) { return __hk.batchFetch(arr, threadNum); }
             var bf = batchFetch;
             var getCryptoJS = __unsupported('getCryptoJS');
             var encodeStr = __unsupported('encodeStr');
             var decodeStr = __unsupported('decodeStr');
             var aesEncode = __unsupported('aesEncode');
             var aesDecode = __unsupported('aesDecode');
-            function request(url, options) { return __hk.fetch(url, options); }
+            function request(url, options) { return __jsStr(__hk.fetch(url, options)); }
             if (typeof unescape === 'undefined') { var unescape = function(s) { try { return decodeURIComponent(String(s)); } catch (e) { return String(s); } }; }
             """;
 
@@ -218,6 +311,50 @@ public class HkEngine {
         }
     }
 
+    /**
+     * fetch/batchFetch 共用的抓取选项。纯 Java 持有者，可跨线程（batchFetch 的
+     * 工作线程只碰它，不碰 Rhino 对象；见 docs/miniapp-align-4-batch-fetch.md）。
+     * body 只取线程安全的形态：String、表单 Map&lt;String,String&gt;（ArrayMap）、null。
+     */
+    private static final class FetchOpts {
+        final Map<String, String> headers;
+        final String method;
+        final Object body;
+        final long timeout;
+        /** withHeaders 或 withStatusCode：返回 wrapFetch 包络 JSON，而不是纯体。 */
+        final boolean envelope;
+        /** redirect:false 时为 false（不跟随重定向）。 */
+        final boolean followRedirects;
+        /** onlyHeaders：只要状态码 + 头，不读体。 */
+        final boolean onlyHeaders;
+
+        FetchOpts(Map<String, String> headers, String method, Object body, long timeout,
+                  boolean envelope, boolean followRedirects, boolean onlyHeaders) {
+            this.headers = headers;
+            this.method = method;
+            this.body = body;
+            this.timeout = timeout;
+            this.envelope = envelope;
+            this.followRedirects = followRedirects;
+            this.onlyHeaders = onlyHeaders;
+        }
+
+        static FetchOpts defaults() {
+            return new FetchOpts(new HashMap<>(), "GET", null, DEFAULT_TIMEOUT_MS, false, true, false);
+        }
+    }
+
+    /** batchFetch 的一项：调用线程上从 JS 值抽出的纯 Java 持有者，可安全跨线程。 */
+    private static final class BatchItem {
+        final String url;
+        final FetchOpts opts;
+
+        BatchItem(String url, FetchOpts opts) {
+            this.url = url;
+            this.opts = opts;
+        }
+    }
+
     /** JS 通过 __hk 调到的 Java 桥。必须是 public static 类，否则 Rhino 反射调不到方法。 */
     public static class Bridge {
         private final HkEngine engine;
@@ -230,32 +367,17 @@ public class HkEngine {
             return fetch(url, null);
         }
 
-        /** 同步请求，返回响应体字符串；options 支持 headers/method/body/timeout。 */
+        /**
+         * 同步请求，返回响应体字符串；options 支持 headers/method/body/timeout，
+         * 以及 withHeaders/withStatusCode（返回 wrapFetch 包络 JSON）、
+         * redirect:false（不跟随重定向）、onlyHeaders（只要状态码 + 头，不读体）。
+         * 官方 fetchSync 同款语义，见 docs/miniapp-align-4-batch-fetch.md §3.2。
+         */
         public String fetch(String url, Object options) throws HkException {
             if (TextUtils.isEmpty(url)) return "";
-            Map<String, String> headers = new HashMap<>();
-            String method = "GET";
-            Object body = null;
-            long timeout = DEFAULT_TIMEOUT_MS;
-            if (options instanceof NativeObject) {
-                NativeObject opt = (NativeObject) options;
-                Object h = ScriptableObject.getProperty(opt, "headers");
-                if (h instanceof NativeObject) {
-                    NativeObject headersObj = (NativeObject) h;
-                    for (Object id : headersObj.getIds()) {
-                        String key = String.valueOf(id);
-                        Object value = ScriptableObject.getProperty(headersObj, key);
-                        if (value != null && !(value instanceof Undefined)) headers.put(key, Context.toString(value));
-                    }
-                }
-                Object m = ScriptableObject.getProperty(opt, "method");
-                if (m instanceof String && !((String) m).isEmpty()) method = ((String) m).toUpperCase();
-                body = ScriptableObject.getProperty(opt, "body");
-                if (body instanceof Undefined) body = null;
-                Object t = ScriptableObject.getProperty(opt, "timeout");
-                if (t instanceof Number) timeout = ((Number) t).longValue();
-            }
-            return engine.httpFetch(url, headers, method, body, timeout);
+            FetchOpts opts = options instanceof NativeObject
+                    ? fetchOptsFromNativeObject((NativeObject) options) : FetchOpts.defaults();
+            return engine.httpFetch(url, opts);
         }
 
         public String post(String url, Object options) throws HkException {
@@ -267,34 +389,241 @@ public class HkEngine {
         }
 
         /**
-         * 批量抓取（地基第 1 步留下的抛错桩在此实现）：入参是
-         * [{url, method?, headers?, body?, timeout?}] 或纯 URL 字符串数组；
-         * 逐项同步抓（顺序），单项失败记 "" 不抛，让规则自己的循环跳过；
-         * 返回 NativeArray 字符串数组。非数组入参返回空数组。
+         * 批量抓取（对齐第 4 项，照官方 batchFetchImpl）：入参是
+         * [{url, options}]（options 是嵌套对象）或纯 URL 字符串数组，也接受
+         * JSON 字符串形式的数组；并发 min(n,16)，第二参 threadNum 可覆盖；
+         * 整体超时 (n/16)*10+10 秒；单项失败记 "" 不抛，超时未完成位为 null；
+         * 返回按下标对齐的 NativeArray。非数组入参返回空数组。
+         * 入参在调用线程上抽成纯 Java 的 BatchItem，Rhino 对象不跨线程；
+         * 工作线程只调 {@link HkEngine#httpFetch(String, FetchOpts)}（纯 Java，
+         * 不碰 Rhino，不需进 Context）。见 docs/miniapp-align-4-batch-fetch.md。
          */
         public Object batchFetch(Object arg) {
-            List<String> out = new ArrayList<>();
-            if (arg instanceof NativeArray) {
-                NativeArray arr = (NativeArray) arg;
-                for (int i = 0; i < arr.size(); i++) {
-                    Object item = arr.get(i, arr);
-                    try {
-                        if (item instanceof String) {
-                            out.add(fetch((String) item));
-                        } else if (item instanceof NativeObject) {
-                            Object u = ScriptableObject.getProperty((NativeObject) item, "url");
-                            out.add(u == null || u instanceof Undefined ? "" : fetch(Context.toString(u), item));
-                        } else {
-                            out.add("");
-                        }
-                    } catch (Exception e) {
-                        out.add("");
-                    }
+            return batchFetch(arg, null);
+        }
+
+        public Object batchFetch(Object arg, Object threadNum) {
+            List<BatchItem> items = extractBatchItems(arg);
+            int size = items.size();
+            Context cx = Context.getCurrentContext();
+            if (size == 0) return emptyJsArray(cx);
+            int poolSize = Math.min(size, 16);
+            if (threadNum != null && !(threadNum instanceof Undefined)) {
+                try {
+                    poolSize = Math.max(1, Math.min(size, (int) toBatchThreadNum(threadNum)));
+                } catch (Exception ignored) {
+                    // 解析失败回落默认 min(size,16)，与官方一致。
                 }
             }
-            Context cx = Context.getCurrentContext();
-            if (cx == null) return out.toArray(new String[0]);
-            return cx.newArray(engine.scope, out.toArray(new String[0]));
+            ExecutorService pool = Executors.newFixedThreadPool(poolSize);
+            ConcurrentHashMap<Integer, String> results = new ConcurrentHashMap<>();
+            CountDownLatch latch = new CountDownLatch(size);
+            try {
+                for (int i = 0; i < size; i++) {
+                    final int index = i;
+                    final BatchItem item = items.get(i);
+                    pool.execute(() -> {
+                        try {
+                            String text = item.url == null ? "" : engine.httpFetch(item.url, item.opts);
+                            results.put(index, text == null ? "" : text);
+                        } catch (Throwable t) {
+                            // 官方同款：单项失败该位 ""，不抛。
+                            results.put(index, "");
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                }
+                // 官方同款：(size/16)*10+10 秒（整除）；超时后未入位的槽组装时为 null。
+                latch.await((size / 16) * 10 + 10, TimeUnit.SECONDS);
+            } catch (Throwable t) {
+                Log.w(TAG, "batchFetch failed: " + t.getMessage());
+                return emptyJsArray(cx);
+            } finally {
+                pool.shutdownNow();
+            }
+            Object[] out = new Object[size];
+            for (int i = 0; i < size; i++) out[i] = results.get(i);
+            if (cx == null) return out;
+            return cx.newArray(engine.scope, out);
+        }
+
+        private Object emptyJsArray(Context cx) {
+            if (cx == null) return new Object[0];
+            return cx.newArray(engine.scope, new Object[0]);
+        }
+
+        private static double toBatchThreadNum(Object v) {
+            if (v instanceof Number) return ((Number) v).doubleValue();
+            if (v instanceof String) return Double.parseDouble(((String) v).trim());
+            throw new IllegalArgumentException("not a number: " + v);
+        }
+
+        /** 调用线程上把 batchFetch 入参抽成 BatchItem 列表；非法入参 → 空列表。 */
+        private static List<BatchItem> extractBatchItems(Object arg) {
+            List<BatchItem> items = new ArrayList<>();
+            if (arg instanceof NativeArray) {
+                NativeArray arr = (NativeArray) arg;
+                for (int i = 0; i < arr.size(); i++) items.add(batchItemFromJs(arr.get(i, arr)));
+            } else if (arg instanceof String) {
+                // 官方同款：字符串入参按 JSON 数组解析，不是数组则空数组。
+                try {
+                    JsonElement parsed = JsonParser.parseString((String) arg);
+                    if (parsed != null && parsed.isJsonArray()) {
+                        for (JsonElement el : parsed.getAsJsonArray()) items.add(batchItemFromJson(el));
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+            return items;
+        }
+
+        private static BatchItem batchItemFromJs(Object item) {
+            if (item instanceof String) {
+                return new BatchItem((String) item, FetchOpts.defaults());
+            }
+            if (item instanceof NativeObject) {
+                NativeObject obj = (NativeObject) item;
+                Object u = ScriptableObject.getProperty(obj, "url");
+                String url = (u == null || u == Scriptable.NOT_FOUND || u instanceof Undefined) ? null : Context.toString(u);
+                Object options = ScriptableObject.getProperty(obj, "options");
+                FetchOpts opts = options instanceof NativeObject
+                        ? fetchOptsFromNativeObject((NativeObject) options) : FetchOpts.defaults();
+                return new BatchItem(url, opts);
+            }
+            return new BatchItem(null, FetchOpts.defaults());
+        }
+
+        private static BatchItem batchItemFromJson(JsonElement el) {
+            if (el == null || el.isJsonNull()) return new BatchItem(null, FetchOpts.defaults());
+            if (el.isJsonPrimitive()) {
+                JsonPrimitive p = el.getAsJsonPrimitive();
+                return new BatchItem(p.isString() ? p.getAsString() : p.toString(), FetchOpts.defaults());
+            }
+            if (el.isJsonObject()) {
+                JsonObject obj = el.getAsJsonObject();
+                String url = obj.has("url") && !obj.get("url").isJsonNull()
+                        ? jsonToString(obj.get("url")) : null;
+                FetchOpts opts = obj.has("options") && obj.get("options").isJsonObject()
+                        ? fetchOptsFromJson(obj.getAsJsonObject("options")) : FetchOpts.defaults();
+                return new BatchItem(url, opts);
+            }
+            return new BatchItem(null, FetchOpts.defaults());
+        }
+
+        /** 从 JS options 对象抽取抓取选项（调用线程上读 NativeObject，不跨线程）。 */
+        private static FetchOpts fetchOptsFromNativeObject(NativeObject opt) {
+            Map<String, String> headers = new HashMap<>();
+            String method = "GET";
+            Object body = null;
+            long timeout = DEFAULT_TIMEOUT_MS;
+            boolean envelope = false;
+            boolean followRedirects = true;
+            boolean onlyHeaders = false;
+            if (opt != null) {
+                Object h = ScriptableObject.getProperty(opt, "headers");
+                if (h instanceof NativeObject) {
+                    NativeObject headersObj = (NativeObject) h;
+                    for (Object id : headersObj.getIds()) {
+                        String key = String.valueOf(id);
+                        Object value = ScriptableObject.getProperty(headersObj, key);
+                        if (value != null && value != Scriptable.NOT_FOUND && !(value instanceof Undefined)) headers.put(key, Context.toString(value));
+                    }
+                }
+                Object m = ScriptableObject.getProperty(opt, "method");
+                if (m instanceof String && !((String) m).isEmpty()) method = ((String) m).toUpperCase(Locale.ROOT);
+                body = ScriptableObject.getProperty(opt, "body");
+                if (body instanceof Undefined || body == Scriptable.NOT_FOUND) body = null;
+                else if (body instanceof NativeObject) body = formParams((NativeObject) body);
+                Object t = ScriptableObject.getProperty(opt, "timeout");
+                if (t instanceof Number) timeout = ((Number) t).longValue();
+                envelope = jsTruthy(ScriptableObject.getProperty(opt, "withHeaders"))
+                        || jsTruthy(ScriptableObject.getProperty(opt, "withStatusCode"));
+                Object r = ScriptableObject.getProperty(opt, "redirect");
+                if (r instanceof Boolean) followRedirects = (Boolean) r;
+                onlyHeaders = jsTruthy(ScriptableObject.getProperty(opt, "onlyHeaders"));
+            }
+            return new FetchOpts(headers, method, body, timeout, envelope, followRedirects, onlyHeaders);
+        }
+
+        /** 从 JSON options 对象抽取抓取选项（字符串入参路径，与上面同款语义）。 */
+        private static FetchOpts fetchOptsFromJson(JsonObject opt) {
+            Map<String, String> headers = new HashMap<>();
+            String method = "GET";
+            Object body = null;
+            long timeout = DEFAULT_TIMEOUT_MS;
+            boolean envelope = false;
+            boolean followRedirects = true;
+            boolean onlyHeaders = false;
+            if (opt != null) {
+                if (opt.has("headers") && opt.get("headers").isJsonObject()) {
+                    for (Map.Entry<String, JsonElement> e : opt.getAsJsonObject("headers").entrySet()) {
+                        if (e.getValue() != null && !e.getValue().isJsonNull()) headers.put(e.getKey(), jsonToString(e.getValue()));
+                    }
+                }
+                if (opt.has("method") && opt.get("method").isJsonPrimitive()) {
+                    String m = opt.get("method").getAsString();
+                    if (!m.isEmpty()) method = m.toUpperCase(Locale.ROOT);
+                }
+                if (opt.has("body") && !opt.get("body").isJsonNull()) {
+                    JsonElement b = opt.get("body");
+                    if (b.isJsonPrimitive()) body = b.getAsJsonPrimitive().isString() ? b.getAsString() : b.toString();
+                    else if (b.isJsonObject()) {
+                        ArrayMap<String, String> params = new ArrayMap<>();
+                        for (Map.Entry<String, JsonElement> e : b.getAsJsonObject().entrySet()) {
+                            if (e.getValue() != null && !e.getValue().isJsonNull()) params.put(e.getKey(), jsonToString(e.getValue()));
+                        }
+                        body = params;
+                    } else body = b.toString();
+                }
+                if (opt.has("timeout") && opt.get("timeout").isJsonPrimitive()) {
+                    try {
+                        timeout = opt.get("timeout").getAsLong();
+                    } catch (Exception ignored) {
+                    }
+                }
+                envelope = jsonTruthy(opt.get("withHeaders")) || jsonTruthy(opt.get("withStatusCode"));
+                if (opt.has("redirect") && opt.get("redirect").isJsonPrimitive()
+                        && opt.get("redirect").getAsJsonPrimitive().isBoolean()) {
+                    followRedirects = opt.get("redirect").getAsBoolean();
+                }
+                onlyHeaders = jsonTruthy(opt.get("onlyHeaders"));
+            }
+            return new FetchOpts(headers, method, body, timeout, envelope, followRedirects, onlyHeaders);
+        }
+
+        /** NativeObject 形式的表单 body 在调用线程转成 ArrayMap（线程安全形态）。 */
+        private static ArrayMap<String, String> formParams(NativeObject obj) {
+            ArrayMap<String, String> params = new ArrayMap<>();
+            for (Object id : obj.getIds()) {
+                String key = String.valueOf(id);
+                Object value = ScriptableObject.getProperty(obj, key);
+                if (value != null && value != Scriptable.NOT_FOUND && !(value instanceof Undefined)) params.put(key, Context.toString(value));
+            }
+            return params;
+        }
+
+        private static boolean jsTruthy(Object v) {
+            if (v == null || v instanceof Undefined) return false;
+            if (v instanceof Boolean) return (Boolean) v;
+            if (v instanceof Number) return ((Number) v).doubleValue() != 0.0d;
+            if (v instanceof String) return "true".equalsIgnoreCase((String) v);
+            return false;
+        }
+
+        private static boolean jsonTruthy(JsonElement v) {
+            if (v == null || v.isJsonNull() || !v.isJsonPrimitive()) return false;
+            JsonPrimitive p = v.getAsJsonPrimitive();
+            if (p.isBoolean()) return p.getAsBoolean();
+            if (p.isNumber()) return p.getAsDouble() != 0.0d;
+            if (p.isString()) return "true".equalsIgnoreCase(p.getAsString());
+            return false;
+        }
+
+        private static String jsonToString(JsonElement v) {
+            if (v == null || v.isJsonNull()) return "";
+            if (v.isJsonPrimitive() && v.getAsJsonPrimitive().isString()) return v.getAsString();
+            return v.toString();
         }
 
         public String getResCode() {
@@ -329,12 +658,33 @@ public class HkEngine {
         }
 
         /**
-         * 海阔 refreshPage()：记一条日志 + 置位（点击执行路径读它，决定是否重跑当前页；
-         * 别的路径不读，行为不变）。
+         * 海阔 refreshPage(scrollTop?)：置位 + 事件驱动当前页重求值（对齐第 3 项，
+         * 照官方 lambda$registerApi$138：refreshRequested / refreshToTop 无条件置位，
+         * 事件 200ms 节流；scrollTop 无参/非布尔参回顶，false 不回顶，见 refreshScrollTop）。
+         * 事件开关关时（如点击懒规则求值，见 {@link HkEngine#setRefreshEventEnabled}）
+         * 只置位不发事件，刷新由调用方经 wasRefreshRequested() 消费。
          */
         public void refreshPage() {
+            requestRefresh(true);
+        }
+
+        public void refreshPage(Object scrollTop) {
+            requestRefresh(scrollTop instanceof Boolean ? (Boolean) scrollTop : true);
+        }
+
+        private void requestRefresh(boolean toTop) {
             engine.refreshRequested = true;
-            Log.i(TAG, "rule refreshPage requested");
+            engine.refreshToTop = toTop;
+            if (!engine.refreshEventEnabled) {
+                Log.i(TAG, "rule refreshPage requested (event suppressed) toTop=" + toTop);
+                return;
+            }
+            long now = System.currentTimeMillis();
+            if (now - lastRefreshPageAt >= REFRESH_PAGE_THROTTLE_MS) {
+                lastRefreshPageAt = now;
+                HkRefreshPageEvent.post(toTop);
+            }
+            Log.i(TAG, "rule refreshPage requested toTop=" + toTop);
         }
 
         public String parseDom(String html, String sel) {
@@ -444,6 +794,17 @@ public class HkEngine {
             return engine.require(url, params);
         }
 
+        /**
+         * 海阔 rc(url, hours) = requireCache（对齐第 1 项）：小时数兑现。
+         * hours 解析照官方 cacheHoursValue：Number → int，缺失/Undefined/
+         * 非数字 → 24。-1 = 永久有效，0 = 永不命中缓存（见 {@link HkEngine#isCacheFresh}）。
+         */
+        public Object requireCache(String url, Object hours) throws HkException {
+            int cacheHours = 24;
+            if (hours instanceof Number) cacheHours = ((Number) hours).intValue();
+            return engine.require(url, null, cacheHours);
+        }
+
         /** 取某个 URL 的主页地址（协议 + host + 端口 + /），对应海阔 getHome()。 */
         public String getHome(String url) {
             return engine.homeOf(url);
@@ -480,19 +841,70 @@ public class HkEngine {
             return HkStore.deleteDataFile(engine.ruleTitle(), name);
         }
 
-        /** 海阔 getItem()：读规则持久 KV（items.json），缺失回默认值（默认 ""）。 */
+        /**
+         * 海阔 getItem()：读规则持久 KV（data/&lt;标题&gt;/kv.json），缺失回默认值。
+         * 默认值照官方 getString：字符串才有效，其余（null/Undefined/数字/对象）
+         * 一律按 null 计——缺失时返回 null 而非 ""（对齐第 5 项）。
+         */
         public String getItem(String key, Object def) {
-            String fallback = (def == null || def instanceof Undefined) ? "" : Context.toString(def);
-            return engine.getItem(key, fallback);
+            return engine.getItem(key, toItemStringOrNull(def));
         }
 
         public String getItem(String key) {
-            return engine.getItem(key, "");
+            return engine.getItem(key, null);
         }
 
-        /** 海阔 setItem()：写规则持久 KV（items.json），立即落盘。 */
+        /** 三参版 getItem(key, def, ruleTitle)：跨规则读（官方公开签名）。 */
+        public String getItem(String key, Object def, Object ruleTitle) {
+            return engine.getItem(key, toItemStringOrNull(def), toTitleString(ruleTitle));
+        }
+
+        /**
+         * 海阔 setItem()：写规则持久 KV（data/&lt;标题&gt;/kv.json），立即落盘。
+         * 值照官方 mustBeString：只有字符串才存；null/Undefined/数字/布尔/对象
+         * 不存（官方存 null、落盘时 Gson 丢 null，键等于不存在；这里直接删键，
+         * 可观测结果相同）。
+         */
         public void setItem(String key, Object value) {
-            engine.setItem(key, value == null || value instanceof Undefined ? "" : Context.toString(value));
+            engine.setItem(key, toItemStringOrNull(value));
+        }
+
+        /** 三参版 setItem(key, value, ruleTitle)：跨规则写（官方公开签名）。 */
+        public void setItem(String key, Object value, Object ruleTitle) {
+            engine.setItem(key, toItemStringOrNull(value), toTitleString(ruleTitle));
+        }
+
+        /**
+         * 海阔 getPublicItem()：读全规则共享的公共 KV（rules/_item00.json），
+         * 缺失回默认值（非字符串默认值按 null 计，与 getItem 同款）。
+         */
+        public String getPublicItem(String key, Object def) {
+            return engine.getPublicItem(key, toItemStringOrNull(def));
+        }
+
+        /** 海阔 setPublicItem()：写公共 KV，立即落盘；非字符串值删键（同 setItem）。 */
+        public void setPublicItem(String key, Object value) {
+            engine.setPublicItem(key, toItemStringOrNull(value));
+        }
+
+        /** 海阔 clearPublicItem()：删公共 KV 里的键，立即落盘。 */
+        public void clearPublicItem(String key) {
+            engine.clearPublicItem(key);
+        }
+
+        /** getItem/setItem 的字符串参数归一化：CharSequence → 字符串，其余 → null。 */
+        private static String toItemStringOrNull(Object value) {
+            if (value instanceof CharSequence) return value.toString();
+            return null;
+        }
+
+        /** 三参版的规则标题归一化：非字符串或空串 → null（= 当前规则）。 */
+        private static String toTitleString(Object title) {
+            if (title instanceof CharSequence) {
+                String s = title.toString();
+                return s.isEmpty() ? null : s;
+            }
+            return null;
         }
 
         /** clearVar(name)：只清一个页面变量（无参版清全部，见 {@link #clearVar()}）。 */
@@ -567,7 +979,7 @@ public class HkEngine {
             List<String> out = new ArrayList<>();
             for (int i = 0; i < array.getLength(); i++) {
                 Object item = array.get(i, array);
-                if (item == null || item instanceof Undefined) continue;
+                if (item == null || item == Scriptable.NOT_FOUND || item instanceof Undefined) continue;
                 out.add(Context.toString(item));
             }
             return out;
@@ -624,8 +1036,21 @@ public class HkEngine {
 
     /** 弹框宿主（第 7 步之七）：confirm/select/input 经它问用户；没挂时抛明确错。 */
     private DialogHost dialogHost;
-    /** 本次执行里规则 JS 是否调过 refreshPage()（点击执行路径读它，决定是否重跑当前页）。 */
+    /** 本次执行里规则 JS 是否调过 refreshPage()（点击执行路径读它，决定是否重跑当前页；页面求值路径则发事件驱动重载，见 {@link HkRefreshPageEvent}）。 */
     private boolean refreshRequested;
+    /** 本次执行里 refreshPage() 的回顶意图（无参/非布尔参为 true，false 才不回顶）。 */
+    private boolean refreshToTop;
+    /** 是否发 refreshPage 事件（默认开；点击懒规则/播放/最新章节求值关，刷新由调用方消费，见 {@link HkExecutor}）。 */
+    private boolean refreshEventEnabled = true;
+    /** 进程内上次发 refreshPage 事件的时间（静态：引擎每次求值新建，实例位拦不住 200ms 节流）。 */
+    private static volatile long lastRefreshPageAt;
+    /** refreshPage 事件节流阈值（官方 lambda$registerApi$138 同款 200ms）。 */
+    private static final long REFRESH_PAGE_THROTTLE_MS = 200;
+
+    /** 设是否发 refreshPage 事件（关时 Bridge 只置位不发事件，调用方读 wasRefreshRequested() 消费）。 */
+    public void setRefreshEventEnabled(boolean enabled) {
+        this.refreshEventEnabled = enabled;
+    }
 
     /** 挂弹框宿主（调用方在 prepare 之前调；子引擎从父引擎抄，见 HkSubpage.require）。 */
     public void setDialogHost(DialogHost host) {
@@ -671,15 +1096,18 @@ public class HkEngine {
     private final Map<String, String> params = new HashMap<>();
     /** 同一引擎里已 require 过的库 URL（防同一 scope 里 let 重声明）。 */
     private final Set<String> requiredLibs = new HashSet<>();
-    /** getItem/setItem 的内存缓存（items.json 的内容，prepare 时加载）。 */
+    /** getItem/setItem 的内存缓存（kv.json 的内容，prepare 时加载）。 */
     private final Map<String, String> items = new HashMap<>();
     private boolean itemsLoaded;
+    /** getPublicItem/setPublicItem/clearPublicItem 的内存缓存（rules/_item00.json，首次访问现读）。 */
+    private final Map<String, String> publicItems = new HashMap<>();
+    private boolean publicItemsLoaded;
 
     /**
      * 准备一次页面执行：建 scope、注入 __hk 桥与 BOOTSTRAP、设置域内变量。
      * 必须在 eval* 之前调；resCode 是本页已抓到的原文（getResCode() 返回它）。
      * myVars 不再清空，改为从 data/&lt;标题&gt;/myvar.json 加载（持久变量跨页可见）；
-     * items 同样从 items.json 加载。
+     * items 同样从 kv.json 加载。
      */
     public void prepare(HkRule rule, String pageUrl, int page, String pageType, String resCode) throws HkException {
         prepare(rule, pageUrl, page, pageType, resCode, null);
@@ -703,6 +1131,7 @@ public class HkEngine {
         this.resultSet = false;
         this.resultRaw = null;
         this.refreshRequested = false;
+        this.refreshToTop = false;
         this.requiredLibs.clear();
         this.vars.clear();
         if (initialVars != null) this.vars.putAll(initialVars);
@@ -840,37 +1269,122 @@ public class HkEngine {
         }
     }
 
-    /** 从 data/&lt;标题&gt;/items.json 加载 getItem/setItem 的缓存（prepare 时调）。 */
-    private void loadItems() {
-        items.clear();
-        itemsLoaded = true;
-        String json = HkStore.readItems(ruleTitle());
-        if (TextUtils.isEmpty(json)) return;
+    /** 解析 kv.json 文本成字符串 map（解析失败/非对象回空 map，不抛错）。 */
+    private static Map<String, String> parseItems(String json) {
+        Map<String, String> map = new HashMap<>();
+        if (TextUtils.isEmpty(json)) return map;
         try {
             JsonElement parsed = JsonParser.parseString(json);
-            if (!parsed.isJsonObject()) return;
+            if (!parsed.isJsonObject()) return map;
             for (Map.Entry<String, JsonElement> e : parsed.getAsJsonObject().entrySet()) {
-                if (e.getValue().isJsonPrimitive()) items.put(e.getKey(), e.getValue().getAsString());
+                if (e.getValue().isJsonPrimitive()) map.put(e.getKey(), e.getValue().getAsString());
             }
         } catch (Exception e) {
             Log.w(TAG, "load items failed, starting empty", e);
         }
+        return map;
     }
 
-    /** getItem：读规则持久 KV，缺失回默认值（默认 ""）。 */
+    /** 从 data/&lt;标题&gt;/kv.json 加载 getItem/setItem 的缓存（prepare 时调）。 */
+    private void loadItems() {
+        items.clear();
+        itemsLoaded = true;
+        items.putAll(parseItems(HkStore.readItems(ruleTitle())));
+    }
+
+    /** getItem：读规则持久 KV，缺失回默认值（可为 null，官方 getString 语义）。 */
     String getItem(String key, String def) {
-        if (key == null) return def == null ? "" : def;
+        if (key == null || key.isEmpty()) return def;
         if (!itemsLoaded) loadItems();
         String value = items.get(key);
-        return value == null ? (def == null ? "" : def) : value;
+        return value == null ? def : value;
     }
 
-    /** setItem：写规则持久 KV，立即落盘。 */
+    /**
+     * 三参版 getItem（官方公开签名）：title 为空或等于当前规则走本规则缓存；
+     * 规则不存在回 ""（不是 def，官方 getItemNow 语义）；存在则现读该规则 kv.json。
+     */
+    String getItem(String key, String def, String ruleTitle) {
+        if (key == null || key.isEmpty()) return def;
+        if (ruleTitle == null || ruleTitle.isEmpty() || ruleTitle.equals(ruleTitle())) {
+            return getItem(key, def);
+        }
+        if (!HkStore.exists(ruleTitle)) return "";
+        String value = parseItems(HkStore.readItems(ruleTitle)).get(key);
+        return value == null ? def : value;
+    }
+
+    /** setItem：写规则持久 KV，立即落盘；value 为 null 时删键（官方存 null 语义）。 */
     void setItem(String key, String value) {
-        if (key == null) return;
-        if (!itemsLoaded) loadItems();
-        items.put(key, value == null ? "" : value);
-        HkStore.saveItems(ruleTitle(), App.gson().toJson(items));
+        setItem(key, value, null);
+    }
+
+    /**
+     * 三参版 setItem（官方公开签名）：空 key 空操作；title 为空或等于当前规则
+     * 写本规则缓存，否则规则不存在空操作、存在则现读现改现写该规则 kv.json。
+     */
+    void setItem(String key, String value, String ruleTitle) {
+        if (key == null || key.isEmpty()) return;
+        if (ruleTitle == null || ruleTitle.isEmpty() || ruleTitle.equals(ruleTitle())) {
+            if (!itemsLoaded) loadItems();
+            if (value == null) items.remove(key);
+            else items.put(key, value);
+            String json = App.gson().toJson(items);
+            checkItemSize(json, key, value);
+            HkStore.saveItems(ruleTitle(), json);
+            return;
+        }
+        if (!HkStore.exists(ruleTitle)) return;
+        Map<String, String> other = parseItems(HkStore.readItems(ruleTitle));
+        if (value == null) other.remove(key);
+        else other.put(key, value);
+        String json = App.gson().toJson(other);
+        checkItemSize(json, key, value);
+        HkStore.saveItems(ruleTitle, json);
+    }
+
+    /** 官方 checkSetItemSize：只记日志，不拦截（整表超 1MB / 单值超 512KB）。 */
+    private static void checkItemSize(String json, String key, String value) {
+        try {
+            if (value != null && value.getBytes(StandardCharsets.UTF_8).length > 524288) {
+                Log.d(TAG, "setItem 内容过大（512K）: " + key);
+            }
+            if (json != null && json.getBytes(StandardCharsets.UTF_8).length > 1048576) {
+                Log.d(TAG, "setItem 私有存储内容过大（1MB）");
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void loadPublicItems() {
+        publicItems.clear();
+        publicItemsLoaded = true;
+        publicItems.putAll(parseItems(HkStore.readPublicItems()));
+    }
+
+    /** getPublicItem：读全规则共享的公共 KV，缺失回默认值（可为 null）。 */
+    String getPublicItem(String key, String def) {
+        if (key == null || key.isEmpty()) return def;
+        if (!publicItemsLoaded) loadPublicItems();
+        String value = publicItems.get(key);
+        return value == null ? def : value;
+    }
+
+    /** setPublicItem：写公共 KV，立即落盘；value 为 null 时删键。 */
+    void setPublicItem(String key, String value) {
+        if (key == null || key.isEmpty()) return;
+        if (!publicItemsLoaded) loadPublicItems();
+        if (value == null) publicItems.remove(key);
+        else publicItems.put(key, value);
+        HkStore.savePublicItems(App.gson().toJson(publicItems));
+    }
+
+    /** clearPublicItem：删公共 KV 里的键，立即落盘。 */
+    void clearPublicItem(String key) {
+        if (key == null || key.isEmpty()) return;
+        if (!publicItemsLoaded) loadPublicItems();
+        publicItems.remove(key);
+        HkStore.savePublicItems(App.gson().toJson(publicItems));
     }
 
     /** 执行规则的 preRule（有才跑，与 find_rule 共用 scope），失败抛异常。 */
@@ -1055,8 +1569,23 @@ public class HkEngine {
      * 库文件 URL 先查 require.json 清单（plugins/hk/libs/），命中读本地文件，
      * 否则 http(s) 抓下来；同一个库 URL 在同一引擎里只 eval 一次（防 let 重声明）；
      * 其余地址抛明确错。库文件 eval 后若设了 $.exports，返回它，否则返回 eval 值。
+     * plain require 的缓存小时数是 -1（永久有效），与官方 require0 调用一致；
+     * rc(url, hours) 走 {@link #require(String, Object, int)}。
      */
     Object require(String url, Object params) throws HkException {
+        return require(url, params, -1);
+    }
+
+    /**
+     * 带缓存小时数的 require（对齐第 1 项，照官方 require0 的有效期判定；
+     * 对齐第 2 项，坏内容回退旧缓存）：
+     * http(s) 库先查 `plugins/hk/libs/&lt;md5(url)&gt;.js` 缓存，命中且在有效期内
+     * 直接用，不发网络；未命中时抓下来，好内容（2xx + isJsCode）写缓存再 eval，
+     * 坏内容（空、非 2xx、HTML 拦截页、isJsCode 失败）静默回退磁盘上已有的旧
+     * 缓存（不论是否过期），无缓存才抛明确错。
+     * 子页面分支与 require.json 清单分支在缓存检查之前，不变。
+     */
+    Object require(String url, Object params, int cacheHours) throws HkException {
         if (TextUtils.isEmpty(url)) throw new HkException("require 地址为空");
         String u = url.trim();
         if (HkSubpage.isSubpageUrl(u)) {
@@ -1071,19 +1600,35 @@ public class HkEngine {
             code = HkStore.readTextFile(lib);
             if (code == null) throw new HkException("require 库文件读取失败：" + lib.getName());
         } else if (u.startsWith("http://") || u.startsWith("https://")) {
-            code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
-            if (TextUtils.isEmpty(code)) {
-                throw new HkException(lastHttpCode >= 0
-                        ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
-                        : "require 取数失败（空内容）：" + u);
+            String cachedCode = null;
+            File cached = HkStore.rcCacheFile(u);
+            if (cached != null && cached.exists() && isCacheFresh(cached, cacheHours)) {
+                cachedCode = HkStore.readTextFile(cached);
             }
-            // 取到的是 HTML 错误页/拦截页（例如 WAF 418）时不再当 JS 执行——
-            // 那样只会在第 1 行报含糊的语法错；直接报清楚（见 docs/miniapp-nodata-fix.md）。
-            String lower = code.trim().toLowerCase(Locale.ROOT);
-            if (lower.startsWith("<!doctype") || lower.startsWith("<html")) {
-                throw new HkException(lastHttpCode >= 0
-                        ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
-                        : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+            if (!TextUtils.isEmpty(cachedCode)) {
+                code = cachedCode;
+            } else {
+                code = httpFetch(u, null, "GET", null, DEFAULT_TIMEOUT_MS);
+                if (!isGoodLib(code)) {
+                    // 取到坏内容（空、非 2xx、HTML 拦截页、isJsCode 失败）：静默回退
+                    // 磁盘上已有的旧缓存（官方 require0 :24458-24461 同款行为），不论
+                    // 该缓存是否过期；无缓存才报清楚错（902c1e8c 的报错原样保留）。
+                    String fallback = readStaleLibCache(u);
+                    if (!TextUtils.isEmpty(fallback)) {
+                        Log.i(TAG, "require fallback to cached lib (bad fetch, HTTP " + lastHttpCode + "): " + u);
+                        code = fallback;
+                    } else if (TextUtils.isEmpty(code)) {
+                        throw new HkException(lastHttpCode >= 0
+                                ? "require 取数失败（HTTP " + lastHttpCode + "，空内容）：" + u
+                                : "require 取数失败（空内容）：" + u);
+                    } else {
+                        throw new HkException(lastHttpCode >= 0
+                                ? "require 取到 HTTP " + lastHttpCode + "（不是 JS 脚本，可能是拦截/错误页）：" + u
+                                : "require 取到的不是 JS 脚本（可能是拦截/错误页）：" + u);
+                    }
+                } else {
+                    HkStore.saveRcCache(u, code);
+                }
             }
         } else {
             throw new HkException("require 不支持的地址：" + u + "（只支持 hiker://page/... 与库文件 URL）");
@@ -1094,6 +1639,70 @@ public class HkEngine {
         Object exports = getExports();
         if (exports != null && !(exports instanceof Undefined)) return exports;
         return result;
+    }
+
+    /**
+     * rc/require 缓存是否有效（对齐第 1 项，照官方 require0 的判定式，
+     * `HkJsRuntime.java:24457`：版本检查无版本信息时按通过计）：
+     * hours &lt; 0（plain require 的 -1）→ 文件存在即永久有效；
+     * hours == 0 → 永不命中；hours &gt; 0 → `age &lt;= hours * 3600000`。
+     * 用文件 lastModified 计 age，与官方一致（写缓存时即更新 mtime）。
+     */
+    static boolean isCacheFresh(File file, int hours) {
+        if (file == null) return false;
+        if (hours < 0) return true;
+        if (hours == 0) return false;
+        return System.currentTimeMillis() - file.lastModified() <= (long) hours * 3600000L;
+    }
+
+    /**
+     * 是否 JS 代码（对齐第 2 项，逐字照官方 `HkJsRuntime.java:4174` isJsCode）：
+     * 空 → 否；trim 后以 `<!DOCTYPE` / `<html` / `<?xml` 开头 → 否；
+     * 以 `</html>` / `</rss>` 结尾 → 否；含 `var ` / `let ` / `function` /
+     * `eval(` / `call(` / `eval (` / `call (` / ` => ` / `)=>` 任一 → 是；
+     * 官方还查 methodList（已注册 API 方法名表），我们没有等价物，该分支略过——
+     * 真实库总含上述标记之一。
+     */
+    static boolean isJsCode(String code) {
+        if (TextUtils.isEmpty(code)) return false;
+        String t = code.trim();
+        String[] badStarts = {"<!DOCTYPE", "<html", "<?xml"};
+        for (String s : badStarts) {
+            if (t.startsWith(s)) return false;
+        }
+        String[] badEnds = {"</html>", "</rss>"};
+        for (String s : badEnds) {
+            if (t.endsWith(s)) return false;
+        }
+        String[] markers = {"var ", "let ", "function", "eval(", "call(", "eval (", "call (", " => ", ")=>"};
+        for (String m : markers) {
+            if (t.contains(m)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 新取到的库内容是否可用（对齐第 2 项，照官方 require0 + requestForCode + isJsCode）：
+     * 空 → 坏；HTTP 状态非 2xx → 坏（官方 requestForCode :24389-24395 只认 2xx，
+     * 非 2xx 直接回 null）；isJsCode 失败 → 坏；另保留 f0c10fb7 的小写 doctype 兜底
+     * （官方 isJsCode 只判大写 `<!DOCTYPE`，小写 doctype 且结尾又不是 `</html>`/`</rss>`
+     * 的页面会漏进 marker 检查——拦截页内联脚本里常有 `function`；完整 HTML 页官方
+     * 靠 `</html>` 后缀已能拦住；JS 库不会以 `<!doctype`/`<html` 开头，多这一层
+     * 不会误伤真库）。
+     */
+    private boolean isGoodLib(String code) {
+        if (TextUtils.isEmpty(code)) return false;
+        if (lastHttpCode >= 0 && (lastHttpCode < 200 || lastHttpCode >= 300)) return false;
+        String lower = code.trim().toLowerCase(Locale.ROOT);
+        if (lower.startsWith("<!doctype") || lower.startsWith("<html")) return false;
+        return isJsCode(code);
+    }
+
+    /** 坏内容回退用：读磁盘上已有的库缓存（不论是否过期），没有/读失败/空返回 null。 */
+    private static String readStaleLibCache(String url) {
+        File cached = HkStore.rcCacheFile(url);
+        if (cached == null || !cached.exists()) return null;
+        return HkStore.readTextFile(cached);
     }
 
     /** 把 $.exports 重置为 undefined（库文件 eval 前调，防拿到上一个库的旧导出）。 */
@@ -1212,7 +1821,7 @@ public class HkEngine {
 
     private String jsString(Scriptable obj, String name) {
         Object value = ScriptableObject.getProperty(obj, name);
-        if (value == null || value instanceof Undefined) return "";
+        if (value == null || value == Scriptable.NOT_FOUND || value instanceof Undefined) return "";
         return Context.toString(value);
     }
 
@@ -1229,6 +1838,32 @@ public class HkEngine {
      * </ul>
      */
     private String httpFetch(String url, Map<String, String> headers, String method, Object body, long timeout) throws HkException {
+        return httpFetch(url, new FetchOpts(
+                headers == null ? new HashMap<>() : headers,
+                method == null ? "GET" : method, body, timeout, false, true, false));
+    }
+
+    /**
+     * 桥里 fetch/post/batchFetch 的实现：同步请求，charset 按 Content-Type 猜，默认 UTF-8。
+     * hiker:// 不走 OkHttp（OkHttp 只认 http/https）：
+     * <ul>
+     *   <li>{@code hiker://page/...}：子页面展开，返回页面 JSON（含 rule 字段）；
+     *       页不存在抛 HkException（带页名），不返回 ""——否则 JS 侧
+     *       {@code JSON.parse('')} 报错含糊。</li>
+     *   <li>{@code hiker://files/...}：读 data/&lt;标题&gt;/ 下对应文件，缺失返回 ""。</li>
+     *   <li>其他 {@code hiker://}（empty/search/collection/history 等导航类地址）：
+     *       取不到正文，返回 ""。</li>
+     * </ul>
+     * <p>
+     * 线程安全：只读 rule、只写 lastHttpCode（诊断用，batchFetch 并发下最后
+     * 完成的写胜出，无他用），工作线程可直接调。
+     * <p>
+     * opts.envelope（withHeaders/withStatusCode）时返回官方 wrapFetch 包络 JSON
+     * {@code {"body","headers","url","statusCode","error"}}，headers 值是数组、
+     * 键小写；失败时 statusCode 为 -1。opts.followRedirects 为 false 时不跟随
+     * 重定向。opts.onlyHeaders 时只拿状态码 + 头、不读体。
+     */
+    private String httpFetch(String url, FetchOpts opts) throws HkException {
         lastHttpCode = -1;
         if (!TextUtils.isEmpty(url)) {
             String u = url.trim();
@@ -1244,11 +1879,13 @@ public class HkEngine {
             }
         }
         try {
-            OkHttpClient client = timeout > 0 ? OkHttp.client(timeout) : OkHttp.client();
+            OkHttpClient base = HkHttpClient.client(opts.timeout);
+            OkHttpClient client = opts.followRedirects ? base
+                    : base.newBuilder().followRedirects(false).followSslRedirects(false).build();
             Request.Builder builder = new Request.Builder().url(url);
             boolean hasUa = false;
-            if (headers != null) {
-                for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (opts.headers != null) {
+                for (Map.Entry<String, String> e : opts.headers.entrySet()) {
                     builder.header(e.getKey(), e.getValue());
                     if ("User-Agent".equalsIgnoreCase(e.getKey())) hasUa = true;
                 }
@@ -1256,34 +1893,72 @@ public class HkEngine {
             // JS 侧 fetch()/require() 没带 UA 时默认补真浏览器 UA：OkHttp 默认的
             // okhttp/4.x 会被不少站点/WAF 当爬虫挡掉（见 docs/miniapp-nodata-fix.md）。
             if (!hasUa) builder.header("User-Agent", MOBILE_UA);
-            if ("POST".equalsIgnoreCase(method)) {
-                builder.post(buildBody(body));
-            } else if (!"GET".equalsIgnoreCase(method)) {
-                builder.method(method, body == null ? null : buildBody(body));
+            if ("POST".equalsIgnoreCase(opts.method)) {
+                builder.post(buildBody(opts.body));
+            } else if (!"GET".equalsIgnoreCase(opts.method)) {
+                builder.method(opts.method, opts.body == null ? null : buildBody(opts.body));
             }
             try (Response res = client.newCall(builder.build()).execute()) {
                 lastHttpCode = res.code();
-                if (res.body() == null) return "";
+                if (opts.onlyHeaders) {
+                    return opts.envelope ? envelope(url, "", res, null) : "";
+                }
+                if (res.body() == null) return opts.envelope ? envelope(url, "", res, null) : "";
                 byte[] bytes = res.body().bytes();
                 String contentType = res.header("Content-Type", "");
-                return new String(bytes, charsetOf(contentType));
+                String text = new String(bytes, charsetOf(contentType));
+                return opts.envelope ? envelope(url, text, res, null) : text;
             }
         } catch (Exception e) {
             Log.w(TAG, "fetch failed: " + url, e);
-            return "";
+            return opts.envelope ? envelope(url, "", null, e.getMessage()) : "";
         }
+    }
+
+    /**
+     * 照官方 wrapFetch（HkJsRuntime.wrapFetch）：包络键固定为
+     * body / headers / url / statusCode / error；headers 值是数组、键统一小写
+     * （规则一律用小写 location / set-cookie 访问）；失败时 res 为 null，
+     * statusCode 为 -1。
+     */
+    private static String envelope(String url, String body, Response res, String error) {
+        JsonObject o = new JsonObject();
+        o.addProperty("body", body == null ? "" : body);
+        JsonObject headers = new JsonObject();
+        if (res != null) {
+            for (Map.Entry<String, List<String>> e : res.headers().toMultimap().entrySet()) {
+                JsonArray arr = new JsonArray();
+                if (e.getValue() != null) {
+                    for (String v : e.getValue()) arr.add(v == null ? "" : v);
+                }
+                headers.add(e.getKey() == null ? "" : e.getKey().toLowerCase(Locale.ROOT), arr);
+            }
+        }
+        o.add("headers", headers);
+        o.addProperty("url", url == null ? "" : url);
+        o.addProperty("statusCode", res == null ? -1 : res.code());
+        o.addProperty("error", error == null ? "" : error);
+        return o.toString();
     }
 
     private RequestBody buildBody(Object body) {
         if (body == null) return RequestBody.create(new byte[0]);
         if (body instanceof String) return RequestBody.create(((String) body).getBytes(StandardCharsets.UTF_8));
+        if (body instanceof Map) {
+            // batchFetch 在调用线程上已把 NativeObject body 转成的表单（见 Bridge.formParams）。
+            ArrayMap<String, String> params = new ArrayMap<>();
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) body).entrySet()) {
+                if (e.getKey() != null && e.getValue() != null) params.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
+            }
+            return OkHttp.toBody(params);
+        }
         if (body instanceof NativeObject) {
             ArrayMap<String, String> params = new ArrayMap<>();
             NativeObject obj = (NativeObject) body;
             for (Object id : obj.getIds()) {
                 String key = String.valueOf(id);
                 Object value = ScriptableObject.getProperty(obj, key);
-                if (value != null && !(value instanceof Undefined)) params.put(key, Context.toString(value));
+                if (value != null && value != Scriptable.NOT_FOUND && !(value instanceof Undefined)) params.put(key, Context.toString(value));
             }
             return OkHttp.toBody(params);
         }
