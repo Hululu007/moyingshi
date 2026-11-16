@@ -485,7 +485,7 @@ public class HkEngine {
             if (item instanceof NativeObject) {
                 NativeObject obj = (NativeObject) item;
                 Object u = ScriptableObject.getProperty(obj, "url");
-                String url = (u == null || u instanceof Undefined) ? null : Context.toString(u);
+                String url = (u == null || u == Scriptable.NOT_FOUND || u instanceof Undefined) ? null : Context.toString(u);
                 Object options = ScriptableObject.getProperty(obj, "options");
                 FetchOpts opts = options instanceof NativeObject
                         ? fetchOptsFromNativeObject((NativeObject) options) : FetchOpts.defaults();
@@ -527,13 +527,13 @@ public class HkEngine {
                     for (Object id : headersObj.getIds()) {
                         String key = String.valueOf(id);
                         Object value = ScriptableObject.getProperty(headersObj, key);
-                        if (value != null && !(value instanceof Undefined)) headers.put(key, Context.toString(value));
+                        if (value != null && value != Scriptable.NOT_FOUND && !(value instanceof Undefined)) headers.put(key, Context.toString(value));
                     }
                 }
                 Object m = ScriptableObject.getProperty(opt, "method");
                 if (m instanceof String && !((String) m).isEmpty()) method = ((String) m).toUpperCase(Locale.ROOT);
                 body = ScriptableObject.getProperty(opt, "body");
-                if (body instanceof Undefined) body = null;
+                if (body instanceof Undefined || body == Scriptable.NOT_FOUND) body = null;
                 else if (body instanceof NativeObject) body = formParams((NativeObject) body);
                 Object t = ScriptableObject.getProperty(opt, "timeout");
                 if (t instanceof Number) timeout = ((Number) t).longValue();
@@ -598,7 +598,7 @@ public class HkEngine {
             for (Object id : obj.getIds()) {
                 String key = String.valueOf(id);
                 Object value = ScriptableObject.getProperty(obj, key);
-                if (value != null && !(value instanceof Undefined)) params.put(key, Context.toString(value));
+                if (value != null && value != Scriptable.NOT_FOUND && !(value instanceof Undefined)) params.put(key, Context.toString(value));
             }
             return params;
         }
@@ -979,7 +979,7 @@ public class HkEngine {
             List<String> out = new ArrayList<>();
             for (int i = 0; i < array.getLength(); i++) {
                 Object item = array.get(i, array);
-                if (item == null || item instanceof Undefined) continue;
+                if (item == null || item == Scriptable.NOT_FOUND || item instanceof Undefined) continue;
                 out.add(Context.toString(item));
             }
             return out;
@@ -1821,7 +1821,7 @@ public class HkEngine {
 
     private String jsString(Scriptable obj, String name) {
         Object value = ScriptableObject.getProperty(obj, name);
-        if (value == null || value instanceof Undefined) return "";
+        if (value == null || value == Scriptable.NOT_FOUND || value instanceof Undefined) return "";
         return Context.toString(value);
     }
 
@@ -1958,7 +1958,7 @@ public class HkEngine {
             for (Object id : obj.getIds()) {
                 String key = String.valueOf(id);
                 Object value = ScriptableObject.getProperty(obj, key);
-                if (value != null && !(value instanceof Undefined)) params.put(key, Context.toString(value));
+                if (value != null && value != Scriptable.NOT_FOUND && !(value instanceof Undefined)) params.put(key, Context.toString(value));
             }
             return OkHttp.toBody(params);
         }
