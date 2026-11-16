@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -1016,6 +1017,19 @@ public class HkRuleManager {
     }
 
     /**
+     * 云口令提取（星辰 HkRuleManager.java:75-76，3e 搬入）：用 find() 而非 matches()，
+     * 从任意文本中提取口令子串。parseByCloudCode/unwrapShareText 是阶段 6 的，本步不搬。
+     */
+    private static final Pattern CLOUD_CODE_FIND =
+            Pattern.compile("云([1-9]|10)oooole/?\\S+");
+
+    /** 是否为云口令格式（云1~云10 开头；兼容前后缀/多行文本）。星辰 HkRuleManager.java:1166-1169。 */
+    public static boolean isCloudCode(String text) {
+        if (text == null) return false;
+        return CLOUD_CODE_FIND.matcher(text).find();
+    }
+
+    /**
      * 解析 JSON 文本（不落盘）：兼容单个规则对象与规则数组（一个文件多个小程序）。
      * 数组中单个损坏/不合规的条目只跳过、不影响其它。
      *
@@ -1025,8 +1039,9 @@ public class HkRuleManager {
     public List<ParsedRule> parseJsonList(String json) throws Exception {
         if (json == null || json.trim().isEmpty()) throw new IllegalArgumentException("规则内容为空");
         String t = json.trim();
-        // 阶段 6：非 JSON 文本的云口令/分享包装分发（isCloudCode/parseByCloudCode/
-        // unwrapShareText）随云口令区一起补；本步非 {、[ 开头的文本由下行 parseJson
+        // 阶段 6：非 JSON 文本的云口令/分享包装分发（parseByCloudCode/
+        // unwrapShareText）随云口令区一起补（isCloudCode 已在 3e 搬入，见本文件
+        // CLOUD_CODE_FIND）；本步非 {、[ 开头的文本由下行 parseJson
         // 按「内容不是规则 JSON」报错。
         if (!t.startsWith("[")) {
             List<ParsedRule> single = new ArrayList<>();
