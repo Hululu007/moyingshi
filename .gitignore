@@ -35,3 +35,13 @@ plans/
 .codebase-memory
 graphify-out/
 .codex/task-state/
+
+# B8 C0: Flutter module (add-to-app) generated/ephemeral files.
+flutter_module/.android/
+flutter_module/.ios/
+flutter_module/.dart_tool/
+flutter_module/.flutter-plugins
+flutter_module/.flutter-plugins-dependencies
+flutter_module/lib/pigeon/
+# Pigeon-generated host code (CI generates it from flutter_module/pigeons/).
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/C0Messages.java
