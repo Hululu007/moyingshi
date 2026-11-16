@@ -9736,4 +9736,1854 @@ private static class HkMyBase64 {
         return sb.toString();
     }
 
+
+    // =========================================================================
+    // 移植阶段 3c：HkJsRuntime 第 2 部分 —— require/fetch 主干 + MY_* 注入 + 文件下载。
+    // 来源：星辰 HkJsRuntime.java（HEAD 52450c0），逐段原样抽取，仅 §6 所列适配。
+    // 切分以 docs/miniapp-xingchen-3c-runtime-2.md 为准（含 3b 漏列的两处补入：
+    // fetch0、wrapTryScript）。以下方法按星辰原文顺序排列。
+    // =========================================================================
+
+    /** W2：原版 fc 语义（require0，useCallback=false）——返回代码字符串，不求值。
+     * 参数：url, h(小时，默认24，0=强制重下), options, v(版本号，默认0)。
+     * require0 已有忠实移植（D1-C），fc 直接复用：js:/file:///hiker://page/ 前缀、
+     * 本地 libs/<md5>.js 缓存＋版本校验、按 3600000*h 过期、h==0 永远重下。
+     * B-10 参数对位（官 fetchCache 本体 JE:15415-15435 亲读）：官调 require0 前
+     * 先自 evalKey（fc 第六参）的 parentScope 取 MY_RULE 作 require0 的 p1、
+     * ruleTitle＝getRuleTitle(getString(第五参 ruleTitleKey))；require0 全参表
+     * p1=MY_RULE、p2=c、p3=h、p4=options、p5=evalKey、p6=false、p7=ruleTitle、
+     * p8=v。咱家旧形 p1 误传 fetch options（options 无规则 proxy、fc 下载路
+     * 恒读不到规则级 proxy）、ruleTitle 误读实例 rule 字段、第五/六参根本不读。
+     * 改：p1 经 myRuleObjFromScope 取当发求值 scope 的 MY_RULE 原对象（与
+     * myRuleFromScope 同路：ambient 登记优先、回落主 scope——官 evalKey 的
+     * parentScope 在咱家主路无对应物，以当发登记 scope 为同位取法）、ruleTitle
+     * 经 fcRuleTitle 读第五参隐参通道、p5 透传第六参 evalKey（useCallback=false
+     * 时 require0 不消费此参、仅对位）。v 的取值法与失败收口已由硬门审计 B
+     * 环 24-8/24-9 接管落码（见 fcImpl 内注）。 */
+    private String fcImpl(Object[] args) {
+        if (args == null || args.length == 0) return "";
+        // 环 24-8/24-9（硬门审计 B）：v 的取值改 hkIntValue 同语义（官桥层 defaultInt
+        // 转换：null/undefined→缺省 0、Number→intValue、数字串→parseInt、非数字串
+        // NumberFormatException 穿出；旧 (int) toDouble 对 "3" 得 3.0→3、对 "abc" 得
+        // NaN→0 静默，与官分叉）。catch-回-"" 整段摘除：官 fetchCache 本体无 catch、
+        // require0 异常经桥层成 JS 异常上抛，旧形把过期/下载/求值失败全压成 ""
+        // （规则 typeof 判不出失败）。咱家内部直调方仅 fc/fetchCache 两注册点
+        // （putFunction 咽喉自会把穿出的异常裹成 JS 异常），无依赖 "" 收口的调用方。
+        String url = argStr(args[0]);
+        int hours = args.length > 1 ? cacheHoursValue(args[1]) : 24;
+        Object options = args.length > 2 ? args[2] : null;
+        int v = args.length > 3 ? hkIntValue(args[3], 0) : 0;
+        Object myRule = myRuleObjFromScope();
+        Object evalKey = args.length > 5 ? args[5] : null;
+        String ruleTitle = fcRuleTitle(args);
+        // 复核订正 24-9 真编：require0 声明 throws Exception，本体无 catch 无 throws
+        // 直调时 javac 报 unreported exception（真编不过）。fc/fetchCache 的注册
+        // lambda 走 BaseFunction.call、无 checked 异常出口，故在此 catch 后以
+        // RuntimeException 包裹重抛——putFunctionEx 咽喉会把 RuntimeException 裹成
+        // WrappedException 成 JS 异常，官「require0 异常穿出到规则 catch」的失败
+        // 呈现不变。不许吞异常回 ""（那正是 24-9 旧病）。
+        Object r;
+        try {
+            r = require0(myRule, url, hours, options, evalKey, false, ruleTitle, v);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return r == null ? "" : String.valueOf(r);
+    }
+
+    /** B-10：fc 的 ruleTitle 取法——官 getRuleTitle(getString(ruleTitleKey))
+     * （JE:15441、getRuleTitle JE:5274-5319）：隐参缺位（解析回 null）或为空时
+     * 照官原样回 key 本身（null / ""），官无任何标题补位支；隐参非空时先查
+     * ticketMap（票据→标题，本类 generateTicket 同表）、未中/票据空回隐参本身。 */
+    private String fcRuleTitle(Object[] args) {
+        String key = args != null && args.length > 4 ? getString(args[4]) : null;
+        // 与 hkRuleTitle 同一还原口（环37 收口：两处同表同逻辑，不许再分叉）。
+        return hkRuleTitle(key);
+    }
+
+    /** W7：原版 batchFetch/batchExecute 语义（JSEngine.smali:11005）。
+     * 线程数 min(n,16)，总等待 n/16*10+10 秒，按索引组装；失败项填 ""。 */
+    /** W7 batchFetch：8.83（JSEngine.java:11633）returnType=JSON。
+     *  原版桥接层对 JSON 型做 JSON.parse(retStr)——规则拿到真 JS 数组。
+     *  星辰曾直接回 GSON 字符串（UU 案：规则调 .map 当场 TypeError）。
+     *  此处走 toJsArray，与 8.83 的 JS 可见形态一致。 */
+    private NativeArray batchFetchImpl(Object[] args) {
+        if (args == null || args.length == 0) return toJsArray(new ArrayList<>());
+        try {
+            String json = args[0] instanceof NativeArray ? jsStringify(args[0]) : argStr(args[0]);
+            List<Object> list = GSON.fromJson(json.trim().startsWith("[") ? json : "[]",
+                    new com.google.gson.reflect.TypeToken<List<Object>>() {}.getType());
+            if (list == null || list.isEmpty()) return toJsArray(new ArrayList<>());
+            int n = list.size();
+            int threads = Math.min(n, 16);
+            if (args.length > 1) {
+                try { threads = Math.max(1, Math.min(n, (int) toDouble(args[1]))); } catch (Throwable ignored) {}
+            }
+            // B-4 捕获点：提交任务前在调用线程（当发求值线程）捕获当发登记
+            // scope，随任务带入池线程；捕获不到（null）时池线程不登记、
+            // myRuleFromScope 回落主 scope，与改前行为同。
+            final Scriptable capturedScope = ambientEvalScope.get();
+            java.util.concurrent.ExecutorService pool = Executors.newFixedThreadPool(threads);
+            java.util.concurrent.ConcurrentHashMap<Integer, String> results = new java.util.concurrent.ConcurrentHashMap<>();
+            java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(n);
+            try {
+                for (int i = 0; i < n; i++) {
+                    final int idx = i;
+                    Object o = list.get(i);
+                    final String u;
+                    final String opt;
+                    if (o instanceof Map) {
+                        Map<String, Object> m = (Map<String, Object>) o;
+                        u = String.valueOf(m.get("url"));
+                        Object op = m.get("options");
+                        opt = op == null ? null : GSON.toJson(op);
+                    } else {
+                        u = String.valueOf(o);
+                        opt = null;
+                    }
+                    pool.execute(() -> {
+                        // B-4 登记点：把捕获的当发 scope 登记为本池线程的
+                        // ambient scope，任务执行期 fetchByHiker→handlePageRequest
+                        // 经 myRuleFromScope 读到的即当发子规则而非宿主规则；
+                        // finally 恢复点与主路 enter/exitAmbientScope 同形栈式恢复。
+                        Scriptable ambPrev = enterAmbientScope(capturedScope);
+                        try {
+                            // 8.83 batchFetch 每项调 fetch 本体：内部协议项同走
+                            // fetchByHiker 分发（JE:11648 区；G8）
+                            if (u.startsWith("hiker://") || u.startsWith("file://")) {
+                                Object r = fetchByHiker(u, null, optFlagFromJson(opt, "toHex"), optFlagFromJson(opt, "inputStream"));
+                                if (r instanceof String) results.put(idx, (String) r);
+                                else { closeFetchStream(r); results.put(idx, ""); }
+                            } else {
+                                Object r = fetchSync(u, opt);
+                                if (r instanceof String) results.put(idx, (String) r);
+                                else { closeFetchStream(r); results.put(idx, ""); }
+                            }
+                        }
+                        catch (Throwable t) { results.put(idx, ""); }
+                        finally {
+                            exitAmbientScope(ambPrev);
+                            latch.countDown();
+                        }
+                    });
+                }
+                // 原版：await(n/16*10+10, SECONDS)（smali:2260）
+                latch.await((long) (n / 16 * 10 + 10), TimeUnit.SECONDS);
+                // 8.83：缺位项保持 null（JE 组装段亲读）——此前补 ""，规则分不清
+                // 「取到空正文」与「没取到」（G8）
+                List<Object> out = new ArrayList<>(n);
+                for (int i = 0; i < n; i++) out.add(results.get(i));
+                return toJsArrayObj(out);
+            } finally {
+                pool.shutdownNow();
+            }
+        } catch (Throwable e) {
+            Logger.t(TAG).d("batchFetch failed: %s", e.getMessage());
+            return toJsArray(new ArrayList<>());
+        }
+    }
+
+    /** 环22 对官（8.83 JSEngine.requireCache，smali:22956）：与 require 同路调
+     * require0 本体——p1＝当发 scope 的 MY_RULE、h 经 cacheHoursValue 官式
+     * adjust（Integer/Double 取 intValue、余恒 24）、options、useCallback=true、
+     * v、ruleTitle 经 fcRuleTitle 同 require/fc 路（第五参 ruleTitleKey）。
+     * 旧形走自造 memCache 路（进程内存表代官磁盘 libs）：options.proxy 不读、
+     * v 不读、无 md5 磁盘缓存/描述文件、无毒内容回退、无登记副作用，与
+     * require0/fc 落盘的库互不可见——已整支收编，memCache 的 rc 路退役。
+     * 失败呈现：require0 本体不加软化（官抛错点原样）；软回只留在本入口层，
+     * 与 require 入口既定口径同层同口径（断点 2 记名口径，见 require 处注）。
+     * 回调求值照 require 入口同式：BaseFunction 在调用方作用域求值库代码，
+     * 库顶层声明与调用方互见（require0 useCallback=true 的官分工）。 */
+    private Object requireCacheEval(Object[] args, Context cx, Scriptable callerScope) {
+        if (args == null || args.length == 0) return null;
+        try {
+            String url = argStr(args[0]);
+            int hours = args.length > 1 ? cacheHoursValue(args[1]) : 24;
+            Object options = args.length > 2 ? args[2] : null;
+            // 复核订正7：v 改走 hkIntValue（官 getIntValue 同形），不再 toDouble 截断。
+            int v = args.length > 3 ? hkIntValue(args[3], 0) : 0;
+            Object myRule = myRuleObjFromScope();
+            String ruleTitle = fcRuleTitle(args);
+            Function evalCallback = new BaseFunction() {
+                @Override
+                public Object call(Context c, Scriptable s, Scriptable t, Object[] a) {
+                    if (a == null || a.length == 0 || a[0] == null) return null;
+                    captureLibCarry(String.valueOf(a[0]));
+                    return evalJsInScope(cx, callerScope, String.valueOf(a[0]), "hk-plugin");
+                }
+            };
+            return require0(myRule, url, hours, options, evalCallback, true, ruleTitle, v);
+        } catch (Throwable e) {
+            Logger.t(TAG).d("requireCache failed (soft): %s", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 8.83 JSEngine.java:1943 batchCacheM3u8 等价：params 须为数组（元素 {url, options} 或裸字符串），
+     * 否则回 "[]"；每项下载索引文件，返回 "file##url"（失败/等价项回原 url，抛错项置 null），
+     * 整体 JSON 数组字符串。并发下载（最多 8 线）。
+     */
+    /** 8.83（JSEngine.java:10933）returnType=JSON：原版桥接层 JSON.parse 后是真数组。
+     *  星辰曾回 GSON 字符串（1.3.42 UU 案同图），此处改回真数组。 */
+    private NativeArray batchCacheM3u8Impl(Object[] args) {
+        if (args == null || args.length == 0 || args[0] == null) return toJsArray(new ArrayList<>());
+        List<Object> items = new ArrayList<>();
+        try {
+            Object p0 = args[0];
+            if (p0 instanceof NativeArray) {
+                NativeArray na = (NativeArray) p0;
+                for (int i = 0; i < na.size(); i++) items.add(na.get(i));
+            } else {
+                String json = argStr(p0).trim();
+                if (!json.startsWith("[")) return toJsArray(new ArrayList<>());
+                List<Object> list = GSON.fromJson(json,
+                        new com.google.gson.reflect.TypeToken<List<Object>>() {}.getType());
+                if (list != null) items.addAll(list);
+            }
+        } catch (Throwable e) {
+            Logger.t(TAG).d("batchCacheM3u8 parse failed: %s", e.getMessage());
+            return toJsArray(new ArrayList<>());
+        }
+        if (items.isEmpty()) return toJsArray(new ArrayList<>());
+        int n = items.size();
+        int threads = Math.min(n, 8);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        List<String> out = new ArrayList<>(java.util.Collections.nCopies(n, null));
+        try {
+            List<java.util.concurrent.Future<?>> futures = new ArrayList<>(n);
+            for (int i = 0; i < n; i++) {
+                final int idx = i;
+                futures.add(pool.submit(() -> {
+                    Object o = items.get(idx);
+                    String u;
+                    String opt = null;
+                    java.util.Map<?, ?> m = toStringMap(o);
+                    if (m != null) {
+                        u = m.get("url") == null ? "" : String.valueOf(m.get("url"));
+                        if (m.get("options") != null) opt = GSON.toJson(m.get("options"));
+                    } else {
+                        u = String.valueOf(o);
+                    }
+                    try {
+                        if (TextUtils.isEmpty(u)) {
+                            out.set(idx, null);
+                            return;
+                        }
+                        String file = downloadM3u8File(u, "video" + idx + ".m3u8", opt);
+                        out.set(idx, file.equals(u) ? u : file + "##" + u);
+                    } catch (Throwable e) {
+                        // 8.83 batchExecute：单项抛错该槽留空（null）
+                        out.set(idx, null);
+                    }
+                }));
+            }
+            for (java.util.concurrent.Future<?> f : futures) {
+                try {
+                    f.get(90, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (Throwable ignored) {
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        // returnType=JSON（见本方法头注释）：回真数组，null 槽位保留为 JS null。
+        return toJsArray(out);
+    }
+
+    /**
+     * require() 本地库优先：全局 libs/&lt;md5(url)&gt;.js 命中则直接加载
+     * （.hkzip 导入时已按官落全局，无网络也能用）；未命中返回 null 走远程。
+     * 环13 复核订正1：旧形读规则数据目录 data/&lt;规则名&gt;/libs/ 的 per-rule
+     * 支已退役（存量经 HkRuleManager.get() 首建时一次性迁移到全局），与
+     * fileExist/exist/fetchByHiker、$.require/require0 同读全局一根。
+     */
+    private String loadLibLocal(String libUrl) {
+        try {
+            if (libUrl == null || !libUrl.startsWith("http")) return null;
+            String md5 = Util.md5(libUrl);
+            if (TextUtils.isEmpty(md5)) return null;
+            File f = new File(HkRuleManager.get().getGlobalLibsDir(), md5 + ".js");
+            if (!f.exists()) return null;
+            byte[] bytes = java.nio.file.Files.readAllBytes(f.toPath());
+            String code = new String(bytes, Charset.forName("UTF-8"));
+            if (TextUtils.isEmpty(code)) return null;
+            // 缓存内容校验（2026-11-13 聚阅 findBtnF 案）：本口是咱家自加的
+            // 前置层，此前命中即直喂求值、无任何校验——缓存文件一旦是坏内容
+            // （错误页/截断/旧版残体），require0 的 isJsCode 回退路永远轮不到，
+            // 模块静默空载。非 JS 内容回 null 落回 require0 正常取码路（其内
+            // 含取码失败判与本地回退），与官 require0 对新内容的校验同义。
+            if (!isJsCode(code)) {
+                com.github.catvod.crawler.SpiderDebug.log("hk",
+                        "loadLibLocal reject non-js cache name=%s", libUrl);
+                return null;
+            }
+            return code;
+        } catch (Throwable ignored) {
+            com.github.catvod.crawler.SpiderDebug.log("hk",
+                    "loadLibLocal load failed name=%s err=%s", libUrl, ignored.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 带 headers 下载文件到绝对路径（saveImage/requireDownload 共用）。
+     * headersJson 为 JSON：{headers:{...}} 或直接 {k:v}。
+     */
+    private void downloadToFile(String url, String dest, String headersJson) {
+        if (TextUtils.isEmpty(url)) return;
+        File f = null;
+        File tmp = null;
+        try {
+            f = new File(dest);
+            if (f.isDirectory() || dest.endsWith("/")) {
+                String name = url.replaceAll("[?#].*$", "").replaceAll("^.*/", "");
+                if (TextUtils.isEmpty(name)) name = "download.bin";
+                f = new File(f, name);
+            }
+            if (f.getParentFile() != null) f.getParentFile().mkdirs();
+            // 毒文件根治（短剧冷播可行性 §四）：最终路径「存在即完整」。
+            // 同目标的历史临时文件先清（60 分钟前的 .part-<唯一> 残留；在途的并发下载因年轻跳过；
+            // P0 预热的固定名 X.part 不带 "-<唯一>" 后缀，不会被扫到）。
+            sweepStalePartFiles(f);
+            // 临时名带唯一后缀：同目标多线程并发下载互不踩；与最终文件同目录，原子改名要求同文件系统。
+            tmp = new File(f.getParentFile(),
+                    f.getName() + ".part-" + System.nanoTime() + "-" + Thread.currentThread().getId());
+            String opt = "{\"headers\":{}}";
+            Map<String, String> flat = null;
+            try {
+                Map<String, Object> m = GSON.fromJson(headersJson,
+                        new com.google.gson.reflect.TypeToken<Map<String, Object>>() {}.getType());
+                if (m != null) {
+                    Object h = m.get("headers");
+                    if (h == null) h = m.get("header");
+                    Map<String, Object> hm = h instanceof Map ? (Map<String, Object>) h : m;
+                    flat = new HashMap<>();
+                    for (Map.Entry<String, Object> e : hm.entrySet()) {
+                        if (e.getValue() != null) flat.put(e.getKey(), String.valueOf(e.getValue()));
+                    }
+                    Map<String, Object> wrap = new HashMap<>();
+                    wrap.put("headers", flat);
+                    opt = GSON.toJson(wrap);
+                }
+            } catch (Throwable ignored) {
+            }
+            // 断点续传起点（规则自带 Range 头时才有）：本方法自身从不拼 Range，
+            // 416 只可能来自规则传的 Range 起点已达/越过远端总长（见下方处置）。
+            final long rangeStart = rangeStartOf(flat);
+            boolean retried416 = false;
+            while (true) {
+                try (okhttp3.Response res = HkHttp.to(url,
+                        com.fongmi.quickjs.bean.Req.objectFrom(opt)).execute()) {
+                    if (res.isSuccessful() && res.body() != null) {
+                        byte[] body = res.body().bytes();
+                        if (body.length == 0) {
+                            // 空响应不落盘：规则侧把 0 字节密文当毒（hgpSize 校验），删了反而自愈。
+                            // 与 HTTP 失败同口径抛错（8.83 官方：失败抛 Exception）。
+                            throw new RuntimeException("下载文件失败：空响应");
+                        }
+                        java.nio.file.Files.write(tmp.toPath(), body);
+                        try {
+                            java.nio.file.Files.move(tmp.toPath(), f.toPath(),
+                                    java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                            java.nio.file.Files.move(tmp.toPath(), f.toPath(),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        }
+                        tmp = null; // 已落定，catch 不再删
+                        Logger.t(TAG).d("downloadToFile ok: %s", f.getAbsolutePath());
+                        // 落盘视频自动清理（潇洒哥 2026-10-18 定：6 小时/8 个文件/400MB 删最旧）：
+                        // 后台线程跑，不阻塞规则当前执行；落盘根与 downloadFile 一致。
+                        // 3c 适配：HkMediaCacheCleaner 未随本步移植，该行落盘后自动清理暂不执行（空操作，见 3c 文档 §6）。
+                        break;
+                    }
+                    if (res.code() == 416 && rangeStart >= 0 && !retried416) {
+                        // HTTP 416＝续传起点已达/越过远端总长。本地最终文件若与远端
+                        // 总长等长（Content-Range: bytes */总长），或总长未知而与规则
+                        // 续传起点等长，就是已经下完了——按成功交回，不许报失败
+                        // （2026-10-31 真机案：下完的文件再点下载回 416 被当失败抛错）。
+                        // 对不上长＝本地是旧/别的文件，摘掉 Range 整包重下一回。
+                        long total = contentRangeTotalOf(res.header("Content-Range"));
+                        if (f.isFile() && ((total >= 0 && f.length() == total)
+                                || (total < 0 && f.length() == rangeStart))) {
+                            Logger.t(TAG).d("downloadToFile 416 already complete: %s",
+                                    f.getAbsolutePath());
+                            return;
+                        }
+                        retried416 = true;
+                        opt = optWithoutRange(flat);
+                        continue;
+                    }
+                    throw new RuntimeException("下载文件失败：HTTP " + res.code());
+                }
+            }
+        } catch (Throwable e) {
+            // 失败/中断：临时文件直接删，最终路径上永远不会出现半截文件。
+            if (tmp != null) {
+                try { tmp.delete(); } catch (Throwable ignored) {}
+            }
+            if (e instanceof RuntimeException && String.valueOf(e.getMessage()).startsWith("下载文件失败")) throw (RuntimeException) e;
+            throw new RuntimeException("下载文件失败：" + e.getMessage());
+        }
+    }
+
+    /** 规则 headers 里的 Range 起点（bytes=N- / bytes=N-M）；无 Range 或不可解析回 -1。 */
+    private static long rangeStartOf(Map<String, String> flat) {
+        if (flat == null) return -1;
+        for (Map.Entry<String, String> e : flat.entrySet()) {
+            if (e.getKey() == null || !"Range".equalsIgnoreCase(e.getKey())) continue;
+            String v = e.getValue();
+            if (v == null) return -1;
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("(?i)^\\s*bytes\\s*=\\s*(\\d+)\\s*-").matcher(v);
+            if (!m.find()) return -1;
+            try {
+                return Long.parseLong(m.group(1));
+            } catch (NumberFormatException ex) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /** 416 回包 Content-Range 头（末段斜杠后的远端总长）；没带或不可解析回 -1。 */
+    private static long contentRangeTotalOf(String contentRange) {
+        if (contentRange == null) return -1;
+        int slash = contentRange.lastIndexOf('/');
+        if (slash < 0) return -1;
+        try {
+            return Long.parseLong(contentRange.substring(slash + 1).trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** 摘掉 Range 头重拼 downloadToFile 的 opt（416 处置第二发：整包重下）。 */
+    private static String optWithoutRange(Map<String, String> flat) {
+        Map<String, String> kept = new HashMap<>();
+        if (flat != null) {
+            for (Map.Entry<String, String> e : flat.entrySet()) {
+                if (e.getKey() != null && "Range".equalsIgnoreCase(e.getKey())) continue;
+                kept.put(e.getKey(), e.getValue());
+            }
+        }
+        Map<String, Object> wrap = new HashMap<>();
+        wrap.put("headers", kept);
+        return GSON.toJson(wrap);
+    }
+
+    /** png2Ts 前置：清 hiker://files/_cache 目录内容（原版 FilesUtilsKt.clearCacheDir 为异步清，星辰同步清）。 */
+    private void clearHkCacheDir() {
+        try {
+            File dir = new File(resolveHikerPath("hiker://files/_cache"));
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File f : files) deleteRecursively(f);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void deleteRecursively(File file) {
+        if (file == null) return;
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) deleteRecursively(child);
+            }
+        }
+        file.delete();
+    }
+
+    /** FileUtil.getExtension 的口径：去 ? 查询与 ## 段后，取末段路径里最后一个点之后的串，无点回空串。 */
+    private static String extensionOf(String url) {
+        String s = url;
+        int q = s.indexOf('?');
+        if (q >= 0) s = s.substring(0, q);
+        int h = s.indexOf("##");
+        if (h >= 0) s = s.substring(0, h);
+        int slash = s.lastIndexOf('/');
+        if (slash >= 0) s = s.substring(slash + 1);
+        int dot = s.lastIndexOf('.');
+        return dot >= 0 ? s.substring(dot + 1) : "";
+    }
+
+    /**
+     * 8.83 FileUtil.png2Ts(path) 的逐条转写（smali_classes2 utils/FileUtil 2838）：
+     * 输出路径＝原路径换扩展为 .ts（已存在先删）；仅解 bounds 取 mime——image/png 跳前 8 字节、
+     * image/bmp 跳前 14 字节，其余 mime 或解 bounds 异常直接回原路径；拷贝（1MB 缓冲）到 .ts 后
+     * 回 .ts 路径，拷贝出错记日志仍回 .ts 路径。原理：剥掉图片文件头，余下字节流当 TS 喂播放器。
+     */
+    private String png2TsFile(String path) {
+        int dot = path.lastIndexOf('.');
+        int slash = path.lastIndexOf('/');
+        String tsPath = dot > slash && dot > 0 ? path.substring(0, dot) + ".ts" : path + ".ts";
+        File ts = new File(tsPath);
+        if (ts.exists()) ts.delete();
+        android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        try {
+            android.graphics.BitmapFactory.decodeFile(path, options);
+        } catch (Throwable t) {
+            return path;
+        }
+        long skip;
+        if ("image/png".equals(options.outMimeType)) {
+            skip = 8;
+        } else if ("image/bmp".equals(options.outMimeType)) {
+            skip = 14;
+        } else {
+            return path;
+        }
+        try (java.io.InputStream in = new java.io.FileInputStream(path);
+             java.io.OutputStream out = new java.io.FileOutputStream(ts)) {
+            long remaining = skip;
+            while (remaining > 0) {
+                long skipped = in.skip(remaining);
+                if (skipped <= 0) break;
+                remaining -= skipped;
+            }
+            byte[] buffer = new byte[1024 * 1024];
+            int n;
+            while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+        } catch (Throwable t) {
+            Logger.t(TAG).e(t, "png2Ts copy failed: %s", path);
+        }
+        return tsPath;
+    }
+
+    /**
+     * 清同目标的历史临时下载文件（.part-<唯一> 残留）。
+     * 只删 60 分钟前的：在途的并发下载因年轻跳过；P0 预热的固定名 X.part 无 "-<唯一>" 后缀，不会被扫到。
+     */
+    private static void sweepStalePartFiles(File target) {
+        try {
+            File dir = target.getParentFile();
+            if (dir == null) return;
+            final String prefix = target.getName() + ".part-";
+            File[] kids = dir.listFiles();
+            if (kids == null) return;
+            long cutoff = System.currentTimeMillis() - 60L * 60 * 1000;
+            for (File k : kids) {
+                if (k.isFile() && k.getName().startsWith(prefix) && k.lastModified() < cutoff) {
+                    try { k.delete(); } catch (Throwable ignored) {}
+                }
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    /** 8.83 StringUtil.getHome 语义：scheme://dom。 */
+    private static String getHomeUrl(String url) {
+        try {
+            String u = getRealImageUrl(url);
+            String dom = getImageDom(u);
+            String scheme = u.split("://")[0];
+            return scheme + "://" + dom;
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /** 8.83 StringUtil.getDom/getDom0 语义：取 host。 */
+    private static String getImageDom(String url) {
+        if (TextUtils.isEmpty(url)) return url;
+        try {
+            String u = getRealImageUrl(url);
+            String[] parts = u.split("://");
+            if (parts.length > 1) return parts[1].split("/")[0];
+            parts = u.split("//");
+            if (parts.length > 1) return parts[1].split("/")[0];
+            return u.replaceFirst("http://", "").replaceFirst("https://", "").replaceFirst("hiker://", "").split("/")[0];
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /**
+     * 环 24-12 复核订正（hiker 子路）：注册点分发前取旗＋fetchByHiker 分发的统一收口。
+     * 官 fetch0 里 tryGetBool 的 ClassCastException（旗值非 Boolean）被 fetch0 全局
+     * catch 压成失败形（裸回 ""）；咱家六个注册点（fetch/post/request/fetchPC/postPC/
+     * postRequest）的分发调用在 fetchSync 失败形装配之外，CCE 直调会穿桥成 JS 可见
+     * 异常，与官分叉。故取旗段在此收口：CCE 时该次调用回 ""（不发分发、与官失败形
+     * 同）；取旗之外的分发异常不在此吞、原样穿出。fetchSync 内既有失败形不动。
+     */
+    private Object fetchByHikerWithFlags(String url, String optionsJson) {
+        return fetchByHikerWithFlags(url, optionsJson, null);
+    }
+
+    /** 环24-11 簇一：ruleKey 显式参透传形（注册点 args[2]），余与两参版同。 */
+    private Object fetchByHikerWithFlags(String url, String optionsJson, Object ruleKey) {
+        boolean toHex;
+        boolean inputStream;
+        try {
+            toHex = optFlagFromJson(optionsJson, "toHex");
+            inputStream = optFlagFromJson(optionsJson, "inputStream");
+        } catch (ClassCastException e) {
+            return "";
+        }
+        return fetchByHiker(url, ruleKey, toHex, inputStream);
+    }
+
+    /** 自 options JSON 串直取布尔旗（注册点分流透传 toHex/inputStream 用）。
+     * 与 optFlag 同 check-cast 语义：ClassCastException 不吞、穿出到调用方失败形。 */
+    private static boolean optFlagFromJson(String optionsJson, String key) {
+        if (TextUtils.isEmpty(optionsJson)) return false;
+        try {
+            com.google.gson.JsonElement parsed = com.google.gson.JsonParser.parseString(optionsJson);
+            if (parsed != null && parsed.isJsonObject()) return optFlag(parsed.getAsJsonObject(), key);
+        } catch (ClassCastException cce) {
+            throw cce;
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    // 8.83 返回包装（HttpHelper:349-356）：五字段 body/headers/url/statusCode/error，headers 为多值表
+    private static String wrapFetch(String body, Map<String, List<String>> headers, String realUrl, int statusCode, String error) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("body", body);
+        out.put("headers", headers);
+        out.put("url", realUrl);
+        out.put("statusCode", statusCode);
+        out.put("error", error);
+        return GSON.toJson(out);
+    }
+
+    /**
+     * 从 fetch options 里提取「字节数组 body」：body 是 JSON 数组且元素全为
+     * -128..255 的整数时按字节还原（值 & 0xFF，兼容 JS 无符号数组与 Java
+     * byte[] 的有符号序列化两形态）；其余形态（字符串/对象/含非字节元素）
+     * 返回 null、维持原 String body 路径。见 fetchSync 内的复诊注释。
+     */
+    private static byte[] extractArrayBody(com.google.gson.JsonObject optObj) {
+        if (optObj == null || !optObj.has("body")) return null;
+        com.google.gson.JsonElement body = optObj.get("body");
+        if (body == null || !body.isJsonArray()) return null;
+        com.google.gson.JsonArray arr = body.getAsJsonArray();
+        byte[] out = new byte[arr.size()];
+        for (int i = 0; i < arr.size(); i++) {
+            com.google.gson.JsonElement e = arr.get(i);
+            if (e == null || !e.isJsonPrimitive() || !e.getAsJsonPrimitive().isNumber()) return null;
+            double dv = e.getAsDouble();
+            long lv = e.getAsLong();
+            if (dv != lv || lv < -128 || lv > 255) return null;
+            out[i] = (byte) (lv & 0xFF);
+        }
+        return out;
+    }
+
+    /**
+     * 同步 fetch（跑在 JS 单线程上，直接阻塞等待）。
+     * options 为 JSON：{headers, body/data, method, timeout, withHeaders}。
+     */
+    // 回值形态随 options 而变（8.83 fetch0 同构）：缺省正文串；withHeaders/
+    // withStatusCode 时五字段包装串；inputStream 时流本体或含流的组装 Map
+    private Object fetchSync(String url, String optionsJson) {
+        if (TextUtils.isEmpty(url)) return "";
+        // hiker://empty 等非 http 协议直接返回空（由上层按形态分流）
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return "";
+        // 干跑分类（evalLazyDry 串行段内）：远程取数一律回空——动作型 lazy
+        // 全是纯串拼接、零网络即出结果；真集数 lazy 离了网络只会无果，
+        // 分类层按「不确定→保留」收，不会误剔（账 §九 非对称安全性）。
+        if (dryRunMode) return "";
+        // UA 口径：不无条件补（8.83 裸 fetch 亦不补、无条件补移动 UA 的旧做法已撤），
+        // 但规则自己声明了 ua 时按声明补——见下方注入段。
+        boolean withHeaders = false;
+        boolean withStatusCode = false;
+        boolean onlyHeaders = false;
+        // 失败分层三值（8.83 FetchResponse 口径）：响应回来后在执行段登记实
+        // headers/realUrl/实码；execute 本身失败时维持初值（headers=null、
+        // realUrl=入参 url、code=0）——catch 据此组失败包装（G9）。声明在
+        // try 外，catch 才可见
+        Map<String, List<String>> respHeaders = null;
+        String respRealUrl = url;
+        int respCode = 0;
+        try {
+            // 开关一律解析 options JSON 取值；此前用子串扫整个 options 字符串，
+            // 正文里含同名 JSON 键会被误判进包装分支
+            com.google.gson.JsonObject optObj = null;
+            try {
+                if (!TextUtils.isEmpty(optionsJson)) {
+                    com.google.gson.JsonElement parsedOpt = com.google.gson.JsonParser.parseString(optionsJson);
+                    if (parsedOpt != null && parsedOpt.isJsonObject()) optObj = parsedOpt.getAsJsonObject();
+                }
+            } catch (Throwable ignored) {
+            }
+            // 二进制 body 识别（2026-10-31 橘汁复诊）：规则以字节数组作 body 时
+            // （JS 数字数组或 _base64.decode 回的 Java byte[]，经 stringifyArg 后
+            // 都是 JSON 数字数组，本机 Rhino 1.7.15 实测），8.83 语义是原样字节
+            // 发送；此前 Req 把数组归一成 "[137,80,...]" 文本当正文，protobuf
+            // 类接口（橘汁 zone/play 的公钥/取流 POST）收到的全是坏体、必失败。
+            // 在此把数组还原成原始字节、走 HkHttp.toRaw 原样发送；元素须全为
+            // -128..255 的整数（Java byte[] 序列化为有符号值），否则不认、维持原路。
+            byte[] rawBody = extractArrayBody(optObj);
+            // 规则声明了 ua 且 options 没自带 User-Agent 时，按规则声明补上。
+            // 站点常按 UA 分模板：漫小肆声明 mobile，其章节页只有移动模板里
+            // 有 #cp_img 容器，桌面/okhttp UA 拿到的是另一套模板、选择器取空
+            // → pics:// 空体、漫画零图（本机实测对照：移动 UA 取 262 图，
+            // 桌面与 okhttp UA 取 0 图；pdfa 用本仓 Parser 实跑无误）。
+            // 未声明 ua 的规则不碰，保持原行为；页面直取那条路（HkEngine/
+            // HkRouter）早就用 resolvedUa，JS fetch 此前是唯一漏掉的一条。
+            HkRule boundRule = rule;
+            if (boundRule != null && !TextUtils.isEmpty(boundRule.getUa())) {
+                if (optObj == null) optObj = new com.google.gson.JsonObject();
+                com.google.gson.JsonObject hdrs = null;
+                if (optObj.has("headers") && optObj.get("headers").isJsonObject()) {
+                    hdrs = optObj.getAsJsonObject("headers");
+                } else if (optObj.has("header") && optObj.get("header").isJsonObject()) {
+                    hdrs = optObj.getAsJsonObject("header");
+                }
+                boolean hasUa = false;
+                if (hdrs != null) {
+                    for (String k : hdrs.keySet()) {
+                        if ("User-Agent".equalsIgnoreCase(k)) {
+                            hasUa = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasUa) {
+                    if (hdrs == null) {
+                        hdrs = new com.google.gson.JsonObject();
+                        optObj.add("headers", hdrs);
+                    }
+                    hdrs.addProperty("User-Agent", boundRule.resolvedUa());
+                    optionsJson = GSON.toJson(optObj);
+                }
+            }
+            Req req = TextUtils.isEmpty(optionsJson) ? Req.objectFrom("{}") : Req.objectFrom(optionsJson);
+            withHeaders = optFlag(optObj, "withHeaders");
+            withStatusCode = optFlag(optObj, "withStatusCode");
+            boolean toHex = optFlag(optObj, "toHex");
+            boolean inputStream = optFlag(optObj, "inputStream");
+            onlyHeaders = optFlag(optObj, "onlyHeaders");
+            if (onlyHeaders) withHeaders = true;
+            String method = req.getMethod();
+            // 8.83：HEAD/DELETE 共用寄存器置 withHeaders=true（HHs:724,1038-1110 区）；
+            // header 是咱家主路自认的 HEAD 别名（官无，存量保留）
+            if (method.equalsIgnoreCase("head") || method.equalsIgnoreCase("header")
+                    || method.equalsIgnoreCase("delete")) withHeaders = true;
+            if (inputStream) {
+                // 8.83 fetch0 inputStream 支（HHs:920 区取键、FetchCallback 在
+                // interceptor 前取 byteStream 入 FetchResponse；咱家 HH 版同构）：
+                // 响应不经 try-with 关闭，流随连接存活、规则侧 closeMe 关。组装
+                // （HH FetchCallback:组装段）：withHeaders/withStatusCode 任一开 →
+                // Map{body=流,headers,url,statusCode,error}，否则直回流本体。
+                Response res = (rawBody != null ? HkHttp.toRaw(url, req, rawBody) : HkHttp.to(url, req)).execute();
+                resCode = res.code();
+                lastUrl = url;
+                if (res.code() < 200 || res.code() >= 300) recordFetchDiag(url, res.code(), null, false);
+                Map<String, List<String>> sHeaders = res.headers().toMultimap();
+                String sRealUrl = res.request().url().toString();
+                int sCode = res.code();
+                ResponseBody sBody = res.body();
+                if (sBody == null) {
+                    res.close();
+                    if (withHeaders || withStatusCode) return wrapFetch(null, sHeaders, sRealUrl, sCode, null);
+                    return "";
+                }
+                java.io.InputStream stream = sBody.byteStream();
+                if (withHeaders || withStatusCode) {
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("body", stream);
+                    m.put("headers", sHeaders);
+                    m.put("url", sRealUrl);
+                    m.put("statusCode", sCode);
+                    m.put("error", null);
+                    return m;
+                }
+                return stream;
+            }
+            try (Response res = (rawBody != null ? HkHttp.toRaw(url, req, rawBody) : HkHttp.to(url, req)).execute()) {
+                resCode = res.code();
+                lastUrl = url;
+                if (res.code() < 200 || res.code() >= 300) {
+                    recordFetchDiag(url, res.code(), null, false);
+                }
+                Map<String, List<String>> headers = res.headers().toMultimap();
+                String realUrl = res.request().url().toString();
+                respHeaders = headers;
+                respRealUrl = realUrl;
+                respCode = res.code();
+                if (onlyHeaders) {
+                    return wrapFetch(null, headers, realUrl, res.code(), null);
+                }
+                ResponseBody body = res.body();
+                // 8.83 CharsetStringConvert：响应头 Content-Length 超 0x1400000 抛
+                // IOException，文案逐字 "content-length is too big: N"（官包该类
+                // smali:72-99 亲读），进失败包装的 error
+                if (body != null && body.contentLength() > 20L * 1024 * 1024) throw new java.io.IOException("content-length is too big: " + body.contentLength());
+                byte[] bytes;
+                try {
+                    bytes = body == null ? new byte[0] : body.bytes();
+                } catch (java.io.IOException readErr) {
+                    // 8.83 CharsetStringConvert：读体 IOException 在 converter 内
+                    // 吞掉回 ""（error 不置位），不进失败包装（G9 分层）
+                    bytes = null;
+                }
+                if (bytes != null && bytes.length == 0 && res.code() >= 200 && res.code() < 300) {
+                    // 诊断：200 但空 body（JSON.parse("") 抛 Empty JSON 的源头）
+                    recordFetchDiag(url, res.code(), null, true);
+                }
+                String content;
+                // 环 24-13（硬门审计 B）：显式 charset 解码失败的附带 error（官
+                // CharsetStringConvert 失败形：error 照置、正文以 ResponseBody.string()
+                // 重读，见下方解码支）；无此失败时维持 null。
+                String decodeError = null;
+                if (bytes == null) {
+                    content = "";
+                } else if (toHex) {
+                    StringBuilder sb = new StringBuilder(bytes.length * 2);
+                    for (byte b : bytes) sb.append(String.format("%02x", b & 0xff));
+                    content = sb.toString();
+                } else {
+                    // N4: 8.83 的 rejectCoding 是请求侧标志（POST 时 body 原样发送，跳过编码处理，
+                    // 见 HkHttpHelper.buildPostBody），不是响应侧。响应侧按 CharsetStringConvert
+                    // 分流（官包该类 smali:57-207 亲读）：请求头 content-type 显式声明了
+                    // charset/charst → 按其解码；未声明 → ResponseBody.string() 本体语义
+                    // （BOM 嗅探＋响应 Content-Type 的 charset、缺省 UTF-8）。此前一律
+                    // req.getCharset()（未声明硬回 UTF-8），响应声明 GBK 的页面必乱码。
+                    String explicitCs = req.getCharsetOrNull();
+                    if (explicitCs != null && !explicitCs.isEmpty()) {
+                        // 环 24-13（硬门审计 B，本轮钉死，订正旧注「上穿成失败包装」）：
+                        // 官 CharsetStringConvert 显式 charset 支抛
+                        // UnsupportedEncodingException 穿出 converter 后，fetch0 同步
+                        // 装配段见结果为空且 rawResponse 在——以 rawResponse.body()
+                        // .string()（OkHttp 推断解码）重读原文作正文，error 另置
+                        // （HH:2130-2300＋尾段 :2380-2560 亲读）。咱家 bytes 与响应
+                        // contentType 已在手，等价法＝ResponseBody.create(bytes,
+                        // contentType).string() 重读；error 经 decodeError 带到包装
+                        // 装配，裸回路径同步得重读串（旧形外层 catch 把正文压成
+                        // body=null/裸回 ""，正文丢失）。
+                        try {
+                            content = new String(bytes, explicitCs);
+                        } catch (java.io.UnsupportedEncodingException uee) {
+                            decodeError = uee.getMessage();
+                            try {
+                                content = ResponseBody.create(bytes, body == null ? null : body.contentType()).string();
+                            } catch (java.io.IOException readErr) {
+                                // 同读体分层：重读的 IOException 官在 converter 内吞掉回 ""
+                                content = "";
+                            }
+                        }
+                    } else {
+                        try {
+                            content = ResponseBody.create(bytes, body == null ? null : body.contentType()).string();
+                        } catch (java.io.IOException readErr) {
+                            // 同读体分层：body.string() 的 IOException 官在
+                            // converter 内吞掉回 ""
+                            content = "";
+                        }
+                    }
+                }
+                if (res.code() < 200 || res.code() >= 300) {
+                    // 非 2xx 定案诊断：把实际发出的 UA、带的 cookie 数、路径形状与
+                    // 错误页正文头记进文件日志（福建兄妹播放页 403：同 App 里 XO 能播、
+                    // 就它不行，日志里没这些就永远定不了是站方拦法还是地址拼错）。
+                    try {
+                        String ua = res.request().header("User-Agent");
+                        String cookie = res.request().header("Cookie");
+                        int cookieCount = 0;
+                        if (cookie != null && !cookie.isEmpty()) cookieCount = cookie.split(";").length;
+                        String head = content == null ? "" : content.replaceAll("\\s+", " ").trim();
+                        if (head.length() > 120) head = head.substring(0, 120);
+                        com.github.catvod.crawler.SpiderDebug.log("hk",
+                                "fetch non2xx host=%s code=%d ua=%s cookies=%d path=%s body=%s",
+                                hostOfQuiet(url), res.code(), ua == null ? "" : ua, cookieCount,
+                                maskedPath(url), head);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (withHeaders || withStatusCode) return wrapFetch(content, headers, realUrl, res.code(), decodeError);
+                return content;
+            }
+        } catch (Throwable e) {
+            Logger.t(TAG).d("fetch failed %s: %s", url, e.getMessage());
+            recordFetchDiag(url, 0, e, false);
+            resCode = 0;
+            // 8.83：要求了包装时失败也要回带 error 的包装 JSON，读 .error 的规则才能感知失败原因；
+            // 此前一律返回 ""，规则只会撞上 Empty JSON。包装三值按失败分层（G9）：
+            // execute 本身失败＝headers null/入参 url/0；响应已回后失败（超限、
+            // charset 名非法）＝实 headers/realUrl/实码。此前一 catch 全压成
+            // 空 headers 表＋入参 url＋0，已回响应的失败全错位
+            if (withHeaders || withStatusCode || onlyHeaders) {
+                return wrapFetch(null, respHeaders, respRealUrl, respCode, e.getMessage());
+            }
+            return "";
+        }
+    }
+
+    /** 8.83 JSEngine$MyRequire: Rhino Require with function name "requirejs". */
+    private static class MyRequire extends org.mozilla.javascript.commonjs.module.Require {
+        MyRequire(Context cx, Scriptable scope,
+                  org.mozilla.javascript.commonjs.module.ModuleScriptProvider provider,
+                  Script preExec, Script postExec, boolean sandboxed) {
+            super(cx, scope, provider, preExec, postExec, sandboxed);
+        }
+        @Override
+        public String getFunctionName() {
+            return "requirejs";
+        }
+    }
+
+/**
+ * Port of JSEngine.runScript(String, String). Smali lines 9142-9152.
+ * Delegates to the 3-arg overload with throwOnError=false.
+ */
+private void runScript(String script, String key) {
+    runScript(script, key, false);
+}
+
+/**
+ * Port of JSEngine.runScript(String, String, boolean). Smali lines 9153-9479.
+ * Builds the final script via appendLineVar + getReplaceJS, enters a fresh
+ * Rhino context (RhinoAndroidHelper), installs the standard 8.83 scope
+ * bindings (_globalMap, rc4, _base64, javaContext, javaLoader), evaluates
+ * allFunctions (+ "\neval(getJsPlugin());\n" when the script lacks the
+ * "eval(getJsPlugin());\n" marker) and then the script itself. On Exception:
+ * setError("JS编译出错：" + msg, key, new JSONObject()) unless throwOnError,
+ * in which case the exception is rethrown. Context.exit() always runs
+ * (smali allcatch -> finally). Afterwards resCodeMap/callbackMap entries for
+ * key are removed (each path has its own try/catch -> Timber.e, faithfully
+ * collapsed here into the single straight-line cleanup).
+ */
+private void runScript(String script, String key, boolean throwOnError) {
+    String replaced = getReplaceJS(appendLineVar(script), throwOnError);
+    Context cx = Context.enter(); // 8.83 RhinoAndroidHelper 等价：Context.enter()
+    initRhino(cx);
+    Scriptable ambPrev = null;
+    boolean ambEntered = false;
+    enterEvalLog();
+    try {
+        ScriptableObject scope = cx.initStandardObjects();
+        org.mozilla.javascript.ImporterTopLevel.init(cx, scope, false);
+        initRequire(cx, scope);
+        installJavaAdapterShim(scope);
+        ScriptableObject.putProperty(scope, "_globalMap",
+                Context.javaToJS(globalMap, scope)); // 8.83 _globalMap 别名（skill 文档名）
+        ScriptableObject.putProperty(scope, "rc4",
+                Context.javaToJS(rc4, scope));
+        ScriptableObject.putProperty(scope, "_base64",
+                Context.javaToJS(myBase64, scope));
+        ScriptableObject.putProperty(scope, "javaContext",
+                Context.javaToJS(this, scope));
+        ScriptableObject.putProperty(scope, "javaLoader",
+                Context.javaToJS(clazz.getClassLoader(), scope));
+        registerApiInto(scope);
+        ambPrev = enterAmbientScope(scope);
+        ambEntered = true;
+        if (!script.contains("eval(getJsPlugin());\n")) {
+            cx.evaluateString(scope, allFunctions + "\neval(getJsPlugin());\n",
+                    clazz.getSimpleName(), 1, null);
+        } else {
+            cx.evaluateString(scope, allFunctions, clazz.getSimpleName(), 1, null);
+        }
+        cx.evaluateString(scope, replaced, clazz.getSimpleName(), 1, null);
+    } catch (Exception e) {
+        logEvalFailure(replaced, e, throwOnError ? 1 : 2);
+        logEvalError("runScript", replaced, e);
+        if (!throwOnError) {
+            setError("JS编译出错：" + e.getMessage(), key, new HashMap<String, Object>());
+        } else {
+            throw e;
+        }
+    } finally {
+        exitEvalLog();
+        if (ambEntered) exitAmbientScope(ambPrev);
+        Context.exit();
+    }
+    try {
+        if (!TextUtils.isEmpty(key)) {
+            resCodeMap.remove(key);
+            callbackMap.remove(key);
+        }
+    } catch (Exception e) {
+        Logger.t(TAG).e(e.getMessage());
+    }
+}
+
+/**
+ * Port of JSEngine.wrapTryScript(String). Smali lines 9963-9991.
+ * Returns "try {" + script + "}catch(err){}".
+ */
+private String wrapTryScript(String script) {
+    return new StringBuilder("try {").append(script).append("}catch(err){}").toString();
+}
+
+    // ---- D1-C: require (smali 5400-5484, 8192-8237, 8468-9141) ----
+    /**
+     * 8.83 JSEngine.require0(Object p1, Object p2, int p3, Object p4,
+     *                        Object p5, boolean p6, String p7, int p8) — smali 8468-9141.
+     * $.require 的核心模块加载器。参数角色按寄存器用法：
+     *   p1 options     — 传给 proxyRequire 的选项对象（可含 proxy 字段）
+     *   p2 name        — 经 tryGetString 转字符串，作模块名/描述（updateDescription/generateRequireMap 用）
+     *   p3 expireHours — 本地缓存过期小时数：<0 只比版本；==0 永远重下；>0 版本不够重下，否则按 3600000*p3 过期
+     *   p4 fetchOpts   — 透传给 requestForCode 的请求选项对象
+     *   p5 callback    — Function；p6=true 时把代码字符串作唯一实参回调，其 parentScope 作调用 scope
+     *   p6 useCallback — true=回调模式（返回 Function.call 结果），false=返回代码字符串
+     *   p7 ruleTitle   — 规则标题（hiker://page/ 查库 + generateRequireMap 用）
+     *   p8 reqVersion  — 期望依赖版本号（与 <md5>.json 里存的版本比）
+     */
+    private Object require0(Object options, Object name, int expireHours, Object fetchOpts,
+                            Object callback, boolean useCallback, String ruleTitle, int reqVersion) throws Exception {
+        // smali: v1=p4(fetchOpts), v2=p7(ruleTitle), v3=tryGetString(p2), v4=p8(reqVersion)
+        String desc = tryGetString(name);            // v3, .line 3626
+        String url = proxyRequire(options, desc);    // v5, .line 3627
+
+        // .line 3628: isNotEmpty(url) && (startsWith("file://") || startsWith("hiker://")) -> :cond_0
+        if (!TextUtils.isEmpty(url) && (url.startsWith("file://") || url.startsWith("hiker://"))) {
+            // :cond_0
+            Object ruleObj = null;                   // v7
+            if (url.startsWith("hiker://page/")) {
+                // 8.83: LitePal.where("title = ?", ruleTitle).limit(1).findFirst(ArticleListRule.class)
+                ruleObj = HkRuleManager.get().getInstalledRule(ruleTitle);
+            }
+            // :cond_1
+            // 体检批六判型：原版裸 check-cast String；非文本结果（哨兵/流）按原版
+            // 收口故意抛 ClassCastException，不静默当代码用。null 仍按原版过转。
+            Object rawCode = fetchByHiker(url, ruleObj, false, false);  // v2
+            if (rawCode != null && !(rawCode instanceof String)) {
+                throw new ClassCastException("require fetchByHiker non-text result: "
+                        + rawCode.getClass().getName());
+            }
+            String code = (String) rawCode;
+            if (!useCallback) {
+                return code;                         // :cond_4
+            }
+            if (url.startsWith("hiker://page/")) {
+                // 8.83: com.alibaba.fastjson.JSON.parseObject(code, HkPageRule.class)
+                HkPageRule pageRule = GSON.fromJson(code, HkPageRule.class);
+                if (pageRule != null) {
+                    String rule = pageRule.getRule();
+                    if (!TextUtils.isEmpty(rule)) {
+                        code = rule.startsWith("js:") ? rule.substring(3) : rule;  // v8=3
+                    }
+                }
+            }
+            // :goto_0 — Function.call(cx, parentScope, parentScope, new Object[]{code})
+            // 体检批六判型：原版裸 check-cast Scriptable/Function；回调模式下 callback
+            // 非 Function 按原版收口故意抛 ClassCastException（Function 必是 Scriptable，
+            // 一道判型覆盖两转）。
+            if (!(callback instanceof Function)) {
+                throw new ClassCastException("require callback is not a Function: "
+                        + (callback == null ? "null" : callback.getClass().getName()));
+            }
+            Context cx = Context.getCurrentContext();
+            Scriptable parentScope = ((Scriptable) callback).getParentScope();
+            return ((Function) callback).call(cx, parentScope, parentScope, new Object[]{code});
+        }
+
+        // :cond_5 — 非 file/hiker 协议：必须 http 开头，否则抛
+        if (TextUtils.isEmpty(url) || !url.startsWith("http")) {
+            // :cond_12
+            throw new Exception("require地址必须为http地址：" + url);
+        }
+
+        // http(s) 分支：本地缓存 libs/<md5(url)>.js + 版本文件 <md5(url)>.json
+        Context cx = Context.getCurrentContext();                          // v6
+        // 体检批六判型：parentScope 只在回调模式的 finishRequire 里消费；原版无条件
+        // 裸转，非 Scriptable 的 callback 在非回调模式也会 CCE。非 Scriptable 时置
+        // null（该模式不消费），回调模式的判型在 finishRequire 处故意抛错收口。
+        Scriptable parentScope = callback instanceof Scriptable
+                ? ((Scriptable) callback).getParentScope() : null;          // v9
+        String md5 = Util.md5(url);                                        // v10, 8.83: StringUtil.md5
+        String libsDir = hkRootDir() + File.separator + "libs";  // v12
+        String jsPath = libsDir + File.separator + md5 + ".js";            // v11
+        String jsonPath = libsDir + File.separator + md5 + ".json";        // v10
+        File jsFile = new File(jsPath);                                    // v12
+        int savedVer = getRequireVersion(jsonPath, reqVersion); // v13
+        // v15 = "获取远程依赖失败："
+
+        // 缓存有效性：smali 3667-3672 的 if-gez/if-ge/if-lt/if-eqz/cmp-long 判定链
+        //   p3 < 0：只比版本（savedVer >= reqVersion 用本地，否则下载）
+        //   p3 == 0：永远重新下载
+        //   p3 > 0：版本不够直接下载；版本够则 age <= 3600000*p3 用本地，否则下载
+        boolean useLocal;
+        if (!jsFile.exists()) {
+            useLocal = false;
+        } else if (expireHours < 0) {
+            useLocal = savedVer >= reqVersion;
+        } else if (expireHours == 0) {
+            useLocal = false;
+        } else if (savedVer < reqVersion) {
+            useLocal = false;
+        } else {
+            long age = System.currentTimeMillis() - jsFile.lastModified();
+            useLocal = age <= 3600000L * expireHours;
+        }
+
+        String code;  // v1
+        if (useLocal) {
+            // :cond_b / :goto_1 — 缓存有效，直接读本地
+            code = readFileContent(jsPath);          // 8.83: FileUtil.fileToString(jsPath)
+        } else {
+            code = requestForCode(url, fetchOpts);   // :cond_7 / :cond_f 下载
+            if (!jsFile.exists()) {
+                // :cond_f — 本地无文件：无内容校验，直接落盘
+                if (TextUtils.isEmpty(code)) {
+                    // :cond_11 — 照官抛错（JE require0 :cond_11，throw Exception("获取远程依赖失败：" + url)）。
+                    // B1 软失败由消费方承担：require 入口自带 catch 收口（registerApi require 处），本体不软化。
+                    throw new Exception("获取远程依赖失败：" + url);
+                }
+                writeFileContent(jsPath, code);      // 8.83: FileUtil.stringToFile(code, jsPath)
+                updateDescription(jsonPath, desc, reqVersion);
+            } else if (useCallback && !isJsCode(code)) {
+                // :cond_7 回调模式：下载内容被判定为非 JS 代码 → 打日志后回退本地
+                log("url: " + url + "获取的内容被判定为非JS代码", null);  // v7=null
+                code = readFileContent(jsPath);      // goto :goto_1
+            } else if (!useCallback && url.contains("hiker.nokia.press")
+                    && (TextUtils.isEmpty(code) || code.length() < 3 || code.contains("非法猎鹰"))) {
+                // :cond_8 — nokia.press 拦截页（空/过短/含"非法猎鹰"）→ 回退本地
+                code = readFileContent(jsPath);      // goto :goto_1
+            } else if (giteePoisoned(url, code)) {
+                // :cond_9 + :cond_a — gitee 坏内容 → 回退本地
+                code = readFileContent(jsPath);      // goto :goto_1
+            } else if (TextUtils.isEmpty(code)) {
+                // :cond_c → :cond_e — 照官抛错（JE require0 :cond_e，文案与 :cond_11 同）。
+                throw new Exception("获取远程依赖失败：" + url);
+            } else {
+                // :cond_c — 内容可用，落盘并更新版本描述
+                writeFileContent(jsPath, code);      // 8.83: FileUtil.stringToFile(code, jsPath)
+                updateDescription(jsonPath, desc, reqVersion);
+            }
+        }
+        // :goto_2 公共收尾
+        return finishRequire(ruleTitle, desc, url, jsPath, code, cx, parentScope, callback, useCallback);
+    }
+
+    /**
+     * :cond_9 + :cond_a 的 gitee 内容校验（结构辅助方法，非 8.83 独立方法）：
+     * url 含 gitee.com/ 且（内容空 / 长度<3 / 含 "The Repository is invisible"）→ true（回退本地）。
+     * 不含 gitee.com/ → false（走 :cond_c）。
+     */
+    private boolean giteePoisoned(String url, String code) {
+        if (!url.contains("gitee.com/")) return false;  // :cond_9 !contains -> :cond_a -> !contains -> :cond_c
+        if (TextUtils.isEmpty(code)) return true;       // :cond_9 空 -> :goto_1
+        if (code.length() < 3) return true;             // :cond_9 长度<3 -> :goto_1（v8=3）
+        return code.contains("The Repository is invisible");  // :cond_a
+    }
+
+    /**
+     * :goto_2 公共收尾（结构辅助方法，非 8.83 独立方法）：
+     * generateRequireMap 登记模块；useCallback=true 时调 Function 回调并返回其结果，否则返回代码字符串。
+     */
+    private Object finishRequire(String ruleTitle, String desc, String url, String jsPath, String code,
+                                 Context cx, Scriptable parentScope, Object callback, boolean useCallback) {
+        generateRequireMap(ruleTitle, desc, url, jsPath);
+        if (useCallback) {
+            // 体检批六判型：原版裸 check-cast Function；非 Function 按原版收口故意抛
+            // ClassCastException（与 require0 文件分支同口径）。
+            if (!(callback instanceof Function)) {
+                throw new ClassCastException("require callback is not a Function: "
+                        + (callback == null ? "null" : callback.getClass().getName()));
+            }
+            return ((Function) callback).call(cx, parentScope, parentScope, new Object[]{code});
+        }
+        return code;
+    }
+
+    /**
+     * 8.83 JSEngine.proxyRequire(Object p1, String p2) — smali 8192-8237 (.line 3590-3596)。
+     * p2 为空（null/""）直接返回 p2；否则把 p1 经 argsNativeObjectAdjust 转换，
+     * 是 JSONObject（本移植：Map，见 argsNativeObjectAdjust 注释）则取 "proxy" 字段，
+     * 走 proxyUrl(p2, proxy) 拼出代理地址返回；不是则原样返回 p2。
+     */
+    private String proxyRequire(Object options, String url) {
+        if (url == null || url.isEmpty()) return url;   // :cond_1 / :goto_0
+        // :cond_0
+        Object adjusted = argsNativeObjectAdjust(options);  // .line 3593
+        // 8.83: adjusted instanceof com.alibaba.fastjson.JSONObject；本移植已转 Map
+        if (adjusted instanceof Map) {                  // .line 3594
+            Object proxy = ((Map<?, ?>) adjusted).get("proxy");  // .line 3595
+            return proxyUrl(url, proxy == null ? null : String.valueOf(proxy));  // .line 3596
+        }
+        return url;                                     // :cond_1
+    }
+
+    /**
+     * 8.83 JSEngine.initRequire(Context p1, Scriptable p2) — smali 5400-5484 (.line 540-558)。
+     * CommonJS requirejs 桥：StrongCachingModuleScriptProvider（UrlModuleSourceProvider 指向
+     * getDirectory() 即 <rootDir>/libs 的 file:// URI）双重检查锁单例；
+     * new MyRequire(cx, scope, provider, null, null, false) 挂到 scope.requirejs。
+     * 8.83 锁的是 JSEngine.class，本移植锁 HkJsRuntime.class（移植类）。
+     */
+    private void initRequire(Context cx, Scriptable scope) {
+        // 环19 对官：provider 改官类级单例＋单基址——UrlModuleSourceProvider
+        // 只含 getDirectory()（全局 libs）一个基址，双重检查锁只建一次、全
+        // 运行时共用。旧自造适配（全局 libs＋当前规则 data/libs 双基址、
+        // provider 按规则标题缓存）随本批退役：环13 后包内库按官落全局
+        // libs，单基址即命中，第二基址的消费面消灭。
+        if (cachingModuleScriptProvider == null) {
+            synchronized (HkJsRuntime.class) {
+                if (cachingModuleScriptProvider == null) {
+                    UrlModuleSourceProvider sourceProvider = new UrlModuleSourceProvider(
+                            java.util.Collections.singletonList(getDirectory()), null);
+                    cachingModuleScriptProvider = new StrongCachingModuleScriptProvider(sourceProvider);
+                }
+            }
+        }
+        // :cond_1 / :goto_0 — .line 550: new MyRequire(cx, scope, provider, null, null, false)
+        MyRequire require = new MyRequire(cx, scope, cachingModuleScriptProvider, null, null, false);
+        // .line 558
+        ScriptableObject.putProperty(scope, "requirejs", require);
+    }
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.fetch0(String url, Object options, Object ruleKey,
+//                        HttpHelper$HeadersInterceptor)  [smali 2061-2143]
+// Called by the JS fetch API path. resCode/lastUrl are captured inside
+// HttpHelper.fetch0 (NOT HERE); this method only builds options and delegates.
+// ---------------------------------------------------------------------------
+private Object fetch0(String url, Object options, Object ruleKey, HkHttpHelper.HeadersInterceptor interceptor) {
+    try {
+        if (TextUtils.isEmpty(url)) return "";
+        url = proxyRequire(ruleKey, url);
+        java.util.Map<String, Object> opts = null;
+        if (options != null && !isUndefined(options)) {
+            Object adj = argsNativeObjectAdjust(options);
+            // 体检批六判型：原版裸 check-cast Map、CCE 被本函数 catchall 吞成回 ""；
+            // 非 Map（数组/字符串 options）照原口径直接回 ""，不发无选项请求；
+            // adj 为 null 时原版过转得 null opts，照旧。
+            if (adj != null && !(adj instanceof java.util.Map)) return "";
+            opts = (java.util.Map<String, Object>) adj;
+        }
+        final Object ruleKey0 = ruleKey;
+        return HkHttpHelper.fetch0(url, opts, interceptor, new HkHttpHelper.RuleFetchDelegate() {
+            @Override
+            public Object fetch(String u, boolean toHex, boolean inputStream) {
+                return fetchByHiker(u, argsNativeObjectAdjust(ruleKey0), toHex, inputStream);
+            }
+        });
+    } catch (Throwable t) {
+        Logger.t(TAG).e(t, "fetch0");
+        return "";
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.fetchByHiker(String url, Object options, boolean toHex,
+//                             boolean inputStream)  [smali 2144-2381]
+// Handles the hiker:// and file:// pseudo-protocols for fetch.
+// NOTE the signature swap: at smali :cond_0 p3 ("hiker://page/") is reused as a
+// boolean flag AFTER the page branch, i.e. (toHex, inputStream) order.
+// ---------------------------------------------------------------------------
+private Object fetchByHiker(String url, Object options, boolean toHex, boolean inputStream) {
+    if (url.startsWith("hiker://files/") || url.startsWith("file://")) {
+        // file branch
+        String path = getFilePath(url);
+        java.io.File f = new java.io.File(path);
+        // 种子回补（命中种子表才动作，见 hkSeedAssetFor）：目标缺失或
+        // 只剩失败回写的空壳时，先按内置种子原样补回再走原读路。
+        hkSeedRestore(url, f);
+        if (!f.exists()) {
+            // 环13：旧自造「全局 miss 回退规则 libs」层已摘——包内 libs 按官
+            // 落全局 libs/ 后此路直查即命中，miss 即官形回 ""。
+            return "";
+        }
+        if (inputStream) {
+            try {
+                return hkFileToInputStream(path);
+            } catch (java.io.IOException e) {
+                Logger.t(TAG).e(e, "fetchByHiker file inputStream");
+                return "";
+            }
+        }
+        if (toHex) {
+            try {
+                byte[] bytes = hkFileToBytes(path);
+                return hkBytesToHexString(bytes);
+            } catch (java.io.IOException e) {
+                Logger.t(TAG).e(e, "fetchByHiker file toHex");
+                return "";
+            }
+        }
+        return fileToString(f, null, true);
+    }
+    if (url.startsWith("hiker://page/")) {
+        // 8.83: PageParser.parsePageRule(rule, url)；宿主已移植为 handlePageRequest（同文件）。
+        // 环24-11 簇一：第二参 options 位即官 ruleKey——显式转 HkRule 作取页
+        // 基底透传（delegate 捕获的 ruleKey、直名路 args[2]、require0 的
+        // ruleObj 都经此位入），不在场/不可转才回落 ambient（handlePageRequest
+        // 内部既有路）。
+        try {
+            return handlePageRequest(url, ruleFromExplicitKey(options));
+        } catch (Exception e) {
+            Logger.t(TAG).e(e, "fetchByHiker page");
+            return "";
+        }
+    }
+    if (url.startsWith("hiker://")) {
+        if (url.startsWith("hiker://assets/")) {
+            try {
+                return hkGetAssetsFile(url);
+            } catch (Exception e) {
+                return "";
+            }
+        }
+        try {
+            return hkGetRulesByHiker(url);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+    return Boolean.FALSE; // 8.83 clobbers p4 to 0x0 before :cond_2, so this is always FALSE
+}
+
+    // ---- D1-F: eval infra helpers ----
+/**
+ * Port of JSEngine.initRhino(Lorg/mozilla/javascript/Context;)V.
+ * Smali lines 5485-5505. Note: the Context here is Context.
+ */
+private void initRhino(Context cx) {
+    cx.setOptimizationLevel(-1);
+    cx.setLanguageVersion(200);
+    cx.setTrackUnhandledPromiseRejections(true);
+}
+
+// ---- 2. getMyRule (smali 4936-5112) ------------------------------------------
+
+/**
+ * Port of JSEngine.getMyRule(Ljava/lang/Object;)Ljava/lang/String; (public static).
+ * Smali lines 4936-5112.
+ *
+ * DIVERGENCE (documented, not simplified): 8.83 dispatches on three model
+ * classes (ArticleListRule / SearchEngine / MovieRule), each contributing
+ * getTitle() + getDisplayName(). The target's rule models are HkRule and
+ * HkSearchEngine, both carrying getTitle() + getDisplayName() (HkRule.java:602 /
+ * HkSearchEngine.java:47); the dispatch covers both. (2026-11-11 代码库批 F1:
+ * earlier port never extracted displayName, so the _displayName branch never
+ * fired and plugin.js's title rewrite stayed dead — see
+ * worknotes/hiker-codelib-ledger-20261111.md.)
+ */
+public static String getMyRule(Object rule) {
+    String title = "";
+    String displayName = null;
+    if (rule instanceof HkRule) {
+        title = ((HkRule) rule).getTitle();
+        displayName = ((HkRule) rule).getDisplayName();
+    } else if (rule instanceof HkSearchEngine) {
+        title = ((HkSearchEngine) rule).getTitle();
+        displayName = ((HkSearchEngine) rule).getDisplayName();
+    }
+    StringBuilder sb = new StringBuilder("let my_rule = '");
+    // G40：HkRule 走 myRuleJson（官 getSimpleFilter 过滤），与其余注入口径一致。
+    // 环20：SearchEngine 支同走 simple 滤镜（官 getMyRule 对三型同用
+    // getSimpleFilter，displayName/order 等名同剔；旧形未过滤直出）。
+    sb.append(escapeJsString(rule instanceof HkRule ? myRuleJson((HkRule) rule)
+            : rule instanceof HkSearchEngine ? GSON.toJson(filteredRuleTree(rule))
+            : GSON.toJson(rule)));
+    sb.append("';\n const MY_RULE = JSON.parse(my_rule);\n my_rule = null;\n ");
+    if (!TextUtils.isEmpty(displayName)) {
+        sb.append("const _displayName = '").append(escapeJsString(displayName)).append("';\n");
+    }
+    sb.append("const MY_TICKET = '");
+    sb.append(escapeJsString(generateTicket(title)));
+    sb.append("';\neval(getJsPlugin());\neval(getJsLazyPlugin());\n");
+    return sb.toString();
+}
+
+// ---- 3. getMyType (smali 5113-5139) --------------------------------------------
+
+/**
+ * Port of JSEngine.getMyType(Ljava/lang/String;)Ljava/lang/String; (private).
+ * Smali lines 5113-5139. Note: 8.83 does NOT escape the type value here.
+ */
+private String getMyType(String type) {
+    return "var MY_TYPE = '" + type + "';\n";
+}
+
+// ---- 4. getMyCallbackKey (smali 4863-4889) ---------------------------------------
+
+/**
+ * Port of JSEngine.getMyCallbackKey(Ljava/lang/String;)Ljava/lang/String; (private).
+ * Smali lines 4863-4889. Note: 8.83 does NOT escape the key here.
+ */
+private String getMyCallbackKey(String callbackKey) {
+    return "var CALLBACK_KEY = '" + callbackKey + "';\n";
+}
+
+// ---- 5. getMyInput (smali 4890-4920) ----------------------------------------------
+
+/**
+ * Port of JSEngine.getMyInput(Ljava/lang/String;)Ljava/lang/String; (private).
+ * Smali lines 4890-4920.
+ */
+private String getMyInput(String input) {
+    return "var input = '" + escapeJsString(input) + "';\n";
+}
+
+// ---- 6. getMyJs (smali 4921-4935) -------------------------------------------------
+
+/**
+ * Port of JSEngine.getMyJs(Ljava/lang/String;)Ljava/lang/String; (private).
+ * Smali lines 4921-4935. 8.83 uses Apache StringUtils.replaceOnce("js:", "");
+ * the indexOf/substring form below is the same first-occurrence replacement.
+ */
+private String getMyJs(String js) {
+    int i = js.indexOf("js:");
+    return i < 0 ? js : js.substring(0, i) + js.substring(i + 3);
+}
+
+// ---- 7. getMyUrl (smali 17338-17389) -----------------------------------------------
+
+/**
+ * Port of JSEngine.getMyUrl(Ljava/lang/String;)Ljava/lang/String; (public in 8.83).
+ * Smali lines 17338-17389.
+ * QUIRK PRESERVED: 8.83 escapes the URL first, then computes MY_HOME from the
+ * ESCAPED string (StringUtil.getHome is called on the already-escaped value).
+ */
+public String getMyUrl(String url) {
+    if (url == null) {
+        url = "";
+    }
+    url = escapeJsString(url);
+    return "var MY_URL = '" + url + "';\nvar MY_HOME = '" + getHomeUrl(url) + "';\n";
+}
+
+/**
+ * Port of JSEngine.getReplaceJS(Ljava/lang/String;)Ljava/lang/String; (private).
+ * Smali lines 5212-5224. Delegates with raw=false.
+ */
+private String getReplaceJS(String js) {
+    return getReplaceJS(js, false);
+}
+
+// ---- 10. getReplaceJS (smali 5225-5273) -------------------------------------------------
+
+/**
+ * Port of JSEngine.getReplaceJS(Ljava/lang/String;Z)Ljava/lang/String; (private).
+ * Smali lines 5225-5273. Rewrites the Java-style "b.length()" to the JS
+ * "b.length"; when raw is false (the usual path) wraps the whole script in
+ * "try{\n ... \n}catch(e){\nsetError(e);\n}". Empty input is returned as-is.
+ */
+private String getReplaceJS(String js, boolean raw) {
+    if (!TextUtils.isEmpty(js)) {
+        js = js.replace("if (b != null && b.length() > 0) {", "if (b != null && b.length > 0) {");
+        if (raw) {
+            return js;
+        }
+        js = "try{\n" + js + "\n}catch(e){\nsetError(e);\n}";
+    }
+    return js;
+}
+
+/**
+ * Port of JSEngine.tryGetString(Ljava/lang/Object;)Ljava/lang/String; (private).
+ * Smali lines 9929-9962. Throws Exception("参数类型只能是字符串") when the
+ * (native-object-adjusted) argument is not a String.
+ */
+private String tryGetString(Object o) throws Exception {
+    o = argsNativeObjectAdjust(o);
+    if (o instanceof String) {
+        return (String) o;
+    }
+    throw new Exception("参数类型只能是字符串");
+}
+
+// ---- 15. generateMyParams (smali 2836-2879) ---------------------------------------------------------
+
+/**
+ * Port of JSEngine.generateMyParams(Ljava/lang/String;)Ljava/lang/String; (private).
+ * Smali lines 2836-2879. Empty input yields "var MY_PARAMS = {};\n"; otherwise
+ * the JSON text is embedded escaped and parsed as MY_PARAMS.
+ */
+private String generateMyParams(String params) {
+    if (TextUtils.isEmpty(params)) {
+        return "var MY_PARAMS = {};\n";
+    }
+    return "var _my_params = '" + escapeJsString(params) + "';\n var MY_PARAMS = JSON.parse(_my_params);\n";
+}
+
+// ---- 16. generateInjectMap (smali 2600-2835) ------------------------------------------------------------
+
+/**
+ * Port of JSEngine.generateInjectMap(Ljava/util/Map;)Ljava/lang/String;
+ * (private static). Smali lines 2600-2835. Emits one "var <key> = <value>;"
+ * line per entry: String values are single-quoted + escaped, null becomes
+ * "null;", Integer/Float/Boolean are appended raw, anything else becomes
+ * "JSON.parse('<escaped fastjson/gson json>');". Null map yields "".
+ * (escapeJsString is private static in the target, so this static method can
+ * call it directly.)
+ */
+private static String generateInjectMap(java.util.Map<String, Object> map) {
+    String result = "";
+    if (map == null) {
+        return result;
+    }
+    for (java.util.Map.Entry<String, Object> entry : map.entrySet()) {
+        Object value = entry.getValue();
+        result = result + "var " + entry.getKey() + " = ";
+        if (value instanceof String) {
+            result = result + "'" + escapeJsString((String) value) + "';\n";
+        } else if (value == null) {
+            result = result + "null;\n";
+        } else if (value instanceof Integer || value instanceof Float || value instanceof Boolean) {
+            result = result + value + ";\n";
+        } else {
+            result = result + "JSON.parse('" + escapeJsString(GSON.toJson(value)) + "');\n";
+        }
+    }
+    return result;
+}
+
+// ---- 17. decodeConflictStr (StringUtil.smali 1421-1469) -----------------------------------------------
+
+/**
+ * Port of StringUtil.decodeConflictStr(Ljava/lang/String;)Ljava/lang/String;
+ * (public static). StringUtil.smali lines 1421-1469. Maps doubled full-width
+ * punctuation back to ASCII: ？？→? ＆＆→& ；；→; ，，→,. Empty input returned as-is.
+ */
+private static String decodeConflictStr(String s) {
+    if (TextUtils.isEmpty(s)) {
+        return s;
+    }
+    s = s.replace("？？", "?");
+    s = s.replace("＆＆", "&");
+    s = s.replace("；；", ";");
+    s = s.replace("，，", ",");
+    return s;
+}
+
+    // ---- D1-G: require/net helpers ----
+public static String proxyUrl(String url, String proxyConfig) {
+    if (!TextUtils.isEmpty(proxyConfig)) {
+        String[] lines = proxyConfig.split("\\n");
+        for (String line : lines) {
+            String[] kv = line.split("=>");
+            if (kv.length < 2) continue;
+            String key = kv[0].trim();
+            if (!url.contains(key)) continue;
+            String replacement = kv[1].trim();
+            String newUrl = url.replace(key, replacement);
+            Logger.t(TAG).d("proxyRequire: old: %s, new: %s", url, newUrl);
+            return newUrl;
+        }
+    }
+    return url;
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.requestForCode(String, Object)String  [JSEngine.smali 8374-8467]
+// private. Requests url with withHeaders options; the body must be a JSON
+// object {"error":..., "statusCode":..., "body":...}: returns body only when
+// error is empty/"null" and statusCode starts with "2"; else null.
+// fastjson JSONObject access is mapped to Rhino Scriptable access (see notes).
+// ---------------------------------------------------------------------------
+private String requestForCode(String url, Object options) {
+    try {
+        Object headersOptions = generateHeadersOptions(options);
+        Object rawResult = fetch0(url, generateRequestOptions(headersOptions, false), null, null); // MISSING: JSEngine.request(String,Object,Object)
+        // 体检批六判型＋补诊断：原版两转都在 try 内、类型不符 CCE 被吞成回 null
+        // 无日志；这里判型后同口径回 null，但记一行日志留诊断。正常路径不变。
+        if (!(rawResult instanceof String)) {
+            Logger.t(TAG).d("requestForCode non-text result: %s",
+                    rawResult == null ? "null" : rawResult.getClass().getName());
+            return null;
+        }
+        String result = (String) rawResult;
+        Object parsed = parseJson(result);
+        if (!(parsed instanceof Scriptable)) {
+            Logger.t(TAG).d("requestForCode non-object json: %s",
+                    parsed == null ? "null" : parsed.getClass().getName());
+            return null;
+        }
+        Scriptable json = (Scriptable) parsed;
+        if (json != null) {
+            String error = getString(ScriptableObject.getProperty(json, "error"));
+            if (!TextUtils.isEmpty(error) && !"null".equals(error)) return null;
+            String statusCode = String.valueOf((int) toDouble(ScriptableObject.getProperty(json, "statusCode")));
+            if (!statusCode.startsWith("2")) return null;
+            return getString(ScriptableObject.getProperty(json, "body"));
+        }
+    } catch (Exception e) {
+        Logger.t(TAG).e(e, "requestForCode failed");
+    }
+    return null;
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.isJsCode(String)Z  [JSEngine.smali 5506-5713]
+// private. False for empty input and for HTML/XML documents; true when the
+// text contains JS keywords or any name from the methodList field.
+// ---------------------------------------------------------------------------
+private boolean isJsCode(String code) {
+    if (TextUtils.isEmpty(code)) return false;
+    code = code.trim();
+    for (String prefix : new String[]{"<!DOCTYPE", "<html", "<?xml"}) {
+        if (code.startsWith(prefix)) return false;
+    }
+    for (String suffix : new String[]{"</html>", "</rss>"}) {
+        if (code.endsWith(suffix)) return false;
+    }
+    for (String keyword : new String[]{"var ", "let ", "function", "eval(", "call(", "eval (", "call (", " => ", ")=>"}) {
+        if (code.contains(keyword)) return true;
+    }
+    if (this.methodList != null) { // MISSING: 8.83 JSEngine field List<String> methodList
+        for (String name : this.methodList) {
+            if (code.contains(name)) return true;
+        }
+    }
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.getDirectory()URI  [JSEngine.smali 3311-3361]
+// private. 8.83: URI.create("file://" + UriUtils.getRootDir(ctx) + "/libs/").
+// Substituted per task: App.get().getExternalFilesDir(DIRECTORY_DOCUMENTS),
+// mkdirs if missing.
+// ---------------------------------------------------------------------------
+private URI getDirectory() {
+    File docs = App.get().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+    if (docs != null && !docs.exists()) docs.mkdirs();
+    String root = docs != null ? docs.getAbsolutePath() : "";
+    return URI.create("file://" + root + File.separator + "libs" + File.separator);
+}
+
+private Object generateRequestOptions(Object options, boolean isPc) {
+    if (options != null && !isUndefined(options)) {
+        Object adjusted = argsNativeObjectAdjust(options);
+        Map<String, Object> map = adjusted instanceof Map ? (Map<String, Object>) adjusted : new HashMap<>();
+        Object headersObj = map.get("headers");
+        if (!(headersObj instanceof Map)) headersObj = map.get("header");
+        Map<String, Object> headers = headersObj instanceof Map ? (Map<String, Object>) headersObj : null;
+        if (headers == null) {
+            headers = new HashMap<>();
+            map.put("headers", headers);
+        }
+        if (!headers.containsKey("User-Agent")) {
+            // MISSING: 8.83 com.example.hikerview.constants.UA_PC
+            // MISSING: 8.83 com.example.hikerview.ui.setting.model.UA_MOBILE
+            headers.put("User-Agent", isPc ? UA_PC : getMobileUa());
+        }
+        return map;
+    }
+    Map<String, Object> map = new HashMap<>();
+    Map<String, Object> headers = new HashMap<>();
+    // MISSING: UA_PC / UA_MOBILE (same as above)
+    headers.put("User-Agent", isPc ? UA_PC : getMobileUa());
+    map.put("headers", headers);
+    return map;
+}
+
+private Object generateHeadersOptions(Object options) {
+    Boolean withHeaders = Boolean.valueOf(true);
+    if (options != null && !isUndefined(options)) {
+        Object adjusted = argsNativeObjectAdjust(options);
+        Map<String, Object> map = adjusted instanceof Map ? (Map<String, Object>) adjusted : new HashMap<>();
+        map.put("withHeaders", withHeaders);
+        return map;
+    }
+    Map<String, Object> map = new HashMap<>();
+    map.put("withHeaders", withHeaders);
+    return map;
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.getFilePath(String)String  [JSEngine.smali 3490-3562]
+// NOTE: smali declares this public static (not private as described in the
+// task); kept public static. "hiker://files/<p>" -> rootDir/<p>;
+// "file://<p>" -> <p> (prefix stripped).
+// UriUtils.getRootDir substituted per task (same as getDirectory).
+// ---------------------------------------------------------------------------
+public static String getFilePath(String path) {
+    if (path.startsWith("hiker://files/")) {
+        path = path.replace("hiker://files/", "");
+        File docs = App.get().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        if (docs != null && !docs.exists()) docs.mkdirs();
+        String root = docs != null ? docs.getAbsolutePath() : "";
+        return root + File.separator + path;
+    }
+    if (path.startsWith("file://")) {
+        path = path.replace("file://", "");
+    }
+    return path;
+}
+
+private void batchExecuteImpl(Object[] args) {
+    try {
+        Object tasksArg = args != null && args.length > 0 ? argsNativeObjectAdjust(args[0], true) : null;
+        if (!(tasksArg instanceof List)) {
+            Logger.t(TAG).d("be: tasks not a list");
+            SpiderDebug.log("hk", "be: tasks not a list");
+            return;
+        }
+        List<Object> tasks = (List<Object>) tasksArg;
+        // listener0: {func, param}
+        BaseFunction listenerFunc = null;
+        Object listenerParam = null;
+        if (args.length > 1 && !isUndefined(args[1])) {
+            Object lo = argsNativeObjectAdjust(args[1], true);
+            if (lo instanceof Map) {
+                Map<String, Object> lm = (Map<String, Object>) lo;
+                Object f = lm.get("func");
+                if (f instanceof BaseFunction) {
+                    listenerFunc = (BaseFunction) f;
+                    listenerParam = lm.get("param");
+                }
+            }
+        }
+        // success 阈值
+        int success = tasks.size();
+        if (args.length > 2 && !isUndefined(args[2])) {
+            Object s = argsNativeObjectAdjust(args[2]);
+            if (s instanceof Number) success = ((Number) s).intValue();
+        }
+        if (success <= 0 || success > tasks.size()) success = tasks.size();
+        final int successLimit = success;
+        final BaseFunction finalListenerFunc = listenerFunc;
+        final Object finalListenerParam = listenerParam;
+
+        int poolSize = Math.min(tasks.size(), 16);
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(poolSize, poolSize, 1L,
+                TimeUnit.SECONDS, new LinkedBlockingDeque<>(4096));
+        CountDownLatch latch = new CountDownLatch(tasks.size());
+        AtomicInteger counter = new AtomicInteger(0);
+        final java.util.concurrent.atomic.AtomicReference<Throwable> listenerFailure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        // 8.83 JSEngine.batchExecute: String tag = UUIDUtil.genUUID()（本机无 UUIDUtil，等价替代）
+        final String beTag = UUID.randomUUID().toString();
+        SpiderDebug.log("hk", "be: start tasks=%d success=%d", tasks.size(), successLimit);
+
+        for (Object t : tasks) {
+            if (!(t instanceof Map)) {
+                latch.countDown();
+                continue;
+            }
+            final Map<String, Object> task = (Map<String, Object>) t;
+            final Object funcObj = task.get("func");
+            if (!(funcObj instanceof BaseFunction)) {
+                latch.countDown();
+                continue;
+            }
+            final BaseFunction taskFunc = (BaseFunction) funcObj;
+            final Object taskParam = task.get("param");
+            final String taskId = task.get("id") == null ? "" : String.valueOf(task.get("id"));
+            // B-4 同型池支捕获点：提交前在调用线程捕获当发登记 scope，随任务
+            // 带入池线程（任务函数内 fetch('hiker://page/…') 同经 myRuleFromScope）；
+            // 捕获不到（null）时不登记、回落主 scope 与改前同。
+            final Scriptable capturedScope = ambientEvalScope.get();
+            pool.execute(() -> {
+                // 8.83: jsExecutorService.execute 先 HttpHelper.addTagForThread(tag)
+                HkHttpHelper.addTagForThread(beTag);
+                // 8.83: latch.getCount()>0 且 counter < successLimit 才执行，否则直接 countDown
+                if (latch.getCount() <= 0 || counter.get() >= successLimit) {
+                    latch.countDown();
+                    return;
+                }
+                Context cx = Context.enter();
+                Scriptable ambPrev = null;
+                boolean ambEntered = false;
+                try {
+                    // B-4 补改登记点（复核账 B-4 不过 A）：登记移进 try 内、排在
+                    // Context.enter() 之后紧贴任务体——enter 抛错时 try 未进入、
+                    // 登记尚未发生，无需恢复；登记覆盖任务函数与 listener 回调两处调用。
+                    ambPrev = enterAmbientScope(capturedScope);
+                    ambEntered = true;
+                    // 8.83 JSEngine.initRhino 同款：池线程 Context 初始化（原版: setOptimizationLevel(-1) + setLanguageVersion(200)）
+                    cx.setOptimizationLevel(-1);
+                    cx.setLanguageVersion(200);
+                    Object result = null;
+                    // 8.83 JSEngine.batchExecute 同款：error 传给 listener（成功 null，失败为异常信息）
+                    String error = null;
+                    try {
+                        Scriptable taskScope = taskFunc.getParentScope();
+                        result = taskFunc.call(cx, taskScope, taskScope, new Object[]{taskParam});
+                    } catch (Throwable e) {
+                        error = e.getMessage();
+                        Logger.t(TAG).e(e, "be task failed: %s", taskId);
+                        SpiderDebug.log("hk", "be: task failed id=%s err=%s", taskId, e);
+                    }
+                    counter.incrementAndGet();
+                    // 8.83: synchronized(latch) 回调 listener
+                    if (finalListenerFunc != null) {
+                        synchronized (latch) {
+                            if (counter.get() <= successLimit && latch.getCount() > 0) {
+                                try {
+                                    Scriptable ls = finalListenerFunc.getParentScope();
+                                    Object r = finalListenerFunc.call(cx, ls, ls,
+                                            new Object[]{finalListenerParam, taskId, error, result});
+                                    Object adjusted = argsNativeObjectAdjust(r);
+                                    if ("break".equals(adjusted)) {
+                                        counter.getAndSet(successLimit);
+                                    }
+                                } catch (Throwable e) {
+                                    Logger.t(TAG).e(e, "be listener failed");
+                                    SpiderDebug.log("hk", "be: listener failed id=%s err=%s", taskId, e);
+                                    listenerFailure.compareAndSet(null, e);
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    // B-4 补改恢复点（复核账 B-4 不过 B）：恢复排在 Context.exit()
+                    // 之前先行——exit 抛错不影响恢复已完成；ambEntered 守卫与转录
+                    // 路同形（登记未成不恢复）。
+                    if (ambEntered) exitAmbientScope(ambPrev);
+                    try {
+                        if (latch.getCount() > 0) latch.countDown();
+                    } catch (Throwable ignored) {
+                    }
+                    Context.exit();
+                }
+            });
+        }
+        // 8.83: await(size/16*30+30)s
+        long timeoutSec = tasks.size() / 16 * 30L + 30L;
+        try {
+            latch.await(timeoutSec, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        // 8.83: await 后 HttpHelper.cancelByTag(tag)，超时未回的本批请求一并取消
+        HkHttpHelper.cancelByTag(beTag);
+        try {
+            if (!pool.isShutdown()) pool.shutdownNow();
+        } catch (Throwable e) {
+            Logger.t(TAG).e(e, "be pool shutdown failed");
+            SpiderDebug.log("hk", "be: pool shutdown failed err=%s", e);
+        }
+        if (listenerFailure.get() != null) {
+            // 监听回调失败不许整批装作成功：抛回外层转 JS 调用方。
+            throw new RuntimeException("batchExecute 监听回调失败："
+                    + listenerFailure.get().getMessage(), listenerFailure.get());
+        }
+        BATCH_EXECUTE_READY = true;
+        Logger.t(TAG).d("be: done, %d tasks", tasks.size());
+        SpiderDebug.log("hk", "be: done tasks=%d", tasks.size());
+    } catch (Throwable e) {
+        Logger.t(TAG).e(e, "batchExecute failed");
+        SpiderDebug.log("hk", "be: batchExecute failed err=%s", e);
+        throw new RuntimeException("batchExecute 失败：" + e.getMessage(), e);
+    }
+}
+
+// 8.83: getRequireVersion(String, int)int [RequireUtils.smali 866-913]
+private static int getRequireVersion(String path, int version) {
+    return com.example.hikerview.ui.rules.service.require.RequireUtils
+            .getRequireVersion(path, version);
+}
+
+// 8.83: updateDescription(String, String, int)void [RequireUtils.smali 946-974]
+private static void updateDescription(String path, String url, int version) {
+    com.example.hikerview.ui.rules.service.require.RequireUtils
+            .updateDescription(path, url, version);
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: generateRequireMap(String, String, String, String)void
+// [RequireUtils.smali 431-461]  public static.
+// 形参约定沿 fc 移植旧口径 (dirName=规则标题, url=模块名, proxy=代理后 URL,
+// file=落盘路径)，与官 require0 调用点寄存器实义一致（JSEngine:8468 起：
+// v2=p7 标题、v3=tryGetString(p2) 模块名、v5=proxyRequire 代理后 URL、
+// v11=落盘路径）。旧移植守卫抄反（官「标题与键皆非空才投递」，旧形反作
+// 「标题为空才投递」，标题恒非空 ⇒ 登记永不触发）；真类内已按官改正，
+// 本委托不再带守卫。
+// ---------------------------------------------------------------------------
+private static void generateRequireMap(String dirName, String url, String proxy, String file) {
+    com.example.hikerview.ui.rules.service.require.RequireUtils
+            .generateRequireMap(dirName, url, proxy, file);
+}
 }
