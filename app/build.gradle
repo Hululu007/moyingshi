@@ -166,6 +166,9 @@ dependencies {
     implementation project(':chaquo')
     implementation project(':nodejs')
     implementation project(':quickjs')
+    // B8 C0: Flutter module (add-to-app). The `:flutter` project is included
+    // by settings.gradle via the module's generated include_flutter.groovy.
+    implementation project(':flutter')
     // quickjs 模块用 implementation 引入 wrapper，不会向 app 传递；
     // QuickJsPluginRuntime 需要直接用 QuickJSContext/JSFunction，故此处显式声明。
     // 未改成 api：那会扩大 quickjs 模块的公开面，影响所有未来的消费者。
