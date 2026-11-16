@@ -66,8 +66,28 @@ jobs:
         with:
           packages: platform-tools
 
+      # Run #1 failed here: the runner image preinstalls NDK 27 and exports
+      # ANDROID_NDK_HOME pointing at it, and the build scripts honor
+      # ANDROID_NDK_HOME first; a bare `sdkmanager "ndk;29.0.14206865"`
+      # also silently no-op'd (1s, no download). Download NDK r29
+      # directly, verify its revision, and point ANDROID_NDK_HOME at it
+      # so both build scripts resolve the pinned NDK.
       - name: Install Android NDK r29
-        run: sdkmanager "ndk;29.0.14206865"
+        run: |
+          set -euo pipefail
+          NDK_DIR="$ANDROID_HOME/ndk/29.0.14206865"
+          if [ ! -f "$NDK_DIR/source.properties" ]; then
+            curl -fsSL -o /tmp/android-ndk-r29-linux.zip https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+            rm -rf /tmp/android-ndk-r29 "$NDK_DIR"
+            unzip -q /tmp/android-ndk-r29-linux.zip -d /tmp
+            mkdir -p "$ANDROID_HOME/ndk"
+            mv /tmp/android-ndk-r29 "$NDK_DIR"
+            rm -f /tmp/android-ndk-r29-linux.zip
+          fi
+          grep -q "Pkg.Revision = 29.0.14206865" "$NDK_DIR/source.properties"
+          test -x "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          echo "NDK r29 ready at $NDK_DIR"
 
       - name: Build MPV native stack
         run: |
