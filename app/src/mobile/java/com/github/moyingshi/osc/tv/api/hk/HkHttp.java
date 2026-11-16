@@ -790,6 +790,9 @@ public class HkHttp {
             // 逐图自动 DNS 不再插手），名单维护每进程只实跑一次。
             dnsAuto = hkDoh == null;
             initAutoDns(context);
+            // 3e 接线：自动 DNS（HK_AUTO_DNS）装进取数 client——命中注册表的域名走
+            // 注册的 DoH / 静态 IP，其余回落系统解析；setDns 内部 reset() 使旧 client 失效。
+            HkHttpClient.setDns(HK_AUTO_DNS);
             return true;
         } catch (Throwable t) {
             com.github.catvod.crawler.SpiderDebug.log("hk", "applyDoh failed: %s: %s",
@@ -844,11 +847,11 @@ public class HkHttp {
 
     /**
      * 取数 client：委托给阶段 1 的 {@link HkHttpClient#client()}（任务书硬性要求，不另建 client）。
-     * <p>与星辰 client() 原文的差别（未搬，见任务文档）：HK_AUTO_DNS、信任所有证书 SSL、
-     * ContentType 前后拦截器、CookieJar、10s 超时、dnsEnd 诊断、代理选择器链——其中
-     * CookieJar 与 ContentType 拦截器类已随本步新建，但尚未接进任何 client
-     * （HkHttpClient.client() 未装它们），待后续步骤接线；其余按 HkHttpClient 既有行为
-     * （派生自共享 client：trust-all SSL、charset 头、OkProxySelector、Brotli 反射加载）。
+     * <p>与星辰 client() 原文的差别（未搬，见任务文档）：信任所有证书 SSL、10s 超时、
+     * dnsEnd 诊断——其余按 HkHttpClient 既有行为（派生自共享 client：trust-all SSL、
+     * charset 头、OkProxySelector、Brotli 反射加载）。已接线：CookieJar 与 ContentType
+     * 前后拦截器（3b 接进 HkHttpClient.client()）、HK_AUTO_DNS（3e：applyDoh 经
+     * HkHttpClient.setDns 装进取数 client）、代理选择器链（HkHttpClient 内生效）。
      */
     public static OkHttpClient client() {
         return HkHttpClient.client();

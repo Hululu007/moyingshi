@@ -424,6 +424,11 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         varMap.put(key, s);
     }
 
+    /** Java 侧写入进程级规则变量（3e-2 适配：HkEngine.prepare 的 initialVars 用；与 JS putVar(String, Object) 同款进 varMap。putVar2Impl 是 private；公开的 putVar(Object, Object) 桥方法走 dispatchApi，不适合 Java 侧直调）。 */
+    public void putVarValue(String key, Object value) {
+        putVar2Impl(key, value);
+    }
+
     /** Java 侧设置规则变量（供 HkPageActivity 等调用）。 */
     public void putMyVar(String key, String value) {
         if (key != null) varMap.put(myVarKey(key), value == null ? "" : value);
@@ -13773,5 +13778,48 @@ private String detectCharset(String path) {
         } catch (Throwable ignored) {
         }
     }
+}
+
+// 8.83: JSEngine.post0(String url, Object options, Object ruleKey,
+//                      boolean flag)  [smali 8148-8191]
+// NOTE: the trailing boolean is passed INVERTED (xor 1) to
+// generateRequestOptions(ops, !flag). 8.83 callers: post/postRequest pass
+// true, postPC passes false — keep the same values at the call sites.
+// ---------------------------------------------------------------------------
+private Object post0(String url, Object options, Object ruleKey, boolean flag) {
+    Object postOps = argsNativeObjectAdjust(options);
+    if (isUndefined(postOps)) {
+        postOps = null;
+    }
+    if (postOps != null) {
+        // 体检批六判型：原版裸 check-cast Map 且本方法无 try，CCE 直穿桥面；
+        // 非 Map 按原版收口故意抛 ClassCastException，不把畸形 options 当无选项发请求。
+        if (!(postOps instanceof java.util.Map)) {
+            throw new ClassCastException("post0 options is not a Map: "
+                    + postOps.getClass().getName());
+        }
+        postOps = HkHttpHelper.generatePostOps((java.util.Map<String, Object>) postOps);
+    }
+    Object requestOptions = generateRequestOptions(postOps, !flag);
+    return fetch0(url, requestOptions, ruleKey, null);
+}
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.fetchWithHeadersInterceptor(String, Object, Object,
+//                                            HttpHelper$HeadersInterceptor)
+//                                              [smali 15903-15919] (public)
+// Applies generateHeadersOptions(options) first, then fetch0.
+// ---------------------------------------------------------------------------
+public String fetchWithHeadersInterceptor(String url, Object options, Object ruleKey,
+                                          HkHttpHelper.HeadersInterceptor interceptor) {
+    Object headerOpts = generateHeadersOptions(options);
+    Object result = fetch0(url, headerOpts, ruleKey, interceptor);
+    // 体检批六判型：原版裸 check-cast String；非文本结果（流/字节）按原版收口
+    // 故意抛 ClassCastException，不把流对象 toString 当正文回。null 照原版过转。
+    if (result != null && !(result instanceof String)) {
+        throw new ClassCastException("fetchWithHeadersInterceptor non-text result: "
+                + result.getClass().getName());
+    }
+    return (String) result;
 }
 }
