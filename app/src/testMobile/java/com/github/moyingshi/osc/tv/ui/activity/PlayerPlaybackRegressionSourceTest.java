@@ -403,12 +403,12 @@ public class PlayerPlaybackRegressionSourceTest {
 
     @Test
     public void playerButtonHiddenSwitchOwnsEveryCatalogManagedView() throws Exception {
-        String setting = readMainJava("com", "fongmi", "android", "tv", "setting", "PlayerButtonSetting.java");
-        String mobile = readMobileJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String leanback = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java");
-        String tmdb = readMainJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
-        String mobileSheet = readMobileJava("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java");
-        String leanbackSheet = readLeanbackJava("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java");
+        String setting = readMainJava("com", "github", "moyingshi", "osc", "tv", "setting", "PlayerButtonSetting.java");
+        String mobile = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String leanback = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "VideoActivity.java");
+        String tmdb = readMainJava("com", "github", "moyingshi", "osc", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String mobileSheet = readMobileJava("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java");
+        String leanbackSheet = readLeanbackJava("com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "ControlDialog.java");
 
         assertTrue("PlayerButtonSetting must expose the single visibility judge",
                 setting.contains("public static void apply(View view, String id, boolean available) {"));
