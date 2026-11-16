@@ -136,7 +136,6 @@ class _C1SubtitlePageState extends State<C1SubtitlePage>
   @override
   Widget build(BuildContext context) {
     final C1SubtitleInfo? info = _info;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
