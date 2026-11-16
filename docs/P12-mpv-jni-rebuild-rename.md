@@ -142,6 +142,12 @@ causeTypes=j14 <- java.io.IOException <- java.lang.ClassNotFoundException
 - 修复（本单元，workflow only）：改用官方 zip 直下 NDK r29（URL 已验 HTTP 200），校验 `source.properties` 的 `Pkg.Revision` 与 `llvm-strip` 可执行，并把 `ANDROID_NDK_HOME` 写入 `$GITHUB_ENV` 覆盖 runner 默认值。job2 不用 NDK，不动。
 - 下一动作：推修复后的 workflow 触发 run #2，取 job1 的 `strings` 校验结果。
 
+## 10. Checkpoint 3：CI 第二跑成功与本地验证（2026-11-16）
+
+- Run #2（43835455083）completed/success，约 34 分钟；两 job 全绿。Artifacts：`mpvfix-2-beaa7c9`（369,953,074 B）+ `mpv-libplayer-rebuilt`（290,036 B），均未过期。
+- 本地验证（Orion，逐项实测）：两份重编 `libplayer.so` 旧名 0 处、新名 1 处；SONAME 均为 `libplayer.so`；DT_NEEDED 仅 `libmwscale/libmvcodec/libmpv` + 系统库，无未改名 FFmpeg 依赖；SHA-256 与 manifest 一致（arm64 `1d63e694…12069`，armv7 `997ea007…7be77d0`）；mobile arm64 APK 内 `assets/mpv-libs/arm64-v8a/libplayer.so` 与重编文件 SHA-256 逐字节一致，旧名 0 处。
+- 本单元把两份已验二进制装入 `app/src/*/assets/mpv-libs/*/` 成套提交（与源码分开提交），随后推分支；APK 发 Wei 真机验证 MPV。
+
 ## Recovery anchor
 
 - 目标：重编 `libplayer.so` 修复改名后 MPV 全灭 + 加固初始化失败路径；验收见 §7。
