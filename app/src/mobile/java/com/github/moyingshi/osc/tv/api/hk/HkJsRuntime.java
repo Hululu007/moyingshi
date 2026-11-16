@@ -1706,6 +1706,11 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
     }
 
 
+    @JSAnnotation(alias = "refresh")
+    public void refreshPage(@Parameter(value = "scrollTop") Object param0, @Parameter(value = "ruleTitleKey") Object param1) {
+        dispatchApi("refreshPage", new Object[]{param0, param1});
+    }
+
     @JSAnnotation()
     public void refreshReadData(@Parameter(value = "p") Object param0) {
         dispatchApi("refreshReadData", new Object[]{param0});
@@ -4845,6 +4850,31 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         putFunction("xpathArray", args -> xpathArrayImpl(args));
 
 
+
+        // ---- refreshPage：照官方 JSEngine.refreshPage——置标记（供 HkRouter 的变化检测读）
+        // 之外，直接发 OnRefreshPageEvent 事件让当前列表页重刷（官方就是事件驱动；
+        // 此前只有标记、新列表模块无人消费，脚本调了等于没调）。
+        putFunction("refreshPage", args -> {
+            refreshRequested = true;
+            refreshToTop = refreshScrollTop(args);
+            long now = System.currentTimeMillis();
+            if (now - lastRefreshPageAt >= 200) {
+                lastRefreshPageAt = now;
+                org.greenrobot.eventbus.EventBus.getDefault().post(
+                        new com.github.moyingshi.osc.tv.api.hk.event.home.OnRefreshPageEvent(refreshToTop));
+            }
+            Logger.t(TAG).d("refreshPage(%s) requested", refreshToTop);
+            return null;
+        });
+
+        // ---- goTo(url)：页面导航。规则（如 xhotvideo）在 @rule=js: 回调里调
+        // goTo('hiker://page/detail?rule=X&u=Y') 跳 V4 详情页。宿主实现为"导航请求"
+        // 标记：调用方在 JS 求值后用 consumeGoToRequest() 取走并处理。
+        putFunction("goTo", args -> {
+            goToUrl = args != null && args.length > 0 ? argStr(args[0]) : "";
+            Logger.t(TAG).d("goTo(%s) requested", goToUrl);
+            return null;
+        });
 
         // ---- sleep(ms)：官方真实 API（规则里常被 try/catch 包裹做限速/等待）
         putFunction("sleep", args -> {
@@ -11585,5 +11615,2163 @@ private static void updateDescription(String path, String url, int version) {
 private static void generateRequireMap(String dirName, String url, String proxy, String file) {
     com.example.hikerview.ui.rules.service.require.RequireUtils
             .generateRequireMap(dirName, url, proxy, file);
+}
+
+    // ===========================================================================
+    // 3d：解析回调 + 求值入口 + 图片/懒求值 + 定时器 + JavaAdapter + 文件/种子簇
+    // （移植阶段 3d，星辰 HkJsRuntime.java 原文段，见 docs/miniapp-xingchen-3d-runtime-3.md；
+    //  refreshPage/goTo 的 putFunction 注册与 @Parameter refreshPage 不在此块，
+    //  分别插回 registerApi 与 @Parameter 块原位。）
+    // ===========================================================================
+
+    /**
+     * JS 定时器实现（setTimeout/setInterval）。
+     * 调度走独立 ScheduledExecutorService，到期后把回调提交回 JS 单线程 executor 执行
+     *（Rhino Context 与 JS 线程绑定，跨线程直接求值会崩）。返回数字 timerId。
+     */
+    private int jsSetTimer(Object[] args, boolean repeat) {
+        if (destroyed) return 0;
+        if (args == null || args.length == 0) return 0;
+        final Object cb = args[0];
+        long delay = 0;
+        if (args.length > 1 && args[1] instanceof Number) delay = Math.max(0, ((Number) args[1]).longValue());
+        final Object[] cbArgs;
+        if (args.length > 2) {
+            cbArgs = new Object[args.length - 2];
+            System.arraycopy(args, 2, cbArgs, 0, cbArgs.length);
+        } else {
+            cbArgs = new Object[0];
+        }
+        final int id = timerIdSeq.getAndIncrement();
+        final long period = Math.max(1, delay);
+        // 环19 复核订正2：登记时捕获登记发 scope，字符串回调触发时在捕获
+        // scope 上求值（其后各发 arm 换 scope 不影响本回调的可见状态）。
+        final Scriptable regScope = scope;
+        // 桥化补（普查 #14）：登记规则一并捕获——今形定时器在本规则的台上
+        // 触发，this.rule/kv 恒登记规则；桥上触发时先重绑＋切 kv 保持等价。
+        final HkRule regRule = rule;
+        Runnable fire = () -> {
+            try {
+                submit(() -> {
+                    try {
+                        if (destroyed) return null;
+                        synchronized (jsTimers) {
+                            if (!jsTimers.containsKey(id)) return null;
+                            if (!repeat) {
+                                jsTimers.remove(id);
+                                jsTimerRules.remove(id);
+                            }
+                        }
+                        if (regRule != null) {
+                            this.rule = regRule;
+                            syncKvToBoundRule();
+                        }
+                        fireTimerCallback(cb, cbArgs, regScope);
+                    } catch (Throwable t) {
+                        Logger.t(TAG).e(t, "timer fire failed");
+                        hkToast("定时器回调执行失败");
+                    }
+                    return null;
+                });
+            } catch (Throwable t) {
+                Logger.t(TAG).e(t, "timer submit failed");
+            }
+        };
+        try {
+            ScheduledFuture<?> f = repeat
+                    ? timerScheduler.scheduleAtFixedRate(fire, delay, period, TimeUnit.MILLISECONDS)
+                    : timerScheduler.schedule(fire, delay, TimeUnit.MILLISECONDS);
+            synchronized (jsTimers) {
+                jsTimers.put(id, f);
+                String ownerKey = timerRuleKey(regRule);
+                if (!ownerKey.isEmpty()) jsTimerRules.put(id, ownerKey);
+            }
+            return id;
+        } catch (Throwable t) {
+            Logger.t(TAG).d("setTimer failed: " + t.getMessage());
+            return 0;
+        }
+    }
+
+    /** 取消 JS 定时器（clearTimeout/clearInterval 共用）。 */
+    private void jsClearTimer(Object[] args) {
+        if (args == null || args.length == 0) return;
+        int id = 0;
+        try {
+            if (args[0] instanceof Number) id = ((Number) args[0]).intValue();
+            else id = Integer.parseInt(String.valueOf(args[0]));
+        } catch (Throwable ignored) {
+            return;
+        }
+        if (id <= 0) return;
+        ScheduledFuture<?> f;
+        synchronized (jsTimers) {
+            f = jsTimers.remove(id);
+            jsTimerRules.remove(id);
+        }
+        if (f != null) {
+            try {
+                f.cancel(false);
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    /**
+     * 在 JS 线程上执行定时器回调：Function 直接调用（Rhino 函数自带其定义
+     * scope 为父 scope，维持原路）；字符串在登记发捕获 scope 上求值
+     * （环19 复核订正2）。
+     */
+    private void fireTimerCallback(Object cb, Object[] cbArgs, Scriptable regScope) {
+        try {
+            if (cb instanceof Function) {
+                // 环24-11 簇二（函数形）：旧形全程不登记 ambient，回调内
+                // fetch 的取页基底回落触发时刻字段 scope（触发时宿主规则），
+                // 与回调 JS 可见 MY_RULE（定义发的值）跨发分叉。改：触发时
+                // 先以函数定义 scope 登记 ambient 再调用（登记/恢复形与
+                // evalJsInScope 的 ambient 优先形同款），调用本体不变
+                // （Rhino 函数自带定义 scope 链）。
+                Function fn = (Function) cb;
+                Scriptable defScope = fn.getParentScope();
+                Scriptable prevAmb = enterAmbientScope(defScope);
+                try {
+                    fn.call(rhinoCx, scope, scope, cbArgs);
+                } finally {
+                    exitAmbientScope(prevAmb);
+                }
+            } else {
+                String code = argStr(cb);
+                if (!TextUtils.isEmpty(code)) evalJsRooted(code, regScope);
+            }
+        } catch (Throwable t) {
+            error = t.getMessage();
+            Logger.t(TAG).d("timer callback failed: " + t.getMessage());
+        }
+    }
+
+    /** 清理全部 JS 定时器（页面销毁/规则切换时调用，避免泄漏）。 */
+    private void clearAllTimers() {
+        Map<Integer, ScheduledFuture<?>> copy;
+        synchronized (jsTimers) {
+            copy = new HashMap<>(jsTimers);
+            jsTimers.clear();
+            jsTimerRules.clear();
+        }
+        for (ScheduledFuture<?> f : copy.values()) {
+            try {
+                f.cancel(false);
+            } catch (Throwable ignored) {
+            }
+        }
+        // 8.83 registerTask 任务一并清理
+        Map<String, ScheduledFuture<?>> copy2;
+        synchronized (jsTasks) {
+            copy2 = new HashMap<>(jsTasks);
+            jsTasks.clear();
+            jsTaskRules.clear();
+        }
+        for (ScheduledFuture<?> f : copy2.values()) {
+            try {
+                f.cancel(false);
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    /**
+     * 按规则清理定时器（掉帧账 S2 落修）：只取消归属为 ruleKey 的 setTimeout/
+     * setInterval 与 registerTask 条目，其余规则与无归属条目一概不动——桥是
+     * 全进程单台，退出某条规则/删规则时若整表全清，会误杀仍在用的别规则
+     * 定时器（如其页面还压在栈里、或其内容正在播）。语义与 onDestroy 的
+     * 「只清调度、不杀引擎」同层：引擎本体与 kv/模块账均不在此动。
+     * 调用点：HkEngineManager 的规则面归零口（该规则最后一个页面宿主销毁）
+     * 与 onRuleDeleted（规则已删）。ruleKey 口径见 timerRuleKey；空键直接回。
+     */
+    public void clearTimersForRule(String ruleKey) {
+        if (ruleKey == null || ruleKey.isEmpty()) return;
+        java.util.List<ScheduledFuture<?>> doomed = new java.util.ArrayList<>();
+        synchronized (jsTimers) {
+            java.util.Iterator<Map.Entry<Integer, String>> it = jsTimerRules.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<Integer, String> e = it.next();
+                if (ruleKey.equals(e.getValue())) {
+                    ScheduledFuture<?> f = jsTimers.remove(e.getKey());
+                    if (f != null) doomed.add(f);
+                    it.remove();
+                }
+            }
+        }
+        synchronized (jsTasks) {
+            java.util.Iterator<Map.Entry<String, String>> it = jsTaskRules.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, String> e = it.next();
+                if (ruleKey.equals(e.getValue())) {
+                    ScheduledFuture<?> f = jsTasks.remove(e.getKey());
+                    if (f != null) doomed.add(f);
+                    it.remove();
+                }
+            }
+        }
+        for (ScheduledFuture<?> f : doomed) {
+            try {
+                f.cancel(false);
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    private static final String[][] HK_SEED_FILES = {
+            {"rules/Apollo/磁力君.简.js", "hk-seeds/rules/Apollo/磁力君.简.js"},
+    };
+
+    /** url 命中种子表才返回 asset 路径（只认 hiker://files/ 原形，去 query/fragment 后比对，含 URL 编码形）。 */
+    private static String hkSeedAssetFor(String url) {
+        if (url == null || !url.startsWith("hiker://files/")) return null;
+        String rel = url.substring("hiker://files/".length());
+        int q = rel.indexOf('?');
+        if (q >= 0) rel = rel.substring(0, q);
+        int h = rel.indexOf('#');
+        if (h >= 0) rel = rel.substring(0, h);
+        String dec = android.net.Uri.decode(rel);
+        for (String[] row : HK_SEED_FILES) {
+            if (row[0].equals(rel) || row[0].equals(dec)) return row[1];
+        }
+        return null;
+    }
+
+    /** fetch 读路入口：命中种子表才回补，其余路径零动作。 */
+    private void hkSeedRestore(String url, java.io.File target) {
+        String asset = hkSeedAssetFor(url);
+        if (asset != null) hkSeedWriteIfInvalid(asset, target);
+    }
+
+    /** readFile 读路入口：按文件系统路径尾段命中同一种子表。 */
+    private void hkSeedRestorePath(String absPath, java.io.File target) {
+        if (absPath == null) return;
+        String norm = absPath.replace('\\', '/');
+        for (String[] row : HK_SEED_FILES) {
+            if (norm.endsWith("/" + row[0])) {
+                hkSeedWriteIfInvalid(row[1], target);
+                return;
+            }
+        }
+    }
+
+    /**
+     * 目标缺失、或内容不含标志串 rrules（只剩 404 正文等空壳）时，
+     * 把内置种子原样写回目标。有效内容（含 rrules 的正版/更新件）
+     * 永不覆盖。全程不抛：回补失败记错误日志、保持原缺失语义（读回 ""）。
+     */
+    private void hkSeedWriteIfInvalid(String asset, java.io.File target) {
+        try {
+            if (target.exists()) {
+                String cur = fileToString(target, null, true);
+                if (cur != null && cur.contains("rrules")) return;
+            }
+            String code = loadAsset(asset);
+            if (code == null || !code.contains("rrules")) return;
+            java.io.File parent = target.getParentFile();
+            if (parent != null) parent.mkdirs();
+            java.io.FileOutputStream out = new java.io.FileOutputStream(target, false);
+            out.write(code.getBytes("UTF-8"));
+            out.close();
+        } catch (Throwable ignored) {
+            Logger.t(TAG).e(ignored, "hkSeedWriteIfInvalid failed asset=%s target=%s", asset, target);
+        }
+    }
+
+    /**
+     * 执行首页/分类的 js: 规则，返回条目列表。
+     */
+    public List<HkItem> parseList(String jsCode, String myUrl) throws Exception {
+        return parseList(jsCode, myUrl, 1);
+    }
+
+    /**
+     * 执行首页/分类的 js: 规则，返回条目列表（带页码，注入 MY_PAGE）。
+     * 无页面身份：本发自成一个顶替作用域——不顶别人、也不被顶，排队跑完回真结果。
+     */
+    public List<HkItem> parseList(String jsCode, String myUrl, int page) throws Exception {
+        return parseList(jsCode, myUrl, page, new Object());
+    }
+
+    /**
+     * 带页面加载身份的入口：顶替只许发生在同一身份内（见 ListEvalMark.scope）。
+     * 被同身份继任者顶掉时抛 {@link ListEvalSupersededException}（取消语义），
+     * 不回空表冒充结果。
+     */
+    public List<HkItem> parseList(String jsCode, String myUrl, int page, Object listScope) throws Exception {
+        // 先发代次、先顶掉在跑的同身份旧发再排队：它的结果必被同页 ticket 作废
+        ListEvalMark mark = newListMark(listScope);
+        return parseListInternal(jsCode, myUrl, page, mark);
+    }
+
+    /**
+     * 缓存代码重建专用入口（HkEngineBridge.evalCacheCode）：跑的是 setResult(...)
+     * 合成脚本、不是列表加载——不顶替在跑的列表求值，也不被顶替，与改前串行语义一致。
+     */
+    public List<HkItem> parseListUnmarked(HkRule rule, String jsCode, String myUrl, int page) throws Exception {
+        synchronized (ruleEvalLock) {
+            bindRule(rule);
+            return parseListInternal(jsCode, myUrl, page, null);
+        }
+    }
+
+    private List<HkItem> parseListInternal(String jsCode, String myUrl, int page, ListEvalMark mark) throws Exception {
+        // 提交时捕获当前绑定，任务在引擎线程开头重申：防提交与执行之间
+        // 别的页 bindRule 换掉 this.rule 造成串页（与带规则入口的锁互补）
+        final HkRule boundRule = this.rule;
+        // 桥化相碰收口（账 hk-engine-singleton-land 普查 #12/#13）：预抓正文与
+        // find 承接监听都是「调用线程写、任务内读」的字段，今形同规则两页并发
+        // 已有后写覆盖面，桥化后扩到跨规则——同 boundRule 口径在提交时捕获成
+        // 任务局部，任务内只读/只写局部捕获，字段本体不再被任务读。
+        final String boundResBody = evalResCodeBody;
+        final BindObjectToViewListener boundListener = bindObjectListener;
+        java.util.concurrent.Future<List<HkItem>> future = submit(() -> {
+            if (boundRule != null) this.rule = boundRule;
+            syncKvToBoundRule();
+            bindObjectListener = boundListener;
+            if (boundResBody != null) evalBodyLocal.set(boundResBody);
+            else evalBodyLocal.remove();
+            if (mark != null) {
+                // 排队期间已被同一页面身份的继任者接管：按取消语义收口——抛
+                // ListEvalSupersededException 让调用方丢弃本发，绝不回空表冒充
+                // 求值结果（伪造空表已废，账 hk-import-firstload-empty-dig §六）。
+                // 跨身份的提交不在此列：各排各队、跑出自己的真结果，上不上屏
+                // 由调用方票据定（官 8.83 形态：结果真假与上屏与否分离）。
+                synchronized (latestListMarkByScope) {
+                    if (latestListMarkByScope.get(mark.scope) != mark) {
+                        // 本支在 find 的 try/finally 之前抛：监听字段在此自清，
+                        // 不许把本发的承接面留给后续无关求值（捕获收口的尾口；
+                        // evalBodyLocal 由 submit 包装层 finally 兜底摘除）。
+                        bindObjectListener = null;
+                        throw new ListEvalSupersededException();
+                    }
+                }
+                activeListMark = mark;
+                rhinoCx.putThreadLocal(LIST_MARK_KEY, mark);
+            }
+            HkFindDelivery.Sink findSink = null;
+            try {
+                results.clear();
+                error = null;
+                // R6: 求值前清掉 refreshPage 标记，避免上次残留被误判为本次的新请求
+                refreshRequested = false;
+                refreshToTop = false;
+                this.page = Math.max(1, page);
+                // 环19 arm：本发换鲜 scope（官每发装配形，见 assembleFreshScope）——
+                // setContext/CALLBACK_KEY/求值全部落本发 scope，上一发的 var/let、
+                // $.exports、Module._cache 不再残留进本发。
+                scope = assembleFreshScope();
+                setContext(myUrl);
+                try {
+                    // 8.83 parseHome 同款：每次求值注入 fresh CALLBACK_KEY 并登记正文表
+                    //（正文=预抓正文，HkEngine.home() 经 setEvalResCodeBody 传入；
+                    // 桥化后读提交时捕获的 boundResBody，见方法头注）
+                    String cbKey = armCallbackKey(boundResBody);
+                    // G2：同一 key 同挂主 scope 属性——预置段包装函数的
+                    // callbackKey 覆写读的是定义作用域（主 scope）的 CALLBACK_KEY，
+                    // 求值串里的 var 只落子 scope，包装层读不到；官每发新 scope
+                    // 两者同体，主路常驻 scope 以属性补同体（getResCode 等既有
+                    // scope.get 读法也自此真命中）。
+                    ScriptableObject.putProperty(scope, "CALLBACK_KEY", cbKey);
+                    // G51 官式交付：按本发 CALLBACK_KEY 登记汇点，setResult 一族交付进
+                    // 汇点（PRE/AFTER phase 记账、正式交付即摘），求值结束按交付序合成
+                    // 返回表——交付不再经共享 results 累加器（账 G51 三环口子）。
+                    findSink = findDelivery.register(cbKey, "home");
+                    if (cbKey != null) findRegisteredKeys.add(cbKey);
+                    activeFindSink.set(findSink);
+                    // 8.83 parseHome 的求值串以 getMyRule 前缀起头，前缀里的
+                    // eval(getJsPlugin())/eval(getJsLazyPlugin()) 每发重评 Hikerurl.js/
+                    // plugin.js——$ 与 $.require 的 Module 缓存随本发全新。此前本路只拼
+                    // CALLBACK_KEY+正文，$ 恒为 init 装入共享 scope 的那一份、模块缓存
+                    // 跨页存活：BestJav 这类「模块级 d 数组攒条目、setResult(Apollo.d)」
+                    // 的规则，子页求值拿到的是缓存里的旧模块，d 里还躺着首页的条目，
+                    // 子页一打开先摆一整个首页（点封面重开首页的字面成因）。补回重评，
+                    // 本发内 $.require 重新装载页模块（d 归零），与本体一致；
+                    // 跨求值的持久状态仍走 varMap/kv 等既有通道，不受影响。
+                    // 环20 双评防护：plugin.js 只许评一遍——本发首个 evalJs 经
+                    // evalJsRooted 的 ensurePluginIn 已把 plugin.js 评进本发 scope
+                    // （改名支在那一遍以 _displayName 还原 MY_RULE.title、原别名
+                    // 退到 _title）；脚本头若再 eval(getJsLazyPlugin()) 评第二遍，
+                    // 改名支会把 _title 覆写成已还原的 title、别名丢失（官每发
+                    // 只经 getMyRule 尾巴评一遍、无此问题）。故脚本头只重评
+                    // Hikerurl.js（$ 与 Module 缓存随本发全新），不再重评 plugin.js。
+                    evalJs("eval(getJsPlugin());\n"
+                            + getMyCallbackKey(cbKey) + stripJsPrefix(jsCode));
+                } catch (Throwable e) {
+                    if (mark != null && mark.superseded) {
+                        // 在跑途中被同身份继任者打断（观察者以 superseded 旗中止
+                        // 求值）：取消语义，不记求值错误、不上抛原 Error——调用方
+                        // 按 ListEvalSupersededException 丢弃本发。
+                        throw new ListEvalSupersededException();
+                    }
+                    // 之前异常直接上抛到 HkEngine.home() 被吞掉只剩 debug 日志，
+                    // UI 永远只显示"加载失败"。先把根因记下来，供 getError()/空态展示。
+                    error = jsErrorMsg(e);
+                    throw e;
+                }
+                synchronized (findSink) {
+                    return new ArrayList<>(findSink.items());
+                }
+            } finally {
+                if (findSink != null) {
+                    findDelivery.unregister(findSink);
+                    // 环23 复核订正3：分界键集随 unregister 一并清，防单调增长
+                    // （键经汇点自带 key 取，cbKey 是 try 内局部、finally 不可见）。
+                    String regKey = findSink.key();
+                    if (regKey != null) findRegisteredKeys.remove(regKey);
+                    activeFindSink.remove();
+                }
+                bindObjectListener = null;
+                evalBodyLocal.remove();
+                if (mark != null) {
+                    rhinoCx.removeThreadLocal(LIST_MARK_KEY);
+                    if (activeListMark == mark) activeListMark = null;
+                    synchronized (latestListMarkByScope) {
+                        if (latestListMarkByScope.get(mark.scope) == mark) {
+                            latestListMarkByScope.remove(mark.scope);
+                        }
+                    }
+                }
+            }
+        });
+        try {
+            // 列表求值（mark!=null）的等待对齐其观察者远界（见 LIST_EVAL_BUDGET_MS
+            // 测算）：150 秒会在坏网正当慢求值中途把调用方截断报错、结果被丢弃；
+            // 缓存重建（mark==null）维持原 150 秒串行语义不变。
+            return future.get(mark != null ? LIST_EVAL_WAIT_SECONDS : EVAL_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS);
+        } catch (java.util.concurrent.ExecutionException ee) {
+            // 取消信号解包直达调用方，不许埋在 ExecutionException 里被当成求值失败
+            if (ee.getCause() instanceof ListEvalSupersededException) {
+                throw (ListEvalSupersededException) ee.getCause();
+            }
+            throw ee;
+        }
+    }
+
+    /** 带当前页规则的入口（8.83 parseHome 形态：规则随求值带入）：先重绑再走原路。无页面身份版。 */
+    public List<HkItem> parseList(HkRule rule, String jsCode, String myUrl, int page) throws Exception {
+        return parseList(rule, jsCode, myUrl, page, new Object());
+    }
+
+    /**
+     * 带当前页规则与页面加载身份的入口：顶替只许发生在同一身份内
+     * （见 ListEvalMark.scope），被顶掉抛 {@link ListEvalSupersededException}。
+     */
+    public List<HkItem> parseList(HkRule rule, String jsCode, String myUrl, int page, Object listScope) throws Exception {
+        // 先发代次、先顶替再抢锁：旧列表求值的调用方正持锁在 Future.get 上长等，
+        // 先在锁外把在跑的同身份旧求值打断，锁才放得出来、当前求值才不必等它整段跑完。
+        ListEvalMark mark = newListMark(listScope);
+        synchronized (ruleEvalLock) {
+            bindRule(rule);
+            return parseListInternal(jsCode, myUrl, page, mark);
+        }
+    }
+
+    /**
+     * 执行搜索的 js: 规则，返回条目列表。
+     */
+    public List<SearchResult> parseSearch(String jsCode, String myUrl, String keyword) throws Exception {
+        return parseSearch(jsCode, myUrl, keyword, 1);
+    }
+
+    /**
+     * 执行搜索的 js: 规则，返回搜索结果（带页码，注入 MY_PAGE）。
+     * 8.83 JSEngine.callbackSearchResult 同款：JS 结果按 title/url/desc/descMore/
+     * content/img/extra/type 映射为独立 SearchResult（type 硬编码 "video"）。
+     */
+    public List<SearchResult> parseSearch(String jsCode, String myUrl, String keyword, int page) throws Exception {
+        final HkRule boundRule = this.rule;
+        // 同 parseListInternal：正文/监听提交时捕获（普查 #12/#13）。
+        final String boundResBody = evalResCodeBody;
+        final BindObjectToViewListener boundListener = bindObjectListener;
+        return submit(() -> {
+            if (boundRule != null) this.rule = boundRule;
+            syncKvToBoundRule();
+            bindObjectListener = boundListener;
+            if (boundResBody != null) evalBodyLocal.set(boundResBody);
+            else evalBodyLocal.remove();
+            results.clear();
+            error = null;
+            // R6: 求值前清掉 refreshPage 标记，避免上次残留被误判
+            refreshRequested = false;
+            refreshToTop = false;
+            this.page = Math.max(1, page);
+            // 环19 arm：同 parseListInternal，本发换鲜 scope 后再 setContext。
+            scope = assembleFreshScope();
+            setContext(myUrl);
+            ScriptableObject.putProperty(scope, "MY_KEYWORD", keyword == null ? "" : keyword);
+            HkFindDelivery.Sink findSink = null;
+            try {
+                // 8.83 parseSearch 同款：每次求值注入 fresh CALLBACK_KEY 并登记正文表
+                //（正文=搜索预抓正文，调用方经 setEvalResCodeBody 传入；
+                // 桥化后读提交时捕获的 boundResBody）
+                String cbKey = armCallbackKey(boundResBody);
+                // G2：同 parseListInternal——CALLBACK_KEY 同挂主 scope 属性，
+                // 供预置段包装函数的 callbackKey 覆写读取（官同体语义）。
+                ScriptableObject.putProperty(scope, "CALLBACK_KEY", cbKey);
+                // G51 官式交付：与 parseListInternal 同口径登记汇点、按交付序合成。
+                findSink = findDelivery.register(cbKey, "search");
+                if (cbKey != null) findRegisteredKeys.add(cbKey);
+                activeFindSink.set(findSink);
+                currentMyType = "search";
+                // 8.83 parseSearchRes 同款：求值串以 getMyRule 前缀起头，前缀里的
+                // eval(getJsPlugin())/eval(getJsLazyPlugin()) 每发重评 Hikerurl.js/
+                // plugin.js——$ 与 $.require 的 Module 缓存随本发全新。本路此前只拼
+                // CALLBACK_KEY+正文，$ 恒为 init 装入共享 scope 的那一份、模块缓存
+                // 跨发存活：模块级数组攒条目的规则（如 BestJav 的 Apollo.d），第二发
+                // 搜索拿到缓存旧模块、把第一发的结果一并 setResult 交出。补回重评
+                // 与 parseListInternal 同口径；跨求值的持久状态仍走 varMap/
+                // 存储封装/kv 等既有通道，不受影响。plugin.js 不在此重评
+                // （环20 双评防护，理由见 parseListInternal 同处注）。
+                evalJs("eval(getJsPlugin());\n"
+                        + getMyCallbackKey(cbKey) + stripJsPrefix(jsCode));
+            } catch (Throwable e) {
+                error = jsErrorMsg(e);
+                throw e;
+            } finally {
+                if (findSink != null) {
+                    findDelivery.unregister(findSink);
+                    // 环23 复核订正3：分界键集随 unregister 一并清，防单调增长
+                    // （键经汇点自带 key 取，cbKey 是 try 内局部、finally 不可见）。
+                    String regKey = findSink.key();
+                    if (regKey != null) findRegisteredKeys.remove(regKey);
+                    activeFindSink.remove();
+                }
+                bindObjectListener = null;
+                evalBodyLocal.remove();
+            }
+            if (findSink == null) return new ArrayList<SearchResult>();
+            synchronized (findSink) {
+                return toSearchResults(new ArrayList<>(findSink.items()));
+            }
+        }).get(EVAL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /** 带当前页规则的入口（8.83 parseSearchRes 形态：规则随求值带入）：先重绑再走原路。 */
+    public List<SearchResult> parseSearch(HkRule rule, String jsCode, String myUrl, String keyword, int page) throws Exception {
+        synchronized (ruleEvalLock) {
+            bindRule(rule);
+            return parseSearch(jsCode, myUrl, keyword, page);
+        }
+    }
+
+    // W3：图片 @js= 专用进程单例（8.83 JSEngine.getInstance() 同款）。
+    // 图片求值不再走规则运行时：规则的 putVar 变量对图片 JS 不可见（原版语义），
+    // 图片 JS 自己的 putVar/getVar 落到单例变量表，与规则隔离。
+    private static volatile HkJsRuntime imageEngine;
+
+    /**
+     * W3：取图片求值单例。DCL；初始化失败返回 null（调用方退化为原图直出）。
+     */
+
+    /**
+     * W3：取图片求值单例。DCL；初始化失败返回 null（调用方退化为原图直出）。
+     */
+    public static HkJsRuntime imageEngine() {
+        HkJsRuntime e = imageEngine;
+        if (e == null) {
+            synchronized (HkJsRuntime.class) {
+                e = imageEngine;
+                if (e == null) {
+                    try {
+                        e = new HkJsRuntime(null);
+                        e.initImageEngine();
+                        imageEngine = e;
+                    } catch (Throwable t) {
+                        Logger.t(TAG).e(t, "imageEngine init failed");
+                        return null;
+                    }
+                }
+            }
+        }
+        return e;
+    }
+
+    /**
+     * W3：图片单例的轻量初始化——只进 Rhino Context，不跑规则 init
+     *（无规则、无 preRule、无 kv/config；求值所需 API 每次在新 scope 里现场注册）。
+     */
+    private void initImageEngine() throws Exception {
+        java.util.concurrent.Future<?> f = submit(() -> {
+            jsThread = Thread.currentThread();
+            // 8.83 initRhino 同款：单 Context + 禁优化器 + 语言版本 200
+            rhinoCx = Context.enter();
+            rhinoCx.setOptimizationLevel(-1);
+            rhinoCx.setLanguageVersion(200);
+            // face1#13 前置：官 JSEngine 构造器即建 allFunctions 串、image
+            // 域 evalJS 与其余三域同串同评；咱家图片单例不走 init()，此串
+            // 此前恒为缺省空串、image 域评无可评。照 init() 同公式在此建
+            // （getAllFunctions 纯反射生成、不依赖规则态，图单例可自建）。
+            try {
+                allFunctions = String.format(getAllFunctions(), HkJsRuntime.class.getName())
+                        + "\n var MY_UA = JSON.parse(getUaObject());\n var MOBILE_UA =  MY_UA.mobileUa;\n var PC_UA = MY_UA.pcUa";
+            } catch (Throwable t) {
+                Logger.t(TAG).e(t, "imageEngine build allFunctions");
+                allFunctions = "";
+            }
+            return null;
+        });
+        try {
+            f.get(30, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new Exception("imageEngine init timeout", e);
+        }
+    }
+
+    /**
+     * 8.83 OkHttpStreamFetcher.evalJS 语义：图片 {@code @js=} 求值。
+     *
+     * <p>{@code input} 绑定为 Java InputStream（响应流；下载失败时为 null）。
+     * JS 求值结果为 InputStream（或其 NativeJavaObject 包装）才采用，且与原 input
+     * 不同时关闭原流；结果非流或任何异常 → 返回原 input（调用方决定失败处理）。
+     * W3：走图片单例、每次 {@code initStandardObjects()} 全新 scope（8.83
+     * JSEngine.smali:14051 同款），不再以规则 scope 为原型——规则变量对图片 JS
+     * 不可见，图片 JS 的变量也不写穿到规则。</p>
+     */
+    public InputStream evalImageJs(String jsCode, InputStream input, Map<String, List<String>> headers, String urlString) {
+        HkJsRuntime img = imageEngine();
+        if (img == null) return input;
+        return img.evalImageJs(jsCode, input, headers, urlString, null);
+    }
+
+    /**
+     * D3：8.83 并发模型（OkHttpStreamFetcher.evalJS / JSEngine.evalJS 同款）——
+     * 每次求值在调用线程（OkHttp 回调线程）进独立 Rhino Context + 建独立 scope，
+     * 不再经图片单线程 executor 串行排队。线程安全靠「每求值独立」构造：
+     * Context、scope、挂载物全部是本次调用的局部量。
+     * W3（b4210351）「每次全新 scope」保留；fe18e2d1 的 FileUtil 补链与
+     * 54d569bb 的 registerApi 空指针守卫在新模型下照常成立（见内联说明）。
+     * ruleTitle 只做 MY_TITLE 回退（无害项保留）。
+     */
+    public InputStream evalImageJs(String jsCode, InputStream input, Map<String, List<String>> headers, String urlString, String ruleTitle) {
+        HkJsRuntime img = imageEngine();
+        if (img == null) return input;
+        Context cx = Context.enter();
+        cx.setOptimizationLevel(-1);
+        cx.setLanguageVersion(200);
+        try {
+            return img.evalImageJsInternal(cx, jsCode, input, headers, urlString, ruleTitle);
+        } catch (Throwable t) {
+            String cls = t.getClass().getSimpleName();
+            String msg = t.getMessage();
+            SpiderDebug.log("hkimage", "图片解密求值失败 url=%s 类型=%s 信息=%s",
+                    urlString, cls, msg == null ? "" : msg);
+            return input;
+        } finally {
+            Context.exit();
+        }
+    }
+
+    /**
+     * D3：调用线程上的真实求值体。cx 与 imageScope 均为本次调用独占。
+     * registerApiInto 的 apiRegisterLock 照常保护「注册目标切换」
+     * （注册期串行、求值期并行）；注册发生在已 enter 的调用线程内，
+     * currentContext 即本次的 cx。
+     */
+    private InputStream evalImageJsInternal(Context cx, String jsCode, InputStream input, Map<String, List<String>> headers, String urlString, String ruleTitle) {
+        // W3：全新 scope（8.83 JSEngine.smali:14051 initStandardObjects），
+        // 不再 newObject(规则 scope) 挂原型链。
+        ScriptableObject imageScope = cx.initStandardObjects();
+        // 8.83 line 454-455：ImporterTopLevel + initRequire
+        org.mozilla.javascript.ImporterTopLevel.init(cx, imageScope, false);
+        initRequire(cx, imageScope);
+        // 8.83 allFunctions 等价：全部宿主 API 函数现场注册进新 scope
+        registerApiInto(imageScope);
+        // C5 保留：重求值 Hikerurl.js，$ / $.require 必可用。
+        // 8.83 crypto-java.js 原生 AES 接线：原版直引海阔包内 FileUtil，星辰注入宿主实现。
+        ScriptableObject.putProperty(imageScope, "__cryptoFileUtil",
+                Context.javaToJS(new HkCryptoFileUtil(), imageScope));
+        // D2：8.83 JSEngine.evalJS 挂载物对齐（JSEngine.smali:13914 段，Java 456-461 行）：
+        // input / _globalMap / rc4 / _base64 / javaContext / javaLoader。
+        ScriptableObject.putProperty(imageScope, "_globalMap", Context.javaToJS(imageGlobalMap, imageScope));
+        ScriptableObject.putProperty(imageScope, "rc4", Context.javaToJS(new HkRc4(), imageScope));
+        ScriptableObject.putProperty(imageScope, "_base64", Context.javaToJS(new HkMyBase64(), imageScope));
+        ScriptableObject.putProperty(imageScope, "javaContext", Context.javaToJS(this, imageScope));
+        ScriptableObject.putProperty(imageScope, "javaLoader", Context.javaToJS(HkJsRuntime.class.getClassLoader(), imageScope));
+        injectAndroidPackage(imageScope);
+        // D7：图片 scope 里 $.require("hiker://assets/...") 直通宿主资产——
+        // 宿主函数读资产文本，JS 侧在当前图片 scope 内按 Hikerurl 模块机求值
+        // （new Function(module,exports,__filename) + $.exports 交接），不绕
+        // Hikerurl 的 request/getScript 链。目标：一个APP 的 crypto-java.js
+        // 在图片 scope 里完整加载（android.util.Base64 已注入，__cryptoFileUtil 已注入）。
+        ScriptableObject.putProperty(imageScope, "__imageRequireAsset", new org.mozilla.javascript.BaseFunction() {
+            @Override
+            public Object call(org.mozilla.javascript.Context cxx, Scriptable scope, Scriptable thisObj, Object[] args) {
+                String p = args != null && args.length > 0 && args[0] != null ? String.valueOf(args[0]) : "";
+                return loadAssetText(p);
+            }
+        });
+        // wrapImageJs 的 JS 侧 catch 走此函数记可导出日志（原 log() 只进 logcat）。
+        ScriptableObject.putProperty(imageScope, "__hkImageLog", new org.mozilla.javascript.BaseFunction() {
+            @Override
+            public Object call(org.mozilla.javascript.Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+                SpiderDebug.log("hkimage", "图片解密JS内报错 host=%s 信息=%s",
+                        hostOfUrl(urlString), args != null && args.length > 0 ? String.valueOf(args[0]) : "");
+                return null;
+            }
+        });
+        // MY_TICKET 同前置（与 assembleFreshScope 同根）：下方重评
+        // Hikerurl.js 时其顶层 IIFE 即读此名，本 scope 无 getMyRule
+        // 前缀串托底，无绑定即抛（此前被 catch 吞成 $ 残缺、只记日志）。
+        String imgTicket = generateTicket(ruleTitle);
+        ScriptableObject.putProperty(imageScope, "MY_TICKET", imgTicket == null ? "" : imgTicket);
+        // face1#5/#6 对官（官包 evalJS(InputStream) smali:13914 前缀段）：
+        // 每发新 UUID 的 CALLBACK_KEY 与 MY_TYPE='eval'——官以
+        // getMyCallbackKey/getMyType 串拼在正文前，咱家 lazy 路同形是
+        // 「属性先置＋串拼正文前」双写，此处照抄其形：属性在此先置（下方
+        // Hikerurl/plugin 评入期若调 allFunctions 包装函数，callbackKey/
+        // typeKey 覆写读到的就是本发值，与官 getMyRule 尾评插件时两名
+        // 已由前缀串定值同序），串在下方 code 拼装处补。
+        String imgCbKey = genUuid();
+        ScriptableObject.putProperty(imageScope, "CALLBACK_KEY", imgCbKey);
+        ScriptableObject.putProperty(imageScope, "MY_TYPE", "eval");
+        long t0 = android.os.SystemClock.elapsedRealtime();
+        String code = "";
+        try {
+            // face1#13 对官：官 image eval 与 evalJSForObj 同构造——鲜
+            // scope 装配后先整串评 allFunctions（ScriptAPI/method_* 句柄
+            // ＋returnType 整形包装层），再评正文。咱家此前只有
+            // registerApiInto 裸名、整形层不在。此处照 assembleFreshScope
+            // 同路评入（串已由 initImageEngine 按 init 同公式建好）；
+            // 评入失败不内吞——穿到本法终局 catch 记日志回原图，与官
+            // evalJS catch 后回原 input 同终局。
+            if (allFunctions != null && !allFunctions.isEmpty()) {
+                cx.evaluateString(imageScope, allFunctions, "hk-allfunctions", 1, null);
+            }
+            // 重求值 Hikerurl.js，确保 $ 完整可用
+            try {
+                String hikerUrlJs = loadAsset("Hikerurl.js");
+                if (!TextUtils.isEmpty(hikerUrlJs)) {
+                    cx.evaluateString(imageScope, hikerUrlJs, "Hikerurl.js", 1, null);
+                }
+            } catch (Throwable t) {
+                Logger.t(TAG).d("evalImageJs: re-eval Hikerurl.js failed: %s", t.getMessage());
+            }
+            // G24：图片 scope 每发新 scope（官 evalJS 同形），随发评
+            // 入 plugin.js 使裸名 storage0 可达（官 getMyRule 尾巴
+            // 恒带 eval(getJsLazyPlugin())）；plugin.js 首行读
+            // MY_RULE，先装当前规则（序不可反）。MY_RULE 本体在
+            // 本 scope 内以 JSON 字面量求值建成——图片单例的字段
+            // scope 为 null，宿主 parseJson（读字段 scope）在此
+            // 必 NPE、会连评入一起堵死（续核不过因），两步分开
+            // try，一步失败不堵另一步。
+            try {
+                Object myRuleObj = cx.evaluateString(imageScope,
+                        "(" + myRuleJson(rule) + ")", "myRule", 1, null);
+                ScriptableObject.putProperty(imageScope, "MY_RULE", myRuleObj);
+                // face1#7 对官：_displayName 条件性——官 getMyRule 在
+                // MY_RULE 带 displayName 时才出 const；咱家 parse 域
+                // setContext 的条件放法是「非空才 putProperty」。此处以
+                // 刚装入的 MY_RULE 本体为准：其 displayName 非空才置，
+                // 空/无此键不置（plugin.js 改名支的 typeof 判据由此成立）。
+                try {
+                    Object dn = myRuleObj instanceof Scriptable
+                            ? ScriptableObject.getProperty((Scriptable) myRuleObj, "displayName") : null;
+                    if (dn instanceof String && !TextUtils.isEmpty((String) dn)) {
+                        ScriptableObject.putProperty(imageScope, "_displayName", dn);
+                    }
+                } catch (Throwable ignored) {
+                }
+            } catch (Throwable t) {
+                Logger.t(TAG).d("evalImageJs: set MY_RULE failed: %s", t.getMessage());
+            }
+            try {
+                String lazyPlugin = loadAsset("plugin.js");
+                if (!TextUtils.isEmpty(lazyPlugin)) {
+                    cx.evaluateString(imageScope, lazyPlugin, "plugin.js", 1, null);
+                }
+            } catch (Throwable t) {
+                Logger.t(TAG).d("evalImageJs: eval plugin.js failed: %s", t.getMessage());
+            }
+            // D7 直通补丁：Hikerurl.js 求值成功（$ / $.require 可用）时才装；
+            // 若 Hikerurl.js 没起来，走 ensureDollarShim() 的兜底 require。
+            try {
+                cx.evaluateString(imageScope, imageAssetRequirePatch(), "imageAssetRequire", 1, null);
+            } catch (Throwable t) {
+                Logger.t(TAG).d("evalImageJs: asset require patch failed: %s", t.getMessage());
+            }
+            // fe18e2d1 保留：UU 等规则图片回调直引 com.example.hikerview.utils.FileUtil
+            // （8.83 包内真实类）。星辰无此包：建链定义指向同一个 HkCryptoFileUtil 实例
+            // （与 __cryptoFileUtil 既有 shim 策略一致；crypto-java.js:17 的同款兼容判断
+            // 即依赖 __cryptoFileUtil）。修前 Rhino 侧只剩 JavaPackage 占位、调 toBytes
+            // 抛 TypeError → 封面空白。
+            // 注：var com 只遮蔽 ImporterTopLevel 对 com.* Java 包的回退；图片解密 JS 现实只会
+            // 用到 com.example.hikerview.utils.FileUtil（UU/oneapp 皆如此），java.* 与
+            // android 包不受影响。
+            try {
+                cx.evaluateString(imageScope,
+                        "var com = {};\n"
+                                + "com.example = {};\n"
+                                + "com.example.hikerview = {};\n"
+                                + "com.example.hikerview.utils = {};\n"
+                                + "com.example.hikerview.utils.FileUtil = __cryptoFileUtil;",
+                        "fileutilShim", 1, null);
+            } catch (Throwable t) {
+                Logger.t(TAG).d("evalImageJs: fileutil shim failed: %s", t.getMessage());
+            }
+            ScriptableObject.putProperty(imageScope, "input", Context.javaToJS(input, imageScope));
+            // face1#5/#6 串形补齐：官前缀序＝getMyRule＋getMyType('eval')
+            // ＋getMyCallbackKey(新 UUID)＋正文；咱家 MY_RULE 已以属性
+            // 先装（见上），此处补后两段串拼在既有前缀之前（与 lazy 路
+            // evalJs(getMyCallbackKey(cbKey)+正文) 同形）。
+            // face1#14 裁定（簇3，语料证据见 fill-136b-c3-scope 分账）：
+            // 官图片重载前缀无 MY_URL/MY_HOME/MY_HEADERS/MY_TITLE 四件；
+            // 咱家旧形多供四件。语料（聚阅全目录）图片求值体逐个核：
+            // MY_URL/MY_HOME/MY_HEADERS 在图片体内零用名（MY_HOME 全库
+            // 唯一命中在 parse 域 httpHandle、MY_HEADERS 全库零命中）
+            // →三件摘除归官形；MY_TITLE 有图片体内用名实证（$().image
+            // 灰度体裸读 MY_TITLE，SrcJuPublic.js:1373/SrcJuSet.js:581
+            // 两副本）→单独保留记名（其 $().image 序列化前缀
+            // $.hiker.MY_TITLE 亦自供同值，宿主供值是直写 @js= 形与
+            // 提取回退的保底）。headers 形参自此在本法内不再消费
+            // （签名与调用方契约不动）。
+            code = getMyType("eval") + getMyCallbackKey(imgCbKey)
+                    + getMyTitleJs(jsCode, ruleTitle) + ensureDollarShim() + wrapImageJs(jsCode);
+            Object r = cx.evaluateString(imageScope, code, "imageJs", 1, null);
+            InputStream out = coerceImageStream(r, input, urlString);
+            SpiderDebug.log("hkimage", "图片解密完成 host=%s 耗时=%dms 结果=%s",
+                    hostOfUrl(urlString), android.os.SystemClock.elapsedRealtime() - t0,
+                    out == null ? "null" : out.getClass().getSimpleName() + (out == input ? "(回退原字节)" : ""));
+            return out;
+        } catch (Throwable t) {
+            // 规则图片码拼装串留痕（与主路同口，2026-11-12）：code 已拼出才记，
+            // 宿主资产预载失败时 code 仍为空、不记（那是另一条日志面）。本口是
+            // 终局 catch（吞异常回原图），记完即清认领、不许带进下一发。
+            if (!TextUtils.isEmpty(code)) {
+                if (logEvalFailure(code, t, 0)) evalLoggedFailure.remove();
+            }
+            // 图片解密求值失败：记进可导出日志（此前静默吞掉，真机断点不可见）
+            String cls = t.getClass().getSimpleName();
+            String msg = t.getMessage();
+            SpiderDebug.log("hkimage", "图片解密求值失败 url=%s 类型=%s 信息=%s",
+                    urlString, cls, msg == null ? "" : msg);
+            return input;
+        }
+    }
+
+    /**
+     * D7：图片 scope 的 hiker://assets 直通补丁（JS）。
+     * 拦截 $.require("hiker://assets/...")：宿主 __imageRequireAsset 读资产文本，
+     * 在当前图片 scope 内按 Hikerurl 模块机求值（new Function(module,exports,__filename)
+     * + $.exports 交接，与 Module._extensions.js / Module.prototype.load 同语义），
+     * 带模块缓存；非 assets 路径走原 $.require。
+     */
+    private static String imageAssetRequirePatch() {
+        return "(function(){\n"
+                + "if (typeof $ === 'undefined' || typeof $.require !== 'function') return;\n"
+                + "var __assetModules = {};\n"
+                + "function __imageAssetRequire(path) {\n"
+                + "  var key = String(path);\n"
+                + "  if (__assetModules[key]) return __assetModules[key].exports;\n"
+                + "  var code = String(__imageRequireAsset(key));\n"
+                + "  if (!code) throw new Error('Module \"' + key + '\" cannot be found.');\n"
+                + "  if (code.indexOf('js:') === 0) code = code.slice(3);\n"
+                + "  var module = { id: key, exports: {} };\n"
+                + "  var __savedExports = $.exports;\n"
+                + "  $.exports = module.exports;\n"
+                + "  try {\n"
+                + "    var __fn = new Function('module', 'exports', '__filename', code);\n"
+                + "    __fn.call(module.exports, module, module.exports, key);\n"
+                + "    if ($.exports !== module.exports) module.exports = $.exports;\n"
+                + "  } finally { $.exports = __savedExports; }\n"
+                + "  __assetModules[key] = module;\n"
+                + "  return module.exports;\n"
+                + "}\n"
+                + "var __origRequire = $.require;\n"
+                + "$.require = function(path, importParam, headers, time) {\n"
+                + "  var p = String(path == null ? '' : path);\n"
+                + "  if (p.indexOf('hiker://assets/') === 0) return __imageAssetRequire(p);\n"
+                + "  return __origRequire.call(this, path, importParam, headers, time);\n"
+                + "};\n"
+                + "})();\n";
+    }
+
+    /**
+     * 图片 @js= 求值时的 $ 兜底。
+     *
+     * <p>8.83 的图片 JS 求值上下文（OkHttpStreamFetcher.evalJS）与规则共用 JSEngine 单例，
+     * $（Hikerurl.js）必然可用。但星辰是多规则 HkJsRuntime，图片求值复用的 scope
+     * 可能因 Hikerurl.js 注入失败而没有 $，导致解密 JS 的 $.require("hiker://assets/crypto-java.js")
+     * 抛 ReferenceError，被 wrapImageJs 的 try/catch 吞掉后返回加密原字节，Glide 解码失败。</p>
+     *
+     * <p>此处注入最小 $ shim：仅当 $ 或 $.require 不可用时生效，提供能加载
+     * hiker://assets/crypto-java.js 的 require（从宿主 assets 读取，复用 $.exports 导出约定）。</p>
+     */
+    private String ensureDollarShim() {
+        try {
+            String cryptoJs = loadAsset("crypto-java.js");
+            if (cryptoJs == null) return "";
+            // 转义为 JS 字符串字面量
+            String esc = escapeJsString(cryptoJs);
+            return "if (typeof $ === 'undefined' || typeof $.require !== 'function') {\n" +
+                    "  var $ = (typeof $ !== 'undefined') ? $ : {};\n" +
+                    "  $.exports = $.exports || {};\n" +
+                    "  $.require = (function() {\n" +
+                    "    var __cryptoCache = null;\n" +
+                    "    var __cryptoCode = '" + esc + "';\n" +
+                    "    return function(path) {\n" +
+                    "      if (path === 'hiker://assets/crypto-java.js') {\n" +
+                    "        if (__cryptoCache) return __cryptoCache;\n" +
+                    "        eval(__cryptoCode);\n" +
+                    "        __cryptoCache = $.exports;\n" +
+                    "        $.exports = {};\n" +
+                    "        return __cryptoCache;\n" +
+                    "      }\n" +
+                    "      throw new Error('Module not found in image context: ' + path);\n" +
+                    "    };\n" +
+                    "  })();\n" +
+                    "}\n";
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    /** 8.83 wrapJS：@js= 体包 try/catch，异常记可导出日志后按"非流"处理（返回原 input）。 */
+    private static String wrapImageJs(String jsCode) {
+        return "try{\n" + jsCode + "\n}catch(e){\ntry{__hkImageLog(String(e));}catch(_){}\ntry{log(e.toString());}catch(_){}\n}";
+    }
+
+    /**
+     * 图片 @js= 求值补裸全局 MY_TITLE。（face1#14 簇3 裁定保留记名：
+     * 官图片前缀无此件，但语料图片体内有裸用名实证，见 evalImageJsInternal
+     * 前缀处注与 fill-136b-c3-scope 分账；同批 MY_URL/MY_HOME/MY_HEADERS
+     * 三件无用名证据已摘除。）
+     *
+     * <p>规则 {@code $().image(fn)} 生成的代码体引用裸 {@code MY_TITLE}
+     *（如 {@code $.require("data?rule=" + MY_TITLE)}），图片求值作用域若无此全局则报
+     * ReferenceError，被 try/catch 吞掉后返回加密原字节，Glide 解码失败、封面空白。
+     * 取值：优先从代码体 {@code $.hiker.MY_TITLE = "..."} 提取，取不到时用调用方传入的规则标题
+     *（W3：图片走进程单例，单例本身无规则，标题由调用链显式传入）。</p>
+     */
+    private String getMyTitleJs(String jsCode, String ruleTitle) {
+        String title = null;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("\\$\\.hiker\\.MY_TITLE\\s*=\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+                    .matcher(jsCode == null ? "" : jsCode);
+            if (m.find()) title = m.group(1).replace("\\\"", "\"").replace("\\\\", "\\");
+        } catch (Throwable ignored) {
+        }
+        if (android.text.TextUtils.isEmpty(title)) title = ruleTitle;
+        if (android.text.TextUtils.isEmpty(title)) return "";
+        return "var MY_TITLE = '" + escapeJsString(title) + "';\n";
+    }
+
+    /** 8.83 StringUtil.getRealUrl 简化版：去 @lazyRule=/@rule= 后缀与 hiker://empty 前缀。 */
+    private static String getRealImageUrl(String url) {
+        if (TextUtils.isEmpty(url)) return url;
+        try {
+            String u = url.split("@lazyRule=")[0].split("@rule=")[0];
+            if (u.startsWith("hiker://empty#http")) u = replaceOnce(u, "hiker://empty#", "");
+            else if (u.startsWith("webview://")) u = u.replaceFirst("webview://", "");
+            else if (u.startsWith("hiker://empty##http") || u.startsWith("hiker://empty##https%3A%2F%2F") || u.startsWith("hiker://empty##http%3A%2F%2F"))
+                u = replaceOnce(u, "hiker://empty##", "");
+            else if (u.startsWith("hiker://empty$http")) u = replaceOnce(u, "hiker://empty$", "");
+            else if (u.startsWith("hiker://empty$$http")) u = replaceOnce(u, "hiker://empty$$", "");
+            int d = u.indexOf("$$$");
+            if (d >= 0) u = u.substring(0, d);
+            return u;
+        } catch (Throwable t) {
+            return url;
+        }
+    }
+
+    /** 求值结果 → 流：是流则采用（与原流不同时关原流），否则返回原 input。
+     *  我方 crypto-java.js 是纯 JS 重写版，解密函数的 toInputStream() 返回的是
+     *  JS 数字数组（bytes.slice()），不是 Java 流；原版靠 Rhino 互操作直接返回真流。
+     *  这里补上数组 → 字节流的转换，否则解密结果会被丢弃、回退成加密原字节，
+     *  图片解码失败（「一个APP」首页大图无封面即此因，本机用真实数据复现定案）。 */
+    private static InputStream coerceImageStream(Object r, InputStream input, String urlString) {
+        try {
+            Object v = r;
+            if (v instanceof NativeJavaObject) v = ((NativeJavaObject) v).unwrap();
+            if (v instanceof NativeJavaArray) v = ((NativeJavaArray) v).unwrap();
+            if (v instanceof InputStream) {
+                if (v != input && input != null) {
+                    try {
+                        input.close();
+                    } catch (Throwable ignored) {
+                    }
+                }
+                return (InputStream) v;
+            }
+            byte[] bytes = null;
+            if (v instanceof byte[]) {
+                bytes = (byte[]) v;
+            } else if (v instanceof NativeArray) {
+                NativeArray arr = (NativeArray) v;
+                int len = (int) arr.getLength();
+                bytes = new byte[len];
+                for (int i = 0; i < len; i++) {
+                    Object e = arr.get(i, arr);
+                    bytes[i] = (byte) (e instanceof Number ? ((Number) e).intValue() : 0);
+                }
+            } else if (v instanceof Object[]) {
+                Object[] arr = (Object[]) v;
+                bytes = new byte[arr.length];
+                for (int i = 0; i < arr.length; i++) {
+                    bytes[i] = (byte) (arr[i] instanceof Number ? ((Number) arr[i]).intValue() : 0);
+                }
+            }
+            if (bytes != null) {
+                if (input != null) {
+                    try {
+                        input.close();
+                    } catch (Throwable ignored) {
+                    }
+                }
+                return new ByteArrayInputStream(bytes);
+            }
+            // 真回退：记原因进可导出日志（此前静默回原字节，真机断点不可见）
+            String rt = r == null ? "null" : r.getClass().getSimpleName();
+            if (r != null) {
+                try {
+                    String rs = String.valueOf(org.mozilla.javascript.Context.toString(r));
+                    rt += ":" + rs.substring(0, Math.min(80, rs.length()));
+                } catch (Throwable ignored) {
+                }
+            }
+            SpiderDebug.log("hkimage", "图片解密结果非流，回退原字节 host=%s 结果类型=%s", hostOfUrl(urlString), rt);
+        } catch (Throwable ignored) {
+        }
+        return input;
+    }
+
+    /**
+     * M4：lazyRule / 播放 js 的独立作用域求值。
+     *
+     * <p>按"独立作用域"铁律：只注入全局 Hiker API，外加 {@code MY_URL}/{@code input}
+     * 两个形参（均为当前页面地址），不依赖 JS 闭包。返回代码求值结果的字符串；
+     * 若求值为空则兜底取 {@code setResult} 收集到的第一条 url。</p>
+     */
+    public String evalLazy(String jsCode, String pageUrl, int position) throws Exception {
+        return evalLazyInternal(jsCode, pageUrl, true, position);
+    }
+
+    /**
+     * 点击动作探针专用求值：与 {@link #evalLazy} 同作用域同注入，唯一区别是
+     * 求值为空时不 drain 共用 results 表。evalLazy 的 drain 是「只要一个地址」
+     * 语境的契约（JS 没返回字符串就取第一条 url 当地址），探针的判定依据恰恰
+     * 是 results 前后增量——drain 会把证据连同条目一起清掉（花都点封面死路：
+     * detail() 交出 19 条又被 drain 排空、快照看不见增长、最后落进空壳详情）。
+     * 本方法返回原始求值字符串（空/undefined/null 一律回 ""），results 原样保留，
+     * 由调用方用 actionResultCount/snapshotActionResults 判定。
+     */
+    public String evalActionProbe(String jsCode, String pageUrl) throws Exception {
+        return evalLazyInternal(jsCode, pageUrl, false, -1);
+    }
+
+    /**
+     * 鲜 scope 求值本体（须在 submit 串行段内调用）：装配鲜 scope、注入
+     * input 与 CALLBACK_KEY、求值并以 argStr 收形——evalLazyInternal
+     * 原内联段逐行抽出，与 evalLazyDry 共用，保证干跑与真跑同作用域同注入。
+     */
+    private String evalRawInFreshScope(String jsCode, String pageUrl, int position) throws Exception {
+        // 环19 arm：lazy 在官形是独立一发 runScript，本发换鲜 scope。
+        scope = assembleFreshScope();
+        setContext(pageUrl);
+        // 同规则函数库延续（台账 LIB_CARRY）：同一规则先前各发经裸 require
+        // 装进各自全局的库源码，在本发 setContext 后、正文前按序回放——
+        // 懒发自此带着该规则的函数库进场（他 2026-11-14 亲令补齐）。只此
+        // 一路消费：evalLazy/evalLazyDry/动作探针共用本装配（同作用域同
+        // 注入的既有契约），parse/详情/搜索/图片的装配不回放。
+        replayLibCarry(scope);
+        // 入口口令/输入框：若有一次性 input 覆盖（用户输入的文本），优先使用；
+        // 否则按原逻辑用 pageUrl。读后清零，保证只生效一次。
+        String inputVal = nextInputOverride != null ? nextInputOverride : (pageUrl == null ? "" : pageUrl);
+        nextInputOverride = null;
+        ScriptableObject.putProperty(scope, "input", inputVal);
+        // 环20 A：CALLBACK_KEY 独立发补发——官每发 evalJS 无条件发新
+        // UUID 串行（JSEngine.smali:1025-1044，含 evalLazy 这形 runScript 独立
+        // 发），本发旧形只剩 assemble 预置的 Undefined 占位、规则脚本里
+        // typeof CALLBACK_KEY 恒 'undefined' 与官不符。只补发串行本身＋
+        // 根属性承载，不登记回查两表（登记是 parse 系带正文的三发的事，
+        // 官 evalJS 同形，见 dig2 件3 边界）。
+        String cbKey = genUuid();
+        ScriptableObject.putProperty(scope, "CALLBACK_KEY", cbKey);
+        // face1#4 对官：MY_POSITION 补进主路 lazy 装配——官 LazyRuleParser
+        // .smali:115/:277 与转录路 HkLazyRuleParser:138/:174 同形：
+        // generateMY("MY_POSITION", position)，Integer 走裸数支
+        // 「var MY_POSITION = <n>;\n」拼在正文前。position 由调用方形参
+        // 直传（2026-11-15 断根：旧形走 nextLazyPosition 一次性字段槽，
+        // 写读非原子——同规则共享运行时的预热/预取一发 evalLazy 即可把
+        // 值领走或覆写，槽已整件摘除）；无 position 语境的发恒传 -1＝官
+        // parse 无 position 形的缺省实参。MY_URL 官同串里在 MY_POSITION
+        // 之前、咱家由 setContext 属性已先行置入，序不冲突。
+        Object r;
+        try {
+            r = evalJs(getMyCallbackKey(cbKey) + generateMY("MY_POSITION", position) + stripJsPrefix(jsCode));
+        } catch (Exception e) {
+            logEvalError("evalLazy", jsCode, e);
+            throw e;
+        }
+        // 同 eval()：用 argStr() 处理数字/布尔返回值
+        return argStr(r).trim();
+    }
+
+    private String evalLazyInternal(String jsCode, String pageUrl, boolean drainOnEmpty, int position) throws Exception {
+        final HkRule boundRule = this.rule;
+        return submit(() -> {
+            if (boundRule != null) this.rule = boundRule;
+            syncKvToBoundRule();
+            error = null;
+            String s = evalRawInFreshScope(jsCode, pageUrl, position);
+            if (s.isEmpty() || "undefined".equals(s) || "null".equals(s)) {
+                if (!drainOnEmpty) return "";
+                List<HkItem> items = drainResults();
+                if (!items.isEmpty() && !TextUtils.isEmpty(items.get(0).getUrl())) {
+                    return items.get(0).getUrl().trim();
+                }
+                return "";
+            }
+            return s;
+        }).get(EVAL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /** 干跑求值结果：返回值原文、期间是否请求 refreshPage、期间 setResult 新增条目的 url 列、求值是否抛错。 */
+    public static final class DryEvalResult {
+        public final String returnValue;
+        public final boolean refreshRequested;
+        public final List<String> resultUrls;
+        public final boolean error;
+
+        DryEvalResult(String returnValue, boolean refreshRequested, List<String> resultUrls, boolean error) {
+            this.returnValue = returnValue;
+            this.refreshRequested = refreshRequested;
+            this.resultUrls = resultUrls;
+            this.error = error;
+        }
+    }
+
+    /**
+     * 干跑求值（选集收编分类专用，账 playpage-episode-pollution-dig-20261111 §九）：
+     * 与 evalLazy 同作用域同注入，另加三件隔离——①干跑旗开（fetchSync 远程
+     * 回空、本地内部协议照常）；②varMap 快照/还原（putMyVar 等写不落真表，
+     * 不翻用户已选的排序/线路）；③results 只取增量（新增条目 url 取走后摘除，
+     * 旧表不动、不走 evalLazy 的 drain 兜底）。求值抛错不外抛，回 error=true，
+     * 分类层按不确定处理（保留条目、不误杀）。
+     */
+    public DryEvalResult evalLazyDry(String jsCode, String pageUrl) {
+        final HkRule boundRule = this.rule;
+        try {
+            return submit(() -> {
+                if (boundRule != null) this.rule = boundRule;
+                syncKvToBoundRule();
+                error = null;
+                Map<String, String> varSnapshot = new java.util.HashMap<>(varMap);
+                int resultBase = results.size();
+                refreshRequested = false;
+                dryRunMode = true;
+                String value = "";
+                boolean failed = false;
+                try {
+                    value = evalRawInFreshScope(jsCode, pageUrl, -1);
+                } catch (Exception e) {
+                    failed = true;
+                } finally {
+                    dryRunMode = false;
+                }
+                boolean rr = refreshRequested;
+                refreshRequested = false;
+                List<String> urls = new ArrayList<>();
+                if (results.size() > resultBase) {
+                    for (int i = resultBase; i < results.size(); i++) {
+                        String u = results.get(i).getUrl();
+                        urls.add(u == null ? "" : u.trim());
+                    }
+                    results.subList(resultBase, results.size()).clear();
+                }
+                varMap.clear();
+                varMap.putAll(varSnapshot);
+                return new DryEvalResult(value, rr, urls, failed);
+            }).get(EVAL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return new DryEvalResult("", false, java.util.Collections.emptyList(), true);
+        }
+    }
+
+    /** 带当前页规则的入口：先重绑再走原路（子页 lazy 求值的 MY_RULE 须为子页规则）。子页求值无点击位语境，position 恒 -1。 */
+    public String evalLazy(HkRule rule, String jsCode, String pageUrl) throws Exception {
+        synchronized (ruleEvalLock) {
+            bindRule(rule);
+            return evalLazy(jsCode, pageUrl, -1);
+        }
+    }
+
+    /**
+     * 取异常链上第一条非空 message（ExecutionException 包裝后的根因），
+     * 供 parseList/parseSearch 在 JS 求值失败时记录，避免"加载失败"无从查起。
+     */
+    private static String jsErrorMsg(Throwable e) {
+        Throwable t = e;
+        while (t != null) {
+            String m = t.getMessage();
+            if (m != null && !m.trim().isEmpty()) {
+                String s = m.trim();
+                // Rhino 异常常带堆栈，截短到一行
+                int nl = s.indexOf('\n');
+                if (nl > 0) s = s.substring(0, nl);
+                return s.length() > 160 ? s.substring(0, 160) : s;
+            }
+            t = t.getCause();
+        }
+        return e == null ? "" : String.valueOf(e.getClass().getSimpleName());
+    }
+
+    /**
+     * 取走 refreshPage 请求标记（读后清零）。供 HkRouter.evalTab 等在 JS 求值后检查：
+     * 若规则回调里调了 refreshPage，上层应重刷当前列表。
+     */
+    public boolean consumeRefreshRequest() {
+        boolean r = refreshRequested;
+        refreshRequested = false;
+        return r;
+    }
+
+    /**
+     * 当前 results 数量快照。供 @rule=js: 点击动作在 evalLazy 前后成对调用，
+     * 判断规则是否就地改了列表（如自绘"加载更多"按钮调 addItemBefore/deleteItemByCls 追加条目）。
+     * 必须在 evalLazy 同一后台线程调用（evalLazy 内部 submit().get() 已同步 JS 线程）。
+     */
+    public int actionResultCount() {
+        return results.size();
+    }
+
+    /**
+     * 当前 results 拷贝。供 @rule=js: 点击动作取回规则就地追加的条目，
+     * 上层按 url+title 去重后并入当前列表（8.83 addItemBefore 就地更新同款）。
+     */
+    public List<HkItem> snapshotActionResults() {
+        return new ArrayList<>(results);
+    }
+
+    /**
+     * 取走 goTo 导航请求（读后清零）。供 @rule=js: 等动作 JS 求值后检查：
+     * 若规则调了 goTo(url)，上层应导航到该 URL（如 hiker://page/detail 打开 V4）。
+     * @return 目标 URL，无请求时返回 ""。
+     */
+    public String consumeGoToRequest() {
+        String r = goToUrl == null ? "" : goToUrl;
+        goToUrl = null;
+        return r;
+    }
+
+    /** refreshPage 请求标记当前是否为 true（不读后清零，供调用方做"变化检测"）。 */
+    public boolean isRefreshRequested() {
+        return refreshRequested;
+    }
+
+    /**
+     * 设置下一次 evalLazy 的 input 覆盖值（入口口令/输入框流程用）。
+     * 官方语义：input 条目点击时用户输入的文本作为 input 变量，而非 pageUrl。
+     */
+    public void setNextInputOverride(String input) {
+        this.nextInputOverride = input;
+    }
+
+    public boolean isRefreshToTop() {
+        return refreshToTop;
+    }
+
+    // G35/G41：旧「init 末尾一次性闩＋共享 scope 直跑＋失败静默记账」整支
+    // 已摘——preRule 只经 parsePreRule 两入口（转录段）按官形跑：失败走
+    // setError 出口（false 形）或原样抛给上层（true 形），引擎内不再有
+    // 静默记账支（旧跑法与旧记账字段全树 grep 零命中为验收口径）。
+
+    /**
+     * 注入海阔规则配置对象 {@code config}（海阔"长按规则→设置"的 key-value，如 config.host）。
+     * 配置持久化在 plugins/hk/config/&lt;规则名&gt;.json；文件不存在时注入空对象，保证
+     * {@code config.xxx} 不抛 ReferenceError（取值为 undefined）。
+     */
+    private void loadConfig() {
+        loadConfigInto(scope);
+    }
+
+    /** loadConfig 的目标 scope 形（环19：鲜 scope 每发装配时把当前绑定规则的 config 评入本发 scope）。 */
+    private void loadConfigInto(Scriptable target) {
+        if (target == null) return;
+        try {
+            String json = HkRuleManager.get().loadRuleConfig(rule.getTitle());
+            Object obj = parseJson(json);
+            ScriptableObject.putProperty(target, "config", obj);
+        } catch (Throwable e) {
+            try {
+                ScriptableObject.putProperty(target, "config", rhinoCx.newObject(target));
+            } catch (Throwable ignored) {
+            }
+        }
+    }
+
+    /** 136b 分流线①：最近一发 parseDetailRaw 在发内（ambient scope 尚登记时）
+     * 抓到的 MY_RULE 本体——聚合容器详情劫持后它即被点子规则，供详情就绪点
+     * 做有效规则分类（历史/收藏再入够不着章节交接的补口）。发内写、入口清，
+     * 读方为 HkRouter.detail 的两处 V4 完成点；并发详情发互覆的残窗由消费方
+     * 以「标题与页规则不同或 params 解码命中」二次校验兜底。 */
+    private volatile HkRule lastParseDetailScopeRule;
+
+    public HkRule lastParseDetailScopeRule() {
+        return lastParseDetailScopeRule;
+    }
+
+    public void clearLastParseDetailScopeRule() {
+        lastParseDetailScopeRule = null;
+    }
+
+    public List<Map<String, String>> parseDetailRaw(String jsCode, String myUrl) throws Exception {
+        final HkRule boundRule = this.rule;
+        return submit(() -> {
+            if (boundRule != null) this.rule = boundRule;
+            syncKvToBoundRule();
+            rawResults.clear();
+            results.clear();
+            error = null;
+            collectRaw = true;
+            lastParseDetailScopeRule = null;
+            try {
+                // 环19 arm：详情求值同为独立一发，本发换鲜 scope。
+                scope = assembleFreshScope();
+                setContext(myUrl);
+                // 环20 A：CALLBACK_KEY 独立发补发（同 evalLazy 口径：只补
+                // 串行与根属性，不登记回查两表）。
+                String cbKey = genUuid();
+                ScriptableObject.putProperty(scope, "CALLBACK_KEY", cbKey);
+                evalJs(getMyCallbackKey(cbKey) + stripJsPrefix(jsCode));
+                // 发内抓当发 MY_RULE（劫持后的子规则本体）：必须在 ambient
+                // 登记注销前、本 callable 内读，出了 submit 就只剩主 scope
+                // 的宿主规则（2026-11-11 订正同理）。
+                try {
+                    lastParseDetailScopeRule = myRuleFromScope();
+                } catch (Throwable ignored) {
+                }
+            } catch (Throwable e) {
+                // 详情页 JS 异常也要记录，供 V4 空态展示真实原因（之前只记 log，用户看到"0条线路"无法反馈）
+                error = jsErrorMsg(e);
+                throw e;
+            } finally {
+                collectRaw = false;
+            }
+            List<Map<String, String>> out = new ArrayList<>(rawResults);
+            rawResults.clear();
+            results.clear();
+            return out;
+        }).get(EVAL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /** 带当前页规则的入口：先重绑再走原路（详情求值的 MY_RULE 须为当前页规则）。 */
+    public List<Map<String, String>> parseDetailRaw(HkRule rule, String jsCode, String myUrl) throws Exception {
+        synchronized (ruleEvalLock) {
+            bindRule(rule);
+            return parseDetailRaw(jsCode, myUrl);
+        }
+    }
+
+    /**
+     * 8.83 每次求值的 CALLBACK_KEY 装配（JSEngine source 213/233/245/264）：
+     * fresh UUID → 登记回调表与正文表 → 返回 uuid，调用方把 getMyCallbackKey(uuid) 拼进脚本文本。
+     * resBody 为本次求值对应的响应正文（列表/搜索路=预抓正文，input 回调路=输入串），
+     * 规则 getResCode()/getCode() 凭 CALLBACK_KEY 查表即得。
+     */
+    private String armCallbackKey(String resBody) {
+        String uuid = genUuid();
+        callbackMap.put(uuid, callbackKeySink());
+        if (resBody != null) resCodeMap.put(uuid, resBody);
+        return uuid;
+    }
+
+    /** 主路装配回调（armCallbackKey 与 evalJS 装配共用）：showErr 与无回调时的宿主
+     * Toast 回退同行为（setErrorImpl 原有分支）；onUpdate 环 25-1 换真回调——旧形
+     * 空实现把 addListener 在主路登记的监听全数吞掉（搜索路另有真回调、主路独缺）。
+     * 照官 JsEngineBridge$1.onUpdate：以仅 title=value 的条目经 bindObjectListener
+     * 绑回页面按 key 分发；监听未置时记账了事（见 bindObjectListener 字段注）。 */
+    private JSEngineCallback<?> callbackKeySink() {
+        return new JSEngineCallback<Object>() {
+            @Override public void onSuccess(String key, Object result) {}
+            @Override public void onUpdate(String key, String value) {
+                BindObjectToViewListener listener = bindObjectListener;
+                if (listener == null) {
+                    Logger.t(TAG).d("onUpdate without page listener: key=%s value=%s", key, value);
+                    return;
+                }
+                HkItem item = new HkItem();
+                item.setTitle(value);
+                try {
+                    listener.bindObjectToView(key, item);
+                } catch (Throwable e) {
+                    Logger.t(TAG).e(e, "bindObjectToView failed key=%s", key);
+                    throw new RuntimeException("onUpdate 绑视图失败：" + e.getMessage(), e);
+                }
+            }
+            @Override public void showErr(String err) {
+                try {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                            Notify.show(err == null ? "" : err));
+                } catch (Throwable ignored) {}
+            }
+        };
+    }
+
+    private static InputStream hkFileToInputStream(String path) throws java.io.IOException {
+        return new java.io.FileInputStream(path);
+    }
+
+    private static byte[] hkFileToBytes(String path) throws java.io.IOException {
+        java.io.File f = new java.io.File(path);
+        byte[] b = new byte[(int) f.length()];
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) {
+            int off = 0, n;
+            while (off < b.length && (n = in.read(b, off, b.length - off)) > 0) off += n;
+        }
+        return b;
+    }
+
+    /**
+     * hiker://assets/ -> app assets：直调正表
+     * {@code HkHikerRuleUtil.getAssetsFileByHiker}（8.83 同名方法，官
+     * fetchByHiker assets 支 JE:2042-2045 同款委托），与 loadAssetText
+     * 共用同一份六类白名单判据，不再直读任意资产；表外回 ""、表内
+     * 缺失亦回 ""（官 getAssetsString 异常吞后回空串），不再回 null。
+     */
+    private String hkGetAssetsFile(String url) {
+        try {
+            return com.github.moyingshi.osc.tv.api.hk.util.HkHikerRuleUtil.getAssetsFileByHiker(url);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * hiker:// 规则取数（8.83 HikerRuleUtil.getRulesByHiker 同步版，官包
+     * HikerRuleUtil.smali:174-590）：剥 hiker:// 后六支——home@标题查单条、
+     * home 无标题回全规则列表、bookmark/download/collection/history、
+     * 余（含 empty）回 ""。宿主全支移植已在 util.HkHikerRuleUtil（CodeUtil
+     * 路在用），fetch 路此前只自拼 home@标题一支、余支全回 ""（G18）；
+     * 此处改委托同一份移植，两条路共用一本账，不再各拼一份。
+     */
+    private String hkGetRulesByHiker(String url) {
+        try {
+            return com.github.moyingshi.osc.tv.api.hk.util.HkHikerRuleUtil.getRulesByHiker(url);
+        } catch (Exception e) {
+            Logger.t(TAG).e(e, "hkGetRulesByHiker");
+            return "";
+        }
+    }
+
+    // ---- D1-A: eval core (smali 13914-15069, 26009-26128) ----
+    // (ReturnType/JSAnnotation/Parameter defined once as nested types above.)
+
+// 1. evalJS(String, InputStream) — smali lines 13914-14288.
+// Runs the script in a FRESH Rhino context/scope, injecting input/_globalMap/rc4/
+// _base64/javaContext/javaLoader plus the allFunctions prelude; returns the eval
+// result as InputStream (unwrapping NativeJavaObject), closing the passed-in
+// stream when the result is a different InputStream. Any Exception -> Context.exit
+// and return the original stream; any Throwable -> Context.exit and rethrow.
+public InputStream evalJS(String p1, InputStream p2) {
+    String v1;
+    if (p1.contains("let my_rule = '")) {
+        v1 = "";
+    } else {
+        v1 = getMyRule(null); // MISSING (8.83 static)
+    }
+    String script = new StringBuilder()
+            .append(v1)
+            .append(getMyType("eval")) // MISSING
+            .append(getMyCallbackKey(genUuid())) // MISSING; 8.83 external
+            .append(p1)
+            .toString();
+    currentMyType = "eval";
+    String v3 = getReplaceJS(appendLineVar(script)); // MISSING, MISSING
+    Context v1cx = Context.enter(); // 8.83 RhinoAndroidHelper 等价：Context.enter()
+    initRhino(v1cx); // MISSING
+    Scriptable ambPrev = null;
+    boolean ambEntered = false;
+    enterEvalLog();
+    try {
+        ScriptableObject v2 = v1cx.initStandardObjects();
+        org.mozilla.javascript.ImporterTopLevel.init(v1cx, v2, false);
+        initRequire(v1cx, v2); // MISSING
+        installJavaAdapterShim(v2);
+        ScriptableObject.putProperty(v2, "input", Context.javaToJS(p2, v2));
+        ScriptableObject.putProperty(v2, "_globalMap", Context.javaToJS(globalMap, v2)); // field MISSING
+        ScriptableObject.putProperty(v2, "rc4", Context.javaToJS(rc4, v2)); // field MISSING
+        ScriptableObject.putProperty(v2, "_base64", Context.javaToJS(myBase64, v2)); // field MISSING
+        ScriptableObject.putProperty(v2, "javaContext", Context.javaToJS(this, v2));
+        ScriptableObject.putProperty(v2, "javaLoader", Context.javaToJS(clazz.getClassLoader(), v2)); // field MISSING
+        registerApiInto(v2);
+        ambPrev = enterAmbientScope(v2);
+        ambEntered = true;
+        if (!v3.contains("eval(getJsPlugin());\n")) {
+            v1cx.evaluateString(v2, allFunctions + "\neval(getJsPlugin());\n", clazz.getSimpleName(), 1, null); // field MISSING
+        } else {
+            v1cx.evaluateString(v2, allFunctions, clazz.getSimpleName(), 1, null);
+        }
+        Object p1res = v1cx.evaluateString(v2, v3, clazz.getSimpleName(), 1, null);
+        if (p1res instanceof InputStream) {
+            if (p1res != p2 && p2 != null) {
+                try {
+                    p2.close();
+                } catch (Exception e) {
+                    Logger.t(TAG).e(e.getMessage()); // 8.83 external; target uses Logger
+                }
+            }
+            InputStream result = (InputStream) p1res;
+            Context.exit();
+            return result;
+        }
+        if (p1res instanceof NativeJavaObject) {
+            p1res = ((NativeJavaObject) p1res).unwrap();
+            if (p1res instanceof InputStream && p1res != p2 && p2 != null) {
+                try {
+                    p2.close();
+                } catch (Exception e) {
+                    Logger.t(TAG).e(e.getMessage()); // 8.83 external; target uses Logger
+                }
+            }
+            if (p1res instanceof InputStream) {
+                p2 = (InputStream) p1res;
+            }
+            Context.exit();
+            return p2;
+        }
+        Context.exit();
+        return p2;
+    } catch (Exception e) {
+        logEvalFailure(v3, e, 2);
+        Context.exit();
+        return p2;
+    } catch (Throwable t) {
+        // smali :catchall_0 — exit then rethrow (NOT a finally: normal paths exit explicitly)
+        Context.exit();
+        throw t;
+    } finally {
+        exitEvalLog();
+        if (ambEntered) exitAmbientScope(ambPrev);
+    }
+}
+
+// 2. evalJS(String, String) — smali lines 14289-14301. Delegates with decode=true.
+public String evalJS(String p1, String p2) {
+    return evalJS(p1, p2, true);
+}
+
+// 3. evalJS(String, String, boolean) — smali lines 14302-14735.
+// Same fresh-context shape as (1) but injects `var input=...` (getMyInput) instead of
+// the "input" property; when p3 is true the script is passed through
+// StringUtil.decodeConflictStr. Result mapping: String -> itself;
+// Undefined -> "undefined"; NativeObject/NativeArray -> argsNativeObjectAdjust +
+// JSON stringify; anything else -> String.valueOf. Exception -> "error:"+message;
+// Throwable -> Context.exit and rethrow.
+public String evalJS(String p1, String p2, boolean p3) {
+    String errPrefix = "error:";
+    String empty = "";
+    String v4;
+    if (p1.contains("let my_rule = '")) {
+        v4 = empty;
+    } else {
+        v4 = getMyRule(null); // MISSING (8.83 static)
+    }
+    String v4b;
+    {
+        // 8.83 evalJS 同款：每次求值 fresh CALLBACK_KEY；登记回调表与正文表（正文=输入串 p2），
+        // 脚本文本注入 var CALLBACK_KEY（原先只注入未登记，getResCode 查表 miss）。
+        String cbUuid = genUuid();
+        callbackMap.put(cbUuid, callbackKeySink());
+        if (p2 != null) resCodeMap.put(cbUuid, p2);
+        v4b = new StringBuilder()
+                .append(getMyInput(p2))
+                .append(v4)
+                .append(getMyType("eval"))
+                .append(getMyCallbackKey(cbUuid))
+                .toString();
+        currentMyType = "eval";
+    }
+    String v0;
+    if (p3) {
+        v0 = v4b + decodeConflictStr(p1); // 8.83 external
+    } else {
+        v0 = v4b + p1;
+    }
+    String v8 = getReplaceJS(appendLineVar(v0)); // MISSING, MISSING
+    Context v6 = Context.enter(); // 8.83 RhinoAndroidHelper 等价：Context.enter()
+    initRhino(v6); // MISSING
+    Scriptable ambPrev = null;
+    boolean ambEntered = false;
+    enterEvalLog();
+    try {
+        ScriptableObject v7 = v6.initStandardObjects();
+        org.mozilla.javascript.ImporterTopLevel.init(v6, v7, false);
+        initRequire(v6, v7); // MISSING
+        installJavaAdapterShim(v7);
+        ScriptableObject.putProperty(v7, "_globalMap", Context.javaToJS(globalMap, v7)); // field MISSING
+        ScriptableObject.putProperty(v7, "rc4", Context.javaToJS(rc4, v7)); // field MISSING
+        ScriptableObject.putProperty(v7, "_base64", Context.javaToJS(myBase64, v7)); // field MISSING
+        ScriptableObject.putProperty(v7, "javaContext", Context.javaToJS(this, v7));
+        ScriptableObject.putProperty(v7, "javaLoader", Context.javaToJS(clazz.getClassLoader(), v7)); // field MISSING
+        registerApiInto(v7);
+        ambPrev = enterAmbientScope(v7);
+        ambEntered = true;
+        if (!v8.contains("eval(getJsPlugin());\n")) {
+            v6.evaluateString(v7, allFunctions + "\neval(getJsPlugin());\n", clazz.getSimpleName(), 1, null); // field MISSING
+        } else {
+            v6.evaluateString(v7, allFunctions, clazz.getSimpleName(), 1, null);
+        }
+        Object v0res = v6.evaluateString(v7, v8, clazz.getSimpleName(), 1, null);
+        if (v0res instanceof String) {
+            Context.exit();
+            return (String) v0res;
+        }
+        if (v0res instanceof Undefined) {
+            Context.exit();
+            return "undefined";
+        }
+        if (v0res instanceof NativeObject || v0res instanceof NativeArray) {
+            Object adjusted = argsNativeObjectAdjust(v0res); // exists in HkJsRuntime
+            // 8.83: GSON.toJson(adjusted); fastjson absent in
+            // target — argsNativeObjectAdjust yields LinkedHashMap/ArrayList, so GSON is equivalent.
+            String json = GSON.toJson(adjusted);
+            Context.exit();
+            return json;
+        }
+        String s = new StringBuilder().append(v0res).append(empty).toString();
+        Context.exit();
+        return s;
+    } catch (Exception e) {
+        logEvalFailure(v8, e, 2);
+        logEvalError("evalJS", v8, e);
+        String err = errPrefix + e.getMessage();
+        Context.exit();
+        return err;
+    } catch (Throwable t) {
+        // smali :catchall_0 — exit then rethrow (NOT a finally: normal paths exit explicitly)
+        Context.exit();
+        throw t;
+    } finally {
+        exitEvalLog();
+        if (ambEntered) exitAmbientScope(ambPrev);
+    }
+}
+
+/** 求值失败落盘日志：带行号与出错行原文，供导出调试日志定位（原先异常只回字符串不落盘，无从查起）。 */
+private static void logEvalError(String where, String script, Throwable e) {
+    try {
+        int line = -1;
+        if (e instanceof org.mozilla.javascript.RhinoException) {
+            line = ((org.mozilla.javascript.RhinoException) e).lineNumber();
+        }
+        String excerpt = "";
+        if (script != null && line > 0) {
+            String[] ls = script.split("\n", -1);
+            if (line <= ls.length) excerpt = ls[line - 1].trim();
+            if (excerpt.length() > 200) excerpt = excerpt.substring(0, 200);
+        }
+        Logger.t(TAG).e("eval fail [%s] line=%d >> %s | %s", where, line, excerpt, String.valueOf(e));
+    } catch (Throwable ignored) {
+    }
+}
+
+// 4. evalJSForObj(String, Object) — smali lines 14736-15032.
+// Same fresh-context shape as (1) ("input" property injected, NOT getMyInput).
+// Returns the raw eval result after argsNativeObjectAdjust (+ NativeJavaObject
+// unwrap); any Exception -> Context.exit and return null; Throwable -> exit, rethrow.
+public Object evalJSForObj(String p1, Object p2) {
+    String v1;
+    if (p1.contains("let my_rule = '")) {
+        v1 = "";
+    } else {
+        v1 = getMyRule(null); // MISSING (8.83 static)
+    }
+    String script = new StringBuilder()
+            .append(v1)
+            .append(getMyType("eval")) // MISSING
+            .append(getMyCallbackKey(genUuid())) // MISSING; 8.83 external
+            .append(p1)
+            .toString();
+    currentMyType = "eval";
+    String v5 = getReplaceJS(appendLineVar(script)); // MISSING, MISSING
+    Context v3 = Context.enter(); // 8.83 RhinoAndroidHelper 等价：Context.enter()
+    initRhino(v3); // MISSING
+    Scriptable ambPrev = null;
+    boolean ambEntered = false;
+    enterEvalLog();
+    try {
+        ScriptableObject v4 = v3.initStandardObjects();
+        org.mozilla.javascript.ImporterTopLevel.init(v3, v4, false);
+        initRequire(v3, v4); // MISSING
+        installJavaAdapterShim(v4);
+        ScriptableObject.putProperty(v4, "input", Context.javaToJS(p2, v4));
+        ScriptableObject.putProperty(v4, "_globalMap", Context.javaToJS(globalMap, v4)); // field MISSING
+        ScriptableObject.putProperty(v4, "rc4", Context.javaToJS(rc4, v4)); // field MISSING
+        ScriptableObject.putProperty(v4, "_base64", Context.javaToJS(myBase64, v4)); // field MISSING
+        ScriptableObject.putProperty(v4, "javaContext", Context.javaToJS(this, v4));
+        ScriptableObject.putProperty(v4, "javaLoader", Context.javaToJS(clazz.getClassLoader(), v4)); // field MISSING
+        registerApiInto(v4);
+        ambPrev = enterAmbientScope(v4);
+        ambEntered = true;
+        if (!v5.contains("eval(getJsPlugin());\n")) {
+            v3.evaluateString(v4, allFunctions + "\neval(getJsPlugin());\n", clazz.getSimpleName(), 1, null); // field MISSING
+        } else {
+            v3.evaluateString(v4, allFunctions, clazz.getSimpleName(), 1, null);
+        }
+        Object p1res = v3.evaluateString(v4, v5, clazz.getSimpleName(), 1, null);
+        p1res = argsNativeObjectAdjust(p1res); // exists in HkJsRuntime
+        if (p1res instanceof NativeJavaObject) {
+            p1res = ((NativeJavaObject) p1res).unwrap();
+        }
+        Context.exit();
+        return p1res;
+    } catch (Exception e) {
+        logEvalFailure(v5, e, 2);
+        logEvalError("evalJSForObj", v5, e);
+        Context.exit();
+        return null;
+    } catch (Throwable t) {
+        // smali :catchall_0 — exit then rethrow (NOT a finally: normal paths exit explicitly)
+        Context.exit();
+        throw t;
+    } finally {
+        exitEvalLog();
+        if (ambEntered) exitAmbientScope(ambPrev);
+    }
+}
+
+// 5. evalLazyRule(Object, String, String) — smali lines 15033-15069.
+// Builds getMyRule(p1) + decodeConflictStr(p2), then evalJS(script, p3, false)
+// (decode=false: the lazy rule was already decoded).
+public String evalLazyRule(Object p1, String p2, String p3) {
+    String script = new StringBuilder()
+            .append(getMyRule(p1)) // MISSING (8.83 static)
+            .append(decodeConflictStr(p2)) // 8.83 external
+            .toString();
+    return evalJS(script, p3, false);
+}
+
+    // ---- JavaAdapter 垫片（星辰适配，2026-10-16）----
+    // 原生 JavaAdapter 靠运行时生成字节码，安卓 ART 上抛 java.lang.Error：穿透 JS 的
+    // try/catch、也穿透宿主 catch(Exception)，短剧代理真机实证回 200 空包。海阔规则
+    // 常用 new JavaAdapter(接口, js对象)（如 Enumeration 懒解密流）——接口情形一律走
+    // java.lang.reflect.Proxy（ART 支持），回调时在调用线程进 Context 执行 JS 函数；
+    // 抽象类情形自 2026-11-13 起，已知七父类（hikerPop 用集）走 HkJsAdapterBridges
+    // 真子类桥，其余未知类仍回落原生实现（ART 上仍会炸，维持原行为待扩桥）。
+    static final class HkJavaAdapterFn extends BaseFunction {
+        private final Object original;
+        /** 环24-11 簇二：所属运行时的 ambient 登记表（installJavaAdapterShim
+         * 在实例方法内构造本垫片时带入），透传 JsProxyHandler 在回调触发时
+         * 登记定义 scope；无带入时为 null、Handler 维持旧形不登记。 */
+        private final ThreadLocal<Scriptable> ambientTl;
+
+        HkJavaAdapterFn(Object original) {
+            this(original, null);
+        }
+
+        HkJavaAdapterFn(Object original, ThreadLocal<Scriptable> ambientTl) {
+            this.original = original;
+            this.ambientTl = ambientTl;
+        }
+
+        @Override
+        public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+            return adapt(cx, scope, args);
+        }
+
+        @Override
+        public Scriptable construct(Context cx, Scriptable scope, Object[] args) {
+            Object r = adapt(cx, scope, args);
+            if (r instanceof Scriptable) return (Scriptable) r;
+            return cx.getWrapFactory().wrapAsJavaObject(cx, scope, r, null);
+        }
+
+        private Object adapt(Context cx, Scriptable scope, Object[] args) {
+            try {
+                if (args != null && args.length >= 2 && args[1] instanceof Scriptable) {
+                    Class<?> cls = null;
+                    Object a0 = args[0];
+                    if (a0 instanceof org.mozilla.javascript.NativeJavaClass) {
+                        cls = ((org.mozilla.javascript.NativeJavaClass) a0).getClassObject();
+                    } else if (a0 instanceof NativeJavaObject) {
+                        Object u = ((NativeJavaObject) a0).unwrap();
+                        if (u instanceof Class) cls = (Class<?>) u;
+                    }
+                    if (cls != null && cls.isInterface()) {
+                        ClassLoader cl = cls.getClassLoader();
+                        if (cl == null) cl = HkJsRuntime.class.getClassLoader();
+                        return java.lang.reflect.Proxy.newProxyInstance(cl,
+                                new Class<?>[]{cls}, new JsProxyHandler((Scriptable) args[1], ambientTl));
+                    }
+                    // 抽象类形（2026-11-13 聚阅 class file 案）：hikerPop 的
+                    // JavaAdapter(抽象类, jsObj, ...) 旧形穿透原生实现、在
+                    // ART 上 defineClass 必炸；已知七父类走 HkJsAdapterBridges
+                    // 的真子类桥，未知类维持旧穿透（行为不变）。
+                    if (cls != null) {
+                        Object bridge = HkJsAdapterBridges.tryCreate(cls,
+                                (Scriptable) args[1],
+                                args.length > 2 ? java.util.Arrays.copyOfRange(args, 2, args.length)
+                                        : new Object[0],
+                                ambientTl);
+                        if (bridge != null) return bridge;
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            if (original instanceof org.mozilla.javascript.Function) {
+                return ((org.mozilla.javascript.Function) original).call(cx, scope, scope, args);
+            }
+            throw Context.reportRuntimeError("JavaAdapter unavailable");
+        }
+    }
+
+    /** JS 对象 → Java 接口代理：方法调用时进 Context 执行同名 JS 函数。 */
+    static final class JsProxyHandler implements java.lang.reflect.InvocationHandler {
+        private final Scriptable jsObj;
+        /** 环24-11 簇二：所属运行时的 ambient 登记表（可为 null，见
+         * HkJavaAdapterFn.ambientTl 注）。invoke 可由任意 Java 回调线程在
+         * 无求值语境下调入，旧形 ambient 缺位、fetch 取页回落最新鲜 root，
+         * 与回调 JS 可见 MY_RULE（定义 scope 的值）分叉（账 §1.3(c)）。 */
+        private final ThreadLocal<Scriptable> ambientTl;
+
+        JsProxyHandler(Scriptable jsObj) {
+            this(jsObj, null);
+        }
+
+        JsProxyHandler(Scriptable jsObj, ThreadLocal<Scriptable> ambientTl) {
+            this.jsObj = jsObj;
+            this.ambientTl = ambientTl;
+        }
+
+        @Override
+        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] mArgs) {
+            String name = method.getName();
+            if ("toString".equals(name) && (mArgs == null || mArgs.length == 0)) return "HkJsProxy";
+            if ("hashCode".equals(name) && (mArgs == null || mArgs.length == 0)) return System.identityHashCode(proxy);
+            if ("equals".equals(name) && mArgs != null && mArgs.length == 1) return proxy == mArgs[0];
+            return ContextFactory.getGlobal().call(cx -> {
+                Object fn = ScriptableObject.getProperty(jsObj, name);
+                if (!(fn instanceof org.mozilla.javascript.Function)) {
+                    throw Context.reportRuntimeError("js proxy missing fn: " + name);
+                }
+                org.mozilla.javascript.Function f = (org.mozilla.javascript.Function) fn;
+                Scriptable fnScope = f.getParentScope();
+                if (fnScope == null) fnScope = jsObj;
+                Object[] jsArgs = new Object[mArgs == null ? 0 : mArgs.length];
+                for (int i = 0; i < jsArgs.length; i++) jsArgs[i] = Context.javaToJS(mArgs[i], fnScope);
+                // 环24-11 簇二：触发调用时先以函数定义 scope（fnScope）登记
+                // ambient 再调、finally 栈式恢复（与 enterAmbientScope/
+                // exitAmbientScope 同纪律；本类为静态嵌套类、经构造带入的
+                // ThreadLocal 本人操作）。登记只罩 f.call 本体，返回值收形
+                // 在恢复后进行，与改前同。
+                Scriptable prevAmb = null;
+                boolean ambSet = false;
+                if (ambientTl != null && fnScope != null) {
+                    prevAmb = ambientTl.get();
+                    ambientTl.set(fnScope);
+                    ambSet = true;
+                }
+                Object r;
+                try {
+                    r = f.call(cx, fnScope, jsObj, jsArgs);
+                } finally {
+                    if (ambSet) {
+                        if (prevAmb != null) ambientTl.set(prevAmb);
+                        else ambientTl.remove();
+                    }
+                }
+                Class<?> rt = method.getReturnType();
+                if (rt == void.class || rt == Void.class) return null;
+                Object u = r;
+                if (u instanceof NativeJavaObject) u = ((NativeJavaObject) u).unwrap();
+                if (u == null || u == Undefined.instance) {
+                    if (rt == boolean.class) return false;
+                    if (rt.isPrimitive()) return 0;
+                    return null;
+                }
+                if (rt == boolean.class || rt == Boolean.class) return Context.toBoolean(u);
+                if (rt.isPrimitive() || Number.class.isAssignableFrom(rt)) return Context.toNumber(u);
+                if (rt == String.class) return Context.toString(u);
+                return u;
+            });
+        }
+    }
+
+    private void installJavaAdapterShim(Scriptable scope) {
+        Object orig = ScriptableObject.getProperty(scope, "JavaAdapter");
+        if (orig instanceof HkJavaAdapterFn) return;
+        // 环24-11 簇二：把本运行时的 ambient 登记表带入垫片，JsProxyHandler
+        // 触发时据此登记定义 scope（见 JsProxyHandler.ambientTl 注）。
+        ScriptableObject.putProperty(scope, "JavaAdapter", new HkJavaAdapterFn(orig, ambientEvalScope));
+    }
+
+    // ---- D1-D: parse entries (smali 7945-8147, 20401-21179) ----
+    // JSEngineCallback / callbackMap / resCodeMap 已在上方 D1 fields 区定义（3256/3319-3320），此处不重复。
+
+    // ================= 1. parseHome (smali 20401-20560) =================
+    /**
+     * 8.83: parseHome(String url, String resCode, ArticleListRule rule, String js,
+     * Map injectMap, OnFindCallBack&lt;List&lt;ArticleList&gt;&gt; callback)。
+     * 脚本拼接顺序：\n + getMyRule + generateInjectMap + generateMyParams(myParams)
+     * + getMyType("home") + getMyCallbackKey + getMyUrl + getMyJs；runScript(script, uuid)。
+     */
+    public void parseHome(String url, String resCode, HkRule rule, String js,
+                          Map<String, Object> injectMap, JSEngineCallback<List<?>> callback) {
+        String uuid = genUuid();
+        callbackMap.put(uuid, callback);
+        resCodeMap.put(uuid, resCode);
+        try {
+            String script = "\n"
+                    + getMyRule(rule)
+                    + generateInjectMap(injectMap)
+                    + generateMyParams(myParams)
+                    + getMyType("home")
+                    + getMyCallbackKey(uuid)
+                    + getMyUrl(url)
+                    + getMyJs(js);
+            currentMyType = "home";
+            runScript(script, uuid);
+        } catch (Exception e) {
+            setError("运行出错：" + e.getMessage(), uuid, GSON.toJson(rule));
+            Logger.t(TAG).e(e, "parseHome: ");
+        }
+    }
+
+    // ================= 2. parseLastChapterRule (smali 20561-20701) =================
+    /**
+     * 8.83: parseLastChapterRule(String url, String resCode, ArticleListRule rule, String js,
+     * Map injectMap, OnFindCallBack&lt;String&gt; callback)。
+     * 拼接顺序：getMyRule + generateMyParams(myParams) + generateInjectMap
+     * + getMyType("lastChapter") + getMyCallbackKey + getMyUrl + getMyJs；
+     * runScript(script, uuid, true)。异常走 callback.showErr（不 setError）。
+     */
+    public void parseLastChapterRule(String url, String resCode, HkRule rule, String js,
+                                     Map<String, Object> injectMap, JSEngineCallback<String> callback) {
+        String uuid = genUuid();
+        callbackMap.put(uuid, callback);
+        resCodeMap.put(uuid, resCode);
+        try {
+            String script = ""
+                    + getMyRule(rule)
+                    + generateMyParams(myParams)
+                    + generateInjectMap(injectMap)
+                    + getMyType("lastChapter")
+                    + getMyCallbackKey(uuid)
+                    + getMyUrl(url)
+                    + getMyJs(js);
+            currentMyType = "lastChapter";
+            runScript(script, uuid, true);
+        } catch (Exception e) {
+            callback.showErr(e.getMessage());
+            Logger.t(TAG).e(e, "parseLastChapter: ");
+        }
+    }
+
+    // ================= 3. parsePreRule(SearchEngine) (smali 20725-20823) =================
+    /**
+     * 8.83: parsePreRule(SearchEngine engine)。
+     * 拼接顺序：getMyCallbackKey + getMyType("preEngine") + getMyRule + engine.getPreRule()；
+     * runScript(script, uuid)。因 HkRule 统一了 SearchEngine/ArticleListRule 模型，
+     * 与下方的 parsePreRule(HkRule) 签名冲突，故更名为 parsePreEngineRule（见 notes）。
+     */
+    public void parsePreEngineRule(HkRule rule) {
+        String uuid = genUuid();
+        try {
+            String script = ""
+                    + getMyCallbackKey(uuid)
+                    + getMyType("preEngine")
+                    + getMyRule(rule)
+                    + rule.getPreRule();
+            currentMyType = "preEngine";
+            runScript(script, uuid);
+        } catch (Exception e) {
+            setError("运行出错：" + e.toString(), uuid, GSON.toJson(rule));
+            Logger.t(TAG).e(e, "parsePreRule: ");
+        }
+    }
+
+    // ================= 4. parsePreRule(ArticleListRule) (smali 20824-20834) =================
+    /** 8.83: parsePreRule(ArticleListRule rule) -> parsePreRule(rule, false)。 */
+    public void parsePreRule(HkRule rule) throws Exception {
+        parsePreRule(rule, false);
+    }
+
+    // ================= 5. parsePreRule(ArticleListRule, boolean) (smali 20835-20955) =================
+    /**
+     * 8.83: parsePreRule(ArticleListRule rule, boolean throwOnError)。
+     * 拼接顺序：getMyCallbackKey + getMyType("preHome") + getMyRule
+     * + generateMyParams(myParams) + rule.getPreRule()；
+     * runScript(script, uuid, throwOnError)。
+     * catch 内先 Timber.e；throwOnError=false 时 setError 后返回，true 时原样 throw。
+     */
+    public void parsePreRule(HkRule rule, boolean throwOnError) throws Exception {
+        String uuid = genUuid();
+        try {
+            String script = ""
+                    + getMyCallbackKey(uuid)
+                    + getMyType("preHome")
+                    + getMyRule(rule)
+                    + generateMyParams(myParams)
+                    + rule.getPreRule();
+            currentMyType = "preHome";
+            runScript(script, uuid, throwOnError);
+        } catch (Exception e) {
+            Logger.t(TAG).e(e, "parsePreRule: ");
+            if (!throwOnError) {
+                setError("运行出错：" + e.getMessage(), uuid, GSON.toJson(rule));
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    // ================= 6. parseSearchRes public (smali 21021-21059) =================
+    /**
+     * 8.83: parseSearchRes(String url, String resCode, SearchEngine engine,
+     * Map injectMap, OnFindCallBack&lt;List&lt;SearchResult&gt;&gt; callback)
+     * 先 engine.toMovieRule() 再调私有 parseSearchRes。
+     * HkRule 统一模型后 toMovieRule 投影被吸收，直接委托私有版本。
+     */
+    public void parseSearchRes(String url, String resCode, HkRule rule,
+                               Map<String, Object> injectMap, JSEngineCallback<List<?>> callback) {
+        parseSearchResInternal(url, resCode, rule, injectMap, callback);
+    }
+
+    // ================= 7. parseStr (smali 21060-21179) =================
+    /**
+     * 8.83: parseStr(String resCode, String js, MovieRule rule, OnFindCallBack&lt;String&gt; callback)。
+     * 注意：p1 是 resCode（进 resCodeMap），p2 是 js。
+     * 拼接顺序：getMyCallbackKey + getMyType("string") + getMyRule + getMyJs(js)；
+     * runScript(script, uuid)。
+     */
+    public void parseStr(String resCode, String js, HkRule rule, JSEngineCallback<String> callback) {
+        String uuid = genUuid();
+        callbackMap.put(uuid, callback);
+        resCodeMap.put(uuid, resCode);
+        try {
+            String script = ""
+                    + getMyCallbackKey(uuid)
+                    + getMyType("string")
+                    + getMyRule(rule)
+                    + getMyJs(js);
+            currentMyType = "string";
+            runScript(script, uuid);
+        } catch (Exception e) {
+            setError("运行出错：" + e.getMessage(), uuid, GSON.toJson(rule));
+            Logger.t(TAG).e(e, "parseStr: ");
+        }
+    }
+
+    // ================= 8. parseSearchRes private (smali 7945-8147) =================
+    /**
+     * 8.83 私有 parseSearchRes(String url, String resCode, MovieRule rule,
+     * Map injectMap, OnFindCallBack&lt;List&lt;SearchResult&gt;&gt; callback)。
+     * searchFind 非 "js:" 开头时直接 callback.showErr(title + "---搜索结果解析失败！请检查规则") 并返回。
+     * 拼接顺序：getMyCallbackKey + getMyRule + generateInjectMap
+     * + generateMyParams(myParams) + getMyUrl(url) + getMyType("search")
+     * + getMyJs(rule.getSearchFind())；runScript(script, uuid)。
+     * catch 内先 Timber.e 再 setError（用 e.toString() 而非 getMessage()）。
+     */
+    private void parseSearchResInternal(String url, String resCode, HkRule rule,
+                                        Map<String, Object> injectMap, JSEngineCallback<List<?>> callback) {
+        String uuid = genUuid();
+        callbackMap.put(uuid, callback);
+        resCodeMap.put(uuid, resCode);
+        if (!rule.getSearchFind().startsWith("js:")) {
+            callback.showErr(rule.getTitle() + "---搜索结果解析失败！请检查规则");
+            return;
+        }
+        try {
+            String script = ""
+                    + getMyCallbackKey(uuid)
+                    + getMyRule(rule)
+                    + generateInjectMap(injectMap)
+                    + generateMyParams(myParams)
+                    + getMyUrl(url)
+                    + getMyType("search")
+                    + getMyJs(rule.getSearchFind());
+            currentMyType = "search";
+            runScript(script, uuid);
+        } catch (Exception e) {
+            Logger.t(TAG).e(e, "parseSearchRes: ");
+            setError("运行出错：" + e.toString(), uuid, GSON.toJson(rule));
+        }
+    }
+
+// ---------------------------------------------------------------------------
+// 8.83: JSEngine.fileToString(File, String, boolean)String
+// [JSEngine.smali 2382-2554]  private.
+// NOTE: exact signature is (File, String, boolean), not (String).
+// Binary extensions (.zip/.db/.apk/.mp4/.png/.jpg) and anything under a
+// "backup" dir return "". When charset arg is non-empty: encrypted=false ->
+// charset-detect read; encrypted=true -> fetch the "i--" item as AES key and
+// decrypt. Empty charset arg + path inside getFilesDir() -> "".
+// ---------------------------------------------------------------------------
+private String fileToString(File file, String charset, boolean encrypted) {
+    if (!file.exists()) return "";
+    String path = file.getAbsolutePath();
+    if (path.endsWith(".zip") || path.endsWith(".db") || path.endsWith(".apk")
+            || path.endsWith(".mp4") || path.endsWith(".png") || path.endsWith(".jpg")) {
+        return "";
+    }
+    if (path.contains(File.separator + "backup" + File.separator)) return "";
+    if (!TextUtils.isEmpty(charset)) {
+        // D2: 8.83 语义补全。charset 非空：
+        //   encrypted=false -> 字符集探测读取；
+        //   encrypted=true  -> 取 "i--" 项为 AES key 解密文件内容。
+        if (!encrypted) return getContentByCharsetDetect(path);
+        String key = kv != null ? kv.get("i--") : null;
+        if (!TextUtils.isEmpty(key)) {
+            return aesDecode(key, readFileContent(path));
+        }
+    } else {
+        if (path.contains(getFilesDir())) return "";
+    }
+    return getContentByCharsetDetect(path);
+}
+
+/**
+ * 8.83: JSEngine.getContentByCharsetDetect(String) [smali 2669-2674] +
+ * FileUtil.getContentByCharsetDetect [FileUtil.smali]。
+ * .js/.json 直接按平台默认字符集读；其余用 juniversalchardet 探测编码
+ * （org.mozilla.universalchardet，与 8.83 的 EncodeUtilKt.getEncode 同款库），
+ * UTF-8（含探测失败回退）走默认读取，否则按探测到的编码解码。
+ */
+private String getContentByCharsetDetect(String path) {
+    if (path.endsWith(".js") || path.endsWith(".json")) {
+        return readFileContent(path);
+    }
+    String encode = detectCharset(path);
+    if (encode == null || encode.equalsIgnoreCase("UTF-8")) {
+        return readFileContent(path);
+    }
+    try {
+        byte[] bytes = java.nio.file.Files.readAllBytes(new File(path).toPath());
+        if (bytes == null) return "";
+        return new String(bytes, encode);
+    } catch (Throwable e) {
+        Logger.t(TAG).e(e, "getContentByCharsetDetect failed: %s", path);
+        return readFileContent(path);
+    }
+}
+
+/** juniversalchardet 探测文件编码（8.83 EncodeUtilKt.getEncode 等价）。 */
+private String detectCharset(String path) {
+    org.mozilla.universalchardet.UniversalDetector detector = null;
+    java.io.InputStream in = null;
+    try {
+        detector = new org.mozilla.universalchardet.UniversalDetector(null);
+        in = new java.io.BufferedInputStream(new java.io.FileInputStream(path));
+        byte[] buf = new byte[4096];
+        int n;
+        while ((n = in.read(buf)) > 0 && !detector.isDone()) {
+            detector.handleData(buf, 0, n);
+        }
+        detector.dataEnd();
+        return detector.getDetectedCharset();
+    } catch (Throwable e) {
+        return null;
+    } finally {
+        try {
+            if (in != null) in.close();
+        } catch (Throwable ignored) {
+        }
+    }
 }
 }
