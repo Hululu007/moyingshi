@@ -129,7 +129,7 @@ public class C1HostApiImpl implements C1Messages.C1HostApi {
     }
 
     @Override
-    public void setSubtitleAutomatch(Boolean enabled) {
+    public void setSubtitleAutoMatch(Boolean enabled) {
         Setting.putSubtitleAutoMatchEnabled(enabled);
     }
 
