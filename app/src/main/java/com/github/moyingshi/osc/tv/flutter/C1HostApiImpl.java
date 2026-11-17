@@ -51,12 +51,12 @@ public class C1HostApiImpl implements C1Messages.C1HostApi {
     }
 
     @Override
-    public boolean isC1Enabled() {
+    public Boolean isC1Enabled() {
         return Setting.isFlutterC1Enabled();
     }
 
     @Override
-    public void setC1Enabled(boolean enabled) {
+    public void setC1Enabled(Boolean enabled) {
         Setting.putFlutterC1Enabled(enabled);
     }
 
@@ -77,7 +77,7 @@ public class C1HostApiImpl implements C1Messages.C1HostApi {
     }
 
     @Override
-    public boolean toggleHiddenSettings() {
+    public Boolean toggleHiddenSettings() {
         // The 5-tap counting lives in Dart (mirroring AboutDialog); this
         // only flips the switch, mirroring AboutDialog.onVersionClick().
         boolean enabled = !Setting.isHiddenSettingsEnabled();
@@ -129,7 +129,7 @@ public class C1HostApiImpl implements C1Messages.C1HostApi {
     }
 
     @Override
-    public void setSubtitleAutoMatch(boolean enabled) {
+    public void setSubtitleAutomatch(Boolean enabled) {
         Setting.putSubtitleAutoMatchEnabled(enabled);
     }
 
