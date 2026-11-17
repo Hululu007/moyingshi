@@ -22,6 +22,12 @@ abstract class B7HostApi {
   bool isB7Enabled();
   void setB7Enabled(bool enabled);
 
+  /// B8 master switch (see docs/b8-master-switch.md): writes the single
+  /// `flutter_enabled` key. Called from the Flutter settings home's
+  /// master-switch row; Dart closes the screen afterwards so the next
+  /// entry follows the new value.
+  void setFlutterEnabled(bool enabled);
+
   /// Settings home (native SettingFragment): one snapshot with every
   /// group's rows in native order, the download list, and the pending
   /// deep-link row. All strings and computed values come from the host;
@@ -283,6 +289,7 @@ class B7SettingsHome {
     required this.downloadsActive,
     required this.cacheScanning,
     required this.pendingRowId,
+    required this.flutterEnabled,
   });
 
   String screenTitle;
@@ -297,4 +304,10 @@ class B7SettingsHome {
   bool downloadsActive;
   bool cacheScanning;
   String pendingRowId;
+
+  /// B8 master switch state (see docs/b8-master-switch.md): the
+  /// settings home is only reachable while it is on, so this is true
+  /// in practice — Dart still reads it from the snapshot instead of
+  /// hard-coding it, and renders the master-switch row from it.
+  bool flutterEnabled;
 }
