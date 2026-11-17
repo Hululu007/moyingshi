@@ -18,7 +18,8 @@ import java.io.File
  * - 复制 + 收集也在后台线程做（参考实现里目录收集在主线程）。
  * - 文件选择也按扩展名过滤（参考实现只在目录路径过滤了扩展名）。
  * - 缓存文件名用 nanoTime，避免同一毫秒同名覆盖。
- * - 取消选择器时不回调（参考实现里空列表也会走到 onImported(0)）。
+ * - 取消选择器时调 onCancelled 回调（B8 B20 新增；参考实现里空列表
+ *   也会走到 onImported(0)，这里不走 onImported）。
  *
  * 用法（在 Activity 的 onCreate 里，先于使用创建）：
  *     picker = HkImportPicker(this) { added -> ... }
@@ -27,10 +28,16 @@ import java.io.File
  * 依赖：androidx.documentfile:documentfile:1.0.1。
  * 只收 .json / .zip / .hkzip；目录导入递归子目录。
  * 没在 Android Studio 编译过，以编译结果为准。
+ *
+ * B8 B20：加了一个可选的 onCancelled 回调（默认空实现，原生调用点
+ * 不受影响）：取消选择器时原生不需要信号（对话框直接关掉），但
+ * Flutter 页在轮询 pick 状态，必须知道选择器已关闭才能停表；取消
+ * 时调 onCancelled，导入完成时调 onImported。
  */
 class HkImportPicker(
     private val activity: AppCompatActivity,
-    private val onImported: (added: Int) -> Unit
+    private val onImported: (added: Int) -> Unit,
+    private val onCancelled: () -> Unit = {}
 ) {
     private val pickFilesLauncher: ActivityResultLauncher<Array<String>> =
         activity.registerForActivityResult(
@@ -41,7 +48,10 @@ class HkImportPicker(
         activity.registerForActivityResult(
             ActivityResultContracts.OpenDocumentTree()
         ) { uri ->
-            if (uri == null) return@registerForActivityResult
+            if (uri == null) {
+                onCancelled()
+                return@registerForActivityResult
+            }
             runCatching {
                 activity.contentResolver.takePersistableUriPermission(
                     uri,
@@ -63,7 +73,11 @@ class HkImportPicker(
     }
 
     private fun importUris(uris: List<Uri>) {
-        if (uris.isEmpty()) return
+        // 空列表 = 用户取消了选择器（B8 B20：通知取消回调，Flutter 页停表）。
+        if (uris.isEmpty()) {
+            onCancelled()
+            return
+        }
         Thread {
             val files = uris.mapNotNull { uri -> copyUriToCache(activity, uri) }
             val added = HkStore.importFiles(files)
