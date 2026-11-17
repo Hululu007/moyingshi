@@ -3,21 +3,35 @@ package com.github.moyingshi.osc.tv.flutter;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.lab.LabFilePicker;
+import com.github.moyingshi.osc.tv.utils.FileChooser;
 
 import io.flutter.embedding.android.FlutterFragment;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.embedding.engine.FlutterEngineCache;
 import io.flutter.embedding.engine.dart.DartExecutor;
+import io.flutter.plugin.common.BinaryMessenger;
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugin.common.StandardMethodCodec;
+
+import java.util.Collections;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
- * B8 C1: host Activity for the migrated screens (About, subtitle settings).
+ * B8 C1/C2/B2/B3/B4: host Activity for the migrated screens (About, subtitle
+ * settings, History, Keep, and the settings family).
  *
  * <p>Same cached-engine pattern as {@link C0ShellActivity}: this Activity
  * owns one cached {@link FlutterEngine}, created (if absent) before
@@ -26,27 +40,206 @@ import io.flutter.embedding.engine.dart.DartExecutor;
  * The engine is destroyed only when the Activity is really finishing.
  *
  * <p>Difference from C0: the initial route comes from the launch intent
- * ({@link #EXTRA_ROUTE}, {@link #ROUTE_ABOUT} or {@link #ROUTE_SUBTITLE}).
- * Dart asks the host for it in main() via
- * {@code C1HostApi.getInitialRoute()} instead of relying on the cached
- * engine fragment's initialRoute API; see docs/b8-c1-about-subtitle.md.
+ * ({@link #EXTRA_ROUTE}, {@link #ROUTE_ABOUT}, {@link #ROUTE_SUBTITLE},
+ * {@link #ROUTE_HISTORY}, {@link #ROUTE_KEEP} or {@link #ROUTE_SETTINGS}
+ * with a {@code ?member=} query). Dart asks the host for
+ * it in main() via {@code C1HostApi.getInitialRoute()} instead of relying
+ * on the cached engine fragment's initialRoute API; see
+ * docs/b8-c1-about-subtitle.md. The C2 history screen, the B2 keep
+ * screen and the B3 settings family share this engine and route mechanism
+ * (one C1 engine screen alive at a time; see docs/b8-c2-history.md,
+ * docs/b8-b2-keep.md and docs/b8-b3-settings-a.md). The B7 settings home
+ * is the family's initial member (see docs/b8-b7-settings-home.md). The
+ * B8 category list shares this engine too (route {@link #ROUTE_CATEGORY}
+ * with a {@code ?key=&typeId=&type=} query; see docs/b8-b8-category.md).
+ * The B9 search input page shares this engine too (route
+ * {@link #ROUTE_SEARCH} with a {@code ?keyword=&siteKey=&pic=&wallPic=}
+ * query; see docs/b8-b9-search.md). The B10 aggregate search page
+ * shares this engine too (route {@link #ROUTE_COLLECT} with a
+ * {@code ?keyword=&currentSite=&siteKey=&group=&pic=&wallPic=&hrCid=&hrKey=&hrTargetCid=}
+ * query, or pushed from the B9 page inside the family; see
+ * docs/b8-b10-collect.md). The B11 home shell shares this engine too
+ * (route {@link #ROUTE_HOME}, no parameters; see
+ * docs/b8-b11-home.md). The B14 following page shares this engine too
+ * (route {@link #ROUTE_FOLLOWING}, no parameters; see
+ * docs/b8-b14-following.md). The B15 local-file browser shares this
+ * engine too (route {@link #ROUTE_LOCAL} with a
+ * {@code ?selectDir=&readMode=} query; see docs/b8-b15-local.md) as
+ * does the app-branding page (route {@link #ROUTE_BRANDING}, no
+ * parameters). The B16 viewing-report page shares this engine too
+ * (route {@link #ROUTE_REPORT} with an optional {@code ?range=} query;
+ * see docs/b8-b16-report.md). The B17 TMDB person page shares this
+ * engine too (route {@link #ROUTE_PERSON} with a
+ * {@code ?personId=&name=&subtitle=&profile=&department=&biography=&siteKey=&detailMode=}
+ * query; see docs/b8-b17-person.md). The B18 widget browse page shares
+ * this engine too (route {@link #ROUTE_WIDGETS} with a
+ * {@code ?widgetId=} query; see docs/b8-b18-widget.md). The B19 plugin
+ * manager page shares this engine too (route {@link #ROUTE_PLUGINS},
+ * no parameters; see docs/b8-b19-plugin.md). The B20 Hk miniapp
+ * manager page shares this engine too (route
+ * {@link #ROUTE_HK_MANAGER}, no parameters; see docs/b8-b20-hk.md)
+ * — its impl lives in the mobile source set and is registered
+ * through the B20Registrar reflection indirection (plan §4.8
+ * option 5), because the Hk APIs are mobile-only. The B21 lab
+ * list + detail pages share this engine too (route
+ * {@link #ROUTE_LAB}, no parameters; the detail page is an
+ * in-family page, not a second route; see docs/b8-b21-lab.md).
+ * The B22 short-drama theater grid and history list share this
+ * engine too (routes {@link #ROUTE_DRAMA_THEATER} and
+ * {@link #ROUTE_DRAMA_HISTORY}, no parameters, two independent
+ * routes; the native ShortDramaActivity stays the entry and
+ * play-stream host, see docs/b8-b22-drama.md).
  *
  * <p>Mobile only: declared in the mobile manifest, no launcher entry.
- * Entry points are the mobile SettingFragment rows, behind the C1 flag
- * (Setting.isFlutterC1Enabled(), default false = native screens).
+ * Entry points are the mobile SettingFragment rows (behind the C1/B3
+ * flags), the mobile history entry (behind the C2 flag) and the mobile
+ * keep entry (behind the B2 flag), all defaulting to the native screens.
+ *
+ * <p>B8 relaunch mechanism (see docs/b8-c1-relaunch-mechanism.md): one
+ * cached engine serves many routes, but Dart reads the initial route only
+ * once, when the engine is created. A second C1ScreenActivity started
+ * while the engine lives would otherwise show the first screen's route
+ * (the G2 race), and a finishing activity's onDestroy would destroy an
+ * engine a newer screen already attached to. So the foreground activity
+ * asserts its route to Dart over a raw MethodChannel (Dart resets the
+ * root Navigator, ignoring a repeated assertion of the same route), and
+ * the engine is destroyed only when the last live C1ScreenActivity
+ * finishes. Existing call sites need no changes.
  */
 public class C1ScreenActivity extends AppCompatActivity {
 
     public static final String EXTRA_ROUTE = "b8_c1_route";
     public static final String ROUTE_ABOUT = "/about";
     public static final String ROUTE_SUBTITLE = "/subtitle";
+    public static final String ROUTE_HISTORY = "/history";
+    public static final String ROUTE_KEEP = "/keep";
+    /** Settings family route; append "?member=home|tmdb|ai|ad|danmaku|enhance|personal|search|player". */
+    public static final String ROUTE_SETTINGS = "/settings";
+    /** Category list route; append "?key=&typeId=&type=&hrCid=&hrKey=&hrTargetCid=" (type = URL-encoded Class JSON). */
+    public static final String ROUTE_CATEGORY = "/category";
+    /** Search input page route; append "?keyword=&siteKey=&pic=&wallPic=" (all values URL-encoded). */
+    public static final String ROUTE_SEARCH = "/search";
+    /** Aggregate search results route; append "?keyword=&currentSite=&siteKey=&group=&pic=&wallPic=&hrCid=&hrKey=&hrTargetCid=" (all values URL-encoded). */
+    public static final String ROUTE_COLLECT = "/collect";
+    /** Home shell route (no parameters). */
+    public static final String ROUTE_HOME = "/home";
+    /** Following page route (no parameters). */
+    public static final String ROUTE_FOLLOWING = "/following";
+    /** Local-file browser route; append "?selectDir=&readMode=" (both URL-encoded booleans). */
+    public static final String ROUTE_LOCAL = "/local";
+    /** App-branding page route (no parameters). */
+    public static final String ROUTE_BRANDING = "/branding";
+    /** Viewing-report page route; append an optional "?range=" (a ViewingReportRange name, default ALL). */
+    public static final String ROUTE_REPORT = "/report";
+    /** TMDB person page route; append "?personId=&name=&subtitle=&profile=&department=&biography=&siteKey=&detailMode=" (all values URL-encoded). */
+    public static final String ROUTE_PERSON = "/person";
+    /** Widget browse page route; append "?widgetId=" (URL-encoded). */
+    public static final String ROUTE_WIDGETS = "/widgets";
+    /** Plugin manager page route (no parameters). */
+    public static final String ROUTE_PLUGINS = "/plugins";
+    /** Hk miniapp manager page route (no parameters). */
+    public static final String ROUTE_HK_MANAGER = "/hk-manager";
+    /** Lab list + detail family route (no parameters; the detail page is an in-family page). */
+    public static final String ROUTE_LAB = "/lab";
+    /** Short-drama theater grid route (no parameters; scheme B, see docs/b8-b22-drama.md). */
+    public static final String ROUTE_DRAMA_THEATER = "/drama-theater";
+    /** Short-drama history list route (no parameters; scheme B, see docs/b8-b22-drama.md). */
+    public static final String ROUTE_DRAMA_HISTORY = "/drama-history";
 
+    private static final String TAG = "C1ScreenActivity";
     private static final String TAG_FLUTTER_FRAGMENT = "b8_c1_flutter_fragment";
     private static final String ENGINE_ID = "b8_c1_engine";
 
+    /**
+     * B8 relaunch mechanism: a raw MethodChannel (no Pigeon contract —
+     * the C1 contract is frozen and this is a host-to-Dart push, not a
+     * request/response call) over which the foreground activity tells
+     * Dart which route to show. The Dart handler lives in
+     * flutter_module/lib/main.dart and resets the root Navigator.
+     */
+    private static final String RELAUNCH_CHANNEL = "com.github.moyingshi.osc.tv/c1_relaunch";
+    private static final String RELAUNCH_METHOD_SHOW_ROUTE = "showRoute";
+
+    /**
+     * B8 relaunch mechanism: live C1ScreenActivity instances. The cached
+     * engine is destroyed only when the last one finishes (see
+     * onDestroy): in start-then-finish navigation the new Activity is
+     * created before the old one is destroyed, so destroying the engine
+     * in the old Activity's onDestroy would kill the new screen. Weak
+     * keys so a missed remove() can never leak an Activity; removal in
+     * onDestroy is still explicit. Touched only on the main thread.
+     */
+    private static final Set<C1ScreenActivity> sLiveActivities =
+            Collections.newSetFromMap(new WeakHashMap<>());
+
+    /**
+     * B8 relaunch mechanism: the route last asserted to Dart — the
+     * creation route of the current engine, or the last route sent via
+     * {@link #assertRouteIfNeeded()}. Null when no engine exists.
+     */
+    private static String sAssertedRoute;
+
+    /**
+     * B8 relaunch mechanism: ownership token of the Activity that last
+     * asserted the route. A new Activity instance re-asserts even for
+     * the same route string (rotation), and Dart ignores the repeat;
+     * without the token, a buried Activity returning to the foreground
+     * could not tell that a newer screen redirected Dart elsewhere.
+     */
+    private static Object sRouteOwnerToken;
+
     private FlutterFragment flutterFragment;
 
-    /** Launches a C1 screen; callers check the C1 flag first. */
+    /** This Activity's route (from {@link #EXTRA_ROUTE}, default {@link #ROUTE_ABOUT}). */
+    private String mRoute;
+
+    /** Per-instance ownership token for the route assertion (see {@link #assertRouteIfNeeded()}). */
+    private final Object mRouteToken = new Object();
+
+    /** B19 plugin manager impl, kept so the directory-picker launcher result can reach it. */
+    private B19HostApiImpl b19Impl;
+
+    /**
+     * B8 B19: the directory-picker launcher for the plugin manager
+     * page. Registered as a field (same shape as
+     * PluginManagerActivity.mDirectoryLauncher): the host impl asks
+     * this Activity to launch the FileChooser directory picker, and
+     * the result is forwarded to the B19 impl, which imports the
+     * picked directory on its worker. Only the B19 page uses it.
+     */
+    private final ActivityResultLauncher<Intent> pluginDirectoryLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    (ActivityResult result) -> {
+                        if (b19Impl != null) b19Impl.onDirectoryPicked(result);
+                    });
+
+    /** Launches the FileChooser directory picker for the B19 page (native FileChooser fallback branch). */
+    public void launchPluginDirectoryPicker() {
+        FileChooser.from(pluginDirectoryLauncher).showDirectory();
+    }
+
+    /**
+     * B8 B21: the directory-picker launcher for the lab page's
+     * local-source scan (native FileChooser fallback branch, same
+     * shape as the B19 launcher above). The result is forwarded to
+     * the B21 impl bound to this engine, which runs the background
+     * scan. Only the B21 page uses it.
+     */
+    private final ActivityResultLauncher<Intent> labLocalSourceLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    (ActivityResult result) -> {
+                        FlutterEngine cached = FlutterEngineCache.getInstance().get(ENGINE_ID);
+                        if (cached != null) {
+                            B21HostApiImpl.onLocalSourceDirPicked(cached.getDartExecutor(), result);
+                        }
+                    });
+
+    /** Launches the FileChooser directory picker for the B21 page (native FileChooser fallback branch). */
+    public void launchLabLocalSourceDir() {
+        FileChooser.from(labLocalSourceLauncher).showDirectory();
+    }
+
+    /** Launches a C1/C2/B2 screen; callers check the matching flag first. */
     public static void start(Activity activity, String route) {
         Intent intent = new Intent(activity, C1ScreenActivity.class);
         intent.putExtra(EXTRA_ROUTE, route);
@@ -55,11 +248,41 @@ public class C1ScreenActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        mRoute = getIntent().getStringExtra(EXTRA_ROUTE);
+        if (mRoute == null) mRoute = ROUTE_ABOUT;
+        // B8 relaunch: remember whether the engine already existed
+        // before ensureFlutterEngine() runs; a reused engine is already
+        // showing another route and must be redirected below.
+        boolean engineReused = FlutterEngineCache.getInstance().get(ENGINE_ID) != null;
         // Before super.onCreate(): the FragmentManager restores the
         // FlutterFragment during super.onCreate() after process death, and
         // the fragment looks the cached engine up by ID at that point.
         ensureFlutterEngine();
         super.onCreate(savedInstanceState);
+        sLiveActivities.add(this);
+        if (engineReused) {
+            // Early hint: tell Dart to switch routes before the
+            // fragment's first frame if possible. Deliberately
+            // unrecorded — onPostResume() performs the recorded
+            // assertion, so a message lost while Dart was still
+            // starting is sent again there (Dart ignores the repeat).
+            sendRouteToDart(mRoute);
+        }
+        // B8 B20: rebind the Hk miniapp manager impl to this Activity
+        // instance (the cached engine outlives the Activity on
+        // rotation; the impl's SAF picker launchers must be
+        // registered on a live Activity). No-op on leanback.
+        FlutterEngine cached = FlutterEngineCache.getInstance().get(ENGINE_ID);
+        if (cached != null) registerB20(cached.getDartExecutor());
+        // B8 B21: rebind the lab impl to this Activity instance (same
+        // rotation reason as B20: the file picks and the background
+        // import/scan must survive a rotation).
+        if (cached != null) B21HostApiImpl.register(cached.getDartExecutor(), this);
+        // B8 B22: rebind the short-drama impl to this Activity
+        // instance (same rotation reason as B20/B21: a theater card
+        // tap finishes this Activity, so the impl must hold the live
+        // instance, not the destroyed one the engine was created with).
+        if (cached != null) B22HostApiImpl.register(cached.getDartExecutor(), this);
         setContentView(R.layout.activity_b8_c1);
         FragmentManager fragmentManager = getSupportFragmentManager();
         flutterFragment = (FlutterFragment) fragmentManager.findFragmentByTag(TAG_FLUTTER_FRAGMENT);
@@ -75,33 +298,218 @@ public class C1ScreenActivity extends AppCompatActivity {
         if (FlutterEngineCache.getInstance().get(ENGINE_ID) != null) {
             return;
         }
-        String route = getIntent().getStringExtra(EXTRA_ROUTE);
-        if (route == null) route = ROUTE_ABOUT;
         FlutterEngine engine = new FlutterEngine(this);
         // Register the Pigeon handler before Dart starts executing.
-        C1Messages.C1HostApi.setUp(engine.getDartExecutor(), new C1HostApiImpl(this, route));
+        // mRoute is set by onCreate() before this call; Dart reads it
+        // via C1HostApi.getInitialRoute() when the isolate starts.
+        C1Messages.C1HostApi.setUp(engine.getDartExecutor(), new C1HostApiImpl(this, mRoute));
+        // B8 C2: the history screen shares this engine, so register
+        // C2HostApi too. See docs/b8-c2-history.md.
+        C2Messages.C2HostApi.setUp(engine.getDartExecutor(), new C2HostApiImpl(this));
+        // B8 B2: the keep screen shares this engine, so register
+        // B2HostApi too. See docs/b8-b2-keep.md.
+        B2Messages.B2HostApi.setUp(engine.getDartExecutor(), new B2HostApiImpl(this));
+        // B8 B3: the settings family shares this engine, so register
+        // B3HostApi too. See docs/b8-b3-settings-a.md.
+        B3Messages.B3HostApi.setUp(engine.getDartExecutor(), new B3HostApiImpl(this));
+        // B8 B4: the enhance settings page joins the family, so register
+        // B4HostApi too. See docs/b8-b4-enhance.md.
+        B4Messages.B4HostApi.setUp(engine.getDartExecutor(), new B4HostApiImpl(this));
+        // B8 B5: the personal settings page and the settings search join
+        // the family, so register B5HostApi too. See docs/b8-b5-personal.md.
+        B5Messages.B5HostApi.setUp(engine.getDartExecutor(), new B5HostApiImpl(this));
+        // B8 B7: the settings home is the family's initial member, so
+        // register B7HostApi too. See docs/b8-b7-settings-home.md.
+        B7Messages.B7HostApi.setUp(engine.getDartExecutor(), new B7HostApiImpl(this));
+        // B8 B6: the player settings page joins the family, so register
+        // B6HostApi too. See docs/b8-b6-player.md.
+        B6Messages.B6HostApi.setUp(engine.getDartExecutor(), new B6HostApiImpl(this));
+        // B8 B8: the category list shares this engine, so register
+        // B8HostApi too. See docs/b8-b8-category.md.
+        B8Messages.B8HostApi.setUp(engine.getDartExecutor(), new B8HostApiImpl(this));
+        // B8 B9: the search input page shares this engine, so register
+        // B9HostApi too. See docs/b8-b9-search.md.
+        B9Messages.B9HostApi.setUp(engine.getDartExecutor(), new B9HostApiImpl(this));
+        // B8 B10: the aggregate search page shares this engine, so
+        // register B10HostApi too. See docs/b8-b10-collect.md.
+        B10Messages.B10HostApi.setUp(engine.getDartExecutor(), new B10HostApiImpl(this));
+        // B8 B11: the home shell shares this engine, so register
+        // B11HostApi too. See docs/b8-b11-home.md.
+        B11Messages.B11HostApi.setUp(engine.getDartExecutor(), new B11HostApiImpl(this));
+        // B8 B12: the home blocks A share this engine (no new route —
+        // they live inside /home), so register B12HostApi too. See
+        // docs/b8-b12-home-a.md.
+        B12Messages.B12HostApi.setUp(engine.getDartExecutor(), new B12HostApiImpl(this));
+        // B8 B13: the home blocks B (JS widget sections) share this
+        // engine too (no new route — they live inside /home), so
+        // register B13HostApi as well. See docs/b8-b13-home-b.md.
+        B13Messages.B13HostApi.setUp(engine.getDartExecutor(), new B13HostApiImpl(this));
+        // B8 B14: the following page shares this engine too (route
+        // ROUTE_FOLLOWING, no parameters), so register B14HostApi as
+        // well. See docs/b8-b14-following.md.
+        B14Messages.B14HostApi.setUp(engine.getDartExecutor(), new B14HostApiImpl(this));
+        // B8 B15: the local-file browser and the app-branding page
+        // share this engine too (routes ROUTE_LOCAL with a
+        // ?selectDir=&readMode= query and ROUTE_BRANDING), so register
+        // B15HostApi as well. See docs/b8-b15-local.md.
+        B15Messages.B15HostApi.setUp(engine.getDartExecutor(), new B15HostApiImpl(this));
+        // B8 B16: the viewing-report page shares this engine too (route
+        // ROUTE_REPORT with an optional ?range= query), so register
+        // B16HostApi as well. See docs/b8-b16-report.md.
+        B16Messages.B16HostApi.setUp(engine.getDartExecutor(), new B16HostApiImpl(this));
+        // B8 B17: the TMDB person page shares this engine too (route
+        // ROUTE_PERSON with a ?personId=&name=&...&detailMode= query),
+        // so register B17HostApi as well. See docs/b8-b17-person.md.
+        B17Messages.B17HostApi.setUp(engine.getDartExecutor(), new B17HostApiImpl(this));
+        // B8 B18: the widget browse page shares this engine too (route
+        // ROUTE_WIDGETS with a ?widgetId= query), so register
+        // B18HostApi as well. See docs/b8-b18-widget.md.
+        B18Messages.B18HostApi.setUp(engine.getDartExecutor(), new B18HostApiImpl(this));
+        // B8 B19: the plugin manager page shares this engine too (route
+        // ROUTE_PLUGINS, no parameters), so register B19HostApi as
+        // well. The impl instance is kept for the directory-picker
+        // launcher result. See docs/b8-b19-plugin.md.
+        b19Impl = new B19HostApiImpl(this);
+        B19Messages.B19HostApi.setUp(engine.getDartExecutor(), b19Impl);
+        // B8 B20: the Hk miniapp manager page shares this engine too
+        // (route ROUTE_HK_MANAGER, no parameters). Its impl lives in
+        // the mobile source set (Hk APIs are mobile-only), so it is
+        // registered through the B20Registrar reflection indirection
+        // (plan §4.8 option 5); on leanback this is a silent no-op.
+        // See docs/b8-b20-hk.md.
+        registerB20(engine.getDartExecutor());
+        // B8 B21: the lab list + detail pages share this engine too
+        // (route ROUTE_LAB, no parameters; the detail page is an
+        // in-family page). The impl lives in the main source set, so
+        // it registers directly; the static registry keeps one impl
+        // per engine and rebinds it on rotation (B20 shape).
+        // See docs/b8-b21-lab.md.
+        B21HostApiImpl.register(engine.getDartExecutor(), this);
+        // B8 B22: the short-drama theater grid and history list share
+        // this engine too (routes ROUTE_DRAMA_THEATER and
+        // ROUTE_DRAMA_HISTORY, no parameters, two independent
+        // routes). Same static-registry shape as B21 (one impl per
+        // engine, rebind on rotation). See docs/b8-b22-drama.md.
+        B22HostApiImpl.register(engine.getDartExecutor(), this);
         engine.getDartExecutor().executeDartEntrypoint(
                 DartExecutor.DartEntrypoint.createDefault());
         FlutterEngineCache.getInstance().put(ENGINE_ID, engine);
+        // B8 relaunch: the fresh engine will show mRoute (Dart reads it
+        // via getInitialRoute), so record it as asserted by this
+        // Activity; later assertions compare against it.
+        sAssertedRoute = mRoute;
+        sRouteOwnerToken = mRouteToken;
+    }
+
+    /**
+     * B8 relaunch mechanism: fire-and-forget route push to Dart. Used
+     * for the early hint in onCreate() on engine reuse; the recorded
+     * assertion lives in {@link #assertRouteIfNeeded()}. A no-op when
+     * no engine exists.
+     */
+    private void sendRouteToDart(@NonNull String route) {
+        FlutterEngine engine = FlutterEngineCache.getInstance().get(ENGINE_ID);
+        if (engine == null) return;
+        new MethodChannel(engine.getDartExecutor(), RELAUNCH_CHANNEL, StandardMethodCodec.INSTANCE)
+                .invokeMethod(RELAUNCH_METHOD_SHOW_ROUTE, route);
+    }
+
+    /**
+     * B8 relaunch mechanism: makes Dart show this Activity's route when
+     * Dart is not already showing it for this Activity.
+     *
+     * <p>Sends when the asserted route differs from this Activity's
+     * route (a newer screen redirected Dart, or this Activity is new
+     * on a reused engine) or when another Activity instance owns the
+     * assertion (rotation: the new instance re-asserts the same route
+     * string, and Dart ignores the repeat, preserving family Navigator
+     * depth). Skips when this Activity already owns the assertion for
+     * its own route, so a plain resume after a native dialog or
+     * sub-flow never disturbs the screen.
+     */
+    private void assertRouteIfNeeded() {
+        if (mRoute.equals(sAssertedRoute) && sRouteOwnerToken == mRouteToken) {
+            return;
+        }
+        sAssertedRoute = mRoute;
+        sRouteOwnerToken = mRouteToken;
+        sendRouteToDart(mRoute);
+    }
+
+    /**
+     * B8 B20: registers the Hk miniapp manager API through the mobile
+     * registrar indirection. The registrar class exists only in the
+     * mobile source set; on leanback Class.forName fails and this is
+     * a silent no-op. The first call per engine creates the impl and
+     * runs the Pigeon setUp; later calls (onCreate after rotation)
+     * only rebind it to the current Activity.
+     */
+    private void registerB20(@NonNull BinaryMessenger messenger) {
+        try {
+            Class<?> registrar = Class.forName("com.github.moyingshi.osc.tv.flutter.B20Registrar");
+            registrar.getMethod("register", BinaryMessenger.class, AppCompatActivity.class)
+                    .invoke(null, messenger, this);
+        } catch (ClassNotFoundException ignored) {
+            // Leanback build: no Hk miniapp manager, nothing to register.
+        } catch (Exception e) {
+            Log.w(TAG, "B20 register failed", e);
+        }
+    }
+
+    /** B8 B20: drops the impl for this engine (engine destroy). No-op on leanback. */
+    private void unregisterB20(@NonNull BinaryMessenger messenger) {
+        try {
+            Class<?> registrar = Class.forName("com.github.moyingshi.osc.tv.flutter.B20Registrar");
+            registrar.getMethod("unregister", BinaryMessenger.class)
+                    .invoke(null, messenger);
+        } catch (ClassNotFoundException ignored) {
+            // Leanback build: nothing was registered.
+        } catch (Exception e) {
+            Log.w(TAG, "B20 unregister failed", e);
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // A cached engine outlives its fragment; destroy it only when this
-        // Activity is really finishing (rotation keeps it for reuse).
-        if (isFinishing()) {
+        sLiveActivities.remove(this);
+        // A cached engine outlives its fragment; destroy it only when
+        // this Activity is really finishing AND no other C1 screen is
+        // alive. In start-then-finish navigation the new Activity is
+        // created (and added to sLiveActivities) before the old one is
+        // destroyed, so destroying the engine here would kill the new
+        // screen (G2). Rotation keeps the engine (isFinishing() is
+        // false) as before.
+        if (isFinishing() && sLiveActivities.isEmpty()) {
             FlutterEngine engine = FlutterEngineCache.getInstance().get(ENGINE_ID);
             if (engine != null) {
+                // B8 B20: drop the Hk impl for this engine (its worker
+                // is shut down, the dead Activity reference released).
+                unregisterB20(engine.getDartExecutor());
+                // B8 B21: drop the lab impl for this engine too.
+                B21HostApiImpl.unregister(engine.getDartExecutor());
+                // B8 B22: drop the short-drama impl for this engine too.
+                B22HostApiImpl.unregister(engine.getDartExecutor());
                 FlutterEngineCache.getInstance().remove(ENGINE_ID);
                 engine.destroy();
             }
+            // B8 relaunch: no engine, no assertion; the next engine
+            // records its creation route in ensureFlutterEngine().
+            sAssertedRoute = null;
+            sRouteOwnerToken = null;
         }
     }
 
     @Override
     protected void onPostResume() {
         super.onPostResume();
+        // B8 relaunch: a buried Activity coming back to the foreground
+        // re-asserts its route — a newer C1 screen may have redirected
+        // Dart to another route while this one was underneath (the
+        // scheme-B stack: Flutter home, native drama page, Flutter
+        // drama page). A no-op when this Activity already owns the
+        // assertion for its own route.
+        assertRouteIfNeeded();
         if (flutterFragment != null) {
             flutterFragment.onPostResume();
         }
@@ -139,6 +547,16 @@ public class C1ScreenActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (flutterFragment != null) {
             flutterFragment.onActivityResult(requestCode, resultCode, data);
+        }
+        // B8 B21: the lab file picker (LabFilePicker SAF codes from
+        // 3000) and the lab import / local-config picks (B21
+        // REQUEST_IMPORT / REQUEST_LOCAL_CONFIG) both arrive here as
+        // classic results; forward them to the B21 impl bound to this
+        // engine. LabFilePicker ignores unknown codes.
+        LabFilePicker.onActivityResult(requestCode, resultCode, data);
+        FlutterEngine cached = FlutterEngineCache.getInstance().get(ENGINE_ID);
+        if (cached != null) {
+            B21HostApiImpl.onActivityResult(cached.getDartExecutor(), requestCode, resultCode, data);
         }
     }
 
