@@ -25,12 +25,26 @@ abstract class B11HostApi {
   /// One-shot home shell snapshot (B8 pattern: SiteViewModel.homeContent
   /// one-shot subscription, 35s watchdog, completes exactly once on
   /// every path). Covers the top bar, the category tabs and the bottom
-  /// bar; the tab-page content itself is a placeholder this batch
-  /// (B12/B13 own the AppBar blocks, the tab pages are not B11 scope).
+  /// bar; the tab-page content itself comes from getTabVideos (the
+  /// B12/B13 widgets own the AppBar blocks above the tabs).
   /// A second call while one is in flight completes with an error
   /// immediately (host keeps a single subscription, like B8).
   @async
   B11HomeScreen getHomeShell();
+
+  /// One page of the selected tab's inline video grid (b8-home-grid):
+  /// the same list the B8 category screen shows for the tab, rendered
+  /// inside the home tab content area instead of a placeholder. The
+  /// host reuses the B8 list path exactly (SiteViewModel
+  /// .categoryContent for the home site, Class filters' init values,
+  /// one-shot subscription, 35s watchdog, error snapshot on timeout).
+  /// Dart passes the tab's typeId/typeJson (from getHomeShell) and the
+  /// page to load; the host owns the page/hasMore computation and
+  /// echoes the effective filter map and the home site key. A second
+  /// call while a home load (shell or grid) is in flight completes
+  /// with an error immediately (the two loads share one ViewModel).
+  @async
+  B11TabVideos getTabVideos(String typeId, String typeJson, int page);
 
   /// Search pill tap: hk:// home site -> HkSearchActivity (reflection,
   /// mobile-only), otherwise SearchActivity.start.
@@ -82,9 +96,10 @@ abstract class B11HostApi {
   /// shortcut, native VodFragment pattern); other tokens are no-ops.
   void longPressBottomBarItem(String token);
 
-  /// Tab-page placeholder action: open the B8 category screen for this
-  /// tab (host builds the /category route with the tab's Class JSON,
-  /// start-then-finish, shared G2 race).
+  /// Folder-card action from the inline tab grid: open the B8 category
+  /// screen for the folder (host builds the /category route with the
+  /// folder's typeId and the parent tab's Class JSON, start-then-finish,
+  /// shared G2 race) — the B8 drill-down semantics, from the home grid.
   void openTabCategory(String typeId, String typeJson);
 }
 
@@ -176,8 +191,8 @@ class B11HomeScreen {
 }
 
 /// One category tab. typeJson is the full Class JSON (B8 route input)
-/// so the placeholder "open in category screen" action can build the
-/// /category route without re-fetching the type list.
+/// so the tab grid can load its list and folder drill-downs can build
+/// the /category route without re-fetching the type list.
 class B11HomeTab {
   B11HomeTab({
     required this.typeId,
@@ -188,6 +203,145 @@ class B11HomeTab {
   String typeId;
   String typeName;
   String typeJson;
+}
+
+/// One page of a home tab's inline video grid, mirroring the B8
+/// category screen minus the title and filters (the home grid has
+/// neither: the tab bar above it is the title, and filters live on the
+/// /category screen). errorMessage is empty when there is no error; on
+/// error the items list is empty and hasMore is false, but the echoed
+/// extendJson is still present so a load-more failure can keep the list
+/// and retry.
+class B11TabVideos {
+  B11TabVideos({
+    required this.siteKey,
+    required this.styleType,
+    required this.styleRatio,
+    required this.columnCount,
+    required this.cardImageWidthPx,
+    required this.cardImageHeightPx,
+    required this.items,
+    required this.hasMore,
+    required this.pageCount,
+    required this.nextPage,
+    required this.extendJson,
+    required this.errorTitle,
+    required this.errorMessage,
+    required this.retryLabel,
+  });
+
+  /// Home site key: Dart passes it to B8HostApi.openCategoryItem /
+  /// searchCategoryItem so a grid tap opens detail exactly like a B8
+  /// category tap (same host chain, same history-resume args).
+  String siteKey;
+
+  /// Effective card style for this page: "rect", "list" or "oval"
+  /// (same resolution as B8: folder mode is always "list"; otherwise
+  /// the site style, the Class style, or the first item's style).
+  String styleType;
+
+  /// Effective style ratio (image width / height) for rect/oval cards.
+  double styleRatio;
+  int columnCount;
+  int cardImageWidthPx;
+  int cardImageHeightPx;
+
+  /// This page's items (appended by Dart on load-more).
+  List<B11TabVideoItem> items;
+
+  /// True when another page may exist (page < pageCount, or pageCount
+  /// is 0 = unknown, mirroring CustomScroller.setEnable).
+  bool hasMore;
+  int pageCount;
+
+  /// Page Dart should request next (same page when this page came back
+  /// empty, mirroring CustomScroller.endLoading's page--).
+  int nextPage;
+
+  /// Effective filter map as a JSON object string, after the host
+  /// applied the Class filters' init values; echoed for load-more
+  /// consistency with B8 (the home grid sends no filter map).
+  String extendJson;
+
+  String errorTitle;
+  String errorMessage;
+  String retryLabel;
+}
+
+/// One grid card. Field-for-field mirror of B8CategoryItem: the host
+/// flattens the Vod bean the same way (same ImgUtil delegation, same
+/// visibility flags), so the shared VodCard renders grid cards exactly
+/// like B8 category cards.
+class B11TabVideoItem {
+  B11TabVideoItem({
+    required this.id,
+    required this.name,
+    required this.year,
+    required this.remarks,
+    required this.siteName,
+    required this.siteVisible,
+    required this.nameVisible,
+    required this.remarkVisible,
+    required this.yearVisible,
+    required this.isFolder,
+    required this.isAction,
+    required this.action,
+    required this.picUrl,
+    required this.rawPic,
+    required this.picReferer,
+    required this.picCookie,
+    required this.picUserAgent,
+    required this.picExtraHeadersJson,
+    required this.fallbackPicUrl,
+    required this.placeholderText,
+    required this.placeholderColor,
+  });
+
+  String id;
+  String name;
+
+  /// Release year. The native rect card shows it as a badge only when
+  /// the item has no site and the year is at least 4 characters; the
+  /// shared VodCard has no year slot, so Dart does not render it (same
+  /// as B8, see docs/b8-b8-category.md).
+  String year;
+  String remarks;
+  String siteName;
+  bool siteVisible;
+  bool nameVisible;
+  bool remarkVisible;
+  bool yearVisible;
+  bool isFolder;
+  bool isAction;
+
+  /// Action JSON for action cards (empty otherwise).
+  String action;
+
+  /// Clean image URL: the host ran ImgUtil.getUrl() and stripped the
+  /// `@Headers=` / `@Cookie=` / `@Referer=` / `@User-Agent=` suffixes.
+  String picUrl;
+
+  /// Raw vodPic as the site returned it (headers suffixes intact).
+  /// Dart passes this to openCategoryItem so the detail page loads the
+  /// image with the same headers native would use.
+  String rawPic;
+  String picReferer;
+  String picCookie;
+  String picUserAgent;
+
+  /// Any remaining `@Headers=` entries (headers other than referer /
+  /// cookie / user-agent) as a JSON object string; empty when none. Dart
+  /// merges these under the three named headers.
+  String picExtraHeadersJson;
+
+  /// TmdbProxy auto-fallback URL (already cleaned by the host); empty
+  /// when there is none. Dart tries it once if the primary URL fails.
+  String fallbackPicUrl;
+
+  /// First-character placeholder (TextDrawable parity): the character and
+  /// its ColorGenerator.get400() ARGB color, for failed / missing images.
+  String placeholderText;
+  int placeholderColor;
 }
 
 /// One bottom bar item (HomeActivity.setNavigation rules).
