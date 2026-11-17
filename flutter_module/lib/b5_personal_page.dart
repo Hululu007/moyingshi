@@ -515,7 +515,7 @@ class _SearchResultTile extends StatelessWidget {
 /// shared: the B4 mixin is file-private, and per-batch independence
 /// (plan §4.9) means B5 must stay revertible without touching B4 code.
 mixin _B5MemberState<T extends StatefulWidget> on State<T>
-    with WidgetsBindingObserver {
+    implements WidgetsBindingObserver {
   final B5HostApi api = B5HostApi();
 
   @override
@@ -536,6 +536,61 @@ mixin _B5MemberState<T extends StatefulWidget> on State<T>
     // page; refresh when we come back.
     if (state == AppLifecycleState.resumed) load();
   }
+
+  // Remaining WidgetsBindingObserver handlers. This mixin only reacts to
+  // lifecycle changes; the rest are empty so the mixin satisfies the
+  // interface. Signatures copied from Flutter 3.50.0
+  // packages/flutter/lib/src/widgets/binding.dart (the interface has 17
+  // methods; didChangeAppLifecycleState above is the 17th).
+  @override
+  Future<bool> didPopRoute() => Future<bool>.value(false);
+
+  @override
+  bool handleStartBackGesture(PredictiveBackEvent backEvent) => false;
+
+  @override
+  void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {}
+
+  @override
+  void handleCommitBackGesture() {}
+
+  @override
+  void handleCancelBackGesture() {}
+
+  @override
+  void handleStatusBarTap() {}
+
+  @override
+  Future<bool> didPushRoute(String route) => Future<bool>.value(false);
+
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) =>
+      Future<bool>.value(false);
+
+  @override
+  void didChangeMetrics() {}
+
+  @override
+  void didChangeTextScaleFactor() {}
+
+  @override
+  void didChangePlatformBrightness() {}
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {}
+
+  @override
+  void didChangeViewFocus(ViewFocusEvent event) {}
+
+  @override
+  Future<AppExitResponse> didRequestAppExit() =>
+      Future<AppExitResponse>.value(AppExitResponse.exit);
+
+  @override
+  void didHaveMemoryPressure() {}
+
+  @override
+  void didChangeAccessibilityFeatures() {}
 
   /// Reloads this member's snapshot. Implemented by each member view.
   Future<void> load();
