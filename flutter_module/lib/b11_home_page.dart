@@ -45,8 +45,11 @@ import 'widgets/vod_card.dart';
 /// docs/b8-home-glass.md): the glass bar is a BackdropFilter
 /// approximation (no lens distortion / dispersion); the logo is a
 /// Material icon, not the ic_logo drawable; the title uses single-line
-/// ellipsis instead of marquee; the AppBar does not collapse and the
-/// tabs do not stick on scroll; the sync-dialog-close refresh is still
+/// ellipsis instead of marquee; the pinned tab bar paints the host
+/// wallpaper color opaque once content scrolls under it, where native
+/// keeps it transparent (native offsets the scrolling view below the
+/// AppBar, so nothing ever paints under the tab bar — see
+/// docs/b8-home-sticky-tabs.md); the sync-dialog-close refresh is still
 /// resume-only; video/gif wallpapers show their static frame-0
 /// snapshot, without motion.
 class B11HomePage extends StatefulWidget {
@@ -60,6 +63,13 @@ class _B11HomePageState extends State<B11HomePage>
     with WidgetsBindingObserver {
   final B11HostApi _b11Api = B11HostApi();
   final C1HostApi _c1Api = C1HostApi();
+
+  /// B8 b8-home-sticky-tabs: the one scroll controller for the whole
+  /// home (CustomScrollView). Shared with the tab grid so its
+  /// load-more trigger reads the same scroll position the user sees;
+  /// owned here, never disposed by the grid.
+  final ScrollController _scrollController = ScrollController();
+
   B11HomeScreen? _screen;
   String? _error;
   int _selectedTab = 0;
@@ -87,6 +97,7 @@ class _B11HomePageState extends State<B11HomePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -251,22 +262,43 @@ class _B11HomePageState extends State<B11HomePage>
   }
 
   Widget _buildHome(B11HomeScreen screen) {
-    return Column(
-      children: [
-        _buildTopBar(screen),
-        _buildSearchPill(screen),
+    // B8 b8-home-sticky-tabs: one unified scroll, mirroring the
+    // native AppBarLayout (fragment_vod.xml). The toolbar, search
+    // pill, banner, continue-watching row and JS sections scroll away
+    // (native: layout_scrollFlags="scroll"); the category tab bar
+    // pins at the top (native: the AppBar's last child, no scroll
+    // flags); the grid keeps scrolling under it. Scrolling back to
+    // the top expands the header back into place. The tab bar used
+    // to sit in a fixed Column with only the grid scrolling, so the
+    // chips could never reach the top and a swipe starting above
+    // the grid scrolled nothing at all.
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverToBoxAdapter(child: _buildTopBar(screen)),
+        SliverToBoxAdapter(child: _buildSearchPill(screen)),
         // B8 B12: the banner carousel + continue-watching row. The
         // widgets read the B12 flag themselves: off renders the same
         // icon-only placeholders B11 showed, on renders the real
         // blocks. The epoch reloads them on resume / site switch.
-        B12BannerWidget(epoch: _homeLoadEpoch),
-        B12ContinueWidget(epoch: _homeLoadEpoch),
+        SliverToBoxAdapter(child: B12BannerWidget(epoch: _homeLoadEpoch)),
+        SliverToBoxAdapter(
+            child: B12ContinueWidget(epoch: _homeLoadEpoch)),
         // B8 B13: the JS widget sections. The widget reads the B13
         // flag itself: off renders the same icon-only placeholder B11
         // showed, on renders the real sections. Same epoch as B12.
-        B13WidgetsWidget(epoch: _homeLoadEpoch),
-        _buildTabBar(screen),
-        Expanded(child: _buildTabContent(screen)),
+        SliverToBoxAdapter(child: B13WidgetsWidget(epoch: _homeLoadEpoch)),
+        if (screen.tabs.isNotEmpty)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyTabBarDelegate(
+              builder: () => _buildTabBar(screen),
+              epoch: _homeLoadEpoch,
+              selectedTab: _selectedTab,
+              pinnedBackground: Color(screen.wallpaperColor),
+            ),
+          ),
+        _buildTabContent(screen),
       ],
     );
   }
@@ -402,41 +434,50 @@ class _B11HomePageState extends State<B11HomePage>
     );
   }
 
+  /// The tab content as a sliver for the home CustomScrollView
+  /// (b8-home-sticky-tabs): the empty states fill the remaining
+  /// viewport below the header, the grid renders as slivers.
   Widget _buildTabContent(B11HomeScreen screen) {
     if (screen.emptyTitle.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.inbox_outlined, size: 48),
-              const SizedBox(height: 12),
-              Text(
-                screen.emptyTitle,
-                style: const TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                screen.emptyDescription,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _load,
-                child: Text(screen.emptyActionLabel),
-              ),
-            ],
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.inbox_outlined, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  screen.emptyTitle,
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  screen.emptyDescription,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: _load,
+                  child: Text(screen.emptyActionLabel),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
     if (screen.tabs.isEmpty) {
-      return Center(
-        child: Text(
-          screen.tabPlaceholderEmptyText,
-          textAlign: TextAlign.center,
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            screen.tabPlaceholderEmptyText,
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -450,7 +491,57 @@ class _B11HomePageState extends State<B11HomePage>
       epoch: _homeLoadEpoch,
       emptyText: screen.tabPlaceholderEmptyText,
       bottomPadding: _glassSlotHeight,
+      controller: _scrollController,
     );
+  }
+}
+
+/// Pinned category tab bar (b8-home-sticky-tabs): the Flutter
+/// equivalent of the native typeBar, the AppBarLayout's last child
+/// with no scroll flags (fragment_vod.xml). Fixed 44dp tall. When
+/// content has scrolled underneath (overlapsContent) the bar paints
+/// the host wallpaper color opaque: unlike native — where the
+/// scrolling view is offset below the AppBar and never paints under
+/// the tab bar — sliver content does scroll under a pinned header,
+/// and grid cards must not show through the chips. At rest the bar
+/// stays transparent so the wallpaper shows through, like native.
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _StickyTabBarDelegate({
+    required this.builder,
+    required this.epoch,
+    required this.selectedTab,
+    required this.pinnedBackground,
+  });
+
+  /// Builds the tab bar; re-invoked whenever the delegate rebuilds,
+  /// so the selection state is always current.
+  final Widget Function() builder;
+
+  /// Shell load generation: a new snapshot rebuilds the header.
+  final int epoch;
+  final int selectedTab;
+  final Color pinnedBackground;
+
+  @override
+  double get minExtent => 44;
+
+  @override
+  double get maxExtent => 44;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: overlapsContent ? pinnedBackground : null,
+      child: builder(),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
+    return oldDelegate.epoch != epoch ||
+        oldDelegate.selectedTab != selectedTab ||
+        oldDelegate.pinnedBackground != pinnedBackground;
   }
 }
 
@@ -499,12 +590,18 @@ class _WallpaperBackground extends StatelessWidget {
 /// requested while one is in flight is remembered and runs when the
 /// in-flight load settles, and results that arrive for a stale tab or
 /// epoch are discarded, so the grid can never show another tab's list.
+///
+/// B8 b8-home-sticky-tabs: the grid renders as slivers inside the
+/// parent page's CustomScrollView (one unified scroll with the pinned
+/// tab bar), and its load-more trigger listens to the parent's scroll
+/// controller — the same position the user scrolls.
 class _TabVideoGrid extends StatefulWidget {
   const _TabVideoGrid({
     required this.tab,
     required this.epoch,
     required this.emptyText,
     required this.bottomPadding,
+    required this.controller,
   });
 
   final B11HomeTab tab;
@@ -522,6 +619,10 @@ class _TabVideoGrid extends StatefulWidget {
   /// glass slot height).
   final double bottomPadding;
 
+  /// The parent CustomScrollView's controller, owned by the page:
+  /// the grid listens to it for load-more and never disposes it.
+  final ScrollController controller;
+
   @override
   State<_TabVideoGrid> createState() => _TabVideoGridState();
 }
@@ -529,7 +630,6 @@ class _TabVideoGrid extends StatefulWidget {
 class _TabVideoGridState extends State<_TabVideoGrid> {
   final B11HostApi _b11Api = B11HostApi();
   final B8HostApi _b8Api = B8HostApi();
-  final ScrollController _scrollController = ScrollController();
 
   B11TabVideos? _videos;
   List<B11TabVideoItem> _items = [];
@@ -552,13 +652,17 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    widget.controller.addListener(_onScroll);
     _loadPage(1);
   }
 
   @override
   void didUpdateWidget(_TabVideoGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onScroll);
+      widget.controller.addListener(_onScroll);
+    }
     if (oldWidget.tab.typeId != widget.tab.typeId ||
         oldWidget.tab.typeJson != widget.tab.typeJson ||
         oldWidget.epoch != widget.epoch) {
@@ -568,13 +672,14 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    // The controller is owned by the page: only detach the listener.
+    widget.controller.removeListener(_onScroll);
     super.dispose();
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
+    if (!widget.controller.hasClients) return;
+    final position = widget.controller.position;
     if (position.maxScrollExtent <= 0) return;
     if (position.pixels >= position.maxScrollExtent - 200) {
       if (_hasMore && !_busy) _loadPage(_nextPage);
@@ -711,27 +816,38 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
   @override
   Widget build(BuildContext context) {
     final B11TabVideos? videos = _videos;
-    final Widget content;
     if (videos == null) {
-      content = _channelBroken
-          ? _buildChannelError()
-          : const Center(child: CircularProgressIndicator());
-    } else if (_pageError && _items.isEmpty) {
-      content = _buildHostError(videos);
-    } else if (_items.isEmpty) {
-      content = Center(
-        child: Text(
-          widget.emptyText,
-          textAlign: TextAlign.center,
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _channelBroken
+            ? _buildChannelError()
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_pageError && _items.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _buildHostError(videos),
+      );
+    }
+    if (_items.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            widget.emptyText,
+            textAlign: TextAlign.center,
+          ),
         ),
       );
-    } else {
-      content = _buildList();
     }
-    return Column(
-      children: [
-        Expanded(child: content),
-        if (_loadingMore) const LinearProgressIndicator(),
+    // The grid sliver plus the load-more indicator, grouped so the
+    // parent CustomScrollView sees one sliver child.
+    return SliverMainAxisGroup(
+      slivers: [
+        _buildList(),
+        if (_loadingMore)
+          const SliverToBoxAdapter(child: LinearProgressIndicator()),
       ],
     );
   }
@@ -800,89 +916,98 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
   Widget _buildList() {
     switch (_styleType) {
       case 'list':
-        return ListView.builder(
-          controller: _scrollController,
+        return SliverPadding(
           padding: EdgeInsets.only(bottom: widget.bottomPadding),
-          itemCount: _items.length,
-          itemBuilder: (BuildContext context, int index) {
-            final B11TabVideoItem item = _items[index];
-            return _B11ListRow(
-              key: ValueKey<String>('${item.id}:${item.name}'),
-              item: item,
-              onTap: () => _onItemTap(item),
-              onLongPress: () => _onItemLongPress(item),
-            );
-          },
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (BuildContext context, int index) {
+                final B11TabVideoItem item = _items[index];
+                return _B11ListRow(
+                  key: ValueKey<String>('${item.id}:${item.name}'),
+                  item: item,
+                  onTap: () => _onItemTap(item),
+                  onLongPress: () => _onItemLongPress(item),
+                );
+              },
+              childCount: _items.length,
+            ),
+          ),
         );
       case 'oval':
-        return GridView.builder(
-          controller: _scrollController,
+        return SliverPadding(
           padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + widget.bottomPadding),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: _columnCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            // Image + one 14sp name line + a 4dp gap (see _B11OvalCard).
-            mainAxisExtent: _imageHeightDp + 24,
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (BuildContext context, int index) {
+                final B11TabVideoItem item = _items[index];
+                return _B11OvalCard(
+                  key: ValueKey<String>('${item.id}:${item.name}'),
+                  item: item,
+                  imageWidth: _imageWidthDp,
+                  imageHeight: _imageHeightDp,
+                  onTap: () => _onItemTap(item),
+                  onLongPress: () => _onItemLongPress(item),
+                );
+              },
+              childCount: _items.length,
+            ),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _columnCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              // Image + one 14sp name line + a 4dp gap (see _B11OvalCard).
+              mainAxisExtent: _imageHeightDp + 24,
+            ),
           ),
-          itemCount: _items.length,
-          itemBuilder: (BuildContext context, int index) {
-            final B11TabVideoItem item = _items[index];
-            return _B11OvalCard(
-              key: ValueKey<String>('${item.id}:${item.name}'),
-              item: item,
-              imageWidth: _imageWidthDp,
-              imageHeight: _imageHeightDp,
-              onTap: () => _onItemTap(item),
-              onLongPress: () => _onItemLongPress(item),
-            );
-          },
         );
       case 'rect':
       default:
-        return GridView.builder(
-          controller: _scrollController,
+        return SliverPadding(
           padding: EdgeInsets.only(
               left: 16, right: 16, bottom: 16 + widget.bottomPadding),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: _columnCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            // The info area is always two lines (see VodCard): the
-            // remarks line is transparent when the item hides it.
-            mainAxisExtent: VodCard.totalHeight(
-              imageHeight: _imageHeightDp,
-              hasProgress: false,
-              twoLines: true,
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (BuildContext context, int index) {
+                final B11TabVideoItem item = _items[index];
+                return VodCard(
+                  key: ValueKey<String>('${item.id}:${item.name}'),
+                  picUrl: item.picUrl,
+                  picReferer: item.picReferer,
+                  picCookie: item.picCookie,
+                  picUserAgent: item.picUserAgent,
+                  picExtraHeadersJson: item.picExtraHeadersJson,
+                  fallbackPicUrl: item.fallbackPicUrl,
+                  placeholderText: item.placeholderText,
+                  placeholderColor: item.placeholderColor,
+                  imageHeight: _imageHeightDp,
+                  vodName: item.nameVisible ? item.name : '',
+                  remarks: item.remarks,
+                  remarksVisible: item.remarkVisible,
+                  siteName: item.siteName,
+                  siteVisible: item.siteVisible,
+                  // Grid cards have no playback badge or progress bar.
+                  playbackText: null,
+                  progress: null,
+                  deleteMode: false,
+                  onTap: () => _onItemTap(item),
+                  onLongPress: () => _onItemLongPress(item),
+                );
+              },
+              childCount: _items.length,
+            ),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _columnCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              // The info area is always two lines (see VodCard): the
+              // remarks line is transparent when the item hides it.
+              mainAxisExtent: VodCard.totalHeight(
+                imageHeight: _imageHeightDp,
+                hasProgress: false,
+                twoLines: true,
+              ),
             ),
           ),
-          itemCount: _items.length,
-          itemBuilder: (BuildContext context, int index) {
-            final B11TabVideoItem item = _items[index];
-            return VodCard(
-              key: ValueKey<String>('${item.id}:${item.name}'),
-              picUrl: item.picUrl,
-              picReferer: item.picReferer,
-              picCookie: item.picCookie,
-              picUserAgent: item.picUserAgent,
-              picExtraHeadersJson: item.picExtraHeadersJson,
-              fallbackPicUrl: item.fallbackPicUrl,
-              placeholderText: item.placeholderText,
-              placeholderColor: item.placeholderColor,
-              imageHeight: _imageHeightDp,
-              vodName: item.nameVisible ? item.name : '',
-              remarks: item.remarks,
-              remarksVisible: item.remarkVisible,
-              siteName: item.siteName,
-              siteVisible: item.siteVisible,
-              // Grid cards have no playback badge or progress bar.
-              playbackText: null,
-              progress: null,
-              deleteMode: false,
-              onTap: () => _onItemTap(item),
-              onLongPress: () => _onItemLongPress(item),
-            );
-          },
         );
     }
   }
