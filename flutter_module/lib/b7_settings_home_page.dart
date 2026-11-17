@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show PredictiveBackEvent;
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b7_settings_home_messages.g.dart';
+import 'pigeon/c1_messages.g.dart';
 import 'widgets/settings_row.dart';
 
 /// B8 B7: Flutter version of the mobile settings home (native
@@ -135,6 +136,19 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
     }
   }
 
+  /// B8 master switch: write the new value to the host, then close the
+  /// screen so the next entry follows it. On a channel failure the
+  /// screen stays open and the host state is unchanged.
+  Future<void> _setFlutterEnabled(bool value) async {
+    try {
+      await api.setFlutterEnabled(value);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    await C1HostApi().closeScreen();
+  }
+
   void _openSearch() {
     final B7SettingsHome? info = _info;
     if (info != null && info.searchFlutter) {
@@ -160,6 +174,8 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
         afterDialog(api.openLiveManage());
       case 'wall':
         afterDialog(api.openWallManage());
+      case 'flutter':
+        _setFlutterEnabled(!(_info?.flutterEnabled ?? false));
       case 'appearance':
         afterDialog(api.openAppearance());
       case 'player':
@@ -311,6 +327,14 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
       value: row.value,
       showChevron: true,
       isError: row.hasError,
+      // B8 master switch: a Switch trailing instead of the chevron; the
+      // state comes from the snapshot, never hard-coded.
+      trailing: row.key == 'flutter'
+          ? Switch(
+              value: _info?.flutterEnabled ?? false,
+              onChanged: _setFlutterEnabled,
+            )
+          : null,
       onTap: () => _onRowTap(row),
       onLongPress: row.key == 'site_health' || row.key == 'cache'
           ? () => _onRowLongPress(row)
@@ -487,6 +511,8 @@ mixin _B7MemberState<T extends StatefulWidget> on State<T>
       return (Icons.live_tv_outlined, Colors.red);
     case 'wall':
       return (Icons.wallpaper_outlined, Colors.deepPurple);
+    case 'flutter':
+      return (Icons.flutter_dash, Colors.blue);
     case 'appearance':
       return (Icons.palette_outlined, Colors.purple);
     case 'widget':
@@ -550,6 +576,7 @@ class _HomeRow extends StatelessWidget {
     required this.value,
     this.showChevron = true,
     this.isError = false,
+    this.trailing,
     required this.onTap,
     this.onLongPress,
   });
@@ -561,6 +588,10 @@ class _HomeRow extends StatelessWidget {
   final String value;
   final bool showChevron;
   final bool isError;
+
+  /// Optional trailing widget (the B8 master-switch row's Switch);
+  /// when set it replaces the chevron.
+  final Widget? trailing;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
@@ -632,7 +663,11 @@ class _HomeRow extends StatelessWidget {
                   ),
                 ),
               ],
-              if (showChevron) ...[
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing!,
+              ],
+              if (trailing == null && showChevron) ...[
                 const SizedBox(width: 8),
                 Icon(
                   Icons.chevron_right,
