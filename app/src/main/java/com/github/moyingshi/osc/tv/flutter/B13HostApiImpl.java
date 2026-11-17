@@ -353,7 +353,7 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
         try {
             Object model = ImgUtil.getUrl(rawPic);
             if (model instanceof GlideUrl glideUrl) {
-                parts.url = text(glideUrl.getStringURL());
+                parts.url = text(glideUrl.toStringUrl());
                 splitHeaders(glideUrl.getHeaders(), parts);
             } else if (model instanceof String dataUrl) {
                 // "data:" URLs pass through getUrl() unchanged. Dart shows
@@ -370,7 +370,7 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
             if (!TextUtils.isEmpty(autoFallback)) {
                 Object fallbackModel = ImgUtil.getUrl(autoFallback);
                 if (fallbackModel instanceof GlideUrl glideFallback) {
-                    parts.fallbackUrl = text(glideFallback.getStringURL());
+                    parts.fallbackUrl = text(glideFallback.toStringUrl());
                 } else if (fallbackModel instanceof String fallbackString) {
                     parts.fallbackUrl = fallbackString;
                 }
