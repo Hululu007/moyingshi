@@ -102,6 +102,9 @@ jobs:
       # 必须在 Gradle 编译之前：生成的 Dart 文件供 Flutter 编译，生成的
       # Java 文件供宿主编译。两边同一版本 Pigeon 一次生成。
       # C1 合约（c1_messages.dart，关于 + 字幕设置）与 C0 合约同法生成。
+      # C2 合约（c2_messages.dart，历史页）亦然。
+      # B2 合约（b2_keep_messages.dart，收藏页）亦然。
+      # B3 合约（b3_settings_a_messages.dart，TMDB / AI / 去广告 / 弹幕设置页）亦然。
       - name: Generate Pigeon bindings
         run: |
           cd flutter_module
@@ -111,6 +114,72 @@ jobs:
           dart run pigeon --input pigeons/c1_messages.dart
           test -f lib/pigeon/c1_messages.g.dart
           test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/C1Messages.java
+          dart run pigeon --input pigeons/c2_messages.dart
+          test -f lib/pigeon/c2_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/C2Messages.java
+          dart run pigeon --input pigeons/b2_keep_messages.dart
+          test -f lib/pigeon/b2_keep_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B2Messages.java
+          dart run pigeon --input pigeons/b3_settings_a_messages.dart
+          test -f lib/pigeon/b3_settings_a_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B3Messages.java
+          dart run pigeon --input pigeons/b4_enhance_messages.dart
+          test -f lib/pigeon/b4_enhance_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B4Messages.java
+          dart run pigeon --input pigeons/b5_personal_messages.dart
+          test -f lib/pigeon/b5_personal_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B5Messages.java
+          dart run pigeon --input pigeons/b7_settings_home_messages.dart
+          test -f lib/pigeon/b7_settings_home_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B7Messages.java
+          dart run pigeon --input pigeons/b6_player_messages.dart
+          test -f lib/pigeon/b6_player_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B6Messages.java
+          dart run pigeon --input pigeons/b8_category_messages.dart
+          test -f lib/pigeon/b8_category_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B8Messages.java
+          dart run pigeon --input pigeons/b9_search_messages.dart
+          test -f lib/pigeon/b9_search_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B9Messages.java
+          dart run pigeon --input pigeons/b10_collect_messages.dart
+          test -f lib/pigeon/b10_collect_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B10Messages.java
+          dart run pigeon --input pigeons/b11_home_messages.dart
+          test -f lib/pigeon/b11_home_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B11Messages.java
+          dart run pigeon --input pigeons/b12_home_a_messages.dart
+          test -f lib/pigeon/b12_home_a_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B12Messages.java
+          dart run pigeon --input pigeons/b13_home_b_messages.dart
+          test -f lib/pigeon/b13_home_b_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B13Messages.java
+          dart run pigeon --input pigeons/b14_following_messages.dart
+          test -f lib/pigeon/b14_following_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B14Messages.java
+          dart run pigeon --input pigeons/b15_local_messages.dart
+          test -f lib/pigeon/b15_local_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B15Messages.java
+          dart run pigeon --input pigeons/b16_report_messages.dart
+          test -f lib/pigeon/b16_report_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B16Messages.java
+          dart run pigeon --input pigeons/b17_person_messages.dart
+          test -f lib/pigeon/b17_person_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B17Messages.java
+          dart run pigeon --input pigeons/b18_widget_messages.dart
+          test -f lib/pigeon/b18_widget_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B18Messages.java
+          dart run pigeon --input pigeons/b19_plugin_messages.dart
+          test -f lib/pigeon/b19_plugin_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B19Messages.java
+          dart run pigeon --input pigeons/b20_hk_messages.dart
+          test -f lib/pigeon/b20_hk_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B20Messages.java
+          dart run pigeon --input pigeons/b21_lab_messages.dart
+          test -f lib/pigeon/b21_lab_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B21Messages.java
+          dart run pigeon --input pigeons/b22_drama_messages.dart
+          test -f lib/pigeon/b22_drama_messages.g.dart
+          test -f ../app/src/main/java/com/github/moyingshi/osc/tv/flutter/B22Messages.java
 
       # Fail fast：Dart 侧问题在这里暴露，而不是在 20+ 分钟的 Gradle 构建后。
       - name: Analyze Dart code (fail fast)
