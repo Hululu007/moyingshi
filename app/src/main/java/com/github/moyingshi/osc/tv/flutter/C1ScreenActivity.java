@@ -268,21 +268,17 @@ public class C1ScreenActivity extends AppCompatActivity {
             // starting is sent again there (Dart ignores the repeat).
             sendRouteToDart(mRoute);
         }
-        // B8 B20: rebind the Hk miniapp manager impl to this Activity
-        // instance (the cached engine outlives the Activity on
-        // rotation; the impl's SAF picker launchers must be
-        // registered on a live Activity). No-op on leanback.
-        FlutterEngine cached = FlutterEngineCache.getInstance().get(ENGINE_ID);
-        if (cached != null) registerB20(cached.getDartExecutor());
-        // B8 B21: rebind the lab impl to this Activity instance (same
-        // rotation reason as B20: the file picks and the background
-        // import/scan must survive a rotation).
-        if (cached != null) B21HostApiImpl.register(cached.getDartExecutor(), this);
-        // B8 B22: rebind the short-drama impl to this Activity
-        // instance (same rotation reason as B20/B21: a theater card
-        // tap finishes this Activity, so the impl must hold the live
-        // instance, not the destroyed one the engine was created with).
-        if (cached != null) B22HostApiImpl.register(cached.getDartExecutor(), this);
+        // B8 host rebind (see docs/b8-host-rebind-fix.md): on a reused
+        // engine the impls registered at engine creation still hold the
+        // first Activity instance. Rebind all of them to this live
+        // instance so native dialogs and pickers keep working after
+        // navigation or rotation. On a fresh engine
+        // ensureFlutterEngine() already registered everything above,
+        // so this runs only when the engine was reused.
+        if (engineReused) {
+            FlutterEngine cached = FlutterEngineCache.getInstance().get(ENGINE_ID);
+            if (cached != null) registerHostApis(cached.getDartExecutor());
+        }
         setContentView(R.layout.activity_b8_c1);
         FragmentManager fragmentManager = getSupportFragmentManager();
         flutterFragment = (FlutterFragment) fragmentManager.findFragmentByTag(TAG_FLUTTER_FRAGMENT);
@@ -294,103 +290,129 @@ public class C1ScreenActivity extends AppCompatActivity {
         }
     }
 
-    private void ensureFlutterEngine() {
-        if (FlutterEngineCache.getInstance().get(ENGINE_ID) != null) {
-            return;
-        }
-        FlutterEngine engine = new FlutterEngine(this);
-        // Register the Pigeon handler before Dart starts executing.
-        // mRoute is set by onCreate() before this call; Dart reads it
-        // via C1HostApi.getInitialRoute() when the isolate starts.
-        C1Messages.C1HostApi.setUp(engine.getDartExecutor(), new C1HostApiImpl(this, mRoute));
+    /**
+     * B8 host rebind (see docs/b8-host-rebind-fix.md): registers every
+     * Pigeon HostApi impl on the given messenger, bound to this Activity
+     * instance. Called from two places:
+     * <ul>
+     * <li>{@link #ensureFlutterEngine()} on engine creation, before Dart
+     * starts executing (the original registration site); and</li>
+     * <li>{@link #onCreate} on every creation against a reused engine,
+     * so the impls never keep holding the first Activity instance after
+     * navigation or rotation — a stopped/destroyed Activity breaks every
+     * call that touches its FragmentManager (native dialogs) or its
+     * activity-result launchers, silently (the impls swallow the
+     * exception and answer the Pigeon error, which Dart ignores).</li>
+     * </ul>
+     * The B20/B21/B22 register methods keep one impl per engine and only
+     * update its Activity reference; the other impls are stateless
+     * request handlers, so a fresh instance per rebind is equivalent
+     * (the rotation-during-dialog edge case is recorded in the doc).
+     * This also refreshes {@link #b19Impl}, so the plugin directory
+     * picker result reaches the live impl on reused engines too.
+     */
+    private void registerHostApis(@NonNull BinaryMessenger messenger) {
+        // C1: mRoute is set by onCreate() before either call site; Dart
+        // reads it via C1HostApi.getInitialRoute() only when the isolate
+        // starts, so a rebind's fresh route value is harmless.
+        C1Messages.C1HostApi.setUp(messenger, new C1HostApiImpl(this, mRoute));
         // B8 C2: the history screen shares this engine, so register
         // C2HostApi too. See docs/b8-c2-history.md.
-        C2Messages.C2HostApi.setUp(engine.getDartExecutor(), new C2HostApiImpl(this));
+        C2Messages.C2HostApi.setUp(messenger, new C2HostApiImpl(this));
         // B8 B2: the keep screen shares this engine, so register
         // B2HostApi too. See docs/b8-b2-keep.md.
-        B2Messages.B2HostApi.setUp(engine.getDartExecutor(), new B2HostApiImpl(this));
+        B2Messages.B2HostApi.setUp(messenger, new B2HostApiImpl(this));
         // B8 B3: the settings family shares this engine, so register
         // B3HostApi too. See docs/b8-b3-settings-a.md.
-        B3Messages.B3HostApi.setUp(engine.getDartExecutor(), new B3HostApiImpl(this));
+        B3Messages.B3HostApi.setUp(messenger, new B3HostApiImpl(this));
         // B8 B4: the enhance settings page joins the family, so register
         // B4HostApi too. See docs/b8-b4-enhance.md.
-        B4Messages.B4HostApi.setUp(engine.getDartExecutor(), new B4HostApiImpl(this));
+        B4Messages.B4HostApi.setUp(messenger, new B4HostApiImpl(this));
         // B8 B5: the personal settings page and the settings search join
         // the family, so register B5HostApi too. See docs/b8-b5-personal.md.
-        B5Messages.B5HostApi.setUp(engine.getDartExecutor(), new B5HostApiImpl(this));
+        B5Messages.B5HostApi.setUp(messenger, new B5HostApiImpl(this));
         // B8 B7: the settings home is the family's initial member, so
         // register B7HostApi too. See docs/b8-b7-settings-home.md.
-        B7Messages.B7HostApi.setUp(engine.getDartExecutor(), new B7HostApiImpl(this));
+        B7Messages.B7HostApi.setUp(messenger, new B7HostApiImpl(this));
         // B8 B6: the player settings page joins the family, so register
         // B6HostApi too. See docs/b8-b6-player.md.
-        B6Messages.B6HostApi.setUp(engine.getDartExecutor(), new B6HostApiImpl(this));
+        B6Messages.B6HostApi.setUp(messenger, new B6HostApiImpl(this));
         // B8 B8: the category list shares this engine, so register
         // B8HostApi too. See docs/b8-b8-category.md.
-        B8Messages.B8HostApi.setUp(engine.getDartExecutor(), new B8HostApiImpl(this));
+        B8Messages.B8HostApi.setUp(messenger, new B8HostApiImpl(this));
         // B8 B9: the search input page shares this engine, so register
         // B9HostApi too. See docs/b8-b9-search.md.
-        B9Messages.B9HostApi.setUp(engine.getDartExecutor(), new B9HostApiImpl(this));
+        B9Messages.B9HostApi.setUp(messenger, new B9HostApiImpl(this));
         // B8 B10: the aggregate search page shares this engine, so
         // register B10HostApi too. See docs/b8-b10-collect.md.
-        B10Messages.B10HostApi.setUp(engine.getDartExecutor(), new B10HostApiImpl(this));
+        B10Messages.B10HostApi.setUp(messenger, new B10HostApiImpl(this));
         // B8 B11: the home shell shares this engine, so register
         // B11HostApi too. See docs/b8-b11-home.md.
-        B11Messages.B11HostApi.setUp(engine.getDartExecutor(), new B11HostApiImpl(this));
+        B11Messages.B11HostApi.setUp(messenger, new B11HostApiImpl(this));
         // B8 B12: the home blocks A share this engine (no new route —
         // they live inside /home), so register B12HostApi too. See
         // docs/b8-b12-home-a.md.
-        B12Messages.B12HostApi.setUp(engine.getDartExecutor(), new B12HostApiImpl(this));
+        B12Messages.B12HostApi.setUp(messenger, new B12HostApiImpl(this));
         // B8 B13: the home blocks B (JS widget sections) share this
         // engine too (no new route — they live inside /home), so
         // register B13HostApi as well. See docs/b8-b13-home-b.md.
-        B13Messages.B13HostApi.setUp(engine.getDartExecutor(), new B13HostApiImpl(this));
+        B13Messages.B13HostApi.setUp(messenger, new B13HostApiImpl(this));
         // B8 B14: the following page shares this engine too (route
         // ROUTE_FOLLOWING, no parameters), so register B14HostApi as
         // well. See docs/b8-b14-following.md.
-        B14Messages.B14HostApi.setUp(engine.getDartExecutor(), new B14HostApiImpl(this));
+        B14Messages.B14HostApi.setUp(messenger, new B14HostApiImpl(this));
         // B8 B15: the local-file browser and the app-branding page
         // share this engine too (routes ROUTE_LOCAL with a
         // ?selectDir=&readMode= query and ROUTE_BRANDING), so register
         // B15HostApi as well. See docs/b8-b15-local.md.
-        B15Messages.B15HostApi.setUp(engine.getDartExecutor(), new B15HostApiImpl(this));
+        B15Messages.B15HostApi.setUp(messenger, new B15HostApiImpl(this));
         // B8 B16: the viewing-report page shares this engine too (route
         // ROUTE_REPORT with an optional ?range= query), so register
         // B16HostApi as well. See docs/b8-b16-report.md.
-        B16Messages.B16HostApi.setUp(engine.getDartExecutor(), new B16HostApiImpl(this));
+        B16Messages.B16HostApi.setUp(messenger, new B16HostApiImpl(this));
         // B8 B17: the TMDB person page shares this engine too (route
         // ROUTE_PERSON with a ?personId=&name=&...&detailMode= query),
         // so register B17HostApi as well. See docs/b8-b17-person.md.
-        B17Messages.B17HostApi.setUp(engine.getDartExecutor(), new B17HostApiImpl(this));
+        B17Messages.B17HostApi.setUp(messenger, new B17HostApiImpl(this));
         // B8 B18: the widget browse page shares this engine too (route
         // ROUTE_WIDGETS with a ?widgetId= query), so register
         // B18HostApi as well. See docs/b8-b18-widget.md.
-        B18Messages.B18HostApi.setUp(engine.getDartExecutor(), new B18HostApiImpl(this));
+        B18Messages.B18HostApi.setUp(messenger, new B18HostApiImpl(this));
         // B8 B19: the plugin manager page shares this engine too (route
         // ROUTE_PLUGINS, no parameters), so register B19HostApi as
         // well. The impl instance is kept for the directory-picker
         // launcher result. See docs/b8-b19-plugin.md.
         b19Impl = new B19HostApiImpl(this);
-        B19Messages.B19HostApi.setUp(engine.getDartExecutor(), b19Impl);
+        B19Messages.B19HostApi.setUp(messenger, b19Impl);
         // B8 B20: the Hk miniapp manager page shares this engine too
         // (route ROUTE_HK_MANAGER, no parameters). Its impl lives in
         // the mobile source set (Hk APIs are mobile-only), so it is
         // registered through the B20Registrar reflection indirection
         // (plan §4.8 option 5); on leanback this is a silent no-op.
         // See docs/b8-b20-hk.md.
-        registerB20(engine.getDartExecutor());
+        registerB20(messenger);
         // B8 B21: the lab list + detail pages share this engine too
         // (route ROUTE_LAB, no parameters; the detail page is an
         // in-family page). The impl lives in the main source set, so
         // it registers directly; the static registry keeps one impl
         // per engine and rebinds it on rotation (B20 shape).
         // See docs/b8-b21-lab.md.
-        B21HostApiImpl.register(engine.getDartExecutor(), this);
+        B21HostApiImpl.register(messenger, this);
         // B8 B22: the short-drama theater grid and history list share
         // this engine too (routes ROUTE_DRAMA_THEATER and
         // ROUTE_DRAMA_HISTORY, no parameters, two independent
         // routes). Same static-registry shape as B21 (one impl per
         // engine, rebind on rotation). See docs/b8-b22-drama.md.
-        B22HostApiImpl.register(engine.getDartExecutor(), this);
+        B22HostApiImpl.register(messenger, this);
+    }
+
+    private void ensureFlutterEngine() {
+        if (FlutterEngineCache.getInstance().get(ENGINE_ID) != null) {
+            return;
+        }
+        FlutterEngine engine = new FlutterEngine(this);
+        // Register the Pigeon handlers before Dart starts executing.
+        registerHostApis(engine.getDartExecutor());
         engine.getDartExecutor().executeDartEntrypoint(
                 DartExecutor.DartEntrypoint.createDefault());
         FlutterEngineCache.getInstance().put(ENGINE_ID, engine);

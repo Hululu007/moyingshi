@@ -125,6 +125,12 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         Setting.putFlutterB7Enabled(enabled != null && enabled);
     }
 
+    /** B8 master switch: writes the single {@code flutter_enabled} key (see docs/b8-master-switch.md). */
+    @Override
+    public void setFlutterEnabled(Boolean enabled) {
+        Setting.putFlutterEnabled(enabled != null && enabled);
+    }
+
     // ------------------------------------------------------------------ snapshot
 
     @Override
@@ -152,6 +158,7 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
                 .setDownloadsActive(downloadsActive())
                 .setCacheScanning(cacheComputing)
                 .setPendingRowId(pendingRowId)
+                .setFlutterEnabled(Setting.isFlutterEnabled())
                 .build();
     }
 
@@ -233,6 +240,12 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         boolean b6 = Setting.isFlutterB6Enabled();
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         RowText appearance = safeRow(this::getThemeModeText);
+        // B8 master switch first in the general group, mirroring the
+        // native SettingFragment row order (see docs/b8-master-switch.md).
+        // The value stays empty: Dart renders a Switch from the snapshot's
+        // flutterEnabled field instead of an on/off text.
+        rows.add(row("flutter", R.string.b8_flutter_title, R.string.b8_flutter_sub,
+                "", false, false, "", false, -1));
         rows.add(row("appearance", R.string.setting_appearance, R.string.setting_appearance_sub,
                 appearance.text, appearance.error, false, "", false, -1));
         rows.add(row("widget", R.string.setting_enhance, R.string.setting_enhance_sub,
