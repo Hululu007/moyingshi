@@ -412,209 +412,241 @@ public class Setting {
         Prefers.put("hidden_settings_enabled", enabled);
     }
 
-    /** B8 C1: route the mobile About / subtitle screens to Flutter when true; default false = native. */
-    public static boolean isFlutterC1Enabled() {
-        return Prefers.getBoolean("flutter_c1_enabled", false);
+    /** B8 master switch: every migrated mobile screen (all batches except the player) routes to Flutter when true; default false = native. The per-batch getters below are aliases of this flag. */
+    public static boolean isFlutterEnabled() {
+        return Prefers.getBoolean("flutter_enabled", false);
     }
 
+    public static void putFlutterEnabled(boolean enabled) {
+        Prefers.put("flutter_enabled", enabled);
+    }
+
+    /** B8 C1: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
+    public static boolean isFlutterC1Enabled() {
+        return isFlutterEnabled();
+    }
+
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterC1Enabled(boolean enabled) {
         Prefers.put("flutter_c1_enabled", enabled);
     }
 
-    /** B8 C2: route the mobile History screen to Flutter when true; default false = native. */
+    /** B8 C2: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterC2Enabled() {
-        return Prefers.getBoolean("flutter_c2_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterC2Enabled(boolean enabled) {
         Prefers.put("flutter_c2_enabled", enabled);
     }
 
-    /** B8 B2: route the mobile Keep screen to Flutter when true; default false = native. */
+    /** B8 B2: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB2Enabled() {
-        return Prefers.getBoolean("flutter_b2_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB2Enabled(boolean enabled) {
         Prefers.put("flutter_b2_enabled", enabled);
     }
 
-    /** B8 B3: route the mobile TMDB / AI / ad / danmaku settings pages to Flutter when true; default false = native. */
+    /** B8 B3: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB3Enabled() {
-        return Prefers.getBoolean("flutter_b3_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB3Enabled(boolean enabled) {
         Prefers.put("flutter_b3_enabled", enabled);
     }
 
-    /** B8 B4: route the mobile enhance settings page to Flutter when true; default false = native. */
+    /** B8 B4: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB4Enabled() {
-        return Prefers.getBoolean("flutter_b4_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB4Enabled(boolean enabled) {
         Prefers.put("flutter_b4_enabled", enabled);
     }
 
-    /** B8 B5: route the mobile personal settings page and the settings search to Flutter when true; default false = native. */
+    /** B8 B5: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB5Enabled() {
-        return Prefers.getBoolean("flutter_b5_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB5Enabled(boolean enabled) {
         Prefers.put("flutter_b5_enabled", enabled);
     }
 
-    /** B8 B6: route the mobile player settings page to Flutter when true; default false = native. */
+    /** B8 B6: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB6Enabled() {
-        return Prefers.getBoolean("flutter_b6_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB6Enabled(boolean enabled) {
         Prefers.put("flutter_b6_enabled", enabled);
     }
 
-    /** B8 B7: route the mobile settings home to Flutter when true; default false = native. */
+    /** B8 B7: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB7Enabled() {
-        return Prefers.getBoolean("flutter_b7_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB7Enabled(boolean enabled) {
         Prefers.put("flutter_b7_enabled", enabled);
     }
 
-    /** B8 B8: route the mobile standalone category list to Flutter when true; default false = native. */
+    /** B8 B8: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB8Enabled() {
-        return Prefers.getBoolean("flutter_b8_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB8Enabled(boolean enabled) {
         Prefers.put("flutter_b8_enabled", enabled);
     }
 
-    /** B8 B9: route the mobile search input page to Flutter when true; default false = native. */
+    /** B8 B9: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB9Enabled() {
-        return Prefers.getBoolean("flutter_b9_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB9Enabled(boolean enabled) {
         Prefers.put("flutter_b9_enabled", enabled);
     }
 
-    /** B8 B10: route the mobile aggregate search page to Flutter when true; default false = native. */
+    /** B8 B10: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB10Enabled() {
-        return Prefers.getBoolean("flutter_b10_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB10Enabled(boolean enabled) {
         Prefers.put("flutter_b10_enabled", enabled);
     }
 
-    /** B8 B11: route the mobile home shell to Flutter when true; default false = native home. */
+    /** B8 B11: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB11Enabled() {
-        return Prefers.getBoolean("flutter_b11_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB11Enabled(boolean enabled) {
         Prefers.put("flutter_b11_enabled", enabled);
     }
 
-    /** B8 B12: render the mobile home blocks A (banner + continue watching) in Flutter when true; default false = B11 placeholders. Only meaningful while the B11 home flag is on. */
+    /** B8 B12: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB12Enabled() {
-        return Prefers.getBoolean("flutter_b12_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB12Enabled(boolean enabled) {
         Prefers.put("flutter_b12_enabled", enabled);
     }
 
-    /** B8 B13: render the mobile home JS widget sections in Flutter when true; default false = B11 placeholder. Only meaningful while the B11 home flag is on. */
+    /** B8 B13: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB13Enabled() {
-        return Prefers.getBoolean("flutter_b13_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB13Enabled(boolean enabled) {
         Prefers.put("flutter_b13_enabled", enabled);
     }
 
-    /** B8 B14: render the mobile following page in Flutter when true; default false = native FollowingActivity. */
+    /** B8 B14: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB14Enabled() {
-        return Prefers.getBoolean("flutter_b14_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB14Enabled(boolean enabled) {
         Prefers.put("flutter_b14_enabled", enabled);
     }
 
-    /** B8 B15: render the mobile local-file browser and app-branding page in Flutter when true; default false = native FileActivity / AppBrandingActivity. */
+    /** B8 B15: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB15Enabled() {
-        return Prefers.getBoolean("flutter_b15_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB15Enabled(boolean enabled) {
         Prefers.put("flutter_b15_enabled", enabled);
     }
 
-    /** B8 B16: render the mobile viewing-report page in Flutter when true; default false = native ViewingReportActivity. */
+    /** B8 B16: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB16Enabled() {
-        return Prefers.getBoolean("flutter_b16_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB16Enabled(boolean enabled) {
         Prefers.put("flutter_b16_enabled", enabled);
     }
 
-    /** B8 B17: render the mobile TMDB person page in Flutter when true; default false = native TmdbPersonActivity. */
+    /** B8 B17: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB17Enabled() {
-        return Prefers.getBoolean("flutter_b17_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB17Enabled(boolean enabled) {
         Prefers.put("flutter_b17_enabled", enabled);
     }
 
-    /** B8 B18: render the mobile widget browse page in Flutter when true; default false = native WidgetBrowseActivity. */
+    /** B8 B18: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB18Enabled() {
-        return Prefers.getBoolean("flutter_b18_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB18Enabled(boolean enabled) {
         Prefers.put("flutter_b18_enabled", enabled);
     }
 
-    /** B8 B19: render the mobile plugin manager page in Flutter when true; default false = native PluginManagerActivity. */
+    /** B8 B19: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB19Enabled() {
-        return Prefers.getBoolean("flutter_b19_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB19Enabled(boolean enabled) {
         Prefers.put("flutter_b19_enabled", enabled);
     }
 
-    /** B8 B20: render the mobile Hk miniapp manager page in Flutter when true; default false = native HkMiniappActivity. */
+    /** B8 B20: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB20Enabled() {
-        return Prefers.getBoolean("flutter_b20_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB20Enabled(boolean enabled) {
         Prefers.put("flutter_b20_enabled", enabled);
     }
 
-    /** B8 B21: render the mobile lab list/detail pages in Flutter when true; default false = native LabActivity / LabDetailActivity. */
+    /** B8 B21: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB21Enabled() {
-        return Prefers.getBoolean("flutter_b21_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB21Enabled(boolean enabled) {
         Prefers.put("flutter_b21_enabled", enabled);
     }
 
-    /** B8 B22: open the short-drama theater/history tabs in Flutter when true; default false = native tabs. The entry and the play stream always stay native (scheme B, see docs/b8-b22-drama.md). */
+    /** B8 B22: master-switch alias, same as {@link #isFlutterEnabled()}; the per-batch key is obsolete and no longer read. */
     public static boolean isFlutterB22Enabled() {
-        return Prefers.getBoolean("flutter_b22_enabled", false);
+        return isFlutterEnabled();
     }
 
+    /** Dead: writes the obsolete per-batch key, which nothing reads anymore (the getter is a master-switch alias). Kept so the existing Pigeon flag methods keep compiling. */
     public static void putFlutterB22Enabled(boolean enabled) {
         Prefers.put("flutter_b22_enabled", enabled);
     }
