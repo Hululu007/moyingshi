@@ -3,4 +3,9 @@
     <!-- B8 C0: launcher label for the experimental Flutter shell entry.
          Referenced only by the mobile manifest. -->
     <string name="b8_c0_launcher_label">墨影视·Flutter 实验</string>
+    <!-- B8 master switch (see docs/b8-master-switch.md): the single
+         Flutter row in the native settings home (SettingFragment) and
+         the Flutter settings home (B7 snapshot). -->
+    <string name="b8_flutter_title">Flutter 界面</string>
+    <string name="b8_flutter_sub">打开后除播放器外的界面走 Flutter，关掉回到原生</string>
 </resources>
