@@ -73,6 +73,8 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -134,11 +136,16 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
 
     /** Headless fragment tag (B7 pattern). */
     private static final String TAG_HOME_HOST = "b8_b11_home_host";
+    /** Headless fragment tag for the mobile TypeFilterDialog host (b8-home-fabs). */
+    private static final String TAG_FAB_HOST = "b8_b11_fab_host";
 
     /** Dialog / activity classes opened reflectively (mobile-only). */
     private static final String DIALOG_HISTORY = "com.github.moyingshi.osc.tv.ui.dialog.HistoryDialog";
     private static final String DIALOG_SITE = "com.github.moyingshi.osc.tv.ui.dialog.SiteDialog";
     private static final String DIALOG_LOCAL_SOURCE = "com.github.moyingshi.osc.tv.ui.dialog.LocalSourceDialog";
+    private static final String DIALOG_TYPE_FILTER = "com.github.moyingshi.osc.tv.ui.dialog.TypeFilterDialog";
+    private static final String DIALOG_LINK = "com.github.moyingshi.osc.tv.ui.dialog.LinkDialog";
+    private static final String FRAGMENT_FAB_HOST = "com.github.moyingshi.osc.tv.flutter.B11FabHostFragment";
     private static final String SHORT_DRAMA_ACTIVITY_CLASS = "com.github.moyingshi.osc.tv.ui.activity.ShortDramaActivity";
     private static final String HK_SEARCH_ACTIVITY_CLASS = "com.github.moyingshi.osc.tv.ui.hk.HkSearchActivity";
     private static final String SHORTCUT_RECEIVER_CLASS = "com.github.moyingshi.osc.tv.receiver.ShortcutReceiver";
@@ -178,6 +185,17 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
 
     /** True when the currently open SiteDialog picked a site (read by completeSiteDialog). */
     private boolean siteDialogChanged;
+
+    /** Types from the last successful shell load: the TypeFilterDialog's items and filter source (native mAdapter items, same objects the dialog mutates for highlight state). Replaced on every fresh shell load; kept on timeout/error so a stale dialog can never open from a failed load (Dart hides the home on error anyway). */
+    private List<Class> homeTypes = new ArrayList<>();
+
+    /** Dialog-picked filter overrides per tab (typeId -> filter key -> Value.v), applied over the Class filters' init values in getTabVideos. Cleared on every fresh shell load, like native page recreation resetting filter state. */
+    private final Map<String, Map<String, String>> filterOverrides = new HashMap<>();
+
+    /** Live TypeFilterDialog selection state (b8-home-fabs): set when the dialog is shown, updated by the headless fragment's listener callbacks, cleared on dismiss. Dart polls it while the dialog is open. */
+    private boolean typeFilterDialogOpen = false;
+    private int typeFilterSelectedTab = 0;
+    private long typeFilterVersion = 0;
 
     public B11HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
@@ -241,6 +259,11 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
         if (loaded != null) {
             if (!TextUtils.isEmpty(loaded.getMsg())) toast = loaded.getMsg();
             if (loaded.getTypes() != null) {
+                // Fresh Result: the TypeFilterDialog's items + filter
+                // source, and filter overrides reset (native page
+                // recreation resets filter state).
+                homeTypes = new ArrayList<>(loaded.getTypes());
+                filterOverrides.clear();
                 for (Class clazz : loaded.getTypes()) {
                     tabs.add(new B11Messages.B11HomeTab.Builder()
                             .setTypeId(clazz.getTypeId())
@@ -505,6 +528,10 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
         for (Filter filter : clazz.getFilters()) {
             if (filter.getInit() != null) extend.put(filter.getKey(), filter.setSelected(filter.getInit()));
         }
+        // b8-home-fabs: dialog-picked overrides win over init values
+        // (native: the page fragment's extend map after setFilter).
+        Map<String, String> overrides = filterOverrides.get(typeId);
+        if (overrides != null) extend.putAll(overrides);
         String key = homeKey();
         Site site = VodConfig.get().getSite(key);
         Style baseStyle = clazz.isFolder() ? Style.list()
@@ -1024,6 +1051,154 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                     }
                 };
         fm.registerFragmentLifecycleCallbacks(callbacks, false);
+    }
+
+    // TypeFilterDialog / LinkDialog (b8-home-fabs: browse/link FABs)
+    // ------------------------------------------------------------------
+
+    @Override
+    public void openTypeFilterDialog(Long tabIndex, B11Messages.Result<B11Messages.B11TypeFilterState> result) {
+        boolean[] completed = new boolean[1];
+        FragmentManager.FragmentLifecycleCallbacks callbacks = null;
+        FragmentManager childFm = null;
+        // Reset first: every completion path below (including the
+        // empty-types and failure paths) reports version 0, so Dart
+        // can never mistake a stale version for a new selection.
+        typeFilterVersion = 0;
+        try {
+            if (homeTypes.isEmpty()) {
+                completeTypeFilterDialog(result, completed);
+                return;
+            }
+            Fragment fabHost = fabHostFragment();
+            int startTab = tabIndex == null ? 0 : tabIndex.intValue();
+            if (startTab < 0) startTab = 0;
+            if (startTab >= homeTypes.size()) startTab = homeTypes.size() - 1;
+            // Mirror TypeAdapter.setSelected: the dialog highlights
+            // Class.isSelected(), and onItemClick re-runs this via
+            // onFabTypeSelected before notifyDataSetChanged().
+            for (int i = 0; i < homeTypes.size(); i++) homeTypes.get(i).setSelected(i == startTab);
+            typeFilterSelectedTab = startTab;
+            typeFilterDialogOpen = true;
+            childFm = fabHost.getChildFragmentManager();
+            callbacks = new FragmentManager.FragmentLifecycleCallbacks() {
+                @Override
+                public void onFragmentDestroyed(@NonNull FragmentManager manager, @NonNull Fragment fragment) {
+                    if (!DIALOG_TYPE_FILTER.equals(fragment.getClass().getName())) return;
+                    manager.unregisterFragmentLifecycleCallbacks(this);
+                    typeFilterDialogOpen = false;
+                    completeTypeFilterDialog(result, completed);
+                }
+            };
+            childFm.registerFragmentLifecycleCallbacks(callbacks, false);
+            java.lang.Class<?> dialogClass = java.lang.Class.forName(DIALOG_TYPE_FILTER);
+            Object dialog = dialogClass.getMethod("create").invoke(null);
+            dialog = dialogClass.getMethod("items", List.class).invoke(dialog, homeTypes);
+            dialog = dialogClass.getMethod("filter", List.class).invoke(dialog, fabFiltersForPosition(startTab));
+            java.lang.Class<?> providerType = java.lang.Class.forName(DIALOG_TYPE_FILTER + "$FilterProvider");
+            dialog = dialogClass.getMethod("filterProvider", providerType).invoke(dialog, fabHost);
+            dialogClass.getMethod("show", Fragment.class).invoke(dialog, fabHost);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            typeFilterDialogOpen = false;
+            if (callbacks != null && childFm != null) childFm.unregisterFragmentLifecycleCallbacks(callbacks);
+            completeTypeFilterDialog(result, completed);
+        }
+    }
+
+    /**
+     * Completes openTypeFilterDialog exactly once, on the main thread (B9
+     * pattern), with the final selection state.
+     */
+    private void completeTypeFilterDialog(B11Messages.Result<B11Messages.B11TypeFilterState> result, boolean[] completed) {
+        App.post(() -> {
+            if (completed[0]) return;
+            completed[0] = true;
+            result.success(typeFilterState());
+        });
+    }
+
+    @Override
+    public void getTypeFilterState(B11Messages.Result<B11Messages.B11TypeFilterState> result) {
+        result.success(typeFilterState());
+    }
+
+    private B11Messages.B11TypeFilterState typeFilterState() {
+        return new B11Messages.B11TypeFilterState.Builder()
+                .setDialogOpen(typeFilterDialogOpen)
+                .setSelectedTabIndex((long) typeFilterSelectedTab)
+                .setVersion(typeFilterVersion)
+                .build();
+    }
+
+    @Override
+    public void openLinkDialog(B11Messages.VoidResult result) {
+        boolean[] completed = new boolean[1];
+        try {
+            Fragment host = homeHostFragment();
+            watchDialogDismiss(host.getChildFragmentManager(), DIALOG_LINK, result, completed);
+            java.lang.Class<?> dialogClass = java.lang.Class.forName(DIALOG_LINK);
+            dialogClass.getMethod("show", Fragment.class).invoke(null, host);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            if (!completed[0]) {
+                completed[0] = true;
+                result.error(e);
+            }
+        }
+    }
+
+    /**
+     * The mobile headless fragment hosting the TypeFilterDialog
+     * (reflection: the main source set cannot name the mobile-only
+     * fragment class, and leanback has no mobile source set). Same
+     * re-attach-after-rotation shape as homeHostFragment().
+     */
+    private Fragment fabHostFragment() throws Exception {
+        FragmentManager fm = activity.getSupportFragmentManager();
+        Fragment existing = fm.findFragmentByTag(TAG_FAB_HOST);
+        if (existing != null && FRAGMENT_FAB_HOST.equals(existing.getClass().getName())) {
+            setFabHost(existing);
+            return existing;
+        }
+        java.lang.Class<?> hostClass = java.lang.Class.forName(FRAGMENT_FAB_HOST);
+        Fragment host = (Fragment) hostClass.getDeclaredConstructor().newInstance();
+        setFabHost(host);
+        fm.beginTransaction().add(host, TAG_FAB_HOST).commitNow();
+        return host;
+    }
+
+    private void setFabHost(Fragment host) throws Exception {
+        host.getClass().getMethod("setHost", B11HostApiImpl.class).invoke(host, this);
+    }
+
+    /** Called by B11FabHostFragment when the user taps a type in the dialog. Mirrors VodFragment.onItemClick (pager switch + adapter selection) as host state Dart polls. */
+    void onFabTypeSelected(int position) {
+        if (position < 0 || position >= homeTypes.size()) return;
+        for (int i = 0; i < homeTypes.size(); i++) homeTypes.get(i).setSelected(i == position);
+        typeFilterSelectedTab = position;
+        typeFilterVersion++;
+    }
+
+    /** Called by B11FabHostFragment when the user picks a filter value. Mirrors VodFragment.setFilter: the value lands in the tab's extend map, and getTabVideos applies it on the next load. */
+    void onFabFilterSet(String key, String value) {
+        if (key == null || value == null) return;
+        if (typeFilterSelectedTab < 0 || typeFilterSelectedTab >= homeTypes.size()) return;
+        String typeId = homeTypes.get(typeFilterSelectedTab).getTypeId();
+        Map<String, String> overrides = filterOverrides.get(typeId);
+        if (overrides == null) {
+            overrides = new HashMap<>();
+            filterOverrides.put(typeId, overrides);
+        }
+        overrides.put(key, value);
+        typeFilterVersion++;
+    }
+
+    /** Native VodFragment.getFiltersForPosition, over the stored shell types. Used for the dialog's initial filter section and by the headless fragment's FilterProvider. */
+    List<Filter> fabFiltersForPosition(int position) {
+        if (position < 0 || position >= homeTypes.size()) return Collections.emptyList();
+        List<Filter> filters = homeTypes.get(position).getFilters();
+        return filters == null ? Collections.emptyList() : filters;
     }
 
     @Override
