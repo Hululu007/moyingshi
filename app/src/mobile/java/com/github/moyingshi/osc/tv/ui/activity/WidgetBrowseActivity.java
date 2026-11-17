@@ -23,6 +23,8 @@ import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.databinding.ActivityWidgetBrowseBinding;
 import com.github.moyingshi.osc.tv.databinding.AdapterWidgetChipBinding;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
+import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.adapter.WidgetGridAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
@@ -39,6 +41,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,9 +61,23 @@ import java.util.concurrent.Executors;
 public class WidgetBrowseActivity extends BaseActivity {
 
     public static void start(Activity activity, String widgetId) {
+        // B8 B18: when the B18 flag is on, the browse page is the
+        // Flutter /widgets route on the shared C1 engine (see
+        // docs/b8-b18-widget.md). The native Activity stays underneath
+        // (no finish), the B8 FolderActivity precedent. Flag off =
+        // the original native intent, one line below.
+        if (Setting.isFlutterB18Enabled()) {
+            C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_WIDGETS + "?widgetId=" + encode(widgetId));
+            return;
+        }
         Intent intent = new Intent(activity, WidgetBrowseActivity.class);
         intent.putExtra("widgetId", widgetId);
         activity.startActivity(intent);
+    }
+
+    private static String encode(String value) {
+        if (TextUtils.isEmpty(value)) return "";
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private ActivityWidgetBrowseBinding mBinding;

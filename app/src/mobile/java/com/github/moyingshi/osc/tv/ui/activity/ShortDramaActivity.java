@@ -43,6 +43,8 @@ import com.github.moyingshi.osc.tv.databinding.ItemDramaHistoryBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemDramaPageBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
 import com.github.moyingshi.osc.tv.drama.DramaSites;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
+import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.adapter.EpisodeAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.EpisodeGridDialog;
@@ -95,6 +97,22 @@ public class ShortDramaActivity extends BaseActivity implements EpisodeAdapter.O
 
     public static void start(Activity activity) {
         activity.startActivity(new Intent(activity, ShortDramaActivity.class));
+    }
+
+    // B8 B22 (scheme B): the Flutter theater page asks the host to jump the
+    // native feed to a tapped drama. The jump is recorded statically by
+    // B22HostApiImpl (via reflection, this class is mobile-only) and
+    // consumed in onResume, when this Activity is back on top after the
+    // Flutter screen finishes. Static on purpose: it survives an
+    // Activity recreation (rotation) while the Flutter screen is open.
+    // See docs/b8-b22-drama.md.
+    private static String pendingJumpVodId;
+    private static int pendingJumpPosition = -1;
+
+    /** B8 B22: record a feed jump for the next onResume. Called reflectively by B22HostApiImpl. */
+    public static void jumpToFeedItem(String vodId, int position) {
+        pendingJumpVodId = vodId;
+        pendingJumpPosition = position;
     }
 
     @Override
@@ -585,6 +603,17 @@ public class ShortDramaActivity extends BaseActivity implements EpisodeAdapter.O
     // --- modes ----------------------------------------------------------
 
     private void setMode(Mode target) {
+        // B8 B22 (scheme B): with the flag on, the theater/history tabs
+        // open Flutter screens instead of switching the native views.
+        // The native Activity stays in FEED mode underneath (mode is
+        // deliberately not changed here); back from the Flutter screen
+        // returns to the play stream, and the player pauses via the
+        // existing onPause. Only the two tab taps can reach this guard
+        // with a non-FEED target; every other setMode call passes FEED.
+        if (target != Mode.FEED && Setting.isFlutterB22Enabled()) {
+            C1ScreenActivity.start(this, target == Mode.THEATER ? C1ScreenActivity.ROUTE_DRAMA_THEATER : C1ScreenActivity.ROUTE_DRAMA_HISTORY);
+            return;
+        }
         mode = target;
         mBinding.pager.setVisibility(target == Mode.FEED ? View.VISIBLE : View.GONE);
         mBinding.grid.setVisibility(target == Mode.THEATER ? View.VISIBLE : View.GONE);
@@ -620,6 +649,36 @@ public class ShortDramaActivity extends BaseActivity implements EpisodeAdapter.O
     private void showState(String text, boolean retry) {
         mBinding.state.setText(text == null ? "" : text);
         mBinding.state.setVisibility(text == null ? View.GONE : View.VISIBLE);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // B8 B22: consume a pending feed jump recorded by the Flutter
+        // theater page (see jumpToFeedItem). Resolve by vodId first so
+        // list drift between the two independent loads cannot land on
+        // the wrong drama; fall back to the recorded position. Always
+        // clear, so a stale jump can never fire twice. The jump
+        // replays the native grid card tap exactly: setMode(FEED) plus
+        // setCurrentItem, which drives playback through onPageChosen.
+        String vodId = pendingJumpVodId;
+        int position = pendingJumpPosition;
+        pendingJumpVodId = null;
+        pendingJumpPosition = -1;
+        if (vodId == null && position < 0) return;
+        int index = -1;
+        if (vodId != null) {
+            for (int i = 0; i < feed.size(); i++) {
+                if (vodId.equals(feed.get(i).getId())) {
+                    index = i;
+                    break;
+                }
+            }
+        }
+        if (index < 0 && position >= 0 && position < feed.size()) index = position;
+        if (index < 0) return;
+        setMode(Mode.FEED);
+        mBinding.pager.setCurrentItem(index, false);
     }
 
     @Override

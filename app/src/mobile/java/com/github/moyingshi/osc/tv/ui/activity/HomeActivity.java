@@ -21,6 +21,7 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.api.config.WallConfig;
+import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.api.hk.HkWarmup;
 import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.Site;
@@ -31,6 +32,7 @@ import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.event.ServerEvent;
 import com.github.moyingshi.osc.tv.event.StateEvent;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.following.FollowingPlaybackBridge;
 import com.github.moyingshi.osc.tv.following.FollowingSettings;
 import com.github.moyingshi.osc.tv.following.FollowingScheduler;
@@ -71,6 +73,7 @@ import com.github.moyingshi.osc.tv.utils.UrlUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.moyingshi.osc.tv.web.WebHomeChrome;
 import com.github.moyingshi.osc.tv.web.WebHomeChromeStartup;
+import com.github.moyingshi.osc.tv.web.WebHomeTarget;
 import com.github.moyingshi.osc.tv.web.WebHomeViewport;
 import com.github.catvod.net.OkHttp;
 import com.google.android.material.navigation.NavigationBarView;
@@ -311,10 +314,53 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     }
 
     public void change(int position) {
+        // B8 B7: the Flutter settings home replaces the native settings
+        // fragment when the flag is on; see docs/b8-b7-settings-home.md.
+        // Position 1 is the single choke point for every entry (bottom
+        // nav, back from a sub-page, VodFragment.openSetting, nav_position
+        // intents). The native fragment stays untouched for flag-off and
+        // for process-death restore (restorePosition calls changeFragment
+        // directly and stays native).
+        if (position == 1 && Setting.isFlutterB7Enabled()) {
+            C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_SETTINGS);
+            return;
+        }
         if (position != 3) returnVodFromEnhance = false;
         setNavigationVisible(true);
+        // B8 B11: the Flutter home shell replaces the native home when
+        // the flag is on and the site is not a fallback (hk:// miniapp
+        // or WebHome theme). The native home is shown underneath first
+        // (selection synced without re-entering handleNavItem, then the
+        // fragment), because HomeActivity.onDestroy() stops the server
+        // and clears VodConfig, so it must NOT be finished; back from
+        // the Flutter home lands on the native home. See
+        // docs/b8-b11-home.md. Process-death restore (restorePosition
+        // calls changeFragment directly) stays native.
+        if (position == 0 && Setting.isFlutterB11Enabled() && !isFlutterHomeFallback()) {
+            if (mBinding.navigation.getSelectedItemId() != R.id.vod) {
+                mBinding.navigation.setOnItemSelectedListener(null);
+                mBinding.navigation.setSelectedItemId(R.id.vod);
+                mBinding.navigation.setOnItemSelectedListener(this);
+            }
+            changeFragment(0);
+            C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_HOME);
+            return;
+        }
         if (position < 2) selectNavigation(position);
         else changeFragment(position);
+    }
+
+    /**
+     * B8 B11: hk:// miniapp sites and WebHome-themed sites stay native —
+     * the Flutter home must not own them. Checked here and again in the
+     * B11 snapshot for site switches inside the Flutter home. The
+     * global WebHome theme is off by default
+     * (Setting.isWebHomeThemeEnabled), so canLoad() is true only when
+     * the site has its own homePage or the user enabled a theme.
+     */
+    private boolean isFlutterHomeFallback() {
+        Site home = VodConfig.get().getHome();
+        return HkStore.isMiniapp(home) || WebHomeTarget.canLoad(home);
     }
 
     public void setNavigationVisible(boolean visible) {
@@ -446,21 +492,53 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         setNavigationVisible(true);
         if (itemId == R.id.setting) return changeFragment(1);
         if (itemId == R.id.lab) {
-            LabActivity.start(this);
+            // B8 B21: mobile + flag on opens the Flutter lab page
+            // (stacks on top, no finish — back returns here); TV and
+            // flag off stay on the native LabActivity.
+            if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+                C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_LAB);
+            } else {
+                LabActivity.start(this);
+            }
             return false;
         }
         if (itemId == R.id.local_source) {
-            if (Setting.isLabNav()) LabActivity.start(this);
+            if (Setting.isLabNav()) {
+                if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+                    C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_LAB);
+                } else {
+                    LabActivity.start(this);
+                }
+            }
             else LocalSourceDialog.create().show(this);
             return false;
         }
-        if (itemId == R.id.vod) return changeFragment(0);
+        // B8 B11: same diversion as change(0); the selection is already
+        // vod here (this branch runs because the item was selected), so
+        // the native fragment is shown directly, then the Flutter home.
+        if (itemId == R.id.vod) {
+            if (Setting.isFlutterB11Enabled() && !isFlutterHomeFallback()) {
+                changeFragment(0);
+                C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_HOME);
+                return true;
+            }
+            return changeFragment(0);
+        }
         if (itemId == R.id.drama) {
             ShortDramaActivity.start(this);
             return false;
         }
         if (itemId == R.id.live) return openLive();
         if (itemId == R.id.following) {
+            // B8 B14: the following page migrates to Flutter behind its
+            // flag (default off = native). The feature-disabled gate
+            // mirrors the native Activity's onCreate check; the leanback
+            // entries and the B11 home bottom-bar item are untouched
+            // (B11 frozen). See docs/b8-b14-following.md.
+            if (Setting.isFlutterB14Enabled() && FollowingSettings.isEnabled()) {
+                C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_FOLLOWING);
+                return false;
+            }
             FollowingActivity.start(this, null);
             return false;
         }
