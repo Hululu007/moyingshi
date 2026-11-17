@@ -116,6 +116,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_INCOGNITO = "incognito";
     public static final String ROW_ABOUT = "about";
     public static final String ROW_DOWNLOAD = "download";
+    /** B8 master switch row ("flutter", same key as the B7 snapshot row). */
+    public static final String ROW_FLUTTER = "flutter";
 
     /** Row requested by settings search; consumed (posted) when this page becomes visible. */
     private static String sPendingRow;
@@ -202,8 +204,11 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 R.string.setting_wall, ROW_WALL, this::onWall, this::setWallDefault, this::setWallRefresh);
         wallRow.findViewById(R.id.historyBtn).setOnLongClickListener(v -> onWallHistory());
 
-        // 通用：外观 / 增强功能 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
+        // 通用：Flutter 总开关 / 外观 / 增强功能 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
         ViewGroup general = addGroup(container, inflater, R.string.setting_group_general, false);
+        addRow(general, inflater, R.drawable.ic_setting_switch, R.drawable.shape_setting_circle_blue,
+                R.string.b8_flutter_title, R.string.b8_flutter_sub, ROW_FLUTTER, this::setFlutterEnabled);
+        addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_appearance, R.drawable.shape_setting_circle_purple,
                 R.string.setting_appearance, R.string.setting_appearance_sub, ROW_APPEARANCE, this::onAppearance);
         addDivider(general);
@@ -371,6 +376,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_VOD, VodConfig.getDesc());
         setValue(ROW_LIVE, LiveConfig.getDesc());
         setValue(ROW_WALL, Setting.getWallDesc(WallConfig.getDesc()));
+        setValue(ROW_FLUTTER, getSwitch(Setting.isFlutterEnabled()));
         setValue(ROW_APPEARANCE, getThemeModeText());
         setValue(ROW_ACCOUNT, getString(Setting.isTmdbReady() ? R.string.setting_configured : R.string.setting_unconfigured));
         setValue(ROW_GITCLOUD, getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
@@ -434,6 +440,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case ROW_VOD -> onVod();
             case ROW_LIVE -> onLive();
             case ROW_WALL -> onWall();
+            case ROW_FLUTTER -> setFlutterEnabled();
             case ROW_APPEARANCE -> onAppearance();
             case ROW_PERSONAL -> openPersonalSettings();
             case ROW_WIDGET -> openEnhanceSettings();
@@ -721,6 +728,12 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private boolean onWallHistory() {
         HistoryDialog.create().wall().show(this);
         return true;
+    }
+
+    /** B8 master switch: flip the single Flutter flag; the next entry to any migrated screen follows it. */
+    private void setFlutterEnabled() {
+        Setting.putFlutterEnabled(!Setting.isFlutterEnabled());
+        setValue(ROW_FLUTTER, getSwitch(Setting.isFlutterEnabled()));
     }
 
     private void setIncognito() {
