@@ -1,3 +1,6 @@
+import 'dart:ui' show AppExitResponse, ViewFocusEvent;
+
+import 'package:flutter/services.dart' show PredictiveBackEvent;
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b6_player_messages.g.dart';
