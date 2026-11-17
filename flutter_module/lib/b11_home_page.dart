@@ -1,3 +1,4 @@
+import 'dart:io' show File;
 import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
@@ -40,12 +41,14 @@ import 'widgets/vod_card.dart';
 /// awaited dialog call, not by resume. The grid reloads page 1 whenever
 /// the shell reloads (load epoch) or the selected tab changes.
 ///
-/// Deliberate deviations from native (see docs/b8-b11-home.md): the
-/// glass bar is a BackdropFilter approximation (no lens distortion /
-/// dispersion); the logo is a Material icon, not the ic_logo drawable;
-/// the title uses single-line ellipsis instead of marquee; the AppBar
-/// does not collapse and the tabs do not stick on scroll; the
-/// sync-dialog-close refresh is still resume-only.
+/// Deliberate deviations from native (see docs/b8-b11-home.md and
+/// docs/b8-home-glass.md): the glass bar is a BackdropFilter
+/// approximation (no lens distortion / dispersion); the logo is a
+/// Material icon, not the ic_logo drawable; the title uses single-line
+/// ellipsis instead of marquee; the AppBar does not collapse and the
+/// tabs do not stick on scroll; the sync-dialog-close refresh is still
+/// resume-only; video/gif wallpapers show their static frame-0
+/// snapshot, without motion.
 class B11HomePage extends StatefulWidget {
   const B11HomePage({super.key});
 
@@ -188,17 +191,40 @@ class _B11HomePageState extends State<B11HomePage>
         await _close();
       },
       child: Scaffold(
-        body: SafeArea(
-          child: screen == null ? _buildLoadingOrError() : _buildHome(screen),
-        ),
-        bottomNavigationBar: screen == null
-            ? null
-            : _GlassBottomBar(
-                screen: screen,
-                onTap: _onBottomBarTap,
-                onLongPress: _onBottomBarLongPress,
-              ),
+        // Transparent once the shell has loaded so the wallpaper shows
+        // through; the loading/error state keeps the default surface.
+        backgroundColor: screen == null ? null : Colors.transparent,
+        body: screen == null
+            ? SafeArea(child: _buildLoadingOrError())
+            : _buildHomeStack(screen),
       ),
+    );
+  }
+
+  /// Home layers (b8-home-glass): the full-screen wallpaper at the
+  /// bottom (native: CustomWallView as child 0 of android.R.id.content,
+  /// behind all content), the content column inside the safe area, and
+  /// the floating glass capsule overlaid at the bottom. The Positioned
+  /// capsule only hit-tests on the bar itself, so content beneath the
+  /// overlay margins stays tappable.
+  Widget _buildHomeStack(B11HomeScreen screen) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _WallpaperBackground(screen: screen),
+        ),
+        SafeArea(child: _buildHome(screen)),
+        Positioned(
+          left: _glassBarInsetX,
+          right: _glassBarInsetX,
+          bottom: _glassBarFloat + MediaQuery.paddingOf(context).bottom,
+          child: _GlassBottomBar(
+            screen: screen,
+            onTap: _onBottomBarTap,
+            onLongPress: _onBottomBarLongPress,
+          ),
+        ),
+      ],
     );
   }
 
@@ -423,6 +449,41 @@ class _B11HomePageState extends State<B11HomePage>
       tab: tab,
       epoch: _homeLoadEpoch,
       emptyText: screen.tabPlaceholderEmptyText,
+      bottomPadding: _glassSlotHeight,
+    );
+  }
+}
+
+/// B8 b8-home-glass: the full-screen home wallpaper, painted behind
+/// all content (native: CustomWallView, BaseActivity child 0). The
+/// image file and fallback color come from the host snapshot, resolved
+/// exactly like CustomWallView.load(); a missing or unreadable file
+/// degrades to the fallback color, never to a blank background. The
+/// wallpaper itself is blurred 3dp when glass is on (native home:
+/// ThemeController.applyWallpaperBlur(this, 3)); glass off shows it
+/// sharp. Foreground content is never blurred.
+class _WallpaperBackground extends StatelessWidget {
+  const _WallpaperBackground({required this.screen});
+
+  final B11HomeScreen screen;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fallback = Color(screen.wallpaperColor);
+    final Widget image = screen.wallpaperPath.isEmpty
+        ? Container(color: fallback)
+        : Image.file(
+            File(screen.wallpaperPath),
+            fit: BoxFit.cover,
+            errorBuilder: (BuildContext context, Object error,
+                StackTrace? stackTrace) {
+              return Container(color: fallback);
+            },
+          );
+    if (!screen.glassEnabled) return image;
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+      child: image,
     );
   }
 }
@@ -443,6 +504,7 @@ class _TabVideoGrid extends StatefulWidget {
     required this.tab,
     required this.epoch,
     required this.emptyText,
+    required this.bottomPadding,
   });
 
   final B11HomeTab tab;
@@ -454,6 +516,11 @@ class _TabVideoGrid extends StatefulWidget {
 
   /// Host empty text (widget_empty), shown when the tab has no videos.
   final String emptyText;
+
+  /// Bottom padding reserved inside the scrollable so the last row
+  /// scrolls clear of the floating glass capsule (the native 88dp
+  /// glass slot height).
+  final double bottomPadding;
 
   @override
   State<_TabVideoGrid> createState() => _TabVideoGridState();
@@ -735,6 +802,7 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
       case 'list':
         return ListView.builder(
           controller: _scrollController,
+          padding: EdgeInsets.only(bottom: widget.bottomPadding),
           itemCount: _items.length,
           itemBuilder: (BuildContext context, int index) {
             final B11TabVideoItem item = _items[index];
@@ -749,7 +817,7 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
       case 'oval':
         return GridView.builder(
           controller: _scrollController,
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + widget.bottomPadding),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: _columnCount,
             crossAxisSpacing: 16,
@@ -774,7 +842,8 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
       default:
         return GridView.builder(
           controller: _scrollController,
-          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+          padding: EdgeInsets.only(
+              left: 16, right: 16, bottom: 16 + widget.bottomPadding),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: _columnCount,
             crossAxisSpacing: 16,
@@ -960,12 +1029,26 @@ class _B11OvalCard extends StatelessWidget {
   }
 }
 
+// Native glass slot geometry (GlassNavBar.kt, activity_home.xml):
+// the floating capsule is 64dp tall, floats 16dp above the bottom of
+// its 88dp slot, with 24dp side insets. The grid reserves the full
+// slot height as bottom padding so the last row scrolls clear of the
+// capsule.
+const double _glassBarHeight = 64;
+const double _glassBarFloat = 16;
+const double _glassBarInsetX = 24;
+const double _glassSlotHeight = 88;
+
 /// The Dart copy of the native glass bottom bar (HomeActivity +
-/// GlassNavBar): the same items in the same order, the same selection
-/// pill, the same glass parameters from the host snapshot. Glass mode
-/// uses a BackdropFilter blur over a translucent surface; plain mode is
-/// an opaque bar. Icons are Material approximations of the native
-/// ic_nav_* drawables (see docs/b8-b11-home.md V5).
+/// GlassNavBar): a floating capsule (64dp tall, 24dp side insets, 16dp
+/// float — the native 88dp glass slot), the same items in the same
+/// order, the same selection pill, the same glass parameters from the
+/// host snapshot. Glass mode uses a BackdropFilter blur over a
+/// translucent surface, refracting the wallpaper and content behind
+/// it; plain mode (glass off) keeps the capsule shape but renders
+/// opaque (see docs/b8-home-glass.md). Icons are Material
+/// approximations of the native ic_nav_* drawables (see
+/// docs/b8-b11-home.md V5).
 class _GlassBottomBar extends StatelessWidget {
   const _GlassBottomBar({
     required this.screen,
@@ -1013,92 +1096,88 @@ class _GlassBottomBar extends StatelessWidget {
     // fully opaque (approximation, see docs/b8-b11-home.md V4).
     final double opacity =
         (1 - screen.glassTranslucency / 100).clamp(0.15, 0.9);
+    final BorderRadius capsule = BorderRadius.circular(_glassBarHeight / 2);
     final Widget bar = Container(
-      height: screen.glassEnabled ? 76 : 56,
+      height: _glassBarHeight,
       decoration: BoxDecoration(
         color: screen.glassEnabled
             ? surface.withAlpha((opacity * 255).round())
             : surface,
-        borderRadius: screen.glassEnabled
-            ? const BorderRadius.vertical(top: Radius.circular(20))
-            : null,
+        borderRadius: capsule,
       ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: items.map((B11NavItem item) {
-            final bool selected = item.token == screen.selectedNavToken;
-            final Color color = selected ? accent : unselected;
-            final Widget label = Text(
-              item.label,
-              style: TextStyle(fontSize: 11, color: color),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            );
-            final Widget icon = Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(_iconFor(item.token), size: 22, color: color),
-                if (item.badgeCount > 0)
-                  Positioned(
-                    right: -6,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        item.badgeCount > 99
-                            ? '99+'
-                            : item.badgeCount.toString(),
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Colors.white,
-                        ),
+      child: Row(
+        children: items.map((B11NavItem item) {
+          final bool selected = item.token == screen.selectedNavToken;
+          final Color color = selected ? accent : unselected;
+          final Widget label = Text(
+            item.label,
+            style: TextStyle(fontSize: 11, color: color),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
+          final Widget icon = Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(_iconFor(item.token), size: 22, color: color),
+              if (item.badgeCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      item.badgeCount > 99
+                          ? '99+'
+                          : item.badgeCount.toString(),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-              ],
-            );
-            final Widget content = Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                icon,
-                const SizedBox(height: 2),
-                label,
-              ],
-            );
-            final Widget pill = Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: selected
-                  ? BoxDecoration(
-                      color: accent.withAlpha(38),
-                      borderRadius: BorderRadius.circular(16),
-                    )
-                  : null,
-              child: content,
-            );
-            return Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onTap(item),
-                onLongPress: () => onLongPress(item),
-                child: Center(child: pill),
-              ),
-            );
-          }).toList(),
-        ),
+                ),
+            ],
+          );
+          final Widget content = Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(height: 2),
+              label,
+            ],
+          );
+          final Widget pill = Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+            decoration: selected
+                ? BoxDecoration(
+                    color: accent.withAlpha(38),
+                    borderRadius: BorderRadius.circular(16),
+                  )
+                : null,
+            child: content,
+          );
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onTap(item),
+              onLongPress: () => onLongPress(item),
+              child: Center(child: pill),
+            ),
+          );
+        }).toList(),
       ),
     );
     if (!screen.glassEnabled || blur <= 0) return bar;
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: capsule,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: bar,
