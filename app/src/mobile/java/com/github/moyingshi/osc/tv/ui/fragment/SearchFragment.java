@@ -37,6 +37,7 @@ import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.Word;
 import com.github.moyingshi.osc.tv.databinding.FragmentSearchBinding;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.ThemeController;
@@ -58,6 +59,7 @@ import com.google.android.material.textview.MaterialTextView;
 import com.google.common.net.HttpHeaders;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -223,6 +225,32 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     }
 
     private void collect(String keyword) {
+        // B8 B10: when the flag is on, the results page is the Flutter
+        // page (same entry, same params — the params travel URL-encoded
+        // in the route query). The siteKey is already resolved by
+        // getSearchSiteKey(), the group by getSearchGroup(). The native
+        // SearchActivity stays underneath, so back from the results page
+        // returns to this input page; the "edit" keyboard pop is not
+        // carried over (see docs/b8-b10-collect.md V8). Any failure here
+        // falls through to the native fragment transaction.
+        if (Setting.isFlutterB10Enabled()) {
+            try {
+                String siteKey = getSearchSiteKey();
+                String group = getSearchGroup();
+                String route = C1ScreenActivity.ROUTE_COLLECT
+                        + "?keyword=" + URLEncoder.encode(keyword, "UTF-8")
+                        + "&currentSite=" + mCurrentSite
+                        + "&siteKey=" + URLEncoder.encode(siteKey == null ? "" : siteKey, "UTF-8")
+                        + "&group=" + URLEncoder.encode(group == null ? "" : group, "UTF-8")
+                        + "&pic=" + URLEncoder.encode(getPic() == null ? "" : getPic(), "UTF-8")
+                        + "&wallPic=" + URLEncoder.encode(getWallPic() == null ? "" : getWallPic(), "UTF-8")
+                        + "&hrCid=-1&hrKey=&hrTargetCid=-1";
+                C1ScreenActivity.start(requireActivity(), route);
+                return;
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        }
         FragmentManager fm = requireActivity().getSupportFragmentManager();
         String collectTag = CollectFragment.class.getSimpleName();
         if (fm.findFragmentByTag(collectTag) != null) return;

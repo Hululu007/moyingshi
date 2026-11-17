@@ -24,6 +24,7 @@ import com.github.moyingshi.osc.tv.plugin.PluginSourceConfig;
 import com.github.moyingshi.osc.tv.remote.RemoteStore;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.databinding.FragmentSettingEnhanceBinding;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.setting.CustomCspSetting;
 import com.github.moyingshi.osc.tv.setting.ProxySetting;
 import com.github.moyingshi.osc.tv.setting.SiteHealthStore;
@@ -53,6 +54,7 @@ import com.github.moyingshi.osc.tv.ui.dialog.WebHomeThemeDialog;
 import com.github.moyingshi.osc.tv.utils.LoginStateSync;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
+import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.moyingshi.osc.tv.web.ext.WebHomeExtensionRegistry;
 import com.google.gson.JsonObject;
@@ -96,7 +98,15 @@ public class SettingEnhanceFragment extends BaseFragment {
             }
             return false;
         });
-        mBinding.lab.setOnClickListener(view -> LabActivity.start(requireContext()));
+        mBinding.lab.setOnClickListener(view -> {
+            // B8 B21: mobile + flag on opens the Flutter lab page
+            // (stacks on top, no finish); TV and flag off stay native.
+            if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+                C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_LAB);
+            } else {
+                LabActivity.start(requireContext());
+            }
+        });
         mBinding.labNav.setOnClickListener(this::setLabNav);
         mBinding.hkMiniapp.setOnClickListener(this::setHkMiniapp);
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
@@ -131,7 +141,15 @@ public class SettingEnhanceFragment extends BaseFragment {
         }));
         mBinding.loginState.setOnClickListener(view -> LoginStateLearnDialog.show(this, this::setText));
         mBinding.oneKeySync.setOnClickListener(v -> OneKeySyncDialog.create().show(requireActivity()));
-        mBinding.pluginManager.setOnClickListener(view -> PluginManagerActivity.start(requireActivity()));
+        // B8 B19: when the flag is on, the plugin row opens the Flutter
+        // plugin manager page; otherwise the native page, unchanged.
+        mBinding.pluginManager.setOnClickListener(view -> {
+            if (Setting.isFlutterB19Enabled()) {
+                C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_PLUGINS);
+            } else {
+                PluginManagerActivity.start(requireActivity());
+            }
+        });
     }
 
     private void reorderItems() {

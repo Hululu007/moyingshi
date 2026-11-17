@@ -44,6 +44,7 @@ import com.github.moyingshi.osc.tv.event.CastEvent;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.event.StateEvent;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.impl.ConfigListener;
 import com.github.moyingshi.osc.tv.impl.FilterListener;
@@ -316,7 +317,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             onSearchCurrentSite();
             return true;
         });
-        mBinding.searchHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
+        mBinding.searchHistory.setOnClickListener(v -> {
+            // B8 C2: route to the Flutter history screen when the C2 flag
+            // is on; otherwise the native screen, unchanged.
+            if (Setting.isFlutterC2Enabled()) C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_HISTORY);
+            else HistoryActivity.start(requireActivity());
+        });
         mBinding.searchMore.setOnClickListener(this::onSearchMore);
         mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
         mBinding.toolbar.post(this::setSearchLongClick);
@@ -666,8 +672,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (item.getItemId() == R.id.refresh) {
             if (mWeb != null && mWeb.isVisible()) mWeb.reload();
             else homeContent();
-        } else if (item.getItemId() == R.id.keep) KeepActivity.start(requireActivity());
-        else if (item.getItemId() == R.id.search) onSearchClick();
+        } else if (item.getItemId() == R.id.keep) {
+            // B8 B2: route to the Flutter keep screen when the B2 flag
+            // is on; otherwise the native screen, unchanged.
+            if (Setting.isFlutterB2Enabled()) C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_KEEP);
+            else KeepActivity.start(requireActivity());
+        } else if (item.getItemId() == R.id.search) onSearchClick();
         else if (item.getItemId() == R.id.sync) OneKeySyncDialog.create().show(requireActivity());
         else if (item.getItemId() == R.id.push_apk) ApkPushDialog.create().listener(this::onApkDeviceSelected).show(requireActivity());
         else if (item.getItemId() == R.id.push_play) PushPlayDialog.create().listener(this::onPushPlayDeviceSelected).show(requireActivity());

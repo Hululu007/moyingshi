@@ -64,6 +64,7 @@ import com.github.moyingshi.osc.tv.utils.AppVersion;
 import com.github.moyingshi.osc.tv.utils.FileUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
+import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.catvod.bean.Doh;
 import com.github.catvod.net.OkHttp;
 import com.google.android.material.card.MaterialCardView;
@@ -177,7 +178,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
     @Override
     protected void initEvent() {
-        mBinding.searchBtn.setOnClickListener(v -> getRoot().change(10));
+        mBinding.searchBtn.setOnClickListener(v -> openSettingSearch());
     }
 
     // ------------------------------------------------------------------ groups
@@ -207,30 +208,30 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 R.string.setting_appearance, R.string.setting_appearance_sub, ROW_APPEARANCE, this::onAppearance);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_action_setting, R.drawable.shape_setting_circle_orange,
-                R.string.setting_enhance, R.string.setting_enhance_sub, ROW_WIDGET, () -> getRoot().change(3));
+                R.string.setting_enhance, R.string.setting_enhance_sub, ROW_WIDGET, this::openEnhanceSettings);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_play, R.drawable.shape_setting_circle_red,
-                R.string.setting_player, R.string.setting_player_sub, ROW_PLAYER, () -> getRoot().change(2));
+                R.string.setting_player, R.string.setting_player_sub, ROW_PLAYER, this::openPlayerSettings);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_danmaku, R.drawable.shape_setting_circle_blue,
-                R.string.setting_danmaku, R.string.setting_danmaku_sub, ROW_DANMAKU, () -> getRoot().change(4));
+                R.string.setting_danmaku, R.string.setting_danmaku_sub, ROW_DANMAKU, this::openDanmakuSettings);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_subtitle, R.drawable.shape_setting_circle_green,
                 R.string.setting_subtitle, R.string.setting_subtitle_sub, ROW_SUBTITLE, this::onSubtitle);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_ai, R.drawable.shape_setting_circle_purple,
-                R.string.setting_ai, R.string.setting_ai_sub, ROW_AI, () -> getRoot().change(8));
+                R.string.setting_ai, R.string.setting_ai_sub, ROW_AI, this::openAiSettings);
         addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_ad, R.drawable.shape_setting_circle_red,
-                R.string.setting_ad, R.string.setting_ad_sub, ROW_AD, () -> getRoot().change(9));
+                R.string.setting_ad, R.string.setting_ad_sub, ROW_AD, this::openAdSettings);
 
         // 账号与服务：TMDB / 个性设置
         ViewGroup account = addGroup(container, inflater, R.string.setting_group_account, false);
         addRow(account, inflater, R.drawable.ic_setting_account, R.drawable.shape_setting_circle_blue,
-                R.string.setting_tmdb, R.string.setting_tmdb_sub, ROW_ACCOUNT, () -> getRoot().change(7));
+                R.string.setting_tmdb, R.string.setting_tmdb_sub, ROW_ACCOUNT, this::openTmdbSettings);
         addDivider(account);
         addRow(account, inflater, R.drawable.ic_setting_personal, R.drawable.shape_setting_circle_green,
-                R.string.setting_personal, R.string.setting_personal_sub, ROW_PERSONAL, () -> getRoot().change(5));
+                R.string.setting_personal, R.string.setting_personal_sub, ROW_PERSONAL, this::openPersonalSettings);
 
         // 特色功能：墨影视独有行（增强设置页里仍保留入口，这里是主设置页的集中入口）
         ViewGroup feature = addGroup(container, inflater, R.string.setting_group_feature, false);
@@ -434,14 +435,14 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case ROW_LIVE -> onLive();
             case ROW_WALL -> onWall();
             case ROW_APPEARANCE -> onAppearance();
-            case ROW_PERSONAL -> getRoot().change(5);
-            case ROW_WIDGET -> getRoot().change(3);
-            case ROW_PLAYER -> getRoot().change(2);
-            case ROW_DANMAKU -> getRoot().change(4);
+            case ROW_PERSONAL -> openPersonalSettings();
+            case ROW_WIDGET -> openEnhanceSettings();
+            case ROW_PLAYER -> openPlayerSettings();
+            case ROW_DANMAKU -> openDanmakuSettings();
             case ROW_SUBTITLE -> getRoot().change(6);
-            case ROW_AI -> getRoot().change(8);
-            case ROW_AD -> getRoot().change(9);
-            case ROW_ACCOUNT -> getRoot().change(7);
+            case ROW_AI -> openAiSettings();
+            case ROW_AD -> openAdSettings();
+            case ROW_ACCOUNT -> openTmdbSettings();
             case ROW_LOCAL_SOURCE -> onLocalSource();
             case ROW_LAB -> onLab();
             case ROW_GITCLOUD -> onGitCloud();
@@ -568,7 +569,15 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     }
 
     private void onLab() {
-        LabActivity.start(requireContext());
+        // B8 B21: mobile + flag on opens the Flutter lab page
+        // (stacks on top, no finish — this funnels both the ROW_LAB
+        // tap and the performRow deep link); TV and flag off stay
+        // on the native LabActivity.
+        if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_LAB);
+        } else {
+            LabActivity.start(requireContext());
+        }
     }
 
     private void onGitCloud() {
@@ -612,6 +621,89 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             return;
         }
         getRoot().change(6);
+    }
+
+    // B8 B3: same flag split as onSubtitle(); the native pages are
+    // HomeActivity indices 4 (danmaku), 7 (TMDB), 8 (AI), 9 (ad). Both
+    // the settings-home rows (buildGroups) and the settings-search deep
+    // link (performRow) go through these methods, so the flag cannot be
+    // bypassed via search. (C1's performRow ROW_SUBTITLE still calls
+    // change(6) directly; C1 is frozen, that stays.)
+    // B8 B4: same flag split as the B3 open* methods; the native page is
+    // HomeActivity index 3. Both the settings-home row (buildGroups) and
+    // the settings-search deep link (performRow) go through this method,
+    // so the flag cannot be bypassed via search.
+    private void openEnhanceSettings() {
+        if (Setting.isFlutterB4Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=enhance");
+            return;
+        }
+        getRoot().change(3);
+    }
+
+    // B8 B5: same flag split as the B4 open* methods; the native pages
+    // are HomeActivity indices 5 (personal) and 10 (settings search).
+    // Both the settings-home entries (buildGroups / search button) and
+    // the settings-search deep link (performRow) go through these
+    // methods, so the flag cannot be bypassed via search.
+    private void openPersonalSettings() {
+        if (Setting.isFlutterB5Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=personal");
+            return;
+        }
+        getRoot().change(5);
+    }
+
+    private void openSettingSearch() {
+        if (Setting.isFlutterB5Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=search");
+            return;
+        }
+        getRoot().change(10);
+    }
+
+    private void openDanmakuSettings() {
+        if (Setting.isFlutterB3Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=danmaku");
+            return;
+        }
+        getRoot().change(4);
+    }
+
+    private void openTmdbSettings() {
+        if (Setting.isFlutterB3Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=tmdb");
+            return;
+        }
+        getRoot().change(7);
+    }
+
+    private void openAiSettings() {
+        if (Setting.isFlutterB3Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=ai");
+            return;
+        }
+        getRoot().change(8);
+    }
+
+    private void openAdSettings() {
+        if (Setting.isFlutterB3Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=ad");
+            return;
+        }
+        getRoot().change(9);
+    }
+
+    // B8 B6: same flag split as the B3 open* methods; the native page is
+    // HomeActivity index 2. Both the settings-home row (buildGroups) and
+    // the settings-search deep link (performRow) go through this method,
+    // so the flag cannot be bypassed via search.
+    private void openPlayerSettings() {
+        if (Setting.isFlutterB6Enabled()) {
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=player");
+            return;
+        }
+        getRoot().change(2);
     }
 
     private void setWallDefault() {
