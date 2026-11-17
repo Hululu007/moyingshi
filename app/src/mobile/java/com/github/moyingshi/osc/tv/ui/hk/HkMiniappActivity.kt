@@ -54,7 +54,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
     override fun initView(savedInstanceState: Bundle?) {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        picker = HkImportPicker(this) { added -> onImported(added) }
+        picker = HkImportPicker(this, onImported = { added -> onImported(added) })
         adapter = LocalSourceAdapter(this).setCheckable(true)
         binding.recycler.adapter = adapter
         binding.btnImportFile.setOnClickListener { showPickChooser() }
