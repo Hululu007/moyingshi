@@ -46,3 +46,25 @@ flutter_module/lib/pigeon/
 # Pigeon-generated host code (CI generates it from flutter_module/pigeons/).
 app/src/main/java/com/github/moyingshi/osc/tv/flutter/C0Messages.java
 app/src/main/java/com/github/moyingshi/osc/tv/flutter/C1Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/C2Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B2Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B3Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B4Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B5Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B6Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B7Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B8Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B9Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B10Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B11Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B12Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B13Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B14Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B15Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B16Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B17Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B18Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B19Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B20Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B21Messages.java
+app/src/main/java/com/github/moyingshi/osc/tv/flutter/B22Messages.java
