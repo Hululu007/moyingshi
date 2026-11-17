@@ -44,6 +44,7 @@ import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.bean.TmdbPerson;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.ActivityTmdbPersonBinding;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.service.TmdbService;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.ThemeController;
@@ -63,6 +64,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -96,6 +99,27 @@ public class TmdbPersonActivity extends BaseActivity {
 
     public static void start(Activity activity, TmdbPerson person, String siteKey, int detailMode) {
         if (activity == null || person == null || person.getPersonId() <= 0) return;
+        // B8 B17: when the Flutter person page is enabled (mobile only),
+        // open it on the shared C1 engine instead of the native page.
+        // The single diversion point: the 3-arg start() delegates here,
+        // so both callers (TmdbDetailActivity.loadPersonDetail and
+        // WebHomeThemeBridge.openPerson) are covered. The route carries
+        // the same intent extras the native page reads. See
+        // docs/b8-b17-person.md.
+        if (Setting.isFlutterB17Enabled() && Util.isMobile()) {
+            int mode = normalizeDetailMode(detailMode);
+            String route = C1ScreenActivity.ROUTE_PERSON
+                    + "?personId=" + person.getPersonId()
+                    + "&name=" + encode(person.getName())
+                    + "&subtitle=" + encode(person.getSubtitle())
+                    + "&profile=" + encode(person.getProfileUrl())
+                    + "&department=" + encode(person.getKnownForDepartment())
+                    + "&biography=" + encode(person.getBiography())
+                    + "&siteKey=" + encode(siteKey)
+                    + "&detailMode=" + mode;
+            C1ScreenActivity.start(activity, route);
+            return;
+        }
         Intent intent = new Intent(activity, TmdbPersonActivity.class);
         intent.putExtra("person_id", person.getPersonId());
         intent.putExtra("person_name", person.getName());
@@ -106,6 +130,12 @@ public class TmdbPersonActivity extends BaseActivity {
         intent.putExtra("site_key", siteKey);
         intent.putExtra("detail_mode", normalizeDetailMode(detailMode));
         activity.startActivity(intent);
+    }
+
+    /** B8 B17: URL-encodes one route query value (empty stays empty). */
+    private static String encode(String value) {
+        if (TextUtils.isEmpty(value)) return "";
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     @Override
