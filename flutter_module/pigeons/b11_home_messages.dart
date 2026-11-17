@@ -101,6 +101,63 @@ abstract class B11HostApi {
   /// folder's typeId and the parent tab's Class JSON, start-then-finish,
   /// shared G2 race) — the B8 drill-down semantics, from the home grid.
   void openTabCategory(String typeId, String typeJson);
+
+  /// browse FAB (tune icon): open the native TypeFilterDialog — all
+  /// categories + the current tab's filter groups, exactly like
+  /// VodFragment.onBrowse (items = the home Result's types, filter =
+  /// the current tab's filters, filterProvider per position). tabIndex
+  /// is the currently selected tab (the dialog's initial filter
+  /// section + highlight). The dialog is opened reflectively through
+  /// a mobile headless fragment (B7/B9 pattern: the dialog casts its
+  /// host to the mobile-only TypeAdapter.OnClickListener). While it
+  /// is open, Dart polls getTypeFilterState for live selections
+  /// (type taps switch the tab, filter picks reload the grid, both
+  /// without closing the panel, like native). Completes on dismiss
+  /// with the final selection state; on any failure it completes
+  /// with the unchanged state and the home stays as-is.
+  @async
+  B11TypeFilterState openTypeFilterDialog(int tabIndex);
+
+  /// Poll the live TypeFilterDialog selection while it is open
+  /// (B19/B20 polling pattern): dialogOpen is false once dismissed,
+  /// and version bumps on every type tap / filter pick. Dart applies
+  /// the state whenever the version differs from the last applied
+  /// one; the dismiss completion of openTypeFilterDialog is the
+  /// backstop, so a missed poll cannot lose the final selection.
+  @async
+  B11TypeFilterState getTypeFilterState();
+
+  /// link FAB: open the native LinkDialog (paste-a-link play, like
+  /// VodFragment.onLink; reflection + the B7 headless fragment).
+  /// Completes on dismiss; the dialog plays directly (VideoActivity),
+  /// so no state comes back.
+  @async
+  void openLinkDialog();
+}
+
+/// Live selection state of the native TypeFilterDialog opened from
+/// the home browse FAB (b8-home-fabs). The host owns the state: type
+/// taps and filter picks update it through the mobile headless
+/// fragment's listener callbacks, and getTabVideos applies the
+/// picked filter overrides over the Class filters' init values.
+class B11TypeFilterState {
+  B11TypeFilterState({
+    required this.dialogOpen,
+    required this.selectedTabIndex,
+    required this.version,
+  });
+
+  /// True while the dialog is on screen (set when shown, cleared on
+  /// dismiss). False when no dialog is open or opening failed.
+  bool dialogOpen;
+
+  /// Currently selected type position, in getHomeShell tabs order.
+  int selectedTabIndex;
+
+  /// Selection generation: reset to 0 when the dialog opens, bumped
+  /// on every type tap / filter pick. Dart applies the state
+  /// whenever this differs from the last applied version.
+  int version;
 }
 
 /// Flat home shell snapshot. Every display string and computed value
