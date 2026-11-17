@@ -129,7 +129,7 @@ public class B15HostApiImpl implements B15Messages.B15HostApi {
     /** Native FileActivity.update + list, flattened into a snapshot. */
     private B15Messages.B15LocalScreen buildScreen(String dirPath, boolean selectDir, boolean readMode) {
         File dir = TextUtils.isEmpty(dirPath) ? Path.root() : new File(dirPath);
-        List<B15LocalItem> items = new ArrayList<>();
+        List<B15Messages.B15LocalItem> items = new ArrayList<>();
         try {
             for (File file : list(dir, selectDir)) {
                 items.add(new B15Messages.B15LocalItem.Builder()

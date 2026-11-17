@@ -518,7 +518,7 @@ public final class B22HostApiImpl implements B22Messages.B22HostApi {
         try {
             Object model = ImgUtil.getUrl(rawPic);
             if (model instanceof GlideUrl glideUrl) {
-                parts.url = nn(glideUrl.getStringURL());
+                parts.url = nn(glideUrl.toStringUrl());
                 splitHeaders(glideUrl.getHeaders(), parts);
             } else if (model instanceof String dataUrl) {
                 // "data:" URLs pass through getUrl() unchanged. Dart shows
@@ -535,7 +535,7 @@ public final class B22HostApiImpl implements B22Messages.B22HostApi {
             if (!TextUtils.isEmpty(autoFallback)) {
                 Object fallbackModel = ImgUtil.getUrl(autoFallback);
                 if (fallbackModel instanceof GlideUrl glideFallback) {
-                    parts.fallbackUrl = nn(glideFallback.getStringURL());
+                    parts.fallbackUrl = nn(glideFallback.toStringUrl());
                 } else if (fallbackModel instanceof String fallbackString) {
                     parts.fallbackUrl = fallbackString;
                 }
