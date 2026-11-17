@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:io' show File;
 import 'dart:ui' show ImageFilter;
 
@@ -83,6 +84,29 @@ class _B11HomePageState extends State<B11HomePage>
   /// errorToast already shown for the current snapshot (shown once).
   String _shownToast = '';
 
+  /// B8 b8-home-fabs: CustomFabBehavior mirror. _fabTopVisible tracks
+  /// the top FAB (shown once the user scrolls down, hidden on scroll
+  /// back up); _fabsScrolledAway tracks the browse/link FAB (hidden
+  /// while scrolling down, shown on scroll back up). Both reset on
+  /// tab switch (native setFabVisible on page change) and on top-tap.
+  bool _fabTopVisible = false;
+  bool _fabsScrolledAway = false;
+  double _lastScrollPixels = 0;
+
+  /// B8 b8-home-fabs: filter generation for the tab grid, bumped when
+  /// the native TypeFilterDialog applies a filter, so the grid
+  /// reloads page 1 with the host-side overrides without resetting
+  /// the B12/B13 blocks (a shell epoch bump would reset the banner).
+  int _filterEpoch = 0;
+
+  /// B8 b8-home-fabs: TypeFilterDialog live-selection polling (B19/B20
+  /// pattern). The timer runs only while the dialog's @async call is
+  /// pending; _appliedTypeFilterVersion is the last state version
+  /// applied to the tab/grid (host resets it to 0 on open).
+  Timer? _typeFilterPollTimer;
+  bool _typeFilterPolling = false;
+  int _appliedTypeFilterVersion = 0;
+
   /// True while the fallback close is already scheduled (one shot per
   /// snapshot, so a hk:// / WebHome site does not close twice).
   bool _fallbackClosing = false;
@@ -91,14 +115,39 @@ class _B11HomePageState extends State<B11HomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onFabScroll);
     _load();
   }
 
   @override
   void dispose() {
+    _typeFilterPollTimer?.cancel();
+    _scrollController.removeListener(_onFabScroll);
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// CustomFabBehavior, on the unified scroll controller: scrolling
+  /// down (pixels increase, native dyConsumed > 0) shows the top FAB
+  /// and hides browse/link; scrolling back up hides top and re-shows
+  /// browse/link. No scroll events fire when the content cannot
+  /// scroll, so the FABs stay in their rest state.
+  void _onFabScroll() {
+    if (!_scrollController.hasClients) return;
+    final double pixels = _scrollController.position.pixels;
+    final double delta = pixels - _lastScrollPixels;
+    _lastScrollPixels = pixels;
+    if (delta == 0) return;
+    final bool topVisible = delta > 0;
+    final bool scrolledAway = delta > 0;
+    if (topVisible != _fabTopVisible ||
+        scrolledAway != _fabsScrolledAway) {
+      setState(() {
+        _fabTopVisible = topVisible;
+        _fabsScrolledAway = scrolledAway;
+      });
+    }
   }
 
   @override
@@ -171,6 +220,105 @@ class _B11HomePageState extends State<B11HomePage>
     }
   }
 
+  /// browse FAB: open the native TypeFilterDialog. While its @async
+  /// call is pending, poll the live selection (B19/B20 pattern) so
+  /// type taps switch the tab and filter picks reload the grid
+  /// without closing the panel, like native. The dismiss completion
+  /// applies the final state, so a missed poll cannot lose it.
+  Future<void> _openTypeFilterDialog() async {
+    final B11HomeScreen? screen = _screen;
+    if (screen == null || screen.tabs.isEmpty) return;
+    _appliedTypeFilterVersion = 0;
+    _typeFilterPollTimer?.cancel();
+    _typeFilterPollTimer = Timer.periodic(
+      const Duration(milliseconds: 300),
+      (_) => _pollTypeFilterState(),
+    );
+    try {
+      final B11TypeFilterState state =
+          await _b11Api.openTypeFilterDialog(_selectedTab);
+      if (!mounted) return;
+      if (state.version != _appliedTypeFilterVersion) {
+        _applyTypeFilterState(state);
+      }
+    } catch (_) {
+      // The dialog failed to open; the home stays as-is.
+    } finally {
+      _typeFilterPollTimer?.cancel();
+      _typeFilterPollTimer = null;
+    }
+  }
+
+  /// One live-selection poll: apply the state when the host version
+  /// moved since the last applied one. Guarded against overlap (a
+  /// slow poll must not interleave with the next tick).
+  Future<void> _pollTypeFilterState() async {
+    if (_typeFilterPolling) return;
+    _typeFilterPolling = true;
+    try {
+      final B11TypeFilterState state = await _b11Api.getTypeFilterState();
+      if (!mounted || !state.dialogOpen) return;
+      if (state.version != _appliedTypeFilterVersion) {
+        _appliedTypeFilterVersion = state.version;
+        _applyTypeFilterState(state);
+      }
+    } catch (_) {
+      // Polling stops on channel error; the dismiss completion is
+      // the backstop for the final selection.
+      _typeFilterPollTimer?.cancel();
+      _typeFilterPollTimer = null;
+    } finally {
+      _typeFilterPolling = false;
+    }
+  }
+
+  /// Apply a dialog selection: switch to the picked tab and reload
+  /// the grid with the host-side filter overrides (filter epoch bump;
+  /// the B12/B13 blocks keep their epoch). FAB scroll state resets,
+  /// like native setFabVisible on page change.
+  void _applyTypeFilterState(B11TypeFilterState state) {
+    final B11HomeScreen? screen = _screen;
+    if (screen == null || screen.tabs.isEmpty) return;
+    int tab = state.selectedTabIndex;
+    if (tab < 0) tab = 0;
+    if (tab > screen.tabs.length - 1) tab = screen.tabs.length - 1;
+    setState(() {
+      _selectedTab = tab;
+      _filterEpoch++;
+      _fabTopVisible = false;
+      _fabsScrolledAway = false;
+    });
+  }
+
+  /// link FAB: open the native LinkDialog (paste-a-link play). The
+  /// dialog plays directly, so nothing comes back.
+  Future<void> _openLinkDialog() async {
+    try {
+      await _b11Api.openLinkDialog();
+    } catch (_) {
+      // The dialog failed to open; the home stays as-is.
+    }
+  }
+
+  /// top FAB: native onTop — scroll to the top, hide top, re-show
+  /// browse/link. The scroll events fired by the animation already
+  /// drive the FAB states; the explicit setState mirrors native's
+  /// explicit visibility sets after scrollToTop.
+  Future<void> _onTopFab() async {
+    if (_scrollController.hasClients) {
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _fabTopVisible = false;
+      _fabsScrolledAway = false;
+    });
+  }
+
   Future<void> _onMenuItem(B11MenuItem item) async {
     if (item.id == 'refresh') {
       _load();
@@ -235,7 +383,81 @@ class _B11HomePageState extends State<B11HomePage>
             onLongPress: _onBottomBarLongPress,
           ),
         ),
+        // B8 b8-home-fabs: the three floating action buttons, anchored
+        // like native (fragment_vod.xml: 16dp margin from the pager's
+        // end|bottom, the pager ending at the top of the 88dp glass
+        // slot). Only one is ever visible; the overlay itself is
+        // zero-size when all three are hidden.
+        Positioned(
+          right: _fabMargin,
+          bottom: _glassSlotHeight +
+              _fabMargin +
+              MediaQuery.paddingOf(context).bottom,
+          child: _buildFabOverlay(screen),
+        ),
       ],
+    );
+  }
+
+  /// The three floating action buttons (b8-home-fabs), mirroring
+  /// fragment_vod.xml + VodFragment.setFabVisible + CustomFabBehavior:
+  /// hk/WebHome screens show none (the screen closes for those sites
+  /// anyway); with categories the browse (tune) FAB shows and link
+  /// hides, without categories it is the other way round; scrolling
+  /// down swaps the visible FAB for the top FAB, scrolling back up
+  /// swaps it back. The glass background is setting_card_bg
+  /// (#BFFFFFFF light / #BF1E1E1E night, no live blur — native
+  /// setFabGlass paints the same translucent color). Icons are
+  /// Material approximations of the native ic_fab_* drawables (same
+  /// as the nav bar icons, see docs/b8-b11-home.md V5). heroTag is
+  /// null: the switcher briefly holds two FABs during the scale
+  /// transition, and duplicate hero tags would throw.
+  Widget _buildFabOverlay(B11HomeScreen screen) {
+    if (screen.isHkHome || screen.isWebHome) {
+      return const SizedBox.shrink();
+    }
+    final Color fabBg = screen.darkMode
+        ? const Color(0xBF1E1E1E)
+        : const Color(0xBFFFFFFF);
+    // colorOnSecondaryContainer approximation (native FAB tint).
+    final Color fabIcon =
+        screen.darkMode ? Colors.white : const Color(0xFF1D1B20);
+    Widget? fab;
+    if (_fabTopVisible) {
+      fab = FloatingActionButton(
+        key: const ValueKey('fab-top'),
+        heroTag: null,
+        backgroundColor: fabBg,
+        foregroundColor: fabIcon,
+        onPressed: _onTopFab,
+        child: const Icon(Icons.arrow_upward),
+      );
+    } else if (!_fabsScrolledAway) {
+      if (screen.tabs.isNotEmpty) {
+        fab = FloatingActionButton(
+          key: const ValueKey('fab-browse'),
+          heroTag: null,
+          backgroundColor: fabBg,
+          foregroundColor: fabIcon,
+          onPressed: _openTypeFilterDialog,
+          child: const Icon(Icons.tune),
+        );
+      } else {
+        fab = FloatingActionButton(
+          key: const ValueKey('fab-link'),
+          heroTag: null,
+          backgroundColor: fabBg,
+          foregroundColor: fabIcon,
+          onPressed: _openLinkDialog,
+          child: const Icon(Icons.link),
+        );
+      }
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 150),
+      transitionBuilder: (Widget child, Animation<double> animation) =>
+          ScaleTransition(scale: animation, child: child),
+      child: fab ?? const SizedBox.shrink(key: ValueKey('fab-none')),
     );
   }
 
@@ -425,7 +647,13 @@ class _B11HomePageState extends State<B11HomePage>
                     : Theme.of(context).colorScheme.onSurface,
               ),
               onSelected: (_) {
-                setState(() => _selectedTab = index);
+                setState(() {
+                  _selectedTab = index;
+                  // Native setFabVisible on page change: top hides,
+                  // browse/link re-show.
+                  _fabTopVisible = false;
+                  _fabsScrolledAway = false;
+                });
               },
             ),
           );
@@ -483,12 +711,14 @@ class _B11HomePageState extends State<B11HomePage>
     }
     // Inline video grid for the selected tab (b8-home-grid): the same
     // list the B8 category screen shows, rendered here. The grid
-    // reloads page 1 on tab switch (new tab) and on shell reload (new
-    // epoch); folder cards drill down into the /category screen.
+    // reloads page 1 on tab switch (new tab), on shell reload (new
+    // epoch) and on dialog filter picks (new filter epoch); folder
+    // cards drill down into the /category screen.
     final B11HomeTab tab = screen.tabs[_selectedTab];
     return _TabVideoGrid(
       tab: tab,
       epoch: _homeLoadEpoch,
+      filterEpoch: _filterEpoch,
       emptyText: screen.tabPlaceholderEmptyText,
       bottomPadding: _glassSlotHeight,
       controller: _scrollController,
@@ -599,6 +829,7 @@ class _TabVideoGrid extends StatefulWidget {
   const _TabVideoGrid({
     required this.tab,
     required this.epoch,
+    required this.filterEpoch,
     required this.emptyText,
     required this.bottomPadding,
     required this.controller,
@@ -610,6 +841,11 @@ class _TabVideoGrid extends StatefulWidget {
   /// shell refetched (resume / refresh / site switch) and the grid
   /// must reload page 1.
   final int epoch;
+
+  /// B8 b8-home-fabs: filter generation from the parent page; a
+  /// change means the native TypeFilterDialog applied a filter and
+  /// the grid must reload page 1 with the host-side overrides.
+  final int filterEpoch;
 
   /// Host empty text (widget_empty), shown when the tab has no videos.
   final String emptyText;
@@ -665,7 +901,8 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
     }
     if (oldWidget.tab.typeId != widget.tab.typeId ||
         oldWidget.tab.typeJson != widget.tab.typeJson ||
-        oldWidget.epoch != widget.epoch) {
+        oldWidget.epoch != widget.epoch ||
+        oldWidget.filterEpoch != widget.filterEpoch) {
       _loadPage(1);
     }
   }
@@ -697,6 +934,7 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
     }
     final B11HomeTab tab = widget.tab;
     final int epoch = widget.epoch;
+    final int filterEpoch = widget.filterEpoch;
     _pendingReload = false;
     setState(() {
       _busy = true;
@@ -713,8 +951,9 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
       videos = null;
     }
     if (!mounted) return;
-    final bool stale =
-        widget.tab.typeId != tab.typeId || widget.epoch != epoch;
+    final bool stale = widget.tab.typeId != tab.typeId ||
+        widget.epoch != epoch ||
+        widget.filterEpoch != filterEpoch;
     if (!stale && videos != null) {
       final B11TabVideos loaded = videos;
       final bool loadMoreFailed =
@@ -1163,6 +1402,10 @@ const double _glassBarHeight = 64;
 const double _glassBarFloat = 16;
 const double _glassBarInsetX = 24;
 const double _glassSlotHeight = 88;
+
+/// Native FAB margin (fragment_vod.xml: all three FABs use a 16dp
+/// margin from the pager's end|bottom anchor).
+const double _fabMargin = 16;
 
 /// The Dart copy of the native glass bottom bar (HomeActivity +
 /// GlassNavBar): a floating capsule (64dp tall, 24dp side insets, 16dp
