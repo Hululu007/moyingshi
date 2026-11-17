@@ -3,27 +3,32 @@ import 'dart:ui' show ImageFilter;
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b11_home_messages.g.dart';
+import 'pigeon/b8_category_messages.g.dart';
 import 'pigeon/c1_messages.g.dart';
 
 import 'b12_home_block_a.dart';
 import 'b13_home_block_b.dart';
+import 'widgets/pic_image.dart';
+import 'widgets/vod_card.dart';
 
 /// B8 B11: Flutter version of the mobile home shell (HomeActivity +
-/// VodFragment top bar / tabs / bottom bar).
+/// VodFragment top bar / tabs / bottom bar) with the inline video grid
+/// for the selected tab (b8-home-grid).
 ///
-/// Scope is the SHELL only: the top bar (logo / title / search pill /
-/// overflow menu), the category tabs and the glass bottom bar. The
-/// AppBar blocks below the search pill are the B12 widgets (banner +
-/// continue watching, flag-gated) and the B13 placeholder (JS widget
-/// blocks), and the tab-page content area is a placeholder too
-/// (tapping it opens the B8 category screen for the selected tab, so
-/// the tab -> category mapping stays verifiable). All strings, computed
-/// values and glass parameters come from the host
-/// (B11HostApi.getHomeShell), so this page renders exactly what the
-/// native home shows, in the current locale.
+/// Scope is the shell plus the tab grid: the top bar (logo / title /
+/// search pill / overflow menu), the category tabs, the glass bottom
+/// bar, and the grid itself (same list the B8 category screen shows for
+/// the tab, same card look, load-more on scroll). The AppBar blocks
+/// below the search pill are the B12 widgets (banner + continue
+/// watching, flag-gated) and the B13 placeholder (JS widget blocks).
+/// All strings, computed values and glass parameters come from the host
+/// (B11HostApi.getHomeShell / getTabVideos), so this page renders
+/// exactly what the native home shows, in the current locale.
 ///
 /// Cross-screen navigation always goes through the host (plan §4.4):
-/// history / keep / settings / category open via host calls, and the
+/// history / keep / settings / category open via host calls, and grid
+/// card taps open detail through the B8 host chain
+/// (B8HostApi.openCategoryItem, same call the B8 page makes); the
 /// native home underneath stays alive while this screen is on top
 /// (back lands on the native home — one extra back press to exit).
 ///
@@ -32,15 +37,15 @@ import 'b13_home_block_b.dart';
 /// covers returning from playback and from other screens. A native
 /// dialog produces no lifecycle event, so state changed by a dialog
 /// (site switch, sync) is picked up by the explicit refetch after the
-/// awaited dialog call, not by resume.
+/// awaited dialog call, not by resume. The grid reloads page 1 whenever
+/// the shell reloads (load epoch) or the selected tab changes.
 ///
 /// Deliberate deviations from native (see docs/b8-b11-home.md): the
 /// glass bar is a BackdropFilter approximation (no lens distortion /
 /// dispersion); the logo is a Material icon, not the ic_logo drawable;
 /// the title uses single-line ellipsis instead of marquee; the AppBar
-/// does not collapse and the tabs do not stick on scroll (the content
-/// area is a static placeholder, so there is nothing to scroll yet);
-/// the sync-dialog-close refresh is still resume-only.
+/// does not collapse and the tabs do not stick on scroll; the
+/// sync-dialog-close refresh is still resume-only.
 class B11HomePage extends StatefulWidget {
   const B11HomePage({super.key});
 
@@ -171,13 +176,6 @@ class _B11HomePageState extends State<B11HomePage>
 
   void _onBottomBarLongPress(B11NavItem item) {
     _b11Api.longPressBottomBarItem(item.token);
-  }
-
-  void _openTabCategory() {
-    final B11HomeScreen? screen = _screen;
-    if (screen == null || screen.tabs.isEmpty) return;
-    final B11HomeTab tab = screen.tabs[_selectedTab];
-    _b11Api.openTabCategory(tab.typeId, tab.typeJson);
   }
 
   @override
@@ -416,34 +414,547 @@ class _B11HomePageState extends State<B11HomePage>
         ),
       );
     }
-    // Tab-page placeholder (B12/B13 own the real content): shows the
-    // selected tab and the host empty text. Tapping it opens the B8
-    // category screen for the tab, so the tab -> category mapping stays
-    // verifiable; there is no button label to hard-code, the whole area
-    // is the action.
+    // Inline video grid for the selected tab (b8-home-grid): the same
+    // list the B8 category screen shows, rendered here. The grid
+    // reloads page 1 on tab switch (new tab) and on shell reload (new
+    // epoch); folder cards drill down into the /category screen.
     final B11HomeTab tab = screen.tabs[_selectedTab];
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _openTabCategory,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                tab.typeName,
-                style: const TextStyle(fontSize: 18),
-                textAlign: TextAlign.center,
-              ),
+    return _TabVideoGrid(
+      tab: tab,
+      epoch: _homeLoadEpoch,
+      emptyText: screen.tabPlaceholderEmptyText,
+    );
+  }
+}
+
+/// B8 b8-home-grid: the inline video grid for one home tab. Mirrors the
+/// B8 category list (same host data path, same card look, same
+/// load-more-on-scroll), without filters or drill-down navigation: a
+/// folder card opens the B8 /category screen for the folder, every
+/// other card opens detail through the B8 host chain.
+///
+/// Reload triggers: a new tab (chip switch), or a new shell load epoch
+/// (resume / refresh / site switch). Loads are serialized: a reload
+/// requested while one is in flight is remembered and runs when the
+/// in-flight load settles, and results that arrive for a stale tab or
+/// epoch are discarded, so the grid can never show another tab's list.
+class _TabVideoGrid extends StatefulWidget {
+  const _TabVideoGrid({
+    required this.tab,
+    required this.epoch,
+    required this.emptyText,
+  });
+
+  final B11HomeTab tab;
+
+  /// Shell load generation from the parent page; a change means the
+  /// shell refetched (resume / refresh / site switch) and the grid
+  /// must reload page 1.
+  final int epoch;
+
+  /// Host empty text (widget_empty), shown when the tab has no videos.
+  final String emptyText;
+
+  @override
+  State<_TabVideoGrid> createState() => _TabVideoGridState();
+}
+
+class _TabVideoGridState extends State<_TabVideoGrid> {
+  final B11HostApi _b11Api = B11HostApi();
+  final B8HostApi _b8Api = B8HostApi();
+  final ScrollController _scrollController = ScrollController();
+
+  B11TabVideos? _videos;
+  List<B11TabVideoItem> _items = [];
+  String _siteKey = '';
+  String _styleType = 'rect';
+  int _columnCount = 1;
+  double _imageWidthDp = 0;
+  double _imageHeightDp = 0;
+  int _nextPage = 1;
+  bool _hasMore = false;
+  bool _busy = false;
+  bool _loadingMore = false;
+  bool _pageError = false;
+  bool _channelBroken = false;
+
+  /// A reload was requested while a load was in flight; it runs when
+  /// the in-flight load settles.
+  bool _pendingReload = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadPage(1);
+  }
+
+  @override
+  void didUpdateWidget(_TabVideoGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tab.typeId != widget.tab.typeId ||
+        oldWidget.tab.typeJson != widget.tab.typeJson ||
+        oldWidget.epoch != widget.epoch) {
+      _loadPage(1);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) return;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      if (_hasMore && !_busy) _loadPage(_nextPage);
+    }
+  }
+
+  /// Loads one page. Serialized: the host ViewModel serves one
+  /// subscription at a time, so a second call while one is in flight is
+  /// remembered as a pending reload instead of dropped (a chip switch
+  /// during a load must still show the new tab's list).
+  Future<void> _loadPage(int page) async {
+    if (_busy) {
+      _pendingReload = true;
+      return;
+    }
+    final B11HomeTab tab = widget.tab;
+    final int epoch = widget.epoch;
+    _pendingReload = false;
+    setState(() {
+      _busy = true;
+      _pageError = false;
+      _channelBroken = false;
+      if (page > 1) _loadingMore = true;
+    });
+    B11TabVideos? videos;
+    try {
+      videos = await _b11Api.getTabVideos(tab.typeId, tab.typeJson, page);
+    } catch (_) {
+      // The channel itself broke; handled below (the host always
+      // completes getTabVideos exactly once, including its timeout).
+      videos = null;
+    }
+    if (!mounted) return;
+    final bool stale =
+        widget.tab.typeId != tab.typeId || widget.epoch != epoch;
+    if (!stale && videos != null) {
+      final B11TabVideos loaded = videos;
+      final bool loadMoreFailed =
+          loaded.errorMessage.isNotEmpty && page > 1;
+      setState(() {
+        _busy = false;
+        _loadingMore = false;
+        if (!loadMoreFailed) {
+          // A load-more failure keeps the list, the style and the
+          // pagination state; the user retries by scrolling again.
+          // (The error snapshot carries rect/1/0 defaults that must
+          // not overwrite the live list's style.)
+          _videos = loaded;
+          _siteKey = loaded.siteKey;
+          _styleType = loaded.styleType;
+          _columnCount = loaded.columnCount;
+          // Host geometry is in px; Dart lays out in dp.
+          _imageWidthDp =
+              loaded.cardImageWidthPx / MediaQuery.devicePixelRatioOf(context);
+          _imageHeightDp = loaded.cardImageHeightPx /
+              MediaQuery.devicePixelRatioOf(context);
+          _nextPage = loaded.nextPage;
+          _hasMore = loaded.hasMore;
+          _pageError = loaded.errorMessage.isNotEmpty;
+          if (page == 1) {
+            _items = loaded.items;
+          } else {
+            _items = [..._items, ...loaded.items];
+          }
+        }
+      });
+      if (loadMoreFailed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loaded.errorMessage)),
+        );
+      }
+    } else {
+      setState(() {
+        _busy = false;
+        _loadingMore = false;
+        // A channel break with no snapshot yet shows the empty text
+        // with a retry affordance; with a list already on screen the
+        // list simply stays (a load-more retry is another scroll).
+        if (!stale && videos == null && _videos == null) {
+          _channelBroken = true;
+        }
+      });
+    }
+    if (stale || _pendingReload) {
+      _pendingReload = false;
+      _loadPage(1);
+    }
+  }
+
+  Future<void> _onItemTap(B11TabVideoItem item) async {
+    if (item.isFolder) {
+      // Folder drill-down, B8 semantics: the /category screen for the
+      // folder reuses the parent tab's Class JSON; only the typeId
+      // changes. The host builds the route (openTabCategory).
+      try {
+        await _b11Api.openTabCategory(item.id, widget.tab.typeJson);
+      } catch (_) {
+        // The host navigation failed; the grid stays as it was.
+      }
+      return;
+    }
+    // Same call the B8 page makes, with the same arguments: the host
+    // follows the native TypeFragment.onItemClick chain (action card,
+    // index-site search, or the detail page). Not a history resume.
+    try {
+      await _b8Api.openCategoryItem(
+        _siteKey,
+        item.id,
+        item.name,
+        // Raw pic: the detail page parses the headers suffixes itself,
+        // like native TypeFragment passing item.getPic().
+        item.rawPic,
+        item.isFolder,
+        item.isAction,
+        item.action,
+        -1,
+        '',
+        -1,
+      );
+    } catch (_) {
+      // The host navigation failed; the grid stays as it was.
+    }
+  }
+
+  Future<void> _onItemLongPress(B11TabVideoItem item) async {
+    if (item.isFolder || item.isAction) return;
+    try {
+      await _b8Api.searchCategoryItem(item.name, -1, '', -1);
+    } catch (_) {
+      // The host navigation failed; the grid stays as it was.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final B11TabVideos? videos = _videos;
+    final Widget content;
+    if (videos == null) {
+      content = _channelBroken
+          ? _buildChannelError()
+          : const Center(child: CircularProgressIndicator());
+    } else if (_pageError && _items.isEmpty) {
+      content = _buildHostError(videos);
+    } else if (_items.isEmpty) {
+      content = Center(
+        child: Text(
+          widget.emptyText,
+          textAlign: TextAlign.center,
+        ),
+      );
+    } else {
+      content = _buildList();
+    }
+    return Column(
+      children: [
+        Expanded(child: content),
+        if (_loadingMore) const LinearProgressIndicator(),
+      ],
+    );
+  }
+
+  /// Page-load error state: host title + message + retry, mirroring the
+  /// B8 category error view. Retry reloads page 1 of this tab.
+  Widget _buildHostError(B11TabVideos videos) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              videos.errorTitle,
+              style: const TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+            if (videos.errorMessage.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                screen.tabPlaceholderEmptyText,
+                videos.errorMessage,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () => _loadPage(1),
+              child: Text(videos.retryLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Channel-break state (no snapshot ever arrived): the host empty
+  /// text plus a retry affordance. No host error strings exist on this
+  /// path, so the retry is an icon button like the shell's own
+  /// loading/error view, and no label is hard-coded.
+  Widget _buildChannelError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.emptyText,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _loadPage(1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    switch (_styleType) {
+      case 'list':
+        return ListView.builder(
+          controller: _scrollController,
+          itemCount: _items.length,
+          itemBuilder: (BuildContext context, int index) {
+            final B11TabVideoItem item = _items[index];
+            return _B11ListRow(
+              key: ValueKey<String>('${item.id}:${item.name}'),
+              item: item,
+              onTap: () => _onItemTap(item),
+              onLongPress: () => _onItemLongPress(item),
+            );
+          },
+        );
+      case 'oval':
+        return GridView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(8),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _columnCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            // Image + one 14sp name line + a 4dp gap (see _B11OvalCard).
+            mainAxisExtent: _imageHeightDp + 24,
+          ),
+          itemCount: _items.length,
+          itemBuilder: (BuildContext context, int index) {
+            final B11TabVideoItem item = _items[index];
+            return _B11OvalCard(
+              key: ValueKey<String>('${item.id}:${item.name}'),
+              item: item,
+              imageWidth: _imageWidthDp,
+              imageHeight: _imageHeightDp,
+              onTap: () => _onItemTap(item),
+              onLongPress: () => _onItemLongPress(item),
+            );
+          },
+        );
+      case 'rect':
+      default:
+        return GridView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _columnCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            // The info area is always two lines (see VodCard): the
+            // remarks line is transparent when the item hides it.
+            mainAxisExtent: VodCard.totalHeight(
+              imageHeight: _imageHeightDp,
+              hasProgress: false,
+              twoLines: true,
+            ),
+          ),
+          itemCount: _items.length,
+          itemBuilder: (BuildContext context, int index) {
+            final B11TabVideoItem item = _items[index];
+            return VodCard(
+              key: ValueKey<String>('${item.id}:${item.name}'),
+              picUrl: item.picUrl,
+              picReferer: item.picReferer,
+              picCookie: item.picCookie,
+              picUserAgent: item.picUserAgent,
+              picExtraHeadersJson: item.picExtraHeadersJson,
+              fallbackPicUrl: item.fallbackPicUrl,
+              placeholderText: item.placeholderText,
+              placeholderColor: item.placeholderColor,
+              imageHeight: _imageHeightDp,
+              vodName: item.nameVisible ? item.name : '',
+              remarks: item.remarks,
+              remarksVisible: item.remarkVisible,
+              siteName: item.siteName,
+              siteVisible: item.siteVisible,
+              // Grid cards have no playback badge or progress bar.
+              playbackText: null,
+              progress: null,
+              deleteMode: false,
+              onTap: () => _onItemTap(item),
+              onLongPress: () => _onItemLongPress(item),
+            );
+          },
+        );
+    }
+  }
+}
+
+/// List-style row, mirroring adapter_vod_list.xml: 40dp thumb + name
+/// 14sp + remark 12sp, 8dp margins, 12dp padding. Deliberately
+/// duplicated from the B8 page's row (B11 item type): each batch keeps
+/// its own copy so batches stay independently revertible.
+class _B11ListRow extends StatelessWidget {
+  const _B11ListRow({
+    super.key,
+    required this.item,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final B11TabVideoItem item;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: PicImage(
+                    picUrl: item.picUrl,
+                    picReferer: item.picReferer,
+                    picCookie: item.picCookie,
+                    picUserAgent: item.picUserAgent,
+                    picExtraHeadersJson: item.picExtraHeadersJson,
+                    fallbackPicUrl: item.fallbackPicUrl,
+                    placeholderText: item.placeholderText,
+                    placeholderColor: item.placeholderColor,
+                    height: 40,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item.nameVisible ? item.name : '',
+                      style: const TextStyle(fontSize: 14),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (item.remarkVisible) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.remarks,
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Oval-style grid cell, mirroring adapter_vod_oval.xml: circular image
+/// (host spec size) + name 14sp below. Deliberately duplicated from the
+/// B8 page's cell (B11 item type): each batch keeps its own copy so
+/// batches stay independently revertible.
+class _B11OvalCard extends StatelessWidget {
+  const _B11OvalCard({
+    super.key,
+    required this.item,
+    required this.imageWidth,
+    required this.imageHeight,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final B11TabVideoItem item;
+  final double imageWidth;
+  final double imageHeight;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        children: [
+          SizedBox(
+            width: imageWidth,
+            height: imageHeight,
+            child: ClipOval(
+              child: PicImage(
+                picUrl: item.picUrl,
+                picReferer: item.picReferer,
+                picCookie: item.picCookie,
+                picUserAgent: item.picUserAgent,
+                picExtraHeadersJson: item.picExtraHeadersJson,
+                fallbackPicUrl: item.fallbackPicUrl,
+                placeholderText: item.placeholderText,
+                placeholderColor: item.placeholderColor,
+                height: imageHeight,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.nameVisible ? item.name : '',
+            style: const TextStyle(fontSize: 14),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
