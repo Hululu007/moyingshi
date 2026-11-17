@@ -68,6 +68,15 @@ abstract class B22HostApi {
 /// Theater grid snapshot. All display strings come from the host;
 /// Dart hard-codes no locale strings.
 class B22DramaTheaterScreen {
+  B22DramaTheaterScreen({
+    required this.title,
+    required this.stateText,
+    required this.retryLabel,
+    required this.loadErrorText,
+    required this.columnCount,
+    required this.items,
+  });
+
   /// Toolbar title (drama_theater, mobile-only string resolved by
   /// the host at runtime).
   String title;
@@ -98,6 +107,20 @@ class B22DramaTheaterScreen {
 /// + remarks). Image fields follow the D3 PicSpec shape: the host
 /// delegates ImgUtil.getUrl, Dart renders with the shared PicImage.
 class B22DramaItem {
+  B22DramaItem({
+    required this.id,
+    required this.name,
+    required this.remarks,
+    required this.picUrl,
+    required this.picReferer,
+    required this.picCookie,
+    required this.picUserAgent,
+    required this.picExtraHeadersJson,
+    required this.fallbackPicUrl,
+    required this.placeholderText,
+    required this.placeholderColor,
+  });
+
   String id;
   String name;
   String remarks;
@@ -115,6 +138,11 @@ class B22DramaItem {
 /// text (an empty list is just blank), so there is none here either;
 /// Dart renders the blank list faithfully.
 class B22DramaHistoryScreen {
+  B22DramaHistoryScreen({
+    required this.title,
+    required this.items,
+  });
+
   /// Toolbar title (drama_history, mobile-only string resolved by
   /// the host at runtime).
   String title;
@@ -128,6 +156,23 @@ class B22DramaHistoryScreen {
 /// text ("MM-dd HH:mm") are computed by the host, exactly like the
 /// native adapter; Dart renders them verbatim.
 class B22DramaHistoryItem {
+  B22DramaHistoryItem({
+    required this.siteKey,
+    required this.vodId,
+    required this.vodName,
+    required this.vodPic,
+    required this.meta,
+    required this.timeText,
+    required this.picUrl,
+    required this.picReferer,
+    required this.picCookie,
+    required this.picUserAgent,
+    required this.picExtraHeadersJson,
+    required this.fallbackPicUrl,
+    required this.placeholderText,
+    required this.placeholderColor,
+  });
+
   String siteKey;
   String vodId;
   String vodName;
