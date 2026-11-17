@@ -5,6 +5,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
@@ -54,8 +56,10 @@ import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.ui.activity.LiveActivity;
 import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
+import com.github.moyingshi.osc.tv.ui.custom.CustomWallView;
 import com.github.moyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
+import com.github.moyingshi.osc.tv.utils.FileUtil;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
@@ -63,6 +67,8 @@ import com.github.moyingshi.osc.tv.utils.TmdbProxy;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.moyingshi.osc.tv.web.WebHomeTarget;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URLEncoder;
@@ -146,8 +152,23 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
     /** Glass accent fallback: GlassNavBar's default when colorPrimary fails to resolve. */
     private static final int ACCENT_FALLBACK = 0xFFBB86FC;
 
+    /** CustomWallView.DEFAULT_WALL_COLOR: dream purple, the no-wallpaper fallback. */
+    private static final int DEFAULT_WALL_COLOR = 0xFF7560CA;
+
+    /** CustomWallView.GREEN_WALL_COLOR, for the legacy green wall branch. */
+    private static final int GREEN_WALL_COLOR = 0xFF40C090;
+
+    /** CustomWallView.MAX_WALL_BITMAP_SIDE: wallpaper bitmaps are downsampled to this side. */
+    private static final int MAX_WALL_BITMAP_SIDE = 1920;
+
+    /** Files-dir snapshot of a built-in design drawable, rendered for Dart (never WallConfig's cache). */
+    private static final String FLUTTER_WALLPAPER_FILE = "wallpaper_flutter";
+
     private final FragmentActivity activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    /** Wall index the files-dir design snapshot was rendered for; re-rendered only on change. */
+    private int lastWallpaperWall = -1;
 
     /** True while a getHomeShell one-shot load is in flight (B8: single subscription). */
     private boolean loading;
@@ -233,6 +254,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
             empty = TextUtils.isEmpty(loaded.getMsg()) && tabs.isEmpty()
                     && (loaded.getList() == null || loaded.getList().isEmpty());
         }
+        Wallpaper wallpaper = resolveWallpaper();
         return new B11Messages.B11HomeScreen.Builder()
                 .setTitle(title)
                 .setSearchHint(mobileString("menu_search", R.string.danmaku_search_title))
@@ -256,7 +278,97 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 .setAccentColor((long) accentColor())
                 .setMenuItems(menuItems())
                 .setTabPlaceholderEmptyText(activity.getString(R.string.widget_empty))
+                .setWallpaperPath(wallpaper.path)
+                .setWallpaperColor((long) wallpaper.color)
                 .build();
+    }
+
+    /** Resolved home wallpaper: an image file Dart can load, plus its fallback color. */
+    private static final class Wallpaper {
+        final String path;
+        final int color;
+
+        Wallpaper(String path, int color) {
+            this.path = path;
+            this.color = color;
+        }
+    }
+
+    /**
+     * Wallpaper resolution mirroring CustomWallView.load(), static image
+     * only: Dart cannot play video/gif walls, so every custom wall
+     * resolves to the frame-0 JPEG snapshot WallConfig already wrote
+     * (FileUtil.getWallCache()). Built-in design walls are Android
+     * drawables with no file form, so the drawable is rendered once to
+     * a files-dir JPEG Dart can load; the render is cached by wall
+     * index. Any failure degrades to the fallback color, never to a
+     * missing snapshot — the wallpaper must never fail the shell.
+     * The built-in color branch is dead upstream
+     * (Setting.isBuiltInColorWall always returns false) and the green
+     * branch is unreachable (Setting.getWall remaps WALL_GREEN), but
+     * both keep their native order here so a future Setting change
+     * cannot silently reorder the resolution.
+     */
+    private Wallpaper resolveWallpaper() {
+        int wall = Setting.getWall();
+        int type = Setting.getWallType();
+        if (type == 0 && Setting.isBuiltInColorWall(wall)) {
+            return new Wallpaper("", Setting.getBuiltInWallColor(wall));
+        }
+        if (type == 0 && Setting.isBuiltInDesignWall(wall)) {
+            String path = snapshotDrawable(CustomWallView.getDesignResId(wall), wall);
+            return new Wallpaper(path == null ? "" : path, Setting.getBuiltInWallColor(wall));
+        }
+        if (type == 0 && wall == Setting.WALL_GREEN) {
+            String path = snapshotDrawable(R.drawable.wallpaper_1, wall);
+            return new Wallpaper(path == null ? "" : path, GREEN_WALL_COLOR);
+        }
+        File cache = FileUtil.getWallCache();
+        if (cache.exists()) return new Wallpaper(cache.getAbsolutePath(), DEFAULT_WALL_COLOR);
+        return new Wallpaper("", DEFAULT_WALL_COLOR);
+    }
+
+    /**
+     * Renders one drawable resource to a files-dir JPEG for Dart,
+     * downsampled like CustomWallView.decodeWallBitmap (max side 1920,
+     * ARGB_8888: blurred gradient walls band visibly in RGB_565).
+     * Returns null on any failure; the caller falls back to the color.
+     */
+    private String snapshotDrawable(int resId, int wall) {
+        if (resId == 0) return null;
+        File out = new File(activity.getFilesDir(), FLUTTER_WALLPAPER_FILE);
+        if (wall == lastWallpaperWall && out.exists()) return out.getAbsolutePath();
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeResource(activity.getResources(), resId, bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+            DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+            int reqWidth = Math.max(1, Math.min(metrics.widthPixels, MAX_WALL_BITMAP_SIDE));
+            int reqHeight = Math.max(1, Math.min(metrics.heightPixels, MAX_WALL_BITMAP_SIDE));
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = wallSampleSize(bounds, reqWidth, reqHeight);
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Bitmap bitmap = BitmapFactory.decodeResource(activity.getResources(), resId, options);
+            if (bitmap == null) return null;
+            try (FileOutputStream fos = new FileOutputStream(out)) {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+            } finally {
+                bitmap.recycle();
+            }
+            lastWallpaperWall = wall;
+            return out.getAbsolutePath();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /** Power-of-two downsample so the decoded bitmap fits the request, mirroring CustomWallView. */
+    private static int wallSampleSize(BitmapFactory.Options bounds, int reqWidth, int reqHeight) {
+        int sampleSize = 1;
+        while (bounds.outWidth / sampleSize > reqWidth || bounds.outHeight / sampleSize > reqHeight) sampleSize *= 2;
+        return sampleSize;
     }
 
     /**
