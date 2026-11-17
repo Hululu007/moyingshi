@@ -2,12 +2,19 @@ package com.github.moyingshi.osc.tv.flutter;
 
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Rect;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
+import android.view.DisplayCutout;
+import android.view.View;
+import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.pm.ShortcutInfoCompat;
@@ -19,14 +26,18 @@ import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.bumptech.glide.load.model.GlideUrl;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.Class;
 import com.github.moyingshi.osc.tv.bean.Config;
+import com.github.moyingshi.osc.tv.bean.Filter;
 import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Site;
+import com.github.moyingshi.osc.tv.bean.Style;
+import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.following.FollowingPlaybackBridge;
 import com.github.moyingshi.osc.tv.following.FollowingSettings;
 import com.github.moyingshi.osc.tv.impl.Callback;
@@ -34,6 +45,7 @@ import com.github.moyingshi.osc.tv.impl.ConfigListener;
 import com.github.moyingshi.osc.tv.impl.SiteListener;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
+import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
@@ -43,7 +55,11 @@ import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.ui.activity.LiveActivity;
 import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
+import com.github.moyingshi.osc.tv.utils.ColorGenerator;
+import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
+import com.github.moyingshi.osc.tv.utils.ResUtil;
+import com.github.moyingshi.osc.tv.utils.TmdbProxy;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.moyingshi.osc.tv.web.WebHomeTarget;
 
@@ -51,7 +67,9 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -68,18 +86,22 @@ import java.util.concurrent.atomic.AtomicReference;
  * All display strings and computed values are resolved here from
  * resources and the site beans, so Dart never hard-codes locale strings.
  *
- * <p>Scope of this batch is the SHELL only: the top bar (logo / title /
- * search pill / overflow menu), the category tabs, and the glass bottom
- * bar. The tab-page content is a placeholder (B12/B13 own the AppBar
- * blocks; the tab pages are not B11 scope). The tab placeholder offers
- * an "open in category screen" action that routes to the B8
- * {@code /category} screen for that tab.
+ * <p>Scope of this batch is the SHELL plus the tab grid: the top bar
+ * (logo / title / search pill / overflow menu), the category tabs, the
+ * glass bottom bar, and the inline video grid for the selected tab
+ * (b8-home-grid, same list the B8 category screen shows, via the same
+ * {@code SiteViewModel.categoryContent} path). Folder cards in the grid
+ * drill down into the B8 {@code /category} screen; every other card tap
+ * goes through the B8 host chain from Dart.
  *
- * <p>Home-screen data comes from a one-shot {@link SiteViewModel}
- * subscription (B8 pattern: {@code init()} clears stale values,
+ * <p>Home-screen data comes from one-shot {@link SiteViewModel}
+ * subscriptions (B8 pattern: {@code init()} clears stale values,
  * {@code observeForever} on {@code getResult()}, 35s watchdog, observer
- * removed on every path). The native home underneath stays alive while
- * the Flutter home is on top (see HomeActivity.change(0) / handleNavItem
+ * removed on every path). The shell load and the grid load share one
+ * activity-scoped ViewModel, so a single serial guard covers both: a
+ * second load while either is in flight completes with an error
+ * immediately. The native home underneath stays alive while the
+ * Flutter home is on top (see HomeActivity.change(0) / handleNavItem
  * diversion): HomeActivity.onDestroy() stops the server and clears
  * VodConfig, so it must NOT be finished, and back from the Flutter home
  * lands on the native home (one extra back press to exit, recorded as
@@ -130,6 +152,9 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
     /** True while a getHomeShell one-shot load is in flight (B8: single subscription). */
     private boolean loading;
 
+    /** True while a getTabVideos one-shot load is in flight. The shell and grid loads share one activity-scoped ViewModel, so each method refuses to start while the other is in flight. */
+    private boolean loadingTab;
+
     /** True when the currently open SiteDialog picked a site (read by completeSiteDialog). */
     private boolean siteDialogChanged;
 
@@ -153,8 +178,8 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
 
     @Override
     public void getHomeShell(B11Messages.Result<B11Messages.B11HomeScreen> result) {
-        if (loading) {
-            result.error(new IllegalStateException("home shell load already in progress"));
+        if (loading || loadingTab) {
+            result.error(new IllegalStateException("home load already in progress"));
             return;
         }
         loading = true;
@@ -329,6 +354,332 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
     private String mobileString(String name, int fallbackResId) {
         int id = activity.getResources().getIdentifier(name, "string", activity.getPackageName());
         return id != 0 ? activity.getString(id) : activity.getString(fallbackResId);
+    }
+
+    // ------------------------------------------------------------------
+    // Tab video grid (b8-home-grid, B8 list path reused verbatim)
+    // ------------------------------------------------------------------
+
+    @Override
+    public void getTabVideos(String typeId, String typeJson, Long page,
+            B11Messages.Result<B11Messages.B11TabVideos> result) {
+        if (loading || loadingTab) {
+            result.error(new IllegalStateException("home load already in progress"));
+            return;
+        }
+        loadingTab = true;
+        int pageInt = page == null || page < 1 ? 1 : page.intValue();
+        Class parsed;
+        try {
+            // objectFrom() is a bare Gson parse (no try/catch inside).
+            parsed = Class.objectFrom(typeJson);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            parsed = null;
+        }
+        if (parsed == null) {
+            loadingTab = false;
+            result.success(errorVideos(homeKey(), "", pageInt, ""));
+            return;
+        }
+        // Single assignment so the lambdas below can capture it.
+        final Class clazz = parsed;
+        // The effective filter map: the home grid sends no filter map,
+        // so the Class filters' init values always apply, exactly like
+        // B8's first load (and like FolderFragment.getExtend()). The
+        // map is constant per Class, so every page uses the same one.
+        // categoryContent() takes a HashMap, not a Map.
+        LinkedHashMap<String, String> extend = new LinkedHashMap<>();
+        for (Filter filter : clazz.getFilters()) {
+            if (filter.getInit() != null) extend.put(filter.getKey(), filter.setSelected(filter.getInit()));
+        }
+        String key = homeKey();
+        Site site = VodConfig.get().getSite(key);
+        Style baseStyle = clazz.isFolder() ? Style.list()
+                : site == null ? (clazz.getStyle() != null ? clazz.getStyle() : Style.rect())
+                : site.getStyle(clazz.getStyle());
+        // One-shot SiteViewModel subscription, the same call B8 makes
+        // (categoryContent for the home site). The ViewModel is
+        // activity-scoped; onCleared() cancels the pending load, and
+        // the timeout below still completes this call.
+        SiteViewModel viewModel = new ViewModelProvider(activity).get(SiteViewModel.class);
+        viewModel.init();
+        boolean[] completed = new boolean[1];
+        AtomicReference<Observer<Result>> observerRef = new AtomicReference<>();
+        Runnable timeout = () -> {
+            if (completed[0]) return;
+            completed[0] = true;
+            loadingTab = false;
+            Observer<Result> observer = observerRef.get();
+            if (observer != null) viewModel.getResult().removeObserver(observer);
+            result.success(errorVideos(key, App.gson().toJson(extend), pageInt,
+                    activity.getString(R.string.error_play_timeout)));
+        };
+        handler.postDelayed(timeout, LOAD_TIMEOUT_MS);
+        Observer<Result> observer = loaded -> {
+            if (loaded == null || completed[0]) return;
+            completed[0] = true;
+            loadingTab = false;
+            handler.removeCallbacks(timeout);
+            viewModel.getResult().removeObserver(observerRef.get());
+            result.success(buildVideos(loaded, clazz, baseStyle, extend, pageInt, key));
+        };
+        observerRef.set(observer);
+        viewModel.getResult().observeForever(observer);
+        viewModel.categoryContent(key, typeId, String.valueOf(pageInt), true, extend);
+    }
+
+    /** Home site key ("" when no home site is configured). */
+    private String homeKey() {
+        Site home = VodConfig.get().getHome();
+        return home == null ? "" : text(home.getKey());
+    }
+
+    /** Builds the success snapshot for one loaded page (B8 buildScreen minus title/filters). */
+    private B11Messages.B11TabVideos buildVideos(Result loaded, Class clazz, Style baseStyle,
+            Map<String, String> extend, int pageInt, String key) {
+        String extendJson = App.gson().toJson(extend);
+        String msg = loaded.getMsg();
+        if (!TextUtils.isEmpty(msg)) {
+            // Result.error(): the site reported a failure; same as the
+            // native empty list, but with the host message for Dart.
+            return errorVideos(key, extendJson, pageInt, msg);
+        }
+        List<B11Messages.B11TabVideoItem> items = new ArrayList<>();
+        for (Vod item : loaded.getList()) items.add(toVideoItem(item));
+        // Per-page style override, exactly like TypeFragment.addVideo():
+        // the first item's style wins when it has one, else the base.
+        Style effective = loaded.getVod().getStyle(baseStyle);
+        int columnCount;
+        int imageWidthPx;
+        int imageHeightPx;
+        if (effective.isList()) {
+            // List rows use a fixed 40dp thumb; no grid geometry.
+            columnCount = 1;
+            imageWidthPx = 0;
+            imageHeightPx = 0;
+        } else {
+            columnCount = categoryColumn(effective);
+            int[] spec = categorySpec(columnCount, effective);
+            imageWidthPx = spec[0];
+            imageHeightPx = spec[1];
+        }
+        int pageCount = loaded.getPageCount();
+        boolean hasMore = pageInt < pageCount || pageCount == 0;
+        int nextPage = items.isEmpty() ? pageInt : pageInt + 1;
+        return new B11Messages.B11TabVideos.Builder()
+                .setSiteKey(key)
+                .setStyleType(effective.getType())
+                .setStyleRatio((double) effective.getRatio())
+                .setColumnCount((long) columnCount)
+                .setCardImageWidthPx((long) imageWidthPx)
+                .setCardImageHeightPx((long) imageHeightPx)
+                .setItems(items)
+                .setHasMore(hasMore)
+                .setPageCount((long) pageCount)
+                .setNextPage((long) nextPage)
+                .setExtendJson(extendJson)
+                .setErrorTitle(activity.getString(R.string.error_config_load))
+                .setErrorMessage("")
+                .setRetryLabel(activity.getString(R.string.error_retry))
+                .build();
+    }
+
+    /** Error snapshot: empty items, no more pages (B8 errorScreen minus title/filters). */
+    private B11Messages.B11TabVideos errorVideos(String key, String extendJson, int pageInt,
+            String errorMessage) {
+        return new B11Messages.B11TabVideos.Builder()
+                .setSiteKey(key)
+                .setStyleType("rect")
+                .setStyleRatio((double) Style.rect().getRatio())
+                .setColumnCount(1L)
+                .setCardImageWidthPx(0L)
+                .setCardImageHeightPx(0L)
+                .setItems(new ArrayList<>())
+                .setHasMore(false)
+                .setPageCount(0L)
+                .setNextPage((long) pageInt)
+                .setExtendJson(extendJson)
+                .setErrorTitle(activity.getString(R.string.error_config_load))
+                .setErrorMessage(errorMessage == null ? "" : errorMessage)
+                .setRetryLabel(activity.getString(R.string.error_retry))
+                .build();
+    }
+
+    private static String text(String value) {
+        return value == null ? "" : value;
+    }
+
+    /** Flattens one Vod bean the way VodAdapter binds it (B8 toItem, B11 types). Null-safe: Pigeon fields are non-null. */
+    private static B11Messages.B11TabVideoItem toVideoItem(Vod item) {
+        String name = text(item.getName());
+        PicParts pic = resolvePic(name, item.getPic());
+        return new B11Messages.B11TabVideoItem.Builder()
+                .setId(text(item.getId()))
+                .setName(name)
+                .setYear(text(item.getYear()))
+                .setRemarks(text(item.getRemarks()))
+                .setSiteName(text(item.getSiteName()))
+                .setSiteVisible(item.getSiteVisible() == View.VISIBLE)
+                .setNameVisible(item.getNameVisible() == View.VISIBLE)
+                .setRemarkVisible(item.getRemarkVisible() == View.VISIBLE)
+                .setYearVisible(item.getYearVisible() == View.VISIBLE)
+                .setIsFolder(item.isFolder())
+                .setIsAction(item.isAction())
+                .setAction(text(item.getAction()))
+                .setPicUrl(pic.url)
+                .setRawPic(text(item.getPic()))
+                .setPicReferer(pic.referer)
+                .setPicCookie(pic.cookie)
+                .setPicUserAgent(pic.userAgent)
+                .setPicExtraHeadersJson(pic.extraHeadersJson)
+                .setFallbackPicUrl(pic.fallbackUrl)
+                .setPlaceholderText(pic.placeholderText)
+                .setPlaceholderColor((long) pic.placeholderColor)
+                .build();
+    }
+
+    /** Resolved image parts for one card, mirroring ImgUtil.load() semantics. */
+    private static final class PicParts {
+        String url = "";
+        String referer = "";
+        String cookie = "";
+        String userAgent = "";
+        String extraHeadersJson = "";
+        String fallbackUrl = "";
+        String placeholderText = "！";
+        int placeholderColor;
+    }
+
+    /**
+     * Resolves one vodPic the way native loading does, without touching
+     * ImgUtil: {@link ImgUtil#getUrl(String)} already parses the
+     * {@code @Headers=} / {@code @Cookie=} / {@code @Referer=} /
+     * {@code @User-Agent=} suffixes and the douban referer policy, and
+     * its GlideUrl result exposes the clean URL plus the final header
+     * map. Delegating to it keeps Dart pixel-for-pixel in sync with
+     * native header handling and cannot drift. The fallback URL is the
+     * same TmdbProxy auto-fallback the native failure listener tries.
+     * Any failure degrades to the text placeholder, exactly like native
+     * load()'s catch path; one bad picture never fails the whole screen.
+     *
+     * <p>Deliberately duplicated from B8HostApiImpl (same for the grid
+     * geometry below): each batch must stay independently revertible, so
+     * batches share no host helper. If either copy changes, the other
+     * must change with it; see docs/b8-b8-category.md.
+     */
+    private static PicParts resolvePic(String name, String rawPic) {
+        PicParts parts = new PicParts();
+        // TextDrawable parity: the first character (or "！"), colored by
+        // ColorGenerator.get400() of that same character.
+        parts.placeholderText = name.isEmpty() ? "！" : name.substring(0, 1);
+        parts.placeholderColor = ColorGenerator.get400(parts.placeholderText);
+        try {
+            Object model = ImgUtil.getUrl(rawPic);
+            if (model instanceof GlideUrl glideUrl) {
+                parts.url = text(glideUrl.toStringUrl());
+                splitHeaders(glideUrl.getHeaders(), parts);
+            } else if (model instanceof String dataUrl) {
+                // "data:" URLs pass through getUrl() unchanged. Dart shows
+                // the placeholder for them (Image.network cannot load
+                // data: URIs); see docs/b8-b2-keep.md.
+                parts.url = dataUrl;
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            parts.url = "";
+        }
+        try {
+            String autoFallback = TmdbProxy.nextAutoImageUrl(text(rawPic));
+            if (!TextUtils.isEmpty(autoFallback)) {
+                Object fallbackModel = ImgUtil.getUrl(autoFallback);
+                if (fallbackModel instanceof GlideUrl glideFallback) {
+                    parts.fallbackUrl = text(glideFallback.toStringUrl());
+                } else if (fallbackModel instanceof String fallbackString) {
+                    parts.fallbackUrl = fallbackString;
+                }
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            parts.fallbackUrl = "";
+        }
+        return parts;
+    }
+
+    /** Splits the final header map into the three named headers plus the rest as JSON. */
+    private static void splitHeaders(Map<String, String> headers, PicParts parts) {
+        if (headers == null || headers.isEmpty()) return;
+        Map<String, String> extra = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            String key = entry.getKey();
+            String value = text(entry.getValue());
+            if ("Referer".equalsIgnoreCase(key)) parts.referer = value;
+            else if ("Cookie".equalsIgnoreCase(key)) parts.cookie = value;
+            else if ("User-Agent".equalsIgnoreCase(key)) parts.userAgent = value;
+            else extra.put(text(key), value);
+        }
+        if (!extra.isEmpty()) parts.extraHeadersJson = App.gson().toJson(extra);
+    }
+
+    /**
+     * Grid geometry, copied from B8HostApiImpl (which mirrors the mobile
+     * Product/MobileWindow originals line by line; this main-source-set
+     * impl cannot reference them, leanback builds would fail). If the
+     * originals change, all copies must change with them. The clamps
+     * only guard degenerate preferences (a zero column would crash both
+     * the native grid and the Flutter grid); with shipped defaults they
+     * never fire.
+     */
+
+    /** Mirrors mobile Product.getColumn(Context, Style). */
+    private int categoryColumn(Style style) {
+        int count = isWide(activity) ? 7 : 5;
+        count = count + (ResUtil.isPad() ? 1 : 0);
+        int column = Math.abs(PlayerSetting.getSize() - count);
+        if (style.isLand()) column -= 1;
+        return Math.max(1, column);
+    }
+
+    /** Mirrors mobile Product.getSpec(Context, Style). */
+    private int[] categorySpec(int column, Style style) {
+        int space = ResUtil.dp2px(32) + ResUtil.dp2px(16 * (column - 1)) + getCutout(activity);
+        if (style.isOval()) space += ResUtil.dp2px(column * 16);
+        int width = Math.max(1, (windowWidth(activity) - space) / column);
+        int height = Math.max(1, (int) (width / style.getRatio()));
+        return new int[]{width, height};
+    }
+
+    /** Mirrors MobileWindow.isWide(): window width greater than height. */
+    private static boolean isWide(Context context) {
+        Rect bounds = windowBounds(context);
+        return bounds.width() > bounds.height();
+    }
+
+    private static int windowWidth(Context context) {
+        return windowBounds(context).width();
+    }
+
+    /** Mirrors MobileWindow.getBounds(). */
+    private static Rect windowBounds(Context context) {
+        WindowManager manager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        if (manager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Rect bounds = manager.getCurrentWindowMetrics().getBounds();
+            if (bounds.width() > 0 && bounds.height() > 0) return bounds;
+        }
+        DisplayMetrics metrics = new DisplayMetrics();
+        if (manager != null) manager.getDefaultDisplay().getMetrics(metrics);
+        if (metrics.widthPixels <= 0 || metrics.heightPixels <= 0) metrics = ResUtil.getDisplayMetrics(context);
+        return new Rect(0, 0, metrics.widthPixels, metrics.heightPixels);
+    }
+
+    /** Mirrors mobile Product.getCutout(), including its bitwise-or quirk. */
+    private static int getCutout(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0;
+        DisplayCutout cutout = ResUtil.getDisplay(context).getCutout();
+        if (cutout == null) return 0;
+        int left = cutout.getSafeInsetLeft();
+        int right = cutout.getSafeInsetRight();
+        return left | right;
     }
 
     // ------------------------------------------------------------------
