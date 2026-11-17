@@ -17,6 +17,8 @@ import android.provider.MediaStore;
 import androidx.activity.result.ActivityResultLauncher;
 
 import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
+import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.FileActivity;
 import com.github.catvod.utils.Path;
 
@@ -74,14 +76,34 @@ public class FileChooser {
         intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
         List<ResolveInfo> resolveInfos = App.get().getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
         if (Util.isLeanback() || resolveInfos.isEmpty() || resolveInfos.get(0).activityInfo.packageName.contains("frameworkpackagestubs")) {
-            launcher.launch(new Intent(App.get(), FileActivity.class));
+            launcher.launch(localBrowserIntent(false));
         } else {
             launcher.launch(Intent.createChooser(intent, ""));
         }
     }
 
+    /**
+     * B8 B15: the built-in file browser. When the B15 flag is on (mobile
+     * only — the leanback guard keeps TV on the native FileActivity),
+     * the fallback launches the Flutter local-file page instead; the
+     * system-picker path above is untouched, so on phones with a system
+     * file manager the behavior is exactly as before. The Flutter page
+     * returns its result through the same launcher (RESULT_OK + file://
+     * Uri), so callers see no difference.
+     */
+    private static Intent localBrowserIntent(boolean selectDir) {
+        if (Setting.isFlutterB15Enabled() && !Util.isLeanback()) {
+            return new Intent(App.get(), C1ScreenActivity.class)
+                    .putExtra(C1ScreenActivity.EXTRA_ROUTE, C1ScreenActivity.ROUTE_LOCAL
+                            + "?selectDir=" + selectDir + "&readMode=false");
+        }
+        Intent intent = new Intent(App.get(), FileActivity.class);
+        if (selectDir) intent.putExtra("select_dir", true);
+        return intent;
+    }
+
     public void showDirectory() {
-        launcher.launch(new Intent(App.get(), FileActivity.class).putExtra("select_dir", true));
+        launcher.launch(localBrowserIntent(true));
     }
 
     public static boolean isValid(Context context, Uri uri) {
