@@ -576,13 +576,13 @@ class _SourceRow extends StatelessWidget {
     );
     return InkWell(
       onTap: onTap,
-      borderRadius: const BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         margin: const EdgeInsets.all(8),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: scheme.surfaceContainer,
-          borderRadius: const BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8),
         ),
         alignment: Alignment.center,
         child: label,
@@ -612,11 +612,11 @@ class _B10ListRow extends StatelessWidget {
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: scheme.surfaceContainer,
-        borderRadius: const BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: const BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8),
         child: Row(
           children: [
             SizedBox(
@@ -626,7 +626,7 @@ class _B10ListRow extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8),
                     child: PicImage(
                       picUrl: item.picUrl,
                       picReferer: item.picReferer,

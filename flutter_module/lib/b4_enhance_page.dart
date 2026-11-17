@@ -297,7 +297,7 @@ bool _hasLongPress(String key) {
 /// shared: the B3 mixin is file-private, and per-batch independence
 /// (plan §4.9) means B4 must stay revertible without touching B3 code.
 mixin _B4MemberState<T extends StatefulWidget> on State<T>
-    implements WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final B4HostApi api = B4HostApi();
 
   @override

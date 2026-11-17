@@ -371,7 +371,7 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
 /// independently revertible); the loading/error scaffolds are local
 /// here because the home has no leading back button.
 mixin _B7MemberState<T extends StatefulWidget> on State<T>
-    implements WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final B7HostApi api = B7HostApi();
 
   @override

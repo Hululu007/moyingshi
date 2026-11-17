@@ -125,7 +125,6 @@ class _B21LabListViewState extends State<_B21LabListView>
   bool _busy = false;
   String? _errorText;
   bool _refreshing = false;
-  bool _isHkMiniapp = false;
 
   /// 2s poll (see the file header): the host has no EventChannel,
   /// and the auto-install dialogs + background installs would
@@ -231,7 +230,6 @@ class _B21LabListViewState extends State<_B21LabListView>
       _packages = list.packages;
       _localSources = list.localSources;
       _miniappSites = list.miniappSites;
-      _isHkMiniapp = list.isHkMiniapp;
       _errorText = list.loadErrorText.isEmpty ? null : list.loadErrorText;
       if (list.groups.isNotEmpty &&
           !list.groups.any((B21LabGroup g) => g.id == _currentGroup)) {
@@ -1019,12 +1017,12 @@ class _B21LabDetailViewState extends State<_B21LabDetailView>
     _showNotice(detail.noticeText);
   }
 
-  void _poll() {
-    // Synchronous light call (no await, no reload). Merges the
-    // running states into the shown snapshot by command id.
+  Future<void> _poll() async {
+    // Light call (no reload). Merges the running states into the
+    // shown snapshot by command id.
     late final B21LabDetailState state;
     try {
-      state = _api.pollLabDetail(widget.name);
+      state = await _api.pollLabDetail(widget.name);
     } catch (_) {
       return;
     }
@@ -1206,7 +1204,7 @@ class _B21LabDetailViewState extends State<_B21LabDetailView>
                       final String current =
                           controllers[row.key]?.text ?? row.value;
                       return DropdownButtonFormField<String>(
-                        value: row.options.any(
+                        initialValue: row.options.any(
                           (B21LabSettingOption o) => o.value == current,
                         )
                             ? current

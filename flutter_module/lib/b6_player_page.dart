@@ -266,7 +266,7 @@ class _PlayerSettingsViewState extends State<PlayerSettingsView>
 /// shared: the B5 mixin is file-private, and per-batch independence
 /// (plan §4.9) means B6 must stay revertible without touching B5 code.
 mixin _B6MemberState<T extends StatefulWidget> on State<T>
-    implements WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final B6HostApi api = B6HostApi();
 
   @override

@@ -222,18 +222,27 @@ class _B18BrowsePageState extends State<B18BrowsePage>
           return AlertDialog(
             title: Text(param.title),
             content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  for (final B18ParamOption option in param.options)
-                    RadioListTile<String>(
-                      title: Text(option.title),
-                      value: option.value,
-                      groupValue: param.value,
-                      onChanged: (_) =>
-                          Navigator.of(context).pop(option),
-                    ),
-                ],
+              child: RadioGroup<String>(
+                groupValue: param.value,
+                onChanged: (String? value) {
+                  if (value == null) return;
+                  for (final B18ParamOption option in param.options) {
+                    if (option.value == value) {
+                      Navigator.of(context).pop(option);
+                      return;
+                    }
+                  }
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    for (final B18ParamOption option in param.options)
+                      RadioListTile<String>(
+                        title: Text(option.title),
+                        value: option.value,
+                      ),
+                  ],
+                ),
               ),
             ),
             actions: <Widget>[

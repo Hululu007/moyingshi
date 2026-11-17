@@ -515,7 +515,7 @@ class _SearchResultTile extends StatelessWidget {
 /// shared: the B4 mixin is file-private, and per-batch independence
 /// (plan §4.9) means B5 must stay revertible without touching B4 code.
 mixin _B5MemberState<T extends StatefulWidget> on State<T>
-    implements WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final B5HostApi api = B5HostApi();
 
   @override

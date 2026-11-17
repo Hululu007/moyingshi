@@ -141,7 +141,7 @@ class _B3SettingsPageState extends State<B3SettingsPage> {
 /// Shared helpers for the four member views: resumed refetch, dialog
 /// refetch without awaiting, and sync action + refetch.
 mixin _B3MemberState<T extends StatefulWidget> on State<T>
-    implements WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final B3HostApi api = B3HostApi();
 
   @override

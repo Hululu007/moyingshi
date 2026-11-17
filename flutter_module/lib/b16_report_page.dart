@@ -112,22 +112,24 @@ class _B16ReportPageState extends State<B16ReportPage>
               title: Text(shell.selectRangeTitle),
               content: SizedBox(
                 width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: shell.ranges.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final B16RangeItem item = shell.ranges[index];
-                    return RadioListTile<String>(
-                      title: Text(item.displayLabel),
-                      value: item.name,
-                      groupValue: selected,
-                      onChanged: (String? value) {
-                        if (value != null) {
-                          setDialogState(() => selected = value);
-                        }
-                      },
-                    );
+                child: RadioGroup<String>(
+                  groupValue: selected,
+                  onChanged: (String? value) {
+                    if (value != null) {
+                      setDialogState(() => selected = value);
+                    }
                   },
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: shell.ranges.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final B16RangeItem item = shell.ranges[index];
+                      return RadioListTile<String>(
+                        title: Text(item.displayLabel),
+                        value: item.name,
+                      );
+                    },
+                  ),
                 ),
               ),
               actions: [
@@ -399,13 +401,11 @@ class _ReportCard extends StatelessWidget {
 class _CenterMessage extends StatelessWidget {
   const _CenterMessage({
     required this.title,
-    this.description,
     required this.actionLabel,
     required this.onAction,
   });
 
   final String title;
-  final String? description;
   final String actionLabel;
   final VoidCallback onAction;
 
@@ -422,13 +422,6 @@ class _CenterMessage extends StatelessWidget {
               style: const TextStyle(fontSize: 18),
               textAlign: TextAlign.center,
             ),
-            if (description != null && description!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                description!,
-                textAlign: TextAlign.center,
-              ),
-            ],
             const SizedBox(height: 16),
             FilledButton(
               onPressed: onAction,

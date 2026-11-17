@@ -147,7 +147,7 @@ class _B22TheaterPageState extends State<B22TheaterPage>
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           title: Text(screen?.title ?? ''),
-          leading: IconButton(
+          leading: const IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: _closeScreen,
           ),
@@ -377,7 +377,7 @@ class _B22HistoryPageState extends State<B22HistoryPage>
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           title: Text(screen?.title ?? ''),
-          leading: IconButton(
+          leading: const IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: _closeScreen,
           ),
