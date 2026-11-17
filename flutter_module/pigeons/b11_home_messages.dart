@@ -129,6 +129,8 @@ class B11HomeScreen {
     required this.accentColor,
     required this.menuItems,
     required this.tabPlaceholderEmptyText,
+    required this.wallpaperPath,
+    required this.wallpaperColor,
   });
 
   /// Top bar title (AppBranding display name, host-resolved).
@@ -188,6 +190,19 @@ class B11HomeScreen {
 
   /// Tab-page placeholder text (widget_empty).
   String tabPlaceholderEmptyText;
+
+  /// Full-screen home wallpaper (b8-home-glass), resolved by the host
+  /// exactly like CustomWallView.load(): the absolute path of a
+  /// renderable image file — a files-dir JPEG snapshot of the
+  /// built-in design drawable, or the WallConfig frame-0 cache file
+  /// for a custom / video / gif wall. Empty when the wallpaper is a
+  /// flat color or no image exists; Dart then paints wallpaperColor.
+  String wallpaperPath;
+
+  /// Fallback color (ARGB) painted behind the wallpaper image and
+  /// used on its own when wallpaperPath is empty: the built-in
+  /// design's representative color, or the default dream purple.
+  int wallpaperColor;
 }
 
 /// One category tab. typeJson is the full Class JSON (B8 route input)
