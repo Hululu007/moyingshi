@@ -100,14 +100,14 @@ public class TmdbPersonActivity extends BaseActivity {
 
     public static void start(Activity activity, TmdbPerson person, String siteKey, int detailMode) {
         if (activity == null || person == null || person.getPersonId() <= 0) return;
-        // B8 B17: when the Flutter person page is enabled (mobile only),
-        // open it on the shared C1 engine instead of the native page.
-        // The single diversion point: the 3-arg start() delegates here,
-        // so both callers (TmdbDetailActivity.loadPersonDetail and
+        // B8 B17: on mobile, open the Flutter person page on the shared
+        // C1 engine instead of the native page. The single diversion
+        // point: the 3-arg start() delegates here, so both callers
+        // (TmdbDetailActivity.loadPersonDetail and
         // WebHomeThemeBridge.openPerson) are covered. The route carries
         // the same intent extras the native page reads. See
         // docs/b8-b17-person.md.
-        if (Setting.isFlutterB17Enabled() && Util.isMobile()) {
+        if (Util.isMobile()) {
             int mode = normalizeDetailMode(detailMode);
             String route = C1ScreenActivity.ROUTE_PERSON
                     + "?personId=" + person.getPersonId()

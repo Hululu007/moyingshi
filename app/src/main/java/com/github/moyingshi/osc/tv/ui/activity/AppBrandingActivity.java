@@ -12,7 +12,6 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.databinding.ActivityAppBrandingBinding;
 import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 import com.github.moyingshi.osc.tv.utils.Util;
 
@@ -22,13 +21,13 @@ public class AppBrandingActivity extends BaseActivity {
     private int selectedIconMode;
 
     public static void start(Activity activity) {
-        // B8 B15: B6→B7 同款预授权分流（见 docs/b8-b15-local.md §5 V4）。
-        // 开关开时走 Flutter 应用图标页（mobile only — leanback 守卫让
-        // TV 保持原生）。调用方是 Flutter 屏（B5 个人设置页）时与 B7 的
-        // openAbout 同为 start-then-finish，G2 跨屏竞态风险同款——返回
-        // 时落在原生个人设置页；调用方是原生 Activity 时只 start 不
-        // finish（原生行为：图标页盖在上面，返回回到设置页）。
-        if (Setting.isFlutterB15Enabled() && !Util.isLeanback()) {
+        // B8 B15: mobile opens the Flutter branding page (leanback guard
+        // keeps TV native). Caller is a Flutter screen (B5 personal
+        // settings page): start-then-finish, G2 cross-screen race — back
+        // lands on the native personal settings page; caller is a native
+        // Activity: only start, no finish (native behavior: the branding
+        // page covers the top, back returns to the settings page).
+        if (!Util.isLeanback()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_BRANDING);
             if (activity instanceof C1ScreenActivity) activity.finish();
             return;
