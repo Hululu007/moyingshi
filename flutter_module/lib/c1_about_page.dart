@@ -73,7 +73,13 @@ class _C1AboutPageState extends State<C1AboutPage> {
   @override
   Widget build(BuildContext context) {
     final C1AboutInfo? info = _info;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _api.closeScreen();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(info?.title ?? ''),
       ),
@@ -186,6 +192,7 @@ class _C1AboutPageState extends State<C1AboutPage> {
                     ],
                   ),
                 ),
+    ),
     );
   }
 }

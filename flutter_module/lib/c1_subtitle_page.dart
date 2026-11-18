@@ -136,7 +136,13 @@ class _C1SubtitlePageState extends State<C1SubtitlePage>
   @override
   Widget build(BuildContext context) {
     final C1SubtitleInfo? info = _info;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _api.closeScreen();
+      },
+      child: Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -179,6 +185,7 @@ class _C1SubtitlePageState extends State<C1SubtitlePage>
                     ],
                   ),
                 ),
+    ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b20_hk_messages.g.dart';
+import 'pigeon/c1_messages.g.dart';
 
 /// B8 B20: the mobile Hk miniapp manager page (native
 /// HkMiniappActivity, 321 lines Kotlin) as the literal `/hk-manager`
@@ -37,6 +38,7 @@ class B20HkPage extends StatefulWidget {
 
 class _B20HkPageState extends State<B20HkPage> with WidgetsBindingObserver {
   final B20HostApi _api = B20HostApi();
+  final C1HostApi _c1Api = C1HostApi();
 
   B20HkShell? _shell;
   List<B20HkItem> _entries = <B20HkItem>[];
@@ -419,12 +421,32 @@ class _B20HkPageState extends State<B20HkPage> with WidgetsBindingObserver {
   // Layout
   // ------------------------------------------------------------------
 
+  Future<void> _onBack() async {
+    // Root-back signal: the host history decides (pop / home /
+    // background).
+    try {
+      await _c1Api.closeScreen();
+    } catch (_) {
+      // The host screen is already gone; nothing more to do.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final B20HkShell? shell = _shell;
     final String title = shell?.title ?? '';
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _onBack,
+        ),
         title: Text(title),
       ),
       body: Column(
@@ -479,6 +501,7 @@ class _B20HkPageState extends State<B20HkPage> with WidgetsBindingObserver {
           Expanded(child: _buildList()),
         ],
       ),
+    ),
     );
   }
 

@@ -1,5 +1,18 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show
+    Offset,
+    PointerCancelEvent,
+    PointerDeviceKind,
+    PointerDownEvent,
+    PointerMoveEvent,
+    PointerUpEvent;
 
+import 'package:flutter/animation.dart'
+    show AnimationController, CurvedAnimation, Curves, Tween;
+import 'package:flutter/foundation.dart' show ValueNotifier;
+import 'package:flutter/gestures.dart'
+    show Velocity, VelocityTracker, kTouchSlop;
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b21_lab_messages.g.dart';
@@ -112,7 +125,7 @@ class _B21LabListView extends StatefulWidget {
 }
 
 class _B21LabListViewState extends State<_B21LabListView>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final B21HostApi _api = B21HostApi();
 
   B21LabShell? _shell;
@@ -140,10 +153,45 @@ class _B21LabListViewState extends State<_B21LabListView>
   int _pickTicks = 0;
   int _lastPickEpoch = 0;
 
+  // Content-area group swipe (native LabActivity GroupSwipeListener
+  // port, see docs/b8-lab-swipe-fix.md): a Listener observes pointer
+  // events without entering the gesture arena, so vertical scrolling,
+  // pull-to-refresh and card taps are unaffected by construction.
+  // The drag offset lives in a ValueNotifier, so pointer moves never
+  // call setState or rebuild the list — only the Transform wrapper
+  // rebuilds.
+  final ValueNotifier<double> _swipeOffset = ValueNotifier<double>(0);
+  late final AnimationController _settleController;
+  final Tween<double> _swipeTween = Tween<double>(begin: 0.0, end: 0.0);
+  late final Animation<double> _settleAnimation;
+  int? _swipePointer;
+  Offset? _swipeDownPosition;
+  VelocityTracker? _swipeTracker;
+  double _swipeBaseX = 0;
+  bool _swipeHorizontal = false;
+  bool _swipeVertical = false;
+  int _swipeFlingDelta = 0;
+
+  /// Group the swipe offset is synced to: a group change from any
+  /// path other than the swipe settle (chip tap, snapshot group
+  /// reset) drops a stale offset in build(), mirroring native
+  /// render() zeroing translationX on content swap.
+  String _swipeGroup = 'all';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _settleController = AnimationController(vsync: this);
+    _settleAnimation = _swipeTween.animate(
+      CurvedAnimation(
+        parent: _settleController,
+        curve: Curves.decelerate,
+      ),
+    );
+    _settleAnimation.addListener(() {
+      _swipeOffset.value = _settleAnimation.value;
+    });
     _loadInitial();
   }
 
@@ -152,6 +200,8 @@ class _B21LabListViewState extends State<_B21LabListView>
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _pickTimer?.cancel();
+    _settleController.dispose();
+    _swipeOffset.dispose();
     try {
       _api.disposeLab();
     } catch (_) {
@@ -276,6 +326,156 @@ class _B21LabListViewState extends State<_B21LabListView>
     final int next = index + delta;
     if (next < 0 || next >= _groups.length) return;
     setState(() => _currentGroup = _groups[next].id);
+  }
+
+  // ----------------------------------------------------------------
+  // Content-area group swipe (native GroupSwipeListener port)
+  // ----------------------------------------------------------------
+
+  /// Whether a group exists in the swipe direction (+1 next, -1
+  /// previous); native LabActivity.hasGroup.
+  bool _hasGroup(int delta) {
+    if (_groups.isEmpty) return false;
+    int index =
+        _groups.indexWhere((B21LabGroup g) => g.id == _currentGroup);
+    if (index < 0) index = 0;
+    final int next = index + delta;
+    return next >= 0 && next < _groups.length;
+  }
+
+  void _onSwipePointerDown(PointerDownEvent event) {
+    // Track the first pointer only; a second finger never disturbs
+    // the drag in progress.
+    if (_swipePointer != null) return;
+    _swipePointer = event.pointer;
+    // A new gesture interrupts a running settle animation and
+    // continues from the current offset, without a jump (native
+    // onDown: animate().cancel() + swipeDragBaseX).
+    _settleController.stop();
+    _swipeBaseX = _swipeOffset.value;
+    _swipeDownPosition = event.position;
+    _swipeHorizontal = false;
+    _swipeVertical = false;
+    _swipeFlingDelta = 0;
+    _swipeTracker = VelocityTracker.withKind(PointerDeviceKind.touch)
+      ..addPosition(event.timeStamp, event.position);
+  }
+
+  void _onSwipePointerMove(PointerMoveEvent event) {
+    final Offset? down = _swipeDownPosition;
+    if (event.pointer != _swipePointer || down == null) return;
+    _swipeTracker?.addPosition(event.timeStamp, event.position);
+    if (_swipeVertical) return;
+    final Offset delta = event.position - down;
+    if (!_swipeHorizontal) {
+      // Direction lock on the first significant move (native
+      // onScroll): horizontal wins only if |dx| > slop and
+      // |dx| > |dy|; otherwise vertical locks and the drag is left
+      // to the list.
+      if (delta.dx.abs() > kTouchSlop &&
+          delta.dx.abs() > delta.dy.abs()) {
+        _swipeHorizontal = true;
+      } else if (delta.dy.abs() > kTouchSlop &&
+          delta.dy.abs() > delta.dx.abs()) {
+        _swipeVertical = true;
+        return;
+      } else {
+        return;
+      }
+    }
+    // Follow the finger; at the ends (no group in that direction)
+    // the 0.35 resistance hints at the end without crossing it.
+    // The offset is clamped to one screen width, as native does.
+    final double width = MediaQuery.sizeOf(context).width;
+    final double raw = _swipeBaseX + delta.dx;
+    double tx = raw;
+    if ((raw < 0 && !_hasGroup(1)) || (raw > 0 && !_hasGroup(-1))) {
+      tx = _swipeBaseX + (raw - _swipeBaseX) * 0.35;
+    }
+    _swipeOffset.value = tx.clamp(-width, width);
+  }
+
+  void _onSwipePointerUp(PointerUpEvent event) {
+    final Offset? down = _swipeDownPosition;
+    if (event.pointer != _swipePointer || down == null) return;
+    _swipePointer = null;
+    _swipeDownPosition = null;
+    // Fling (native onFling): recorded, direction from the total
+    // displacement sign, settled on release together with the
+    // displacement fallback. Requires a fast horizontal-dominant
+    // release and at least 50dp of travel.
+    final VelocityTracker? tracker = _swipeTracker;
+    _swipeTracker = null;
+    if (tracker != null) {
+      final Velocity velocity = tracker.getVelocity();
+      final double vx = velocity.pixelsPerSecond.dx;
+      final double vy = velocity.pixelsPerSecond.dy;
+      final double dx = event.position.dx - down.dx;
+      if (vx.abs() > 500 && vx.abs() > vy.abs() && dx.abs() > 50) {
+        _swipeFlingDelta = dx < 0 ? 1 : -1;
+      }
+    }
+    _settleSwipe();
+  }
+
+  void _onSwipePointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _swipePointer) return;
+    _swipePointer = null;
+    _swipeDownPosition = null;
+    _swipeTracker = null;
+    _swipeFlingDelta = 0;
+    _bounceSwipeBack();
+  }
+
+  /// Release settlement (native settleSwipe): fling first, else the
+  /// displacement over max(120dp, 1/4 screen width). Over threshold
+  /// the new group slides in once (~220ms) from the gesture
+  /// direction; otherwise it bounces back (~180ms).
+  void _settleSwipe() {
+    int delta = _swipeFlingDelta;
+    _swipeFlingDelta = 0;
+    if (delta == 0 && _swipeHorizontal) {
+      final double tx = _swipeOffset.value;
+      final double threshold =
+          math.max(120.0, MediaQuery.sizeOf(context).width / 4);
+      if (tx < -threshold) {
+        delta = 1;
+      } else if (tx > threshold) {
+        delta = -1;
+      }
+    }
+    if (delta == 0 || !_hasGroup(delta)) {
+      _bounceSwipeBack();
+      return;
+    }
+    final double width = MediaQuery.sizeOf(context).width;
+    final double enterX = delta > 0 ? width : -width;
+    _switchGroup(delta);
+    _swipeGroup = _currentGroup;
+    _animateSwipeOffset(
+      0,
+      const Duration(milliseconds: 220),
+      from: enterX,
+    );
+  }
+
+  void _bounceSwipeBack() {
+    _swipeFlingDelta = 0;
+    _animateSwipeOffset(0, const Duration(milliseconds: 180));
+  }
+
+  void _animateSwipeOffset(
+    double target,
+    Duration duration, {
+    double? from,
+  }) {
+    _settleController.stop();
+    final double start = from ?? _swipeOffset.value;
+    _swipeOffset.value = start;
+    _swipeTween.begin = start;
+    _swipeTween.end = target;
+    _settleController.duration = duration;
+    _settleController.forward(from: 0);
   }
 
   List<B21LabPackage> get _visiblePackages {
@@ -717,6 +917,17 @@ class _B21LabListViewState extends State<_B21LabListView>
 
   @override
   Widget build(BuildContext context) {
+    // A group change from any path other than the swipe settle (chip
+    // tap, snapshot group reset) drops a stale drag offset, mirroring
+    // native render() zeroing translationX on content swap. The
+    // settle path syncs _swipeGroup before the rebuild, so the
+    // slide-in is unaffected. No setState here: only the offset
+    // notifier and the settle controller are touched.
+    if (_swipeGroup != _currentGroup) {
+      _swipeGroup = _currentGroup;
+      _settleController.stop();
+      _swipeOffset.value = 0;
+    }
     final B21LabShell? shell = _shell;
     final String title = shell?.title ?? '';
     final List<B21LabPackage> visible = _visiblePackages;
@@ -894,20 +1105,34 @@ class _B21LabListViewState extends State<_B21LabListView>
           Expanded(
             child: RefreshIndicator(
               onRefresh: _reload,
-              child: GestureDetector(
+              child: Listener(
                 // Native content swipe switches groups (left = next,
-                // right = previous); the thresholds are approximated
-                // (see docs/b8-b21-lab.md §5 V7).
-                onHorizontalDragEnd: (DragEndDetails details) {
-                  final double velocity =
-                      details.velocity.pixelsPerSecond.dx;
-                  if (velocity < -500) {
-                    _switchGroup(1);
-                  } else if (velocity > 500) {
-                    _switchGroup(-1);
-                  }
-                },
-                child: body,
+                // right = previous), ported from LabActivity's
+                // observe-don't-consume OnTouchListener: this
+                // Listener never enters the gesture arena, so
+                // vertical scrolling, pull-to-refresh and card taps
+                // keep their own paths. Translucent hit-testing so
+                // the empty/loading states swipe anywhere, matching
+                // native (gesture on the recycler + empty view).
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: _onSwipePointerDown,
+                onPointerMove: _onSwipePointerMove,
+                onPointerUp: _onSwipePointerUp,
+                onPointerCancel: _onSwipePointerCancel,
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _swipeOffset,
+                  builder: (
+                    BuildContext context,
+                    double offset,
+                    Widget? child,
+                  ) {
+                    return Transform.translate(
+                      offset: Offset(offset, 0),
+                      child: child,
+                    );
+                  },
+                  child: body,
+                ),
               ),
             ),
           ),

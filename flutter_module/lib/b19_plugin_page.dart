@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b19_plugin_messages.g.dart';
+import 'pigeon/c1_messages.g.dart';
 
 /// B8 B19: the mobile plugin manager page (native
 /// PluginManagerActivity, 1040 lines) as the literal `/plugins` route
@@ -38,6 +39,7 @@ class B19PluginPage extends StatefulWidget {
 class _B19PluginPageState extends State<B19PluginPage>
     with WidgetsBindingObserver {
   final B19HostApi _api = B19HostApi();
+  final C1HostApi _c1Api = C1HostApi();
 
   B19PluginShell? _shell;
   List<B19PluginItem> _entries = <B19PluginItem>[];
@@ -623,12 +625,32 @@ class _B19PluginPageState extends State<B19PluginPage>
   // Layout
   // ------------------------------------------------------------------
 
+  Future<void> _onBack() async {
+    // Root-back signal: the host history decides (pop / home /
+    // background).
+    try {
+      await _c1Api.closeScreen();
+    } catch (_) {
+      // The host screen is already gone; nothing more to do.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final B19PluginShell? shell = _shell;
     final String title = shell?.title ?? '';
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _onBack,
+        ),
         title: Text(title),
         actions: [
           IconButton(
@@ -671,6 +693,7 @@ class _B19PluginPageState extends State<B19PluginPage>
           Expanded(child: _buildList()),
         ],
       ),
+    ),
     );
   }
 
