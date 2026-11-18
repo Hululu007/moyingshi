@@ -170,7 +170,7 @@ public class WebHomeShellActivity extends BaseActivity implements HomeWebControl
                     : WebHomeChrome.normalize(savedInstanceState.getString(STATE_PREVIOUS_MODE), WebHomeChrome.NORMAL);
             options = WebHomeChromeOptions.from(null, mode);
         }
-        viewport = WebHomeViewport.EMPTY.withChrome(mode, isImmersive());
+        viewport = WebHomeViewport.EMPTY.withChrome(mode, isImmersiveMode());
         applySystemBars();
         applyCutoutMode();
     }
@@ -284,7 +284,7 @@ public class WebHomeShellActivity extends BaseActivity implements HomeWebControl
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && isImmersive()) Util.hideSystemUI(this);
+        if (hasFocus && isImmersiveMode()) Util.hideSystemUI(this);
     }
 
     @Override
@@ -303,7 +303,7 @@ public class WebHomeShellActivity extends BaseActivity implements HomeWebControl
     protected void onDestroy() {
         sOpen = false;
         if (isFinishing() && !identity.isEmpty()) sDismissedIdentity = identity;
-        if (isImmersive()) Util.showSystemUI(this);
+        if (isImmersiveMode()) Util.showSystemUI(this);
         if (controller != null) controller.destroy();
         super.onDestroy();
     }
@@ -321,7 +321,7 @@ public class WebHomeShellActivity extends BaseActivity implements HomeWebControl
     }
 
     private boolean consumeChromeBack() {
-        if (!isImmersive()) return false;
+        if (!isImmersiveMode()) return false;
         if (WebHomeChromeOptions.RESTORE_NONE.equals(options.restoreAffordance)) return false;
         restoreChrome();
         return true;
@@ -334,7 +334,7 @@ public class WebHomeShellActivity extends BaseActivity implements HomeWebControl
         WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
         controller.setAppearanceLightStatusBars(useDarkIcons(options.statusBarStyle));
         controller.setAppearanceLightNavigationBars(useDarkIcons(options.navigationBarStyle));
-        if (isImmersive()) Util.hideSystemUI(this);
+        if (isImmersiveMode()) Util.hideSystemUI(this);
         else Util.showSystemUI(this);
     }
 
@@ -358,7 +358,7 @@ public class WebHomeShellActivity extends BaseActivity implements HomeWebControl
         return WebHomeViewport.from(insets, mode, safeBottomMax);
     }
 
-    private boolean isImmersive() {
+    private boolean isImmersiveMode() {
         return WebHomeChrome.IMMERSIVE.equals(mode);
     }
 
