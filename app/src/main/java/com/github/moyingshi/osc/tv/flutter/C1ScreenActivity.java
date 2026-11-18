@@ -136,6 +136,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * root Navigator, ignoring a repeated assertion of the same route), and
  * the engine is destroyed only when the last live C1ScreenActivity
  * finishes. Existing call sites need no changes.
+ *
+ * <p>B8 back stack (see docs/b8-back-stack-fix.md): the host keeps the
+ * cross-screen route history ({@code sRouteHistory}) because the Dart
+ * root Navigator is reset to depth 1 on every host navigation.
+ * Bottom-nav switches reset the stack, cross-screen navigations push,
+ * and {@link #handleRootBack()} pops it (or backgrounds on home). Dart
+ * reports root-back through the existing {@code closeScreen} calls.
  */
 public class C1ScreenActivity extends AppCompatActivity {
 
@@ -222,6 +229,25 @@ public class C1ScreenActivity extends AppCompatActivity {
     private static Object sRouteOwnerToken;
 
     /**
+     * B8 back stack (see docs/b8-back-stack-fix.md): the cross-screen
+     * route history, oldest first, top = current screen. Route strings
+     * only — Dart-internal member navigation (settings family) is
+     * invisible to the host and owned by the family shell. Touched
+     * only on the main thread (navigation and back both run there).
+     * Seeded in onCreate, recorded in onNewIntent / handleAction,
+     * cleared with the engine in the onDestroy teardown.
+     */
+    private static final List<String> sRouteHistory = new ArrayList<>();
+
+    /**
+     * B8 back stack: intent extra marking a navigation as a bottom-nav
+     * switch (history reset) rather than a push. Set only by
+     * {@link #startSwitch(Activity, String)}; every other arrival
+     * pushes. Not part of the route string, so it never reaches Dart.
+     */
+    private static final String EXTRA_HISTORY_SWITCH = "b8_c1_history_switch";
+
+    /**
      * B8 delete-native phase 3 (M1): the config load sequence runs once
      * per process, however many C1 screens are created.
      */
@@ -306,6 +332,42 @@ public class C1ScreenActivity extends AppCompatActivity {
         activity.startActivity(intent);
     }
 
+    /**
+     * B8 back stack: launches a C1 route as a bottom-nav switch. The
+     * route is identical to {@link #start(Activity, String)}; only the
+     * history recording differs (onNewIntent resets the stack instead
+     * of pushing). Used by {@link FlutterNav#openHomeAt} and
+     * {@link FlutterNav#goHome} — the switch entry points.
+     */
+    public static void startSwitch(Activity activity, String route) {
+        Intent intent = new Intent(activity, C1ScreenActivity.class);
+        intent.putExtra(EXTRA_ROUTE, route);
+        intent.putExtra(EXTRA_HISTORY_SWITCH, true);
+        activity.startActivity(intent);
+    }
+
+    /**
+     * B8 back stack: records a switch — the stack becomes the single
+     * entry, mirroring native {@code FragmentStateManager.change()}
+     * (bottom-nav switches never built history).
+     */
+    private static void recordSwitch(String route) {
+        sRouteHistory.clear();
+        sRouteHistory.add(route);
+    }
+
+    /**
+     * B8 back stack: records a push, de-duplicated against the top so
+     * a repeated navigation to the route already showing never stacks
+     * a duplicate entry (a pop target then always differs from the
+     * popped route string — see {@link #assertRouteForced()}).
+     */
+    private static void recordPush(String route) {
+        int size = sRouteHistory.size();
+        if (size > 0 && sRouteHistory.get(size - 1).equals(route)) return;
+        sRouteHistory.add(route);
+    }
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         // B8 delete-native phase 3 (M10): the manifest declares
@@ -318,6 +380,15 @@ public class C1ScreenActivity extends AppCompatActivity {
         // before ensureFlutterEngine() runs; a reused engine is already
         // showing another route and must be redirected below.
         boolean engineReused = FlutterEngineCache.getInstance().get(ENGINE_ID) != null;
+        // B8 back stack: seed the route history with this creation's
+        // route when it is empty (fresh engine / first entry). A
+        // reused engine means a live C1 screen already owns the
+        // history — a stacked instance must not clobber it; its route
+        // is asserted, not recorded, and back on it finishes (see
+        // handleRootBack) to reveal the screen underneath.
+        if (sRouteHistory.isEmpty()) {
+            recordSwitch(mRoute);
+        }
         // Before super.onCreate(): the FragmentManager restores the
         // FlutterFragment during super.onCreate() after process death, and
         // the fragment looks the cached engine up by ID at that point.
@@ -524,6 +595,9 @@ public class C1ScreenActivity extends AppCompatActivity {
         if (intent.hasExtra(EXTRA_NAV_POSITION)) {
             mRoute = FlutterNav.homeRouteForPosition(intent.getIntExtra(EXTRA_NAV_POSITION, 0));
             intent.removeExtra(EXTRA_NAV_POSITION);
+            // B8 back stack: a nav_position entry is a bottom-nav
+            // switch (same destination set as FlutterNav.openHomeAt).
+            recordSwitch(mRoute);
             assertRouteIfNeeded();
         } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
             FlutterNav.pushVideo(this, intent.getStringExtra(Intent.EXTRA_TEXT));
@@ -764,6 +838,60 @@ public class C1ScreenActivity extends AppCompatActivity {
     }
 
     /**
+     * B8 back stack (hazard H1, see docs/b8-back-stack-fix.md): the
+     * pop-path assertion. It bypasses the equality guard in
+     * {@link #assertRouteIfNeeded()} and always sends, while updating
+     * {@code sAssertedRoute} and the ownership token exactly as a
+     * forward assertion does (hazard H3: token discipline unchanged).
+     * Dart's own same-route no-op in {@code _showRoute} never swallows
+     * a pop: pop targets always differ from the asserted string,
+     * because pushes are de-duplicated against the top and every
+     * {@code mRoute} mutation records history — so no distinct reset
+     * signal and no Dart-side change are needed on this path.
+     */
+    private void assertRouteForced() {
+        sAssertedRoute = mRoute;
+        sRouteOwnerToken = mRouteToken;
+        sendRouteToDart(mRoute);
+    }
+
+    /**
+     * B8 back stack: the one host root-back handler. Every Dart
+     * root-back signal ({@code closeScreen} on both the C1 and B3
+     * contracts) and the {@link #onBackPressed()} fallback delegate
+     * here; Dart-internal back (inner-Navigator pops, folder-up,
+     * dialog dismiss) runs before this is ever consulted.
+     *
+     * <p>Order, mirroring the native {@code HomeActivity.onBackInvoked}
+     * hierarchy: a screen stacked above another activity finishes to
+     * reveal what is underneath (hazard H4 — native activities above
+     * C1 are untouched); otherwise the history stack pops and the
+     * previous route is asserted; a lone non-home entry returns home
+     * (native: settings visible → vod home); back on home backgrounds
+     * the app unconditionally (risk R1: there is no longer an in-app
+     * exit path, and the M2 teardown does not run on home-back).
+     */
+    public void handleRootBack() {
+        if (!isTaskRoot()) {
+            finish();
+            return;
+        }
+        if (sRouteHistory.size() > 1) {
+            sRouteHistory.remove(sRouteHistory.size() - 1);
+            mRoute = sRouteHistory.get(sRouteHistory.size() - 1);
+            assertRouteForced();
+            return;
+        }
+        if (!ROUTE_HOME.equals(mRoute)) {
+            mRoute = ROUTE_HOME;
+            recordSwitch(ROUTE_HOME);
+            assertRouteForced();
+            return;
+        }
+        Util.moveToBackground(this);
+    }
+
+    /**
      * B8 B20: registers the Hk miniapp manager API through the mobile
      * registrar indirection. The registrar class exists only in the
      * mobile source set; on leanback Class.forName fails and this is
@@ -857,8 +985,11 @@ public class C1ScreenActivity extends AppCompatActivity {
             }
             // B8 relaunch: no engine, no assertion; the next engine
             // records its creation route in ensureFlutterEngine().
+            // B8 back stack: the history belongs to the dying engine
+            // too — the next entry seeds it fresh in onCreate.
             sAssertedRoute = null;
             sRouteOwnerToken = null;
+            sRouteHistory.clear();
         }
     }
 
@@ -894,9 +1025,21 @@ public class C1ScreenActivity extends AppCompatActivity {
         String route = intent.getStringExtra(EXTRA_ROUTE);
         if (route != null) {
             mRoute = route;
+            // B8 back stack: a switch-marked intent (FlutterNav
+            // openHomeAt/goHome) resets the history; every other
+            // arrival pushes. onNewIntent only fires when this
+            // instance is the topmost activity, so the arrival comes
+            // from this C1 screen (or a host call bound to it).
+            if (intent.getBooleanExtra(EXTRA_HISTORY_SWITCH, false)) {
+                recordSwitch(route);
+            } else {
+                recordPush(route);
+            }
         } else if (!hasNavPosition
                 && (Intent.ACTION_MAIN.equals(intent.getAction()) || intent.getAction() == null)) {
             mRoute = ROUTE_HOME;
+            // B8 back stack: a launcher re-entry resets to home.
+            recordSwitch(ROUTE_HOME);
         }
         assertRouteIfNeeded();
         if (flutterFragment != null) {
@@ -909,7 +1052,10 @@ public class C1ScreenActivity extends AppCompatActivity {
         if (flutterFragment != null) {
             flutterFragment.onBackPressed();
         } else {
-            super.onBackPressed();
+            // B8 back stack: no fragment, no Dart to consult — the
+            // host root-back handler owns the fallback (pop or
+            // background), never a bare finish.
+            handleRootBack();
         }
     }
 

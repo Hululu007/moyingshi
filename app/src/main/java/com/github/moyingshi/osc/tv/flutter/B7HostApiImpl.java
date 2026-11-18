@@ -102,14 +102,13 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
     private boolean cacheComputing;
     private long lastCacheComputeStartMs;
 
-    /** Pending settings-search deep-link row, consumed once. */
-    private boolean pendingRowConsumed;
+    /** Pending settings-search deep-link row, from the M15 host static. */
     private String pendingRowId = "";
 
     /** M15: settings-search deep-link row written by the B5 host
      * (B5HostApiImpl.openSearchEntry) instead of the old
-     * SettingFragment.sPendingRow reflection write. Read once by
-     * consumePendingRow() when the settings home snapshot is built. */
+     * SettingFragment.sPendingRow reflection write. Drained on every
+     * snapshot build by consumePendingRow(). */
     private static String sPendingRowId = "";
 
     public static void setPendingRowId(String rowId) {
@@ -149,13 +148,16 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
                 .build();
     }
 
-    /** Reads the pending settings-search row once per engine from the
-     * M15 host static. The legacy SettingFragment.sPendingRow
-     * reflective fallback is gone with that class (phase 4a); the B5
-     * host static is the only writer. */
+    /** Drain-on-read for the M15 host static: every snapshot build
+     * reads-and-clears it, and the instance row is set whenever the
+     * drained value is non-empty. The old once-per-instance gate left
+     * a stale static in place until a fresh impl instance consumed it
+     * (see docs/b8-search-fix.md); the Dart row landing no longer
+     * depends on this path, so this is defense-in-depth only. The
+     * legacy SettingFragment.sPendingRow reflective fallback is gone
+     * with that class (phase 4a); the B5 host static is the only
+     * writer. */
     private void consumePendingRow() {
-        if (pendingRowConsumed) return;
-        pendingRowConsumed = true;
         String staticRow = sPendingRowId;
         sPendingRowId = "";
         if (staticRow != null && !staticRow.isEmpty()) {

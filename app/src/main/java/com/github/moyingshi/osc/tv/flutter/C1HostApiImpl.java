@@ -7,7 +7,6 @@ import androidx.fragment.app.FragmentActivity;
 import com.github.moyingshi.osc.tv.BuildConfig;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.Updater;
-import com.github.moyingshi.osc.tv.service.PlaybackService;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.subtitle.provider.SubtitleProviderRegistry;
 import com.github.moyingshi.osc.tv.ui.dialog.AboutDialog;
@@ -16,7 +15,6 @@ import com.github.moyingshi.osc.tv.ui.dialog.UpdateSettingsDialog;
 import com.github.moyingshi.osc.tv.utils.AppVersion;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
-import com.github.moyingshi.osc.tv.utils.Util;
 
 import java.util.Arrays;
 
@@ -146,18 +144,18 @@ public class C1HostApiImpl implements C1Messages.C1HostApi {
         // B8 delete-native phase 3 (plan §2.5, D1): every Flutter page
         // calls this when its navigator cannot pop (the root-back
         // signal — no new MethodChannel signal was needed, this Pigeon
-        // call already is the Dart-to-host root-back path). At the task
-        // root, finishing would run the M2 home teardown and kill
-        // background playback, so a running PlaybackService backgrounds
-        // the app instead — mirroring HomeActivity.onBackInvoked's final
-        // branch. A screen stacked above another activity always
-        // finishes (back reveals what is underneath); only the task
-        // root can exit or background.
-        if (activity.isTaskRoot() && PlaybackService.isRunning()) {
-            Util.moveToBackground(activity);
-            return;
+        // call already is the Dart-to-host root-back path). B8 back
+        // stack (docs/b8-back-stack-fix.md): the host owns the
+        // cross-screen history, so the single handler in
+        // C1ScreenActivity decides (pop, return home, or background);
+        // this method no longer finishes directly. The fallback covers
+        // the C0 engine binding (C0ShellActivity), where only the flag
+        // methods are ever called and no history exists.
+        if (activity instanceof C1ScreenActivity) {
+            ((C1ScreenActivity) activity).handleRootBack();
+        } else {
+            activity.finish();
         }
-        activity.finish();
     }
 
     /** Mirrors SettingSubtitleFragment.getSubtitleLanguageText(). */

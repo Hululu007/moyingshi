@@ -400,11 +400,17 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
             Object index = allMethod.invoke(null);
             @SuppressWarnings("unchecked")
             List<Object> raw = (List<Object>) index;
-            Field titleResField = indexClass.getField("titleRes");
-            Field subtitleResField = indexClass.getField("subtitleRes");
-            Field destResField = indexClass.getField("destRes");
-            Field pageField = indexClass.getField("page");
-            Field rowIdField = indexClass.getField("rowId");
+            // The five fields live on the nested Entry class, not on
+            // SettingSearchIndex itself (which declares no fields):
+            // getField() on the index class throws NoSuchFieldException
+            // and the catch below used to swallow it into an empty
+            // index (see docs/b8-search-fix.md).
+            Class<?> entryClass = Class.forName("com.github.moyingshi.osc.tv.ui.fragment.SettingSearchIndex$Entry");
+            Field titleResField = entryClass.getField("titleRes");
+            Field subtitleResField = entryClass.getField("subtitleRes");
+            Field destResField = entryClass.getField("destRes");
+            Field pageField = entryClass.getField("page");
+            Field rowIdField = entryClass.getField("rowId");
             for (Object entry : raw) {
                 int titleRes = titleResField.getInt(entry);
                 int subtitleRes = subtitleResField.getInt(entry);
@@ -423,6 +429,9 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
         } catch (Exception e) {
             // The search screen degrades to an empty index rather than
             // failing the whole snapshot; the personal page is unaffected.
+            // Log the failure: it used to be swallowed silently, which
+            // is why the empty index shipped unnoticed.
+            e.printStackTrace();
             entries.clear();
         }
         return new B5Messages.B5SearchScreen.Builder()

@@ -57,6 +57,14 @@ import java.net.URLEncoder;
  *       {@link #openWidgetBrowse} — never finished the caller; unchanged.</li>
  * </ul>
  *
+ * <p>Back-stack classification (B8 back stack, see
+ * docs/b8-back-stack-fix.md): {@link #openHomeAt} / {@link #goHome}
+ * are bottom-nav switches — they launch through
+ * {@code C1ScreenActivity.startSwitch}, which resets the host route
+ * history. Every other method here launches through the plain
+ * {@code start}, which pushes onto the history. The finish rules
+ * above are unchanged by the classification.
+ *
  * <p>Route query encoding is copied verbatim from the mobile
  * {@code SearchActivity} (which this router replaces): same parameter
  * names, order and URL-encoding, so the Dart pages see identical input.
@@ -160,7 +168,7 @@ public final class FlutterNav {
     public static void openHomeAt(Activity activity, int position) {
         if (activity == null) return;
         if (Util.isMobile()) {
-            C1ScreenActivity.start(activity, homeRouteForPosition(position));
+            C1ScreenActivity.startSwitch(activity, homeRouteForPosition(position));
             if (!(activity instanceof C1ScreenActivity)) activity.finish();
             return;
         }
@@ -183,7 +191,7 @@ public final class FlutterNav {
     public static void goHome(Activity activity) {
         if (activity == null) return;
         if (Util.isMobile()) {
-            C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_HOME);
+            C1ScreenActivity.startSwitch(activity, C1ScreenActivity.ROUTE_HOME);
             if (!(activity instanceof C1ScreenActivity)) activity.finish();
             return;
         }

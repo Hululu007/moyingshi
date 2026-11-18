@@ -659,7 +659,19 @@ public class B3HostApiImpl implements B3Messages.B3HostApi {
 
     @Override
     public void closeScreen() {
-        activity.finish();
+        // B8 back stack (docs/b8-back-stack-fix.md): the settings
+        // family's root-back signal delegates to the one host handler
+        // (pop, return home, or background). The previous unconditional
+        // finish() always exited — even during playback — because this
+        // impl never had the task-root/background gate the C1 impl had.
+        // The fallback covers the C0 engine binding (C0ShellActivity),
+        // where only the flag methods are ever called and no history
+        // exists.
+        if (activity instanceof C1ScreenActivity) {
+            ((C1ScreenActivity) activity).handleRootBack();
+        } else {
+            activity.finish();
+        }
     }
 
     // ------------------------------------------------------------------ helpers
