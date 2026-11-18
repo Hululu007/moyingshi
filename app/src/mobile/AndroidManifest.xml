@@ -18,20 +18,6 @@
 
     <application>
 
-        <!-- B8 delete-native phase 3: HomeActivity is no longer the
-             launcher home — its intent-filters moved to
-             .flutter.C1ScreenActivity below and the aliases retarget
-             there. The file and this declaration stay this phase
-             (unreachable, as the rollback pad); phase 4 deletes them. -->
-        <activity
-            android:name=".ui.activity.HomeActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:screenOrientation="fullUser"
-            android:theme="@style/Theme.Splash"
-            android:windowSoftInputMode="adjustPan" />
-
         <activity-alias
             android:name=".ui.activity.HomeActivityCurrent"
             android:enabled="true"
@@ -128,12 +114,6 @@
         </activity>
 
         <activity
-            android:name=".ui.activity.SearchActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="fullUser"
-            android:windowSoftInputMode="adjustPan" />
-
-        <activity
             android:name=".ui.activity.AppBrandingActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="fullUser" />
@@ -142,32 +122,6 @@
             android:name=".ui.activity.PluginManagerActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.activity.FileActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.activity.FolderActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.activity.HistoryActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.hk.HkMiniappActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:parentActivityName=".lab.LabActivity"
-            android:screenOrientation="fullUser">
-            <intent-filter>
-                <action android:name="${applicationId}.hk_miniapp" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
 
         <activity
             android:name=".ui.hk.HkListActivity"
@@ -205,17 +159,7 @@
         </activity>
 
         <activity
-            android:name=".ui.activity.WidgetBrowseActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="fullUser" />
-
-        <activity
             android:name=".ui.activity.ViewingReportActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.activity.KeepActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"
             android:screenOrientation="fullUser" />
 
@@ -223,7 +167,7 @@
             android:name=".ui.activity.ShortDramaActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
             android:exported="false"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="portrait" />
 
         <activity
@@ -231,7 +175,7 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
             android:exported="true"
             android:launchMode="singleTop"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="fullUser"
             android:supportsPictureInPicture="true" />
 
@@ -244,14 +188,14 @@
             android:name=".ui.activity.VideoActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
             android:launchMode="singleTop"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="fullUser"
             android:supportsPictureInPicture="true" />
 
         <activity
             android:name=".ui.activity.TmdbDetailActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="fullUser"
             android:supportsPictureInPicture="true" />
 
@@ -259,7 +203,7 @@
             android:name=".ui.activity.WebThemeDetailActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
             android:exported="false"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="fullUser" />
 
         <activity
@@ -272,13 +216,13 @@
         <activity
             android:name=".ui.activity.TmdbPersonActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="fullUser" />
 
         <activity
             android:name=".ui.activity.AudioActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|uiMode|orientation"
-            android:parentActivityName=".ui.activity.HomeActivity"
+            android:parentActivityName=".flutter.C1ScreenActivity"
             android:screenOrientation="fullUser" />
 
         <receiver
