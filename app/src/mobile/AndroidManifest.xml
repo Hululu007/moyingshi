@@ -18,6 +18,11 @@
 
     <application>
 
+        <!-- B8 delete-native phase 3: HomeActivity is no longer the
+             launcher home — its intent-filters moved to
+             .flutter.C1ScreenActivity below and the aliases retarget
+             there. The file and this declaration stay this phase
+             (unreachable, as the rollback pad); phase 4 deletes them. -->
         <activity
             android:name=".ui.activity.HomeActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
@@ -25,7 +30,52 @@
             android:launchMode="singleTop"
             android:screenOrientation="fullUser"
             android:theme="@style/Theme.Splash"
-            android:windowSoftInputMode="adjustPan">
+            android:windowSoftInputMode="adjustPan" />
+
+        <activity-alias
+            android:name=".ui.activity.HomeActivityCurrent"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:targetActivity=".flutter.C1ScreenActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.activity.HomeActivityHistory"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_history"
+            android:label="@string/app_name"
+            android:roundIcon="@drawable/ic_launcher_history"
+            android:targetActivity=".flutter.C1ScreenActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- B8 delete-native phase 3: the launcher home. The launcher
+             aliases target this Activity; the SEARCH/SEND/VIEW
+             intent-filters and the searchable meta-data moved here
+             verbatim from .ui.activity.HomeActivity (see
+             docs/b8-delete-native-plan.md §3). configChanges keeps the
+             existing keyboard/uiMode set and adds the orientation family
+             copied from the native rotation-stable activities, so
+             rotation never recreates the home (D4). -->
+        <activity
+            android:name=".flutter.C1ScreenActivity"
+            android:configChanges="keyboard|keyboardHidden|uiMode|screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="fullUser"
+            android:theme="@style/Theme.Splash"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.SEARCH" />
             </intent-filter>
@@ -76,44 +126,6 @@
                 <data android:scheme="jianpian" />
             </intent-filter>
         </activity>
-
-        <activity-alias
-            android:name=".ui.activity.HomeActivityCurrent"
-            android:enabled="true"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:label="@string/app_name"
-            android:roundIcon="@mipmap/ic_launcher_round"
-            android:targetActivity=".ui.activity.HomeActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".ui.activity.HomeActivityHistory"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@drawable/ic_launcher_history"
-            android:label="@string/app_name"
-            android:roundIcon="@drawable/ic_launcher_history"
-            android:targetActivity=".ui.activity.HomeActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <!-- B8 C1: migrated screens (About, subtitle settings), mobile only,
-             no launcher entry; entered from SettingFragment behind the C1
-             flag (default native); see docs/b8-c1-about-subtitle.md. -->
-        <activity
-            android:name=".flutter.C1ScreenActivity"
-            android:configChanges="keyboard|keyboardHidden|uiMode"
-            android:exported="false"
-            android:screenOrientation="fullUser"
-            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ui.activity.SearchActivity"
