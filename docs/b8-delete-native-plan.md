@@ -478,7 +478,7 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
 |---|---|---|
 | **阶段 1：路由器 + 改线**（✅ 已完成 2026-11-18，见 §5.1） | 新建 main 源集 flavor 安全路由器（建议名 `FlutterNav`，`flutter` 包内；mobile 分支直接引用 `C1ScreenActivity`，TV 分支用 FQCN 字符串反射，`Util.isMobile()` 门控）。改线全部 main 源集对被删类的直接引用（行为不变，flag 门保留）：`AppBranding.java:140/152`（alias 派生改字符串常量）、`CrashActivity.java:229`（删 `HomeActivity.class` fallback，主路径 `getLaunchIntentForPackage` 已自动跟随）、`TmdbDetailActivity.java:9806`（`finishPlaybackToHome` 改 launcher-intent 形态）、`B5:513`/`B7:956`/`B11:1383` 的 `openHomeAt`（改为 C1 路由 intent，`nav_position`→路由映射 M14）、`C2:196`/`B2:269` 的 `goHome`（同上）、`HomeWebBridge.java:434/455` 与 `WebHomeThemeBridge.java:443`（search/keep 路由器化）、`TmdbNavigation.java:112`、`HistoryResumeCoordinator.java:88/150`（`directFromHistory` 路由器化）、`TmdbPersonActivity.java:278/288`（`openWork`）、`TmdbDetailActivity.java:12608/12798/12823`（`direct` 调用）、`B9HostApiImpl.java:388`（`direct` 调用，阶段 2 随 `submitSearch` 删除——阶段 1 先改路由器形态）、`FileChooser.java:95`（mobile 恒 C1，TV 反射 `FileActivity`）、`VideoActivity.java:4293`（`onSearchGlobal` 改 C1 路由）、`LiveActivity.java:431`（底栏返回改 C1 路由）与 `:676`（`isTaskRoot` 改 C1 `ROUTE_HOME`）、`VideoActivity.java:10612/12120`（`isTaskRoot` 同上）、`B11:920/936` 的 `HistoryActivity.start`/`KeepActivity.start` 回退分支（改为路由器调用）。`SearchActivity.direct` 的 `!(activity instanceof C1ScreenActivity)` G2 例外随路由器消失：C1 调用方一律走 in-family push（Dart）或 start-then-finish（host），relaunch 机制承担断言（见 §6 R4） | 零删除、零行为变化；mobile + leanback 双编译通过；真机回归：搜索/收藏/历史/设置跳转、WebHome 主题内 search/keep、详情页搜同名、直播底栏返回 |
 | **阶段 2：总开关拆除**（✅ 已完成 2026-11-18，见 §5.2） | §4 全部内容：`Setting.java` 24 getter + 24 putter、Pigeon 契约 regen、Dart 4 处读取 + B7 开关行 + `openNativePage`/`submitSearch` 删除、全部 impl 内分流改为无条件 C1、`sPendingRow` 改线（M15）、`ShortDramaActivity.setMode` 门删除、`LabActivity.openMiniappManager` 门删除、`AppBrandingActivity:31`/`TmdbPersonActivity:109` 门删除、`b8_c0_strings.xml` 删除 | 行为：mobile 恒 Flutter；真机验收：开关消失、每屏直达、B9 提交直达 B10、B7 player 行 in-family、短剧 tab 恒分流 |
-| **阶段 3：生命周期 + launcher 迁移** | §2 + §3 全部内容：`C1ScreenActivity` 承担 M1–M10/M12、manifest 改向（exported/singleTop/Theme.Splash/configChanges/全部 intent-filter + searchable）、alias `targetActivity` 改向、默认路由 `ROUTE_HOME`、`onNewIntent` 路由断言。`HomeActivity` 文件与声明**本阶段不删**（仅不再是 launcher、不可达），作为回退垫 | 真机验收（关键门）：冷启动、回跳消失、launcher 二次点击回首页、SEND/VIEW/SEARCH intent、旋转、退出清理（Server 停、配置清）、开机 BOOT 进直播、根返回行为（D1） |
+| **阶段 3：生命周期 + launcher 迁移**（✅ 已完成 2026-11-18，见 §5.3） | §2 + §3 全部内容：`C1ScreenActivity` 承担 M1–M10/M12、manifest 改向（exported/singleTop/Theme.Splash/configChanges/全部 intent-filter + searchable）、alias `targetActivity` 改向、默认路由 `ROUTE_HOME`、`onNewIntent` 路由断言。`HomeActivity` 文件与声明**本阶段不删**（仅不再是 launcher、不可达），作为回退垫 | 真机验收（关键门）：冷启动、回跳消失、launcher 二次点击回首页、SEND/VIEW/SEARCH intent、旋转、退出清理（Server 停、配置清）、开机 BOOT 进直播、根返回行为（D1） |
 | **阶段 4：代码删除** | §1.1 的 48 个文件 + manifest 7 个 activity 声明删除。建议拆两个提交：4a activities + fragments + SettingSearchAdapter（24 个）+ manifest；4b adapters + glass + 4 个 helper（24 个）。**前置条件**：§6 R1 的 WebHome 决策已定；如选“保留回退壳”，回退壳在本阶段前另立阶段建成 | 双编译通过；真机全量回归（§7 验收清单） |
 | **阶段 5：资源删除** | §1.2 的 62 个资源文件（布局 43 + 菜单 8 + drawable 10 + strings 文件 1）；`shape_search_hot_word.xml` 按条件执行 | 编译通过（binding 引用已随阶段 4 消失）；APK 体积对照 |
 | **阶段 6（可选）：死代码清理** | `C0HostApiImpl.java` + `c0_messages.dart` + 生成物（零注册、零 Dart 引用，已核实）；`ThemeController.applyWallpaperBlur` 方法（调用已消失，方法可留可删）；Lint `UnusedResources` 扫 drawable/strings 孤儿 | 与删除 program 无关，可独立排期 |
@@ -570,6 +570,67 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
   （开关消失、每屏直达、B9 提交直达 B10、B7 player 行 in-family、短剧 tab 恒分流、
   设置内搜索 → 点结果 → 落在对应行）。
 
+### 5.3 阶段 3 实施记录（2026-11-18，已完成）
+
+- **产出**：`C1ScreenActivity` 接管原生 `HomeActivity` 的生命周期与 launcher 入口。
+  `onCreate` 按 §2.1 顺序承担 M1–M10/M12：`setTheme(Theme_App)`（M10，`super.onCreate`
+  之前）、`HkWarmup` 反射预热（M7，leanback 静默 no-op）、权限链（M4，D2 保留）、
+  `FollowingScheduler`（M3）、配置加载 once 守卫（M1 + M8，`AtomicBoolean` + D3 辅助谓词，
+  回调只保留 intent 处理与 error 吐司，`StateEvent` 投递随原生首页删除）、EventBus 手动
+  注册（M6）、`savedInstanceState == null` 时 `nav_position` intent 处理（M5）。
+  `onDestroy` 在既有 `isFinishing() && sLiveActivities.isEmpty()` 守卫块内按原生顺序执行
+  M2/M9 清理（`LiveConfig.clear`、`VodConfig.clear("mobile-home-destroy")`、
+  `AutoBackupPolicy` 自动备份、`OkHttp.clear`、`Source.exit`、`Server.stop`），并重置
+  once 守卫（见偏差 P3-6）；`PreviousProcessCrashRecovery.release` 与 EventBus 注销无条件
+  先行（见偏差 P3-3）。`onNewIntent` 按 §3.3 改写：`setIntent` + crash 门控的
+  `checkAction` + `EXTRA_ROUTE`/`ROUTE_HOME` 路由更新 + `assertRouteIfNeeded`，VIEW/SEND/
+  SEARCH 不改当前路由。默认路由由 `ROUTE_ABOUT` 改为 `ROUTE_HOME`。M11 已在 B11
+  （`longPressBottomBarItem` 的 `ShortcutInfoCompat` 构造与 `HomeActivity.addShortcut`
+  一致，已核对，无改动）；M13/M14/M15 阶段 1/2 已完成。
+  mobile manifest：`C1ScreenActivity` 改为 `exported=true`、`singleTop`、`Theme.Splash`、
+  `configChanges` 加 orientation 系（D4），SEARCH/SEND/VIEW intent-filter 与 searchable
+  meta-data 从 `HomeActivity` 声明**逐字**搬入；`HomeActivity` 声明保留但去全部
+  filter（不可达，回退垫）；两个 alias `targetActivity` 改向 `.flutter.C1ScreenActivity`
+  （组件名/图标/enabled 不变）。`FlutterNav` 新增 `pushVideo`/`startLive`（`VideoActivity`/
+  `LiveActivity` 双 flavor 同 FQCN 同签名，一次反射双 flavor 通用）。D1 落地为
+  `C1HostApiImpl.closeScreen()` 的 `isTaskRoot + PlaybackService` 门（见偏差 P3-1）。
+  零文件删除；`HomeActivity`/`VodFragment` 文件未动；播放器 / 直播 / 弹窗 / 数据层 / TV
+  未动；零 Dart 改动。
+- **静态核查（本机无 SDK，CI 为第一次真实编译检查）**：manifest filter 新旧 diff 逐字一致；
+  `HomeActivity` 声明无 filter、两 alias 指向 C1；XML well-formed；三 Java 文件括号平衡；
+  main 源集改动文件内 `VideoActivity`/`LiveActivity`/`HkWarmup` 仅 FQCN 字符串与注释，
+  无直接引用（leanback 可编译）；全部新增 import 均有使用；`git diff` 仅 5 个 scope 文件。
+- **偏差**：
+  - **P3-1**：D1 未按 §2.5 建议新增 MethodChannel“根返回”信号——既有
+    `C1HostApi.closeScreen()` 已是全部页面 `PopScope` 根返回的 Dart→host 路径，零 Dart
+    改动即可落地：`closeScreen()` 在 `isTaskRoot() && PlaybackService.isRunning()` 时
+    `moveToBackground`，否则 `finish`（叠加屏恒 finish，back 揭示下层）。
+  - **P3-2**：§3.1“`HomeActivity` 声明删除”与 §5 阶段 3 行 / 任务简报冲突——按后者：
+    声明保留、仅去 intent-filter，作为回退垫；删除在阶段 4。
+  - **P3-3**：`PreviousProcessCrashRecovery.release()` 未放守卫块内——按 `HomeActivity`
+    原样无条件先调（release 语义是丢弃该 Activity 的 parked 步骤，销毁即应丢弃）；
+    M2/M9 清理仍在守卫块内。
+  - **P3-4**：EventBus 处理加前台门 `isForegroundC1()`（复用 relaunch 机制的
+    `sRouteOwnerToken`）——叠加的 C1 屏都会注册，无门则 ServerEvent 会重复 push/search。
+  - **P3-5**：crash-restart 分支同样置位 once 守卫——`CrashRestartMode` 是一次性持久
+    flag，`HomeActivity` 每进程只 load 一次；C1 多创建时不置位会在第二屏 load，违背
+    `skip_config_once` 语义。
+  - **P3-6**：teardown 块内重置 once 守卫——退出清理后同进程内 launcher 再进必须重新
+    load，否则守卫会让重进的首页空数据。
+  - **P3-7**：M10 的“双 flavor 都有 `Theme.Splash` 定义”不成立——`Theme.Splash` 仅 mobile
+    res 有定义；C1 声明仅在 mobile manifest，leanback 不受影响，无需补定义。
+  - **P3-8**：D3 谓词——`VodConfig.isLoaded()` 是 `protected`，main 内不可见；改用等价
+    公开谓词 `!VodConfig.get().getSites().isEmpty()`（`getSites()` null-safe，与
+    `isLoaded()` 同体），once 守卫为主。
+  - **D1/D2/D3/D4**：均已决策/确认，见 §7。
+- **遗留观察（非阶段 3 阻塞，需中国主人定）**：start-then-finish + `closeScreen` 的既有
+  Dart 导航设计下，任务根的非 home 屏（如底栏进的 `/settings`）按根返回会退出应用而非回
+  `/home`（原生是设置返回首页）。阶段 3 未改此设计（计划 D1 只定 finish/background）；
+  如需 settings→home，需另立 Dart 侧改动。
+- **待验**：推送后 CI（b8-c0.yml）跑通即为双 flavor 真实编译检查；真机验收按阶段 3 行
+  （冷启动、回跳消失、launcher 二次点击回首页、SEND/VIEW/SEARCH intent、旋转、退出清理、
+  开机 BOOT 进直播、根返回行为）。
+
 **回退策略**：阶段 1–2 完全可回退（单提交 revert）；阶段 3 回退 = manifest + `C1ScreenActivity` 改动 revert，
 `HomeActivity` 仍在；阶段 4 起回退成本陡增，因此阶段 3 的真机验收门必须通过后才进阶段 4。
 
@@ -600,10 +661,10 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
 
 | # | 事项 | 选项 / 确认点 | 阻塞阶段 |
 |---|---|---|---|
-| D1 | 根返回行为 | `PlaybackService` 运行时后台化、否则 finish（建议，与原生一致）；或恒后台化 | 阶段 3 |
-| D2 | 启动权限请求保留与否 | 保留（行为一致，建议）/ 删除（B15 用点桥接已覆盖） | 阶段 3 |
-| D3 | `VodConfig` 已加载判定谓词 | 实施时确认与 `LiveConfig.hasLoadedLives()` 对等的 `VodConfig` API 名（`Manage.java:835` 有 `getConfig().isEmpty()` 前例）；once 守卫为主、谓词为辅 | 阶段 3 |
-| D4 | `C1ScreenActivity` 加 orientation 系 `configChanges` | 建议加（§2.2）；复制原生 rotation-stable activity 的确切字符串 | 阶段 3 |
+| D1 | 根返回行为 | **已决策（2026-11-18，阶段 3 实施）**：`PlaybackService` 运行时后台化、否则 finish；落地为 `C1HostApiImpl.closeScreen()` 的 `isTaskRoot` 门（见 §5.3 P3-1），未新增 MethodChannel 信号 | 阶段 3（已完成） |
+| D2 | 启动权限请求保留与否 | **已决策（2026-11-18，阶段 3 实施）**：保留启动权限请求（`PermissionUtil.requestFile` → `requestNotify`），与原生一致 | 阶段 3（已完成） |
+| D3 | `VodConfig` 已加载判定谓词 | **已确认（2026-11-18，阶段 3 实施）**：谓词为 `!VodConfig.get().getSites().isEmpty()`（与 `protected` 的 `isLoaded()` 等价，`getSites()` null-safe）；once 守卫为主、谓词为辅 | 阶段 3（已完成） |
+| D4 | `C1ScreenActivity` 加 orientation 系 `configChanges` | **已实施（2026-11-18，阶段 3）**：加 `screenSize|smallestScreenSize|screenLayout|orientation`（复制 `HomeActivity` 的确切字符串），保留原有 `keyboard|keyboardHidden|uiMode` | 阶段 3（已完成） |
 | D5 | leanback 编译的 CI 覆盖 | **已确认（2026-11-18，阶段 1 收尾）**：`b8-c0.yml` 覆盖 leanback 编译（`assembleLeanbackArm64_v8aRelease` 与 `assembleLeanbackArmeabi_v7aRelease`），双 flavor 覆盖已有，无需再确认 | 阶段 1（已解决） |
 | D6 | **WebHome 首页去留** | **已决策（2026-11-18 08:22，中国主人选 b）**：建最小原生回退壳（承载 `HomeWebController` + chrome 的单 Activity，仅 WebHome home 站点进入），回退壳先于 `VodFragment` 删除建成并验收 | 阶段 4 |
 | D7 | `FollowingNotifier` mobile 落地 | **已决策（2026-11-18，阶段 1 实施）**：mobile 发 C1 `/following` intent；identityKey 不拼进路由（Dart 只注册了字面 `/following` 路由，带 query 无法解析），列表打开后由用户点选条目。TV 保持原生 `FollowingActivity.intent` | 阶段 1（已完成） |
