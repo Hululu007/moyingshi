@@ -62,8 +62,8 @@ abstract class B11HostApi {
 
   /// Title tap: SiteDialog (reflection + headless fragment, B9 pattern).
   /// Completes true when the home site changed (Dart refetches the
-  /// snapshot, which may now be a hk:// / WebHome fallback -> close),
-  /// false when it was dismissed unchanged.
+  /// snapshot, which may now be a hk:// fallback -> close or a WebHome
+  /// fallback -> shell), false when it was dismissed unchanged.
   @async
   bool openSiteDialog();
 
@@ -129,6 +129,18 @@ abstract class B11HostApi {
   /// so no state comes back.
   @async
   void openLinkDialog();
+
+  /// WebHome home site: open the minimal native fallback shell
+  /// (WebHomeShellActivity, delete-native plan §6 R1 / §7 D6 option b).
+  /// The Flutter module has no WebView plugin, so a WebHome-themed home
+  /// site cannot render in the Flutter home. Completes true when the
+  /// shell was started, false when the current home site cannot load a
+  /// WebHome theme or the user already backed out of the shell for this
+  /// site (the host's dismissed-identity guard, so the resume reload
+  /// does not reopen a shell the user just left). Backing out of the
+  /// shell reveals this Flutter home screen again.
+  @async
+  bool openWebHomeShell();
 }
 
 /// Live selection state of the native TypeFilterDialog opened from
@@ -214,8 +226,9 @@ class B11HomeScreen {
   String emptyActionLabel;
 
   /// True when the current home site is a hk:// miniapp or a WebHome
-  /// theme can load for it: the Flutter home must not own this site,
-  /// Dart closes the screen and the native home underneath takes over.
+  /// theme can load for it: the Flutter home must not own this site.
+  /// hk:// closes the screen (the native miniapp page takes over);
+  /// WebHome opens the native fallback shell (openWebHomeShell).
   bool isHkHome;
   bool isWebHome;
 
