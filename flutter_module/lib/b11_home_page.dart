@@ -1,6 +1,6 @@
 import 'dart:async' show Timer;
 import 'dart:io' show File;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show ImageFilter, Matrix4;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -43,8 +43,11 @@ import 'widgets/vod_card.dart';
 /// the shell reloads (load epoch) or the selected tab changes.
 ///
 /// Deliberate deviations from native (see docs/b8-b11-home.md and
-/// docs/b8-home-glass.md): the glass bar is a BackdropFilter
-/// approximation (no lens distortion / dispersion); the logo is a
+/// docs/b8-home-glass.md): the glass bar is a layered-filter
+/// approximation of the native Kyant backdrop stack (blur + lens
+/// magnification + color-control washes + highlight/fringe; no true
+/// per-pixel lens or channel-split dispersion — see
+/// docs/b8-home-glass-v2.md); the logo is a
 /// Material icon, not the ic_logo drawable; the title uses single-line
 /// ellipsis instead of marquee; the pinned tab bar paints the host
 /// wallpaper color opaque once content scrolls under it, where native
@@ -1411,12 +1414,14 @@ const double _fabMargin = 16;
 /// GlassNavBar): a floating capsule (64dp tall, 24dp side insets, 16dp
 /// float — the native 88dp glass slot), the same items in the same
 /// order, the same selection pill, the same glass parameters from the
-/// host snapshot. Glass mode uses a BackdropFilter blur over a
-/// translucent surface, refracting the wallpaper and content behind
-/// it; plain mode (glass off) keeps the capsule shape but renders
-/// opaque (see docs/b8-home-glass.md). Icons are Material
-/// approximations of the native ic_nav_* drawables (see
-/// docs/b8-b11-home.md V5).
+/// host snapshot. Glass mode layers a BackdropFilter blur +
+/// lens-magnification matrix over the wallpaper and scrolled content,
+/// with native-aligned color-control washes, a soft-light saturation
+/// lift, a top highlight and a dispersion fringe (see
+/// docs/b8-home-glass-v2.md); plain mode (glass off) keeps the
+/// capsule shape but renders opaque (see docs/b8-home-glass.md).
+/// Icons are Material approximations of the native ic_nav_* drawables
+/// (see docs/b8-b11-home.md V5).
 class _GlassBottomBar extends StatelessWidget {
   const _GlassBottomBar({
     required this.screen,
@@ -1458,22 +1463,8 @@ class _GlassBottomBar extends StatelessWidget {
     final Color unselected = screen.darkMode
         ? Colors.white.withAlpha(184)
         : Colors.black.withAlpha(158);
-    final double blur = screen.glassBlurDp.toDouble();
-    // Native translucency is 0-100 (default 50); higher means more
-    // see-through. Clamped so the bar never turns fully invisible or
-    // fully opaque (approximation, see docs/b8-b11-home.md V4).
-    final double opacity =
-        (1 - screen.glassTranslucency / 100).clamp(0.15, 0.9);
     final BorderRadius capsule = BorderRadius.circular(_glassBarHeight / 2);
-    final Widget bar = Container(
-      height: _glassBarHeight,
-      decoration: BoxDecoration(
-        color: screen.glassEnabled
-            ? surface.withAlpha((opacity * 255).round())
-            : surface,
-        borderRadius: capsule,
-      ),
-      child: Row(
+    final Widget barContent = Row(
         children: items.map((B11NavItem item) {
           final bool selected = item.token == screen.selectedNavToken;
           final Color color = selected ? accent : unselected;
@@ -1541,14 +1532,153 @@ class _GlassBottomBar extends StatelessWidget {
             ),
           );
         }).toList(),
+    );
+    final double blur = screen.glassBlurDp.toDouble();
+    if (!screen.glassEnabled || blur <= 0) {
+      // Glass off: opaque capsule, unchanged (b8-home-glass D3).
+      return Container(
+        height: _glassBarHeight,
+        decoration: BoxDecoration(color: surface, borderRadius: capsule),
+        child: barContent,
+      );
+    }
+    // Liquid-glass parameters, aligned to the native formulas in
+    // LiquidGlassConfig.kt (translucency t in 0..1; see
+    // docs/b8-home-glass-v2.md). At the defaults (t = 0.5) the
+    // brightness/contrast terms are neutral and saturation is 1.5.
+    final double t = screen.glassTranslucency / 100;
+    final double tintAlpha = (0.4 * (2 - 2 * t)).clamp(0.05, 0.8);
+    final double brightness = (0.5 - t).clamp(0.0, 0.5) * 0.12;
+    final double contrast = 1 - (0.5 - t).clamp(0.0, 0.5) * 0.25;
+    final double saturation = 1.5 - (t - 0.5).clamp(0.0, 0.5);
+    // Saturation lift: a second blurred backdrop composited with
+    // soft-light over the first (see the Stack below). Strength
+    // follows the native saturation term; zero when saturation is 1.
+    final double liftAlpha = ((saturation - 1) * 0.3).clamp(0.0, 0.25);
+    // Lens approximation: a uniform magnification about the bar
+    // center. Native refracts up to distortionDp at the rim; the
+    // uniform scale keeps the sliding misalignment cue — content
+    // inside the bar no longer lines up with content outside it.
+    final double lensScale =
+        1 + (screen.glassDistortionDp / 600).clamp(0.0, 0.08);
+    final bool useLens = screen.glassDistortionDp > 0 && lensScale > 1.001;
+    return Container(
+      // Drop shadow outside the clip (native Shadow.Default).
+      decoration: BoxDecoration(
+        borderRadius: capsule,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(screen.darkMode ? 51 : 26),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: capsule,
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            ImageFilter filter =
+                ImageFilter.blur(sigmaX: blur, sigmaY: blur);
+            if (useLens && constraints.maxWidth.isFinite) {
+              final double cx = constraints.maxWidth / 2;
+              const double cy = _glassBarHeight / 2;
+              final Matrix4 lens = Matrix4.identity()
+                ..translate(cx, cy)
+                ..scale(lensScale)
+                ..translate(-cx, -cy);
+              filter = ImageFilter.compose(
+                outer: filter,
+                inner: ImageFilter.matrix(
+                  lens.storage,
+                  filterQuality: FilterQuality.medium,
+                ),
+              );
+            }
+            return BackdropFilter(
+              filter: filter,
+              child: SizedBox(
+                height: _glassBarHeight,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        color: surface.withAlpha((tintAlpha * 255).round()),
+                      ),
+                    ),
+                    if (liftAlpha > 0.01)
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: liftAlpha,
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(
+                              sigmaX: blur,
+                              sigmaY: blur,
+                            ),
+                            blendMode: BlendMode.softLight,
+                            child: Container(color: Colors.transparent),
+                          ),
+                        ),
+                      ),
+                    if (brightness > 0.001)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.white
+                              .withAlpha((brightness * 255).round()),
+                        ),
+                      ),
+                    if (contrast < 0.999)
+                      Positioned.fill(
+                        child: Container(
+                          color: const Color(0xFF808080).withAlpha(
+                            ((1 - contrast) * 0.5 * 255).round(),
+                          ),
+                        ),
+                      ),
+                    Positioned.fill(child: _buildHighlight()),
+                    Positioned.fill(child: barContent),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
-    if (!screen.glassEnabled || blur <= 0) return bar;
-    return ClipRRect(
-      borderRadius: capsule,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: bar,
+  }
+
+  /// Top-edge highlight + dispersion fringe (native Highlight.Default
+  /// approximation). The gradient is a static rim: white fading down
+  /// from the top edge, with a faint cyan top / magenta bottom split
+  /// when dispersion is on. Painted above the tint, below the icons.
+  Widget _buildHighlight() {
+    final bool dispersion = screen.glassDispersion;
+    final double topAlpha = screen.darkMode ? 0.14 : 0.22;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_glassBarHeight / 2),
+        border: Border.all(
+          color: Colors.white.withAlpha(26),
+          width: 1,
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dispersion
+              ? [
+                  const Color(0xFFE8FFFF).withAlpha(41),
+                  Colors.white.withAlpha((topAlpha * 255).round()),
+                  Colors.transparent,
+                  const Color(0xFFFFE8F0).withAlpha(18),
+                ]
+              : [
+                  Colors.white.withAlpha((topAlpha * 255).round()),
+                  Colors.transparent,
+                ],
+          stops: dispersion
+              ? const [0.0, 0.18, 0.45, 1.0]
+              : const [0.0, 0.45],
+        ),
       ),
     );
   }
