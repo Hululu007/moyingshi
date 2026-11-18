@@ -52,6 +52,7 @@ import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
 import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.ui.activity.LiveActivity;
+import com.github.moyingshi.osc.tv.ui.activity.WebHomeShellActivity;
 import com.github.moyingshi.osc.tv.ui.custom.CustomWallView;
 import com.github.moyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
@@ -1117,6 +1118,26 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 result.error(e);
             }
         }
+    }
+
+    @Override
+    public void openWebHomeShell(B11Messages.Result<Boolean> result) {
+        // WebHome fallback shell (delete-native plan §6 R1 / §7 D6): the
+        // shell Activity is main-source and flavor-safe, but it is
+        // declared in the mobile manifest only, so the TV branch must
+        // never start it. The shell itself refuses when the user already
+        // backed out of it for this theme identity (dismissed guard).
+        boolean started = false;
+        try {
+            if (Util.isMobile()) {
+                Site home = VodConfig.get().getHome();
+                started = home != null && WebHomeTarget.canLoad(home)
+                        && WebHomeShellActivity.start(activity, home);
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+        result.success(started);
     }
 
     /**
