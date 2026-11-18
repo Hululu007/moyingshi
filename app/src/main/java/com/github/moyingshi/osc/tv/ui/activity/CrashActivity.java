@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.databinding.ActivityCrashBinding;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.server.Server;
 import com.github.moyingshi.osc.tv.utils.AppVersion;
 import com.github.moyingshi.osc.tv.utils.CrashLogSession;
@@ -226,7 +227,7 @@ public class CrashActivity extends AppCompatActivity {
             }
             if (config == null) config = new CaocConfig();
             Intent restart = getPackageManager().getLaunchIntentForPackage(getPackageName());
-            if (restart == null) restart = new Intent(this, HomeActivity.class);
+            if (restart == null) restart = FlutterNav.homeIntent(this);
             CustomActivityOnCrash.restartApplicationWithIntent(this, restart, config);
         } catch (Throwable ignored) {
             showToast(R.string.crash_action_failed);

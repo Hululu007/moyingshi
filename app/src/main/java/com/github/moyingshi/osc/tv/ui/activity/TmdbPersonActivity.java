@@ -45,6 +45,7 @@ import com.github.moyingshi.osc.tv.bean.TmdbPerson;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.ActivityTmdbPersonBinding;
 import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.service.TmdbService;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.ThemeController;
@@ -275,7 +276,7 @@ public class TmdbPersonActivity extends BaseActivity {
     private void openWork(TmdbItem item) {
         Site site = VodConfig.get().getSite(siteKey);
         if (site == null || site.isEmpty() || !site.isSearchable()) {
-            SearchActivity.direct(this, item.getTitle());
+            FlutterNav.direct(this, item.getTitle());
             return;
         }
         Notify.show(getString(R.string.detail_work_searching, item.getTitle()));
@@ -285,7 +286,7 @@ public class TmdbPersonActivity extends BaseActivity {
                 if (isFinishing() || isDestroyed()) return;
                 if (match == null) {
                     Notify.show(getString(R.string.detail_work_global_searching, item.getTitle()));
-                    SearchActivity.direct(this, item.getTitle());
+                    FlutterNav.direct(this, item.getTitle());
                     return;
                 }
                 TmdbDetailActivity.start(this, site.getKey(), match.getId(), match.getName(), match.getPic(), "", item, detailMode);

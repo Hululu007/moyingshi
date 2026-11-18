@@ -101,6 +101,7 @@ import com.github.moyingshi.osc.tv.databinding.ActivityTmdbDetailBinding;
 import com.github.moyingshi.osc.tv.databinding.DialogTmdbEpisodeBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.following.Following;
 import com.github.moyingshi.osc.tv.following.FollowingIdentity;
 import com.github.moyingshi.osc.tv.following.FollowingMetadataSnapshot;
@@ -9803,7 +9804,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         saveInlineHistory();
         stopInlinePlaybackSync();
         inlineStarted = false;
-        if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        if (isTaskRoot()) startActivity(FlutterNav.homeIntent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finishPlayback();
     }
 
@@ -12605,7 +12606,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean openGlobalSourceSearch() {
         String keyword = getSourceSearchKeyword();
         if (TextUtils.isEmpty(keyword)) return false;
-        SearchActivity.direct(this, keyword);
+        FlutterNav.direct(this, keyword);
         return true;
     }
 
@@ -12795,7 +12796,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (person.getPersonId() <= 0) {
             // Site-actor fallback card (B4): no TMDB id, so search the site for
             // this actor's other works instead of opening a TMDB person page.
-            SearchActivity.direct(this, person.getName());
+            FlutterNav.direct(this, person.getName());
             return;
         }
         if (!canMatchTmdb()) {
@@ -12820,7 +12821,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 if (generation != loadGeneration || searchGeneration != sourceSearchGeneration) return;
                 if (match == null) {
                     Notify.show(getString(R.string.detail_work_global_searching, item.getTitle()));
-                    SearchActivity.direct(this, item.getTitle());
+                    FlutterNav.direct(this, item.getTitle());
                     return;
                 }
                 openMatchedDetail(site, match, item);

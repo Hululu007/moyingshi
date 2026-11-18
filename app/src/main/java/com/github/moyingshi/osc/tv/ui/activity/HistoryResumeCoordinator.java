@@ -16,6 +16,7 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.History;
 import com.github.moyingshi.osc.tv.bean.Vod;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.history.HistorySourceResolver;
 import com.github.moyingshi.osc.tv.playback.HistoryResumePayload;
 import com.github.moyingshi.osc.tv.setting.Setting;
@@ -85,7 +86,7 @@ public final class HistoryResumeCoordinator {
         }
         REQUESTS.incrementAndGet();
         if (Setting.isGlobalHistorySearch()) {
-            SearchActivity.directFromHistory(activity, history);
+            FlutterNav.directFromHistory(activity, history);
             if (onLaunching != null) onLaunching.run();
             return;
         }
@@ -147,7 +148,7 @@ public final class HistoryResumeCoordinator {
             return;
         }
         REQUESTS.incrementAndGet();
-        SearchActivity.directFromHistory(activity, history, keyword, targetCid);
+        FlutterNav.directFromHistory(activity, history, keyword, targetCid);
     }
 
     private static void resolveAuto(Activity activity, History history) {
