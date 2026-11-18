@@ -13,7 +13,7 @@ import androidx.core.content.ContextCompat;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 
 public final class FollowingNotifier {
 
@@ -42,7 +42,7 @@ public final class FollowingNotifier {
         if (App.activity() != null) return false;
         if (item == null || !FollowingUpdatePolicy.shouldNotify(item) || !canNotify()) return false;
         createChannel();
-        Intent intent = FollowingActivity.intent(App.get(), item.identityKey);
+        Intent intent = FlutterNav.followingIntent(App.get(), item.identityKey);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pending = PendingIntent.getActivity(App.get(), item.identityKey.hashCode(), intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
