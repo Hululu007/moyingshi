@@ -39,19 +39,18 @@ class B13WidgetsWidget extends StatefulWidget {
 class _B13WidgetsWidgetState extends State<B13WidgetsWidget> {
   final B13HostApi _api = B13HostApi();
 
-  bool? _enabled;
   B13WidgetScreen? _screen;
 
   @override
   void initState() {
     super.initState();
-    _initFlagAndLoad();
+    _loadWidgets();
   }
 
   @override
   void didUpdateWidget(B13WidgetsWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.epoch != oldWidget.epoch) _initFlagAndLoad();
+    if (widget.epoch != oldWidget.epoch) _loadWidgets();
   }
 
   @override
@@ -60,18 +59,6 @@ class _B13WidgetsWidgetState extends State<B13WidgetsWidget> {
     // a stale engine must not keep four idle threads per home visit.
     unawaited(_api.disposeWidgets().catchError((_) {}));
     super.dispose();
-  }
-
-  Future<void> _initFlagAndLoad() async {
-    try {
-      final bool enabled = await _api.isB13Enabled();
-      if (!mounted) return;
-      setState(() => _enabled = enabled);
-      if (enabled) _loadWidgets();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _enabled = false);
-    }
   }
 
   Future<void> _loadWidgets() async {
@@ -87,13 +74,6 @@ class _B13WidgetsWidgetState extends State<B13WidgetsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (_enabled != true) {
-      // Flag off (or still loading): the B11 icon-only placeholder.
-      return const _B13BlockPlaceholder(
-        icon: Icons.widgets_outlined,
-        height: 96,
-      );
-    }
     final B13WidgetScreen? screen = _screen;
     if (screen == null) {
       return const _B13BlockPlaceholder(

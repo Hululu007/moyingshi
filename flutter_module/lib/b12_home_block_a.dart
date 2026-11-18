@@ -42,7 +42,6 @@ class _B12BannerWidgetState extends State<B12BannerWidget>
   final B12HostApi _api = B12HostApi();
   final PageController _controller = PageController();
 
-  bool? _enabled;
   List<B12BannerItem>? _items;
   int _page = 0;
   Timer? _autoPlayTimer;
@@ -53,13 +52,13 @@ class _B12BannerWidgetState extends State<B12BannerWidget>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initFlagAndLoad();
+    _loadBanner();
   }
 
   @override
   void didUpdateWidget(B12BannerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.epoch != oldWidget.epoch) _initFlagAndLoad();
+    if (widget.epoch != oldWidget.epoch) _loadBanner();
   }
 
   @override
@@ -79,19 +78,6 @@ class _B12BannerWidgetState extends State<B12BannerWidget>
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _initFlagAndLoad() async {
-    try {
-      final bool enabled = await _api.isB12Enabled();
-      if (!mounted) return;
-      setState(() => _enabled = enabled);
-      if (enabled) _loadBanner();
-    } catch (_) {
-      // The flag read failed; keep the placeholder, native blocks stay.
-      if (!mounted) return;
-      setState(() => _enabled = false);
-    }
   }
 
   Future<void> _loadBanner() async {
@@ -138,13 +124,6 @@ class _B12BannerWidgetState extends State<B12BannerWidget>
 
   @override
   Widget build(BuildContext context) {
-    if (_enabled != true) {
-      // Flag off (or still loading): the B11 icon-only placeholder.
-      return const _B12BlockPlaceholder(
-        icon: Icons.slideshow_outlined,
-        height: 188,
-      );
-    }
     final List<B12BannerItem>? items = _items;
     if (items == null) {
       // Still loading: same placeholder, no spinner (native hides the
@@ -304,31 +283,18 @@ class B12ContinueWidget extends StatefulWidget {
 class _B12ContinueWidgetState extends State<B12ContinueWidget> {
   final B12HostApi _api = B12HostApi();
 
-  bool? _enabled;
   B12ContinueScreen? _screen;
 
   @override
   void initState() {
     super.initState();
-    _initFlagAndLoad();
+    _loadContinue();
   }
 
   @override
   void didUpdateWidget(B12ContinueWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.epoch != oldWidget.epoch) _initFlagAndLoad();
-  }
-
-  Future<void> _initFlagAndLoad() async {
-    try {
-      final bool enabled = await _api.isB12Enabled();
-      if (!mounted) return;
-      setState(() => _enabled = enabled);
-      if (enabled) _loadContinue();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _enabled = false);
-    }
+    if (widget.epoch != oldWidget.epoch) _loadContinue();
   }
 
   Future<void> _loadContinue() async {
@@ -343,13 +309,6 @@ class _B12ContinueWidgetState extends State<B12ContinueWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (_enabled != true) {
-      // Flag off (or still loading): the B11 icon-only placeholder.
-      return const _B12BlockPlaceholder(
-        icon: Icons.history_toggle_off_outlined,
-        height: 96,
-      );
-    }
     final B12ContinueScreen? screen = _screen;
     if (screen == null) {
       return const _B12BlockPlaceholder(

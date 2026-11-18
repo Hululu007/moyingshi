@@ -197,15 +197,13 @@ class _B9SearchPageState extends State<B9SearchPage>
 
   /// Submits the current query: records it optimistically (dedupe,
   /// most recent first, max 10 — RecordAdapter.checkToAdd), then opens
-  /// the results page. With the B10 flag on, the results page joins
-  /// this /search family: it is pushed on this engine's Navigator, so
-  /// back / edit returns to this input page with the keyword intact —
-  /// the B9 V8 "result" edit callback restored (see
-  /// docs/b8-b10-collect.md V8; the keyboard pop itself is not carried
-  /// over). The record is persisted by the B10 host (250ms delayed,
-  /// like native); the entry siteKey only counts under current-site
-  /// scope, like B9HostApiImpl.submitSearch. With the flag off, the
-  /// original submitSearch path opens the native results page.
+  /// the results page. The results page joins this /search family: it
+  /// is pushed on this engine's Navigator, so back / edit returns to
+  /// this input page with the keyword intact — the B9 V8 "result" edit
+  /// callback restored (see docs/b8-b10-collect.md V8; the keyboard pop
+  /// itself is not carried over). The record is persisted by the B10
+  /// host (250ms delayed, like native); the entry siteKey only counts
+  /// under current-site scope.
   Future<void> _submit() async {
     final String keyword = _controller.text.trim();
     if (keyword.isEmpty) return;
@@ -215,42 +213,26 @@ class _B9SearchPageState extends State<B9SearchPage>
     if (records.length > 10) records.removeRange(10, records.length);
     setState(() => _records = records);
     _focusNode.unfocus();
-    bool b10 = false;
     try {
-      b10 = await _b10Api.isB10Enabled();
+      await _b10Api.recordSearch(keyword);
     } catch (_) {
-      // Flag unreadable: fall through to the native results page.
+      // The record stays in memory only; the page still opens.
     }
-    if (b10 && mounted) {
-      try {
-        await _b10Api.recordSearch(keyword);
-      } catch (_) {
-        // The record stays in memory only; the page still opens.
-      }
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => B10CollectPage(
-            keyword: keyword,
-            currentSite: _currentSite,
-            siteKey: _currentSite ? widget.siteKey : '',
-            group: '',
-            pic: widget.pic,
-            wallPic: widget.wallPic,
-            historyResumeCid: -1,
-            historyResumeKey: '',
-            historyResumeTargetCid: -1,
-          ),
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => B10CollectPage(
+          keyword: keyword,
+          currentSite: _currentSite,
+          siteKey: _currentSite ? widget.siteKey : '',
+          group: '',
+          pic: widget.pic,
+          wallPic: widget.wallPic,
+          historyResumeCid: -1,
+          historyResumeKey: '',
+          historyResumeTargetCid: -1,
         ),
-      );
-      return;
-    }
-    _api.submitSearch(
-      keyword,
-      _currentSite,
-      widget.siteKey,
-      widget.pic,
-      widget.wallPic,
+      ),
     );
   }
 
