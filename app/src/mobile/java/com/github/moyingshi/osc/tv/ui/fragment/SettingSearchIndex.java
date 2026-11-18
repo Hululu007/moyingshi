@@ -11,7 +11,11 @@ import java.util.Locale;
 /**
  * Settings-search index: every row on the main settings page plus every row on the
  * 9 sub-pages. A tap opens the sub-page (page >= 0) or deep-links the main-page row
- * (rowId != null, via SettingFragment.requestRow).
+ * (rowId != null).
+ *
+ * <p>Row ids are the literals of the deleted SettingFragment.ROW_* constants,
+ * copied verbatim in phase 4a (B7 precedent: that class was mobile-only, so the
+ * literals are inlined here, not referenced). B5 reads this index via reflection.
  */
 public final class SettingSearchIndex {
 
@@ -42,30 +46,30 @@ public final class SettingSearchIndex {
     public static List<Entry> all() {
         List<Entry> entries = new ArrayList<>();
         // Main settings page rows (same titles/subtitles as the grouped cards).
-        entries.add(main(R.string.setting_vod, 0, SettingFragment.ROW_VOD));
-        entries.add(main(R.string.setting_live, 0, SettingFragment.ROW_LIVE));
-        entries.add(main(R.string.setting_wall, 0, SettingFragment.ROW_WALL));
-        entries.add(main(R.string.setting_appearance, R.string.setting_appearance_sub, SettingFragment.ROW_APPEARANCE));
-        entries.add(main(R.string.setting_enhance, R.string.setting_enhance_sub, SettingFragment.ROW_WIDGET));
-        entries.add(main(R.string.setting_player, R.string.setting_player_sub, SettingFragment.ROW_PLAYER));
-        entries.add(main(R.string.setting_danmaku, R.string.setting_danmaku_sub, SettingFragment.ROW_DANMAKU));
-        entries.add(main(R.string.setting_subtitle, R.string.setting_subtitle_sub, SettingFragment.ROW_SUBTITLE));
-        entries.add(main(R.string.setting_ai, R.string.setting_ai_sub, SettingFragment.ROW_AI));
-        entries.add(main(R.string.setting_ad, R.string.setting_ad_sub, SettingFragment.ROW_AD));
-        entries.add(main(R.string.setting_tmdb, R.string.setting_tmdb_sub, SettingFragment.ROW_ACCOUNT));
-        entries.add(main(R.string.setting_personal, R.string.setting_personal_sub, SettingFragment.ROW_PERSONAL));
-        entries.add(main(R.string.setting_local_source, R.string.setting_local_source_sub, SettingFragment.ROW_LOCAL_SOURCE));
-        entries.add(main(R.string.setting_lab, R.string.setting_lab_sub, SettingFragment.ROW_LAB));
-        entries.add(main(R.string.setting_git_cloud, R.string.setting_gitcloud_sub, SettingFragment.ROW_GITCLOUD));
-        entries.add(main(R.string.setting_one_key_sync, R.string.setting_onekey_sub, SettingFragment.ROW_ONEKEY));
-        entries.add(main(R.string.setting_drive_check, R.string.setting_drive_sub, SettingFragment.ROW_DRIVE));
-        entries.add(main(R.string.setting_site_health, R.string.setting_site_health_sub, SettingFragment.ROW_SITE_HEALTH));
-        entries.add(main(R.string.setting_cache, R.string.setting_cache_sub, SettingFragment.ROW_CACHE));
-        entries.add(main(R.string.setting_backup, R.string.setting_backup_sub, SettingFragment.ROW_BACKUP));
-        entries.add(main(R.string.setting_restore, R.string.setting_restore_sub, SettingFragment.ROW_RESTORE));
-        entries.add(main(R.string.setting_doh, R.string.setting_doh_sub, SettingFragment.ROW_DOH));
-        entries.add(main(R.string.setting_incognito, R.string.setting_incognito_sub, SettingFragment.ROW_INCOGNITO));
-        entries.add(main(R.string.setting_about, R.string.setting_about_sub, SettingFragment.ROW_ABOUT));
+        entries.add(main(R.string.setting_vod, 0, "vod"));
+        entries.add(main(R.string.setting_live, 0, "live"));
+        entries.add(main(R.string.setting_wall, 0, "wall"));
+        entries.add(main(R.string.setting_appearance, R.string.setting_appearance_sub, "appearance"));
+        entries.add(main(R.string.setting_enhance, R.string.setting_enhance_sub, "widget"));
+        entries.add(main(R.string.setting_player, R.string.setting_player_sub, "player"));
+        entries.add(main(R.string.setting_danmaku, R.string.setting_danmaku_sub, "danmaku"));
+        entries.add(main(R.string.setting_subtitle, R.string.setting_subtitle_sub, "subtitle"));
+        entries.add(main(R.string.setting_ai, R.string.setting_ai_sub, "ai"));
+        entries.add(main(R.string.setting_ad, R.string.setting_ad_sub, "ad"));
+        entries.add(main(R.string.setting_tmdb, R.string.setting_tmdb_sub, "account"));
+        entries.add(main(R.string.setting_personal, R.string.setting_personal_sub, "personal"));
+        entries.add(main(R.string.setting_local_source, R.string.setting_local_source_sub, "local_source"));
+        entries.add(main(R.string.setting_lab, R.string.setting_lab_sub, "lab"));
+        entries.add(main(R.string.setting_git_cloud, R.string.setting_gitcloud_sub, "gitcloud"));
+        entries.add(main(R.string.setting_one_key_sync, R.string.setting_onekey_sub, "onekey"));
+        entries.add(main(R.string.setting_drive_check, R.string.setting_drive_sub, "drive"));
+        entries.add(main(R.string.setting_site_health, R.string.setting_site_health_sub, "site_health"));
+        entries.add(main(R.string.setting_cache, R.string.setting_cache_sub, "cache"));
+        entries.add(main(R.string.setting_backup, R.string.setting_backup_sub, "backup"));
+        entries.add(main(R.string.setting_restore, R.string.setting_restore_sub, "restore"));
+        entries.add(main(R.string.setting_doh, R.string.setting_doh_sub, "doh"));
+        entries.add(main(R.string.setting_incognito, R.string.setting_incognito_sub, "incognito"));
+        entries.add(main(R.string.setting_about, R.string.setting_about_sub, "about"));
         // Player page (2).
         entries.add(sub(R.string.player_render, R.string.setting_player, 2));
         entries.add(sub(R.string.player_button_config, R.string.setting_player, 2));

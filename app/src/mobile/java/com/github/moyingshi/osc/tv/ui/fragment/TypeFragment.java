@@ -20,9 +20,9 @@ import com.github.moyingshi.osc.tv.bean.Style;
 import com.github.moyingshi.osc.tv.bean.Value;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.FragmentTypeBinding;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.adapter.VodAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
@@ -221,7 +221,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
         } else {
             if (getSite().isIndex()) {
                 if (isHistoryResume()) HistoryResumeCoordinator.openSearch(requireActivity(), getHistoryResumeCid(), getHistoryResumeKey(), getHistoryResumeTargetCid(), item.getName());
-                else SearchActivity.start(requireActivity(), item.getName());
+                else FlutterNav.openSearch(requireActivity(), item.getName());
             } else if (isHistoryResume()) {
                 item.setSite(getSite());
                 HistoryResumeCoordinator.openSelected(requireActivity(), getHistoryResumeCid(), getHistoryResumeKey(), getHistoryResumeTargetCid(), item);
@@ -234,7 +234,7 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     @Override
     public boolean onLongClick(Vod item) {
         if (item.isAction() || item.isFolder()) return false;
-        SearchActivity.start(requireActivity(), item.getName());
+        FlutterNav.openSearch(requireActivity(), item.getName());
         return true;
     }
 }

@@ -45,6 +45,7 @@ import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.event.StateEvent;
 import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.impl.ConfigListener;
 import com.github.moyingshi.osc.tv.impl.FilterListener;
@@ -52,11 +53,8 @@ import com.github.moyingshi.osc.tv.impl.SiteListener;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
-import com.github.moyingshi.osc.tv.ui.activity.WidgetBrowseActivity;
 import com.github.moyingshi.osc.tv.ui.adapter.BannerAdapter;
 import com.github.moyingshi.osc.tv.ui.adapter.ContinueAdapter;
 import com.github.moyingshi.osc.tv.ui.adapter.TypeAdapter;
@@ -406,7 +404,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (item.isAction()) {
             com.github.moyingshi.osc.tv.content.ActionCardHelper.handleAction(requireActivity(), getHome().getKey(), item.getAction());
         } else if (getHome().isIndex()) {
-            SearchActivity.start(requireActivity(), item.getName());
+            FlutterNav.openSearch(requireActivity(), item.getName());
         } else {
             VideoActivity.start(requireActivity(), getHome().getKey(), item.getId(), item.getName(), item.getPic(), null);
         }
@@ -486,7 +484,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             binding = AdapterWidgetSectionBinding.inflate(LayoutInflater.from(requireContext()), mBinding.widgetSections, false);
             binding.widgetTitle.setText(section.title());
             binding.getRoot().setTag(widgetId);
-            binding.widgetMore.setOnClickListener(v -> WidgetBrowseActivity.start(requireActivity(), widgetId));
+            binding.widgetMore.setOnClickListener(v -> FlutterNav.openWidgetBrowse(requireActivity(), widgetId));
             WidgetSectionAdapter adapter = new WidgetSectionAdapter(this::onWidgetItemClick);
             binding.widgetList.setHasFixedSize(true);
             binding.widgetList.setItemAnimator(null);
@@ -533,7 +531,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     /** 组件条目点进：在当前资源里搜片名（与 B1 横幅的索引站行为一致）。 */
     private void onWidgetItemClick(WidgetItem item) {
         if (item == null || item.getTitle() == null || item.getTitle().isEmpty()) return;
-        SearchActivity.start(requireActivity(), item.getTitle());
+        FlutterNav.openSearch(requireActivity(), item.getTitle());
     }
 
     private void setWebView() {
@@ -618,13 +616,13 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     /** 搜索入口：小程序站进 HkSearchActivity（第 1 步，带当前规则），其余走原 SearchActivity。 */
     private void onSearchClick() {
         if (isHkHome()) HkSearchActivity.open(requireActivity(), getHkTitle());
-        else SearchActivity.start(requireActivity());
+        else FlutterNav.openSearch(requireActivity());
     }
 
     /** 长按搜索条（搜本站）：小程序站同样进 HkSearchActivity，其余走原行为。 */
     private void onSearchCurrentSite() {
         if (isHkHome()) HkSearchActivity.open(requireActivity(), getHkTitle());
-        else SearchActivity.start(requireActivity(), "", getHome().getKey());
+        else FlutterNav.openSearch(requireActivity(), "", getHome().getKey());
     }
 
     private void onSite(View view) {
@@ -675,7 +673,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         else if (item.getItemId() == R.id.sync) OneKeySyncDialog.create().show(requireActivity());
         else if (item.getItemId() == R.id.push_apk) ApkPushDialog.create().listener(this::onApkDeviceSelected).show(requireActivity());
         else if (item.getItemId() == R.id.push_play) PushPlayDialog.create().listener(this::onPushPlayDeviceSelected).show(requireActivity());
-        else if (item.getItemId() == R.id.enhance && homeActivity() != null) homeActivity().openEnhanceFromVod();
+        else if (item.getItemId() == R.id.enhance) {
+            // B8 B4: the enhance settings are the Flutter member page
+            // (the HomeActivity.openEnhanceFromVod tab is gone with
+            // HomeActivity in phase 4a); same pattern as R.id.keep.
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=enhance");
+        }
         else if (item.getItemId() == R.id.web_home_fullscreen) onWebHomeFullscreen();
         else return false;
         return true;
@@ -1040,9 +1043,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             applyWebHomeChrome(WebHomeChrome.NORMAL);
             return;
         }
-        HomeActivity activity = homeActivity();
-        if (activity != null) activity.setWebHomeLegacyToolbar(visible);
-        else applyWebHomeChrome(visible ? WebHomeChrome.NORMAL : WebHomeChrome.IMMERSIVE);
+        // HomeActivity (which owned the legacy toolbar) was deleted in
+        // phase 4a; the local chrome path is the only one left.
+        applyWebHomeChrome(visible ? WebHomeChrome.NORMAL : WebHomeChrome.IMMERSIVE);
     }
 
     @Override
@@ -1051,8 +1054,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             applyWebHomeChrome(WebHomeChrome.NORMAL);
             return;
         }
-        HomeActivity activity = homeActivity();
-        if (activity != null) activity.applyWebHomeDefaultChrome(site);
+        // No-op: the default-chrome owner (HomeActivity) was deleted in
+        // phase 4a; this fragment is unreachable without it.
     }
 
     @Override
@@ -1061,8 +1064,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             applyWebHomeChrome(WebHomeChrome.NORMAL);
             return;
         }
-        HomeActivity activity = homeActivity();
-        if (activity != null) activity.setWebHomeChrome(payload);
+        // No-op: the chrome owner (HomeActivity) was deleted in phase
+        // 4a; this fragment is unreachable without it.
     }
 
     @Override
@@ -1071,20 +1074,21 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             applyWebHomeChrome(WebHomeChrome.NORMAL);
             return;
         }
-        HomeActivity activity = homeActivity();
-        if (activity != null) activity.restoreWebHomeChrome();
+        // No-op: the chrome owner (HomeActivity) was deleted in phase
+        // 4a; this fragment is unreachable without it.
     }
 
     @Override
     public WebHomeViewport getViewport() {
-        HomeActivity activity = homeActivity();
-        return activity == null ? WebHomeViewport.EMPTY : activity.getWebHomeViewport();
+        // HomeActivity (which owned the viewport) was deleted in phase
+        // 4a; the empty viewport is the only remaining outcome.
+        return WebHomeViewport.EMPTY;
     }
 
     @Override
     public void openVod() {
-        HomeActivity activity = homeActivity();
-        if (activity != null) activity.openVod();
+        // No-op: the vod-home owner (HomeActivity) was deleted in phase
+        // 4a; this fragment is unreachable without it.
     }
 
     @Override
@@ -1094,7 +1098,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     @Override
     public void openSetting() {
-        if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).change(1);
+        // No-op: the settings-tab owner (HomeActivity) was deleted in
+        // phase 4a; this fragment is unreachable without it.
     }
 
     private void hideNativeContent() {
@@ -1158,9 +1163,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void requestNormalChrome() {
-        HomeActivity activity = homeActivity();
-        if (activity != null) activity.setWebHomeLegacyToolbar(true);
-        else applyWebHomeChrome(WebHomeChrome.NORMAL);
+        applyWebHomeChrome(WebHomeChrome.NORMAL);
     }
 
     private boolean isNativeChromeHidden() {
@@ -1168,16 +1171,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void syncWebHomeChrome() {
-        HomeActivity activity = homeActivity();
-        if (activity == null) return;
-        applyWebHomeChrome(activity.getWebHomeChromeMode());
-        applyWebHomeViewport(activity.getWebHomeViewport());
+        // No-op: the chrome-mode/viewport owner (HomeActivity) was
+        // deleted in phase 4a; this fragment is unreachable without it.
     }
-
-    private HomeActivity homeActivity() {
-        return getActivity() instanceof HomeActivity ? (HomeActivity) getActivity() : null;
-    }
-
 
     class PageAdapter extends FragmentStatePagerAdapter {
 
