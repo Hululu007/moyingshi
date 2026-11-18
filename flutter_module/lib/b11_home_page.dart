@@ -1,21 +1,11 @@
 import 'dart:async' show Timer;
 import 'dart:io' show File;
 import 'dart:math' as math;
-import 'dart:ui' show
-    ImageFilter,
-    Offset,
-    PointerCancelEvent,
-    PointerDeviceKind,
-    PointerDownEvent,
-    PointerMoveEvent,
-    PointerUpEvent;
+import 'dart:ui' show ImageFilter, Offset, PointerDeviceKind;
 
-import 'package:flutter/animation.dart'
-    show AnimationController, CurvedAnimation, Tween;
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/gestures.dart'
     show Velocity, VelocityTracker, kTouchSlop;
-import 'package:flutter/rendering.dart' show RenderBox, RenderObject;
 import 'package:material_ui/material_ui.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 

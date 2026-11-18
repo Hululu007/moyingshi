@@ -1,16 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show
-    Offset,
-    PointerCancelEvent,
-    PointerDeviceKind,
-    PointerDownEvent,
-    PointerMoveEvent,
-    PointerUpEvent;
+import 'dart:ui' show Offset, PointerDeviceKind;
 
-import 'package:flutter/animation.dart'
-    show AnimationController, CurvedAnimation, Curves, Tween;
-import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter/gestures.dart'
     show Velocity, VelocityTracker, kTouchSlop;
 import 'package:material_ui/material_ui.dart';
