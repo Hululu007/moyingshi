@@ -4,6 +4,7 @@ import 'dart:ui' show AppExitResponse, ViewFocusEvent;
 import 'package:flutter/services.dart' show PredictiveBackEvent;
 import 'package:material_ui/material_ui.dart';
 
+import 'b7_settings_home_page.dart';
 import 'pigeon/b5_personal_messages.g.dart';
 import 'widgets/settings_row.dart';
 
@@ -33,6 +34,9 @@ import 'widgets/settings_row.dart';
 /// Tapping a result pushes a migrated family member internally when
 /// the host says it is available, and otherwise asks the host to open
 /// the native destination (which finishes this screen first).
+/// Settings-home rows land in Dart instead: the search view pops back
+/// to the settings home and hands the row id to
+/// SettingsSearchRowHandoff (docs/b8-search-fix.md).
 class PersonalSettingsView extends StatefulWidget {
   const PersonalSettingsView({super.key, required this.onBack});
 
@@ -342,6 +346,18 @@ class _SettingSearchViewState extends State<SettingSearchView>
   }
 
   void _onEntryTap(B5SearchEntry entry) {
+    if (entry.rowId.isNotEmpty) {
+      // Settings-home row (page -1): land in Dart, without the host.
+      // The host round-trip cannot deliver the row (same-route
+      // assertion no-op + spent one-shot gates — see
+      // docs/b8-search-fix.md), and the row handlers already live in
+      // the settings home view. Pop back to the family root first,
+      // then request the row: requesting before the pop would push
+      // the member above search and the pop would discard it.
+      Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+      SettingsSearchRowHandoff.request(entry.rowId);
+      return;
+    }
     if (entry.flutterAvailable) {
       // Family-internal navigation (plan §4.4): push the migrated
       // member onto the family Navigator; back returns to search.

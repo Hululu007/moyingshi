@@ -1,7 +1,21 @@
 import 'dart:async' show Timer;
 import 'dart:io' show File;
-import 'dart:ui' show ImageFilter;
+import 'dart:math' as math;
+import 'dart:ui' show
+    ImageFilter,
+    Offset,
+    PointerCancelEvent,
+    PointerDeviceKind,
+    PointerDownEvent,
+    PointerMoveEvent,
+    PointerUpEvent;
 
+import 'package:flutter/animation.dart'
+    show AnimationController, CurvedAnimation, Tween;
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
+import 'package:flutter/gestures.dart'
+    show Velocity, VelocityTracker, kTouchSlop;
+import 'package:flutter/rendering.dart' show RenderBox, RenderObject;
 import 'package:material_ui/material_ui.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 
@@ -65,7 +79,7 @@ class B11HomePage extends StatefulWidget {
 }
 
 class _B11HomePageState extends State<B11HomePage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final B11HostApi _b11Api = B11HostApi();
   final C1HostApi _c1Api = C1HostApi();
 
@@ -115,17 +129,66 @@ class _B11HomePageState extends State<B11HomePage>
   /// snapshot, so a hk:// / WebHome site does not close twice).
   bool _fallbackClosing = false;
 
+  /// Grid-area tab swipe (native ViewPager semantics via the Lab
+  /// GroupSwipeListener port, see docs/b8-home-swipe-fix.md): a
+  /// Listener observes pointer events without entering the gesture
+  /// arena, so vertical scrolling, the banner/row horizontal scrolls
+  /// and card taps are unaffected by construction. The drag offset
+  /// lives in a ValueNotifier, so pointer moves never call setState
+  /// or rebuild the grid — only the _SwipeTranslate wrappers rebuild.
+  final ValueNotifier<double> _swipeOffset = ValueNotifier<double>(0);
+  late final AnimationController _settleController;
+  final Tween<double> _swipeTween = Tween<double>(begin: 0.0, end: 0.0);
+  late final Animation<double> _settleAnimation;
+  int? _swipePointer;
+  Offset? _swipeDownPosition;
+  VelocityTracker? _swipeTracker;
+  double _swipeBaseX = 0;
+  bool _swipeHorizontal = false;
+  bool _swipeVertical = false;
+  int _swipeFlingDelta = 0;
+
+  /// Tab index the swipe offset is synced to: a tab change from any
+  /// path other than the swipe settle (chip tap, dialog, snapshot
+  /// clamp) drops a stale offset in build(), mirroring native
+  /// render() zeroing translationX on content swap (Lab D4).
+  int _swipeTab = 0;
+
+  /// Pinned tab bar key: swipe gating measures the bar's screen rect
+  /// (drags starting above its bottom edge are header/chips drags,
+  /// never grid swipes).
+  final GlobalKey _tabBarKey = GlobalKey();
+
+  /// Per-tab scroll positions, keyed by tab identity (typeId +
+  /// typeJson, the grid's own reload identity): native kept one
+  /// TypeFragment scroll position per pager page. Identity keys
+  /// survive resume and tab reorder, and never restore a stale
+  /// offset across a site switch.
+  final Map<String, double> _tabScrollOffsets = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onFabScroll);
+    _settleController = AnimationController(vsync: this);
+    _settleAnimation = _swipeTween.animate(
+      CurvedAnimation(
+        parent: _settleController,
+        curve: Curves.decelerate,
+      ),
+    );
+    _settleAnimation.addListener(() {
+      _swipeOffset.value = _settleAnimation.value;
+    });
     _load();
   }
 
   @override
   void dispose() {
     _typeFilterPollTimer?.cancel();
+    _settleController.dispose();
+    _swipeOffset.dispose();
     _scrollController.removeListener(_onFabScroll);
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
@@ -292,6 +355,66 @@ class _B11HomePageState extends State<B11HomePage>
     }
   }
 
+  /// Offset-map key for a tab: the grid's own reload identity, so a
+  /// stored position follows the tab across snapshots and never
+  /// collides with another site's same-numbered tab.
+  String _tabScrollKey(B11HomeTab tab) => '${tab.typeId}\n${tab.typeJson}';
+
+  /// Switches the selected tab, preserving per-tab scroll positions
+  /// (native: one TypeFragment scroll position per pager page) and
+  /// resetting the FAB flags exactly as a chip tap does (native
+  /// setFabVisible on page change: top hides, browse/link re-show).
+  /// The single switch path for chip taps, the grid swipe settle and
+  /// the type-filter dialog, so all three behave identically apart
+  /// from the swipe's slide-in. A switch to the already-selected tab
+  /// still resets the FAB flags, as a chip tap does today, but stores
+  /// and restores nothing.
+  void _switchTab(int index) {
+    final B11HomeScreen? screen = _screen;
+    if (screen == null || screen.tabs.isEmpty) return;
+    int target = index;
+    if (target < 0) target = 0;
+    if (target > screen.tabs.length - 1) target = screen.tabs.length - 1;
+    final int previous = _selectedTab;
+    final bool changed = target != previous;
+    if (changed &&
+        previous >= 0 &&
+        previous < screen.tabs.length &&
+        _scrollController.hasClients) {
+      _tabScrollOffsets[_tabScrollKey(screen.tabs[previous])] =
+          _scrollController.position.pixels;
+    }
+    setState(() {
+      _selectedTab = target;
+      _fabTopVisible = false;
+      _fabsScrolledAway = false;
+    });
+    if (!changed) return;
+    final double? restore =
+        _tabScrollOffsets[_tabScrollKey(screen.tabs[target])];
+    // No stored offset (first visit to this tab): leave the shared
+    // controller alone, exactly as a chip tap does today.
+    if (restore == null) return;
+    // Restore after the switch rebuild: the grid's page-1 load for
+    // the new tab is already in flight (_busy), so its load-more
+    // check cannot fire from this jump (see _TabVideoGridState
+    // ._onScroll). The jump fires _onFabScroll, so the switch's FAB
+    // reset is re-applied in the same callback, before the next
+    // frame renders.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final double clamped =
+          restore.clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(clamped);
+      if (_fabTopVisible || _fabsScrolledAway) {
+        setState(() {
+          _fabTopVisible = false;
+          _fabsScrolledAway = false;
+        });
+      }
+    });
+  }
+
   /// Apply a dialog selection: switch to the picked tab and reload
   /// the grid with the host-side filter overrides (filter epoch bump;
   /// the B12/B13 blocks keep their epoch). FAB scroll state resets,
@@ -299,15 +422,8 @@ class _B11HomePageState extends State<B11HomePage>
   void _applyTypeFilterState(B11TypeFilterState state) {
     final B11HomeScreen? screen = _screen;
     if (screen == null || screen.tabs.isEmpty) return;
-    int tab = state.selectedTabIndex;
-    if (tab < 0) tab = 0;
-    if (tab > screen.tabs.length - 1) tab = screen.tabs.length - 1;
-    setState(() {
-      _selectedTab = tab;
-      _filterEpoch++;
-      _fabTopVisible = false;
-      _fabsScrolledAway = false;
-    });
+    _switchTab(state.selectedTabIndex);
+    setState(() => _filterEpoch++);
   }
 
   /// link FAB: open the native LinkDialog (paste-a-link play). The
@@ -360,9 +476,190 @@ class _B11HomePageState extends State<B11HomePage>
     _b11Api.longPressBottomBarItem(item.token);
   }
 
+  // ----------------------------------------------------------------
+  // Grid-area tab swipe (native ViewPager + LabActivity
+  // GroupSwipeListener semantics, see docs/b8-home-swipe-fix.md)
+  // ----------------------------------------------------------------
+
+  /// Whether a tab exists in the swipe direction (+1 next, -1
+  /// previous); native LabActivity.hasGroup, indexed directly.
+  bool _hasTab(int delta) {
+    final B11HomeScreen? screen = _screen;
+    if (screen == null) return false;
+    final int next = _selectedTab + delta;
+    return next >= 0 && next < screen.tabs.length;
+  }
+
+  /// Grid-area gating: only drags starting below the pinned tab
+  /// bar's bottom edge may switch tabs. The tab bar is pinned, so
+  /// its rect is stable once scrolled; at scroll offset 0 its
+  /// natural position is measured the same way. A missing or
+  /// unlaid-out bar fails safe (no swipe), never misroutes a banner
+  /// drag. Drags starting on the banner, the continue-watching row,
+  /// the B13 sections or the chips row all start above this edge.
+  bool _swipeStartsInGrid(Offset position) {
+    final BuildContext? tabBarContext = _tabBarKey.currentContext;
+    final RenderObject? renderObject =
+        tabBarContext?.findRenderObject();
+    final RenderBox? box = renderObject is RenderBox ? renderObject : null;
+    if (box == null || !box.hasSize) return false;
+    final double barBottom =
+        box.localToGlobal(Offset(0, box.size.height)).dy;
+    return position.dy >= barBottom;
+  }
+
+  void _onSwipePointerDown(PointerDownEvent event) {
+    // Track the first pointer only; a second finger never disturbs
+    // the drag in progress.
+    if (_swipePointer != null) return;
+    if (!_swipeStartsInGrid(event.position)) return;
+    _swipePointer = event.pointer;
+    // A new gesture interrupts a running settle animation and
+    // continues from the current offset, without a jump (native
+    // onDown: animate().cancel() + swipeDragBaseX).
+    _settleController.stop();
+    _swipeBaseX = _swipeOffset.value;
+    _swipeDownPosition = event.position;
+    _swipeHorizontal = false;
+    _swipeVertical = false;
+    _swipeFlingDelta = 0;
+    _swipeTracker = VelocityTracker.withKind(PointerDeviceKind.touch)
+      ..addPosition(event.timeStamp, event.position);
+  }
+
+  void _onSwipePointerMove(PointerMoveEvent event) {
+    final Offset? down = _swipeDownPosition;
+    if (event.pointer != _swipePointer || down == null) return;
+    _swipeTracker?.addPosition(event.timeStamp, event.position);
+    if (_swipeVertical) return;
+    final Offset delta = event.position - down;
+    if (!_swipeHorizontal) {
+      // Direction lock on the first significant move (native
+      // onScroll): horizontal wins only if |dx| > slop and
+      // |dx| > |dy|; otherwise vertical locks and the drag is left
+      // to the scroll view.
+      if (delta.dx.abs() > kTouchSlop &&
+          delta.dx.abs() > delta.dy.abs()) {
+        _swipeHorizontal = true;
+      } else if (delta.dy.abs() > kTouchSlop &&
+          delta.dy.abs() > delta.dx.abs()) {
+        _swipeVertical = true;
+        return;
+      } else {
+        return;
+      }
+    }
+    // Follow the finger; at the ends (no tab in that direction)
+    // the 0.35 resistance hints at the end without crossing it.
+    // The offset is clamped to one screen width, as native does.
+    final double width = MediaQuery.sizeOf(context).width;
+    final double raw = _swipeBaseX + delta.dx;
+    double tx = raw;
+    if ((raw < 0 && !_hasTab(1)) || (raw > 0 && !_hasTab(-1))) {
+      tx = _swipeBaseX + (raw - _swipeBaseX) * 0.35;
+    }
+    _swipeOffset.value = tx.clamp(-width, width);
+  }
+
+  void _onSwipePointerUp(PointerUpEvent event) {
+    final Offset? down = _swipeDownPosition;
+    if (event.pointer != _swipePointer || down == null) return;
+    _swipePointer = null;
+    _swipeDownPosition = null;
+    // Fling (native onFling): recorded, direction from the total
+    // displacement sign, settled on release together with the
+    // displacement fallback. Requires a fast horizontal-dominant
+    // release and at least 50dp of travel.
+    final VelocityTracker? tracker = _swipeTracker;
+    _swipeTracker = null;
+    if (tracker != null) {
+      final Velocity velocity = tracker.getVelocity();
+      final double vx = velocity.pixelsPerSecond.dx;
+      final double vy = velocity.pixelsPerSecond.dy;
+      final double dx = event.position.dx - down.dx;
+      if (vx.abs() > 500 && vx.abs() > vy.abs() && dx.abs() > 50) {
+        _swipeFlingDelta = dx < 0 ? 1 : -1;
+      }
+    }
+    _settleSwipe();
+  }
+
+  void _onSwipePointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _swipePointer) return;
+    _swipePointer = null;
+    _swipeDownPosition = null;
+    _swipeTracker = null;
+    _swipeFlingDelta = 0;
+    _bounceSwipeBack();
+  }
+
+  /// Release settlement (native settleSwipe): fling first, else the
+  /// displacement over max(120dp, 1/4 screen width). Over threshold
+  /// the new tab slides in once (~220ms) from the gesture
+  /// direction; otherwise it bounces back (~180ms). A switch during
+  /// a grid load queues exactly as a chip tap does (the grid's
+  /// serial guard: pending reload), so no special handling here.
+  void _settleSwipe() {
+    int delta = _swipeFlingDelta;
+    _swipeFlingDelta = 0;
+    if (delta == 0 && _swipeHorizontal) {
+      final double tx = _swipeOffset.value;
+      final double threshold =
+          math.max(120.0, MediaQuery.sizeOf(context).width / 4);
+      if (tx < -threshold) {
+        delta = 1;
+      } else if (tx > threshold) {
+        delta = -1;
+      }
+    }
+    if (delta == 0 || !_hasTab(delta)) {
+      _bounceSwipeBack();
+      return;
+    }
+    final double width = MediaQuery.sizeOf(context).width;
+    final double enterX = delta > 0 ? width : -width;
+    _switchTab(_selectedTab + delta);
+    _swipeTab = _selectedTab;
+    _animateSwipeOffset(
+      0,
+      const Duration(milliseconds: 220),
+      from: enterX,
+    );
+  }
+
+  void _bounceSwipeBack() {
+    _swipeFlingDelta = 0;
+    _animateSwipeOffset(0, const Duration(milliseconds: 180));
+  }
+
+  void _animateSwipeOffset(
+    double target,
+    Duration duration, {
+    double? from,
+  }) {
+    _settleController.stop();
+    final double start = from ?? _swipeOffset.value;
+    _swipeOffset.value = start;
+    _swipeTween.begin = start;
+    _swipeTween.end = target;
+    _settleController.duration = duration;
+    _settleController.forward(from: 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final B11HomeScreen? screen = _screen;
+    // A tab change from any path other than the swipe settle (chip
+    // tap, dialog, snapshot clamp) drops a stale drag offset,
+    // mirroring native render() zeroing translationX on content
+    // swap. The settle path syncs _swipeTab before the rebuild, so
+    // the slide-in is unaffected. No setState here: only the offset
+    // notifier and the settle controller are touched.
+    if (_swipeTab != _selectedTab) {
+      _swipeTab = _selectedTab;
+      _settleController.stop();
+      _swipeOffset.value = 0;
+    }
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, Object? result) async {
@@ -405,12 +702,12 @@ class _B11HomePageState extends State<B11HomePage>
         ),
         // B8 b8-home-fabs: the three floating action buttons, anchored
         // like native (fragment_vod.xml: 16dp margin from the pager's
-        // end|bottom, the pager ending at the top of the 88dp glass
-        // slot). Only one is ever visible; the overlay itself is
-        // zero-size when all three are hidden.
+        // end|bottom anchor; the pager ends 56dp above the window
+        // bottom — see _pagerBottom). Only one is ever visible; the
+        // overlay itself is zero-size when all three are hidden.
         Positioned(
           right: _fabMargin,
-          bottom: _glassSlotHeight +
+          bottom: _pagerBottom +
               _fabMargin +
               MediaQuery.paddingOf(context).bottom,
           child: _buildFabOverlay(screen),
@@ -514,34 +811,50 @@ class _B11HomePageState extends State<B11HomePage>
     // to sit in a fixed Column with only the grid scrolling, so the
     // chips could never reach the top and a swipe starting above
     // the grid scrolled nothing at all.
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        SliverToBoxAdapter(child: _buildTopBar(screen)),
-        SliverToBoxAdapter(child: _buildSearchPill(screen)),
-        // B8 B12: the banner carousel + continue-watching row. The
-        // widgets read the B12 flag themselves: off renders the same
-        // icon-only placeholders B11 showed, on renders the real
-        // blocks. The epoch reloads them on resume / site switch.
-        SliverToBoxAdapter(child: B12BannerWidget(epoch: _homeLoadEpoch)),
-        SliverToBoxAdapter(
-            child: B12ContinueWidget(epoch: _homeLoadEpoch)),
-        // B8 B13: the JS widget sections. The widget reads the B13
-        // flag itself: off renders the same icon-only placeholder B11
-        // showed, on renders the real sections. Same epoch as B12.
-        SliverToBoxAdapter(child: B13WidgetsWidget(epoch: _homeLoadEpoch)),
-        if (screen.tabs.isNotEmpty)
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _StickyTabBarDelegate(
-              builder: () => _buildTabBar(screen),
-              epoch: _homeLoadEpoch,
-              selectedTab: _selectedTab,
-              pinnedBackground: Color(screen.wallpaperColor),
+    // B8 b8-home-swipe: the Listener observes pointer events
+    // without entering the gesture arena, so vertical scrolling,
+    // the banner/row horizontal scrolls and card taps keep their
+    // own paths; the swipe handlers gate on the pointer-down
+    // position (below the pinned tab bar) and never consume. The
+    // glass bar and FABs are siblings above this subtree in the
+    // Stack, so their gestures never reach this observer.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _onSwipePointerDown,
+      onPointerMove: _onSwipePointerMove,
+      onPointerUp: _onSwipePointerUp,
+      onPointerCancel: _onSwipePointerCancel,
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverToBoxAdapter(child: _buildTopBar(screen)),
+          SliverToBoxAdapter(child: _buildSearchPill(screen)),
+          // B8 B12: the banner carousel + continue-watching row. The
+          // widgets read the B12 flag themselves: off renders the same
+          // icon-only placeholders B11 showed, on renders the real
+          // blocks. The epoch reloads them on resume / site switch.
+          SliverToBoxAdapter(
+              child: B12BannerWidget(epoch: _homeLoadEpoch)),
+          SliverToBoxAdapter(
+              child: B12ContinueWidget(epoch: _homeLoadEpoch)),
+          // B8 B13: the JS widget sections. The widget reads the B13
+          // flag itself: off renders the same icon-only placeholder B11
+          // showed, on renders the real sections. Same epoch as B12.
+          SliverToBoxAdapter(
+              child: B13WidgetsWidget(epoch: _homeLoadEpoch)),
+          if (screen.tabs.isNotEmpty)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _StickyTabBarDelegate(
+                builder: () => _buildTabBar(screen),
+                epoch: _homeLoadEpoch,
+                selectedTab: _selectedTab,
+                pinnedBackground: Color(screen.wallpaperColor),
+              ),
             ),
-          ),
-        _buildTabContent(screen),
-      ],
+          _buildTabContent(screen),
+        ],
+      ),
     );
   }
 
@@ -645,6 +958,7 @@ class _B11HomePageState extends State<B11HomePage>
     if (screen.tabs.isEmpty) return const SizedBox.shrink();
     final Color accent = Color(screen.accentColor);
     return SizedBox(
+      key: _tabBarKey,
       height: 44,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -666,15 +980,7 @@ class _B11HomePageState extends State<B11HomePage>
                     ? Colors.white
                     : Theme.of(context).colorScheme.onSurface,
               ),
-              onSelected: (_) {
-                setState(() {
-                  _selectedTab = index;
-                  // Native setFabVisible on page change: top hides,
-                  // browse/link re-show.
-                  _fabTopVisible = false;
-                  _fabsScrolledAway = false;
-                });
-              },
+              onSelected: (_) => _switchTab(index),
             ),
           );
         },
@@ -689,30 +995,33 @@ class _B11HomePageState extends State<B11HomePage>
     if (screen.emptyTitle.isNotEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.inbox_outlined, size: 48),
-                const SizedBox(height: 12),
-                Text(
-                  screen.emptyTitle,
-                  style: const TextStyle(fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  screen.emptyDescription,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _load,
-                  child: Text(screen.emptyActionLabel),
-                ),
-              ],
+        child: _SwipeTranslate(
+          offset: _swipeOffset,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.inbox_outlined, size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    screen.emptyTitle,
+                    style: const TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    screen.emptyDescription,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: _load,
+                    child: Text(screen.emptyActionLabel),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -721,10 +1030,13 @@ class _B11HomePageState extends State<B11HomePage>
     if (screen.tabs.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: Text(
-            screen.tabPlaceholderEmptyText,
-            textAlign: TextAlign.center,
+        child: _SwipeTranslate(
+          offset: _swipeOffset,
+          child: Center(
+            child: Text(
+              screen.tabPlaceholderEmptyText,
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       );
@@ -740,8 +1052,45 @@ class _B11HomePageState extends State<B11HomePage>
       epoch: _homeLoadEpoch,
       filterEpoch: _filterEpoch,
       emptyText: screen.tabPlaceholderEmptyText,
-      bottomPadding: _glassSlotHeight,
+      bottomPadding: _gridBottomClearance,
       controller: _scrollController,
+      swipeOffset: _swipeOffset,
+    );
+  }
+}
+
+/// Applies the home tab-swipe translation (follow-the-finger drag +
+/// slide-in, b8-home-swipe) to [child] without rebuilding it on
+/// pointer moves: the ValueListenableBuilder's cached child only
+/// repaints under a new Transform. The grid is slivers in the shared
+/// scroll view, so the translation wraps the tab-content boxes
+/// (grid items, empty/error states) instead of the scroll view
+/// itself — the pinned tab bar and the header slivers stay fixed,
+/// as native (ViewPager content slides, AppBarLayout does not).
+class _SwipeTranslate extends StatelessWidget {
+  const _SwipeTranslate({
+    required this.offset,
+    required this.child,
+  });
+
+  final ValueListenable<double> offset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: offset,
+      builder: (
+        BuildContext context,
+        double value,
+        Widget? child,
+      ) {
+        return Transform.translate(
+          offset: Offset(value, 0),
+          child: child,
+        );
+      },
+      child: child,
     );
   }
 }
@@ -853,6 +1202,7 @@ class _TabVideoGrid extends StatefulWidget {
     required this.emptyText,
     required this.bottomPadding,
     required this.controller,
+    required this.swipeOffset,
   });
 
   final B11HomeTab tab;
@@ -870,14 +1220,19 @@ class _TabVideoGrid extends StatefulWidget {
   /// Host empty text (widget_empty), shown when the tab has no videos.
   final String emptyText;
 
-  /// Bottom padding reserved inside the scrollable so the last row
-  /// scrolls clear of the floating glass capsule (the native 88dp
-  /// glass slot height).
+  /// Bottom padding reserved inside the scrollable: the native pager
+  /// geometry (see _gridBottomClearance), so grid content slides
+  /// under the glass bar's top edge while scrolling, as native.
   final double bottomPadding;
 
   /// The parent CustomScrollView's controller, owned by the page:
   /// the grid listens to it for load-more and never disposes it.
   final ScrollController controller;
+
+  /// B8 b8-home-swipe: the page's drag offset notifier. The grid
+  /// only reads it (via _SwipeTranslate wrappers); the page owns
+  /// the swipe state and never reassigns the notifier.
+  final ValueListenable<double> swipeOffset;
 
   @override
   State<_TabVideoGrid> createState() => _TabVideoGridState();
@@ -1078,24 +1433,33 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
     if (videos == null) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: _channelBroken
-            ? _buildChannelError()
-            : const Center(child: CircularProgressIndicator()),
+        child: _SwipeTranslate(
+          offset: widget.swipeOffset,
+          child: _channelBroken
+              ? _buildChannelError()
+              : const Center(child: CircularProgressIndicator()),
+        ),
       );
     }
     if (_pageError && _items.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: _buildHostError(videos),
+        child: _SwipeTranslate(
+          offset: widget.swipeOffset,
+          child: _buildHostError(videos),
+        ),
       );
     }
     if (_items.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: Text(
-            widget.emptyText,
-            textAlign: TextAlign.center,
+        child: _SwipeTranslate(
+          offset: widget.swipeOffset,
+          child: Center(
+            child: Text(
+              widget.emptyText,
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       );
@@ -1106,7 +1470,12 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
       slivers: [
         _buildList(),
         if (_loadingMore)
-          const SliverToBoxAdapter(child: LinearProgressIndicator()),
+          SliverToBoxAdapter(
+            child: _SwipeTranslate(
+              offset: widget.swipeOffset,
+              child: const LinearProgressIndicator(),
+            ),
+          ),
       ],
     );
   }
@@ -1181,11 +1550,14 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
             delegate: SliverChildBuilderDelegate(
               (BuildContext context, int index) {
                 final B11TabVideoItem item = _items[index];
-                return _B11ListRow(
-                  key: ValueKey<String>('${item.id}:${item.name}'),
-                  item: item,
-                  onTap: () => _onItemTap(item),
-                  onLongPress: () => _onItemLongPress(item),
+                return _SwipeTranslate(
+                  offset: widget.swipeOffset,
+                  child: _B11ListRow(
+                    key: ValueKey<String>('${item.id}:${item.name}'),
+                    item: item,
+                    onTap: () => _onItemTap(item),
+                    onLongPress: () => _onItemLongPress(item),
+                  ),
                 );
               },
               childCount: _items.length,
@@ -1199,13 +1571,16 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
             delegate: SliverChildBuilderDelegate(
               (BuildContext context, int index) {
                 final B11TabVideoItem item = _items[index];
-                return _B11OvalCard(
-                  key: ValueKey<String>('${item.id}:${item.name}'),
-                  item: item,
-                  imageWidth: _imageWidthDp,
-                  imageHeight: _imageHeightDp,
-                  onTap: () => _onItemTap(item),
-                  onLongPress: () => _onItemLongPress(item),
+                return _SwipeTranslate(
+                  offset: widget.swipeOffset,
+                  child: _B11OvalCard(
+                    key: ValueKey<String>('${item.id}:${item.name}'),
+                    item: item,
+                    imageWidth: _imageWidthDp,
+                    imageHeight: _imageHeightDp,
+                    onTap: () => _onItemTap(item),
+                    onLongPress: () => _onItemLongPress(item),
+                  ),
                 );
               },
               childCount: _items.length,
@@ -1228,28 +1603,31 @@ class _TabVideoGridState extends State<_TabVideoGrid> {
             delegate: SliverChildBuilderDelegate(
               (BuildContext context, int index) {
                 final B11TabVideoItem item = _items[index];
-                return VodCard(
-                  key: ValueKey<String>('${item.id}:${item.name}'),
-                  picUrl: item.picUrl,
-                  picReferer: item.picReferer,
-                  picCookie: item.picCookie,
-                  picUserAgent: item.picUserAgent,
-                  picExtraHeadersJson: item.picExtraHeadersJson,
-                  fallbackPicUrl: item.fallbackPicUrl,
-                  placeholderText: item.placeholderText,
-                  placeholderColor: item.placeholderColor,
-                  imageHeight: _imageHeightDp,
-                  vodName: item.nameVisible ? item.name : '',
-                  remarks: item.remarks,
-                  remarksVisible: item.remarkVisible,
-                  siteName: item.siteName,
-                  siteVisible: item.siteVisible,
-                  // Grid cards have no playback badge or progress bar.
-                  playbackText: null,
-                  progress: null,
-                  deleteMode: false,
-                  onTap: () => _onItemTap(item),
-                  onLongPress: () => _onItemLongPress(item),
+                return _SwipeTranslate(
+                  offset: widget.swipeOffset,
+                  child: VodCard(
+                    key: ValueKey<String>('${item.id}:${item.name}'),
+                    picUrl: item.picUrl,
+                    picReferer: item.picReferer,
+                    picCookie: item.picCookie,
+                    picUserAgent: item.picUserAgent,
+                    picExtraHeadersJson: item.picExtraHeadersJson,
+                    fallbackPicUrl: item.fallbackPicUrl,
+                    placeholderText: item.placeholderText,
+                    placeholderColor: item.placeholderColor,
+                    imageHeight: _imageHeightDp,
+                    vodName: item.nameVisible ? item.name : '',
+                    remarks: item.remarks,
+                    remarksVisible: item.remarkVisible,
+                    siteName: item.siteName,
+                    siteVisible: item.siteVisible,
+                    // Grid cards have no playback badge or progress bar.
+                    playbackText: null,
+                    progress: null,
+                    deleteMode: false,
+                    onTap: () => _onItemTap(item),
+                    onLongPress: () => _onItemLongPress(item),
+                  ),
                 );
               },
               childCount: _items.length,
@@ -1415,13 +1793,21 @@ class _B11OvalCard extends StatelessWidget {
 
 // Native glass slot geometry (GlassNavBar.kt, activity_home.xml):
 // the floating capsule is 64dp tall, floats 16dp above the bottom of
-// its 88dp slot, with 24dp side insets. The grid reserves the full
-// slot height as bottom padding so the last row scrolls clear of the
-// capsule.
+// its 88dp slot, with 24dp side insets — the bar's top edge is 80dp
+// above the window bottom. The pager ends 56dp above the window
+// bottom (activity_home.xml: the fragment container is layout_above
+// the 56dp BottomNavigationView), so the bar's top 24dp overlaps the
+// pager. The grid reserves the pager end plus the native 8dp grid
+// bottom padding (fragment_type.xml, clipToPadding=false): at
+// maximum scroll the last row's bottom 16dp sits under the bar, and
+// rows slide under the bar's top edge while scrolling, as native
+// (b8-glass-geometry; the old 88dp clearance starved the backdrop).
 const double _glassBarHeight = 64;
 const double _glassBarFloat = 16;
 const double _glassBarInsetX = 24;
-const double _glassSlotHeight = 88;
+const double _pagerBottom = 56;
+const double _nativeGridPaddingBottom = 8;
+const double _gridBottomClearance = _pagerBottom + _nativeGridPaddingBottom;
 
 /// Native FAB margin (fragment_vod.xml: all three FABs use a 16dp
 /// margin from the pager's end|bottom anchor).
@@ -1431,7 +1817,11 @@ const double _fabMargin = 16;
 /// GlassNavBar): a floating capsule (64dp tall, 24dp side insets, 16dp
 /// float — the native 88dp glass slot), the same items in the same
 /// order, the same selection pill, the same glass parameters from the
-/// host snapshot. Glass mode layers a BackdropFilter blur +
+/// host snapshot. A horizontal drag on the bar slides the single
+/// selection pill with the finger and switches tabs on release
+/// (native DampedDragAnimation, simplified — see
+/// docs/b8-glass-geometry-fix.md); taps and the live long-press are
+/// unchanged. Glass mode layers a BackdropFilter blur +
 /// lens-magnification matrix over the wallpaper and scrolled content,
 /// with native-aligned color-control washes, a soft-light saturation
 /// lift, a top highlight and a dispersion fringe (see
@@ -1439,7 +1829,7 @@ const double _fabMargin = 16;
 /// capsule shape but renders opaque (see docs/b8-home-glass.md).
 /// Icons are Material approximations of the native ic_nav_* drawables
 /// (see docs/b8-b11-home.md V5).
-class _GlassBottomBar extends StatelessWidget {
+class _GlassBottomBar extends StatefulWidget {
   const _GlassBottomBar({
     required this.screen,
     required this.onTap,
@@ -1449,6 +1839,55 @@ class _GlassBottomBar extends StatelessWidget {
   final B11HomeScreen screen;
   final ValueChanged<B11NavItem> onTap;
   final ValueChanged<B11NavItem> onLongPress;
+
+  @override
+  State<_GlassBottomBar> createState() => _GlassBottomBarState();
+}
+
+class _GlassBottomBarState extends State<_GlassBottomBar> {
+  /// Pill position in tab-index units (fractional while dragging or
+  /// animating). A TweenAnimationBuilder animates toward this target
+  /// in ~220ms; during a drag the duration is zero so the pill
+  /// follows the finger directly.
+  double _pillTarget = 0;
+
+  /// Last animated pill position, cached by the pill builder (plain
+  /// field write, no setState): the drag-start position when a slide
+  /// is interrupted mid-flight.
+  double _pillCurrent = 0;
+
+  bool _dragging = false;
+  double _dragStartX = 0;
+  double _dragStartIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final int selected = _selectedIndex(_visibleItems(widget.screen));
+    _pillTarget = (selected >= 0 ? selected : 0).toDouble();
+    _pillCurrent = _pillTarget;
+  }
+
+  @override
+  void didUpdateWidget(_GlassBottomBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_dragging) return;
+    final int selected = _selectedIndex(_visibleItems(widget.screen));
+    if (selected >= 0 && selected.toDouble() != _pillTarget) {
+      // Plain assignment: build() runs right after didUpdateWidget,
+      // and the new target animates the pill to the selected tab.
+      // This also heals a drag-settle the host did not confirm: the
+      // pill slides back to the selection the snapshot reports.
+      _pillTarget = selected.toDouble();
+    }
+  }
+
+  List<B11NavItem> _visibleItems(B11HomeScreen screen) =>
+      screen.navItems.where((B11NavItem item) => item.visible).toList();
+
+  int _selectedIndex(List<B11NavItem> items) => items.indexWhere(
+        (B11NavItem item) => item.token == widget.screen.selectedNavToken,
+      );
 
   IconData _iconFor(String token) {
     switch (token) {
@@ -1470,8 +1909,8 @@ class _GlassBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<B11NavItem> items =
-        screen.navItems.where((B11NavItem item) => item.visible).toList();
+    final B11HomeScreen screen = widget.screen;
+    final List<B11NavItem> items = _visibleItems(screen);
     if (items.isEmpty) return const SizedBox.shrink();
     final Color accent = Color(screen.accentColor);
     final Color surface = screen.darkMode
@@ -1481,7 +1920,7 @@ class _GlassBottomBar extends StatelessWidget {
         ? Colors.white.withAlpha(184)
         : Colors.black.withAlpha(158);
     final BorderRadius capsule = BorderRadius.circular(_glassBarHeight / 2);
-    final Widget barContent = Row(
+    final Widget rowContent = Row(
         children: items.map((B11NavItem item) {
           final bool selected = item.token == screen.selectedNavToken;
           final Color color = selected ? accent : unselected;
@@ -1529,26 +1968,115 @@ class _GlassBottomBar extends StatelessWidget {
               label,
             ],
           );
-          final Widget pill = Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-            decoration: selected
-                ? BoxDecoration(
-                    color: accent.withAlpha(38),
-                    borderRadius: BorderRadius.circular(16),
-                  )
-                : null,
-            child: content,
-          );
+          // No per-item pill background: the shared sliding pill
+          // overlay below draws the selection background, so taps
+          // and bar drags share one pill.
           return Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(item),
-              onLongPress: () => onLongPress(item),
-              child: Center(child: pill),
+              onTap: () => widget.onTap(item),
+              onLongPress: () => widget.onLongPress(item),
+              child: Center(child: content),
             ),
           );
         }).toList(),
+    );
+    // Sliding selection pill + bar drag (b8-glass-geometry): one pill
+    // overlay shared by taps and drags, positioned in tab-index units
+    // so it can follow the finger continuously and animate to the
+    // selected tab. The drag recognizer lives on the bar overlay only
+    // (self-contained: bar drags never reach the grid, grid drags
+    // never reach the bar); the gesture arena disambiguates it from
+    // the item tap/long-press recognizers — a press without movement
+    // past slop still taps, a hold still long-presses, movement past
+    // slop hands the gesture to the drag (native inspectDragGestures
+    // semantics). The pill is clipped to the capsule so end-overshoot
+    // never pokes outside the bar in the opaque path.
+    final Widget barContent = LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        if (!constraints.maxWidth.isFinite) return rowContent;
+        final double cellWidth = constraints.maxWidth / items.length;
+        final double pillWidth = (cellWidth - 10).clamp(40.0, 60.0);
+        const double pillHeight = 48;
+        final int selected = _selectedIndex(items);
+        final bool showPill = _dragging || selected >= 0;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (DragStartDetails details) {
+            setState(() {
+              _dragging = true;
+              _dragStartX = details.globalPosition.dx;
+              _dragStartIndex = _pillCurrent;
+              _pillTarget = _pillCurrent;
+            });
+          },
+          onHorizontalDragUpdate: (DragUpdateDetails details) {
+            final double raw = _dragStartIndex +
+                (details.globalPosition.dx - _dragStartX) / cellWidth;
+            final double maxIndex = (items.length - 1).toDouble();
+            final double damped = raw < 0
+                ? raw * 0.3
+                : (raw > maxIndex
+                    ? maxIndex + (raw - maxIndex) * 0.3
+                    : raw);
+            setState(() => _pillTarget = damped);
+          },
+          onHorizontalDragEnd: (DragEndDetails details) {
+            final int target =
+                _pillTarget.round().clamp(0, items.length - 1);
+            final bool changed = target != selected;
+            setState(() {
+              _dragging = false;
+              _pillTarget = target.toDouble();
+            });
+            if (changed) widget.onTap(items[target]);
+          },
+          onHorizontalDragCancel: () {
+            setState(() {
+              _dragging = false;
+              _pillTarget = (selected >= 0 ? selected : 0).toDouble();
+            });
+          },
+          child: ClipRRect(
+            borderRadius: capsule,
+            child: Stack(
+              children: [
+                if (showPill)
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(end: _pillTarget),
+                    duration: _dragging
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: accent.withAlpha(38),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                    builder: (BuildContext context, double pillIndex,
+                        Widget? child) {
+                      // Cache only (no setState): the drag-start
+                      // position when a slide is interrupted.
+                      _pillCurrent = pillIndex;
+                      return Positioned(
+                        left:
+                            (pillIndex + 0.5) * cellWidth - pillWidth / 2,
+                        top: (_glassBarHeight - pillHeight) / 2,
+                        width: pillWidth,
+                        height: pillHeight,
+                        child: child!,
+                      );
+                    },
+                  ),
+                rowContent,
+              ],
+            ),
+          ),
+        );
+      },
     );
     final double blur = screen.glassBlurDp.toDouble();
     if (!screen.glassEnabled || blur <= 0) {
@@ -1669,8 +2197,8 @@ class _GlassBottomBar extends StatelessWidget {
   /// from the top edge, with a faint cyan top / magenta bottom split
   /// when dispersion is on. Painted above the tint, below the icons.
   Widget _buildHighlight() {
-    final bool dispersion = screen.glassDispersion;
-    final double topAlpha = screen.darkMode ? 0.14 : 0.22;
+    final bool dispersion = widget.screen.glassDispersion;
+    final double topAlpha = widget.screen.darkMode ? 0.14 : 0.22;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(_glassBarHeight / 2),

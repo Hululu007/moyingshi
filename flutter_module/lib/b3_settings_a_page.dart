@@ -69,10 +69,34 @@ class _B3SettingsPageState extends State<B3SettingsPage> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final B3HostApi _api = B3HostApi();
 
+  /// Member currently showing in the inner Navigator, tracked by
+  /// [_MemberObserver] (plain assignment, never setState — it is only
+  /// read by [_handleBack], never by build). Starts at the entry
+  /// member so the direct-entry case below is correct before the
+  /// first observer callback.
+  late String _currentMember;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentMember =
+        _members.contains(widget.member) ? widget.member : 'tmdb';
+  }
+
   void _handleBack() {
     final NavigatorState? navigator = _navigatorKey.currentState;
     if (navigator != null && navigator.canPop()) {
       navigator.pop();
+      return;
+    }
+    if (_currentMember != 'home') {
+      // Direct entry: the host asserted /settings?member=X, so the
+      // inner Navigator starts at depth 1 on the member and there is
+      // nothing to pop. Replace the stack with the settings home
+      // (native: sub-page -> settings home); replace, not push, so
+      // the next back does not return to the member. Only the home
+      // member falls through to the host root-back handler.
+      navigator?.pushNamedAndRemoveUntil('/home', (_) => false);
       return;
     }
     _api.closeScreen();
@@ -91,6 +115,9 @@ class _B3SettingsPageState extends State<B3SettingsPage> {
       child: Navigator(
         key: _navigatorKey,
         initialRoute: initial,
+        observers: <NavigatorObserver>[
+          _MemberObserver((String member) => _currentMember = member),
+        ],
         onGenerateRoute: (RouteSettings settings) {
           switch (settings.name) {
             case '/home':
@@ -137,6 +164,42 @@ class _B3SettingsPageState extends State<B3SettingsPage> {
         },
       ),
     );
+  }
+}
+
+/// Reports the inner Navigator's top member to the family shell so
+/// [_B3SettingsPageState._handleBack] can tell a depth-1 member from
+/// the home member (direct-entry case). Only push/pop/replace are
+/// tracked: removals (pushNamedAndRemoveUntil) always accompany a
+/// push, whose report is the final one.
+class _MemberObserver extends NavigatorObserver {
+  _MemberObserver(this.onMemberChanged);
+
+  final ValueChanged<String> onMemberChanged;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    _report(route);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    if (previousRoute != null) _report(previousRoute);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    if (newRoute != null) _report(newRoute);
+  }
+
+  void _report(Route<dynamic> route) {
+    final String? name = route.settings.name;
+    if (name != null && name.startsWith('/')) {
+      onMemberChanged(name.substring(1));
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b18_widget_messages.g.dart';
+import 'pigeon/c1_messages.g.dart';
 import 'widgets/pic_image.dart';
 
 /// B8 B18: the mobile widget browse page (native WidgetBrowseActivity,
@@ -41,6 +42,7 @@ class B18BrowsePage extends StatefulWidget {
 class _B18BrowsePageState extends State<B18BrowsePage>
     with WidgetsBindingObserver {
   final B18HostApi _api = B18HostApi();
+  final C1HostApi _c1Api = C1HostApi();
   final ScrollController _scrollController = ScrollController();
 
   B18BrowseShell? _shell;
@@ -307,11 +309,31 @@ class _B18BrowsePageState extends State<B18BrowsePage>
     );
   }
 
+  Future<void> _onBack() async {
+    // Root-back signal: the host history decides (pop / home /
+    // background).
+    try {
+      await _c1Api.closeScreen();
+    } catch (_) {
+      // The host screen is already gone; nothing more to do.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final B18BrowseScreen? screen = _screen;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _onBack,
+        ),
         title: Text(screen?.title ?? ''),
         actions: <Widget>[
           IconButton(
@@ -324,6 +346,7 @@ class _B18BrowsePageState extends State<B18BrowsePage>
         ],
       ),
       body: _buildBody(screen),
+    ),
     );
   }
 

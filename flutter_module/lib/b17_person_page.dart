@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 
 import 'pigeon/b17_person_messages.g.dart';
+import 'pigeon/c1_messages.g.dart';
 import 'widgets/pic_image.dart';
 
 /// B8 B17: the mobile TMDB person page (TmdbPersonActivity), as the
@@ -48,6 +49,7 @@ class B17PersonPage extends StatefulWidget {
 class _B17PersonPageState extends State<B17PersonPage>
     with WidgetsBindingObserver {
   final B17HostApi _api = B17HostApi();
+  final C1HostApi _c1Api = C1HostApi();
   B17PersonShell? _shell;
   B17PersonScreen? _screen;
   String? _error;
@@ -568,14 +570,37 @@ class _B17PersonPageState extends State<B17PersonPage>
     );
   }
 
+  Future<void> _onBack() async {
+    // Root-back signal: the host history decides (pop / home /
+    // background). The photo viewer is a dialog route, so back while
+    // it is open dismisses it before this ever fires.
+    try {
+      await _c1Api.closeScreen();
+    } catch (_) {
+      // The host screen is already gone; nothing more to do.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final B17PersonScreen? screen = _screen;
     final String title = screen != null && screen.loaded && screen.name.isNotEmpty
         ? screen.name
         : widget.name;
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _onBack,
+        ),
+        title: Text(title),
+      ),
       body: Stack(
         children: <Widget>[
           _statusBody(),
@@ -591,6 +616,7 @@ class _B17PersonPageState extends State<B17PersonPage>
             ),
         ],
       ),
+    ),
     );
   }
 }

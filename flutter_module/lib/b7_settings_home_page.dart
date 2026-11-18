@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show AppExitResponse, ViewFocusEvent;
 
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/services.dart' show PredictiveBackEvent;
 import 'package:material_ui/material_ui.dart';
 
@@ -37,6 +38,45 @@ class SettingsHomeView extends StatefulWidget {
   State<SettingsHomeView> createState() => _SettingsHomeViewState();
 }
 
+/// Dart-side handoff for settings-search row taps
+/// (docs/b8-search-fix.md).
+///
+/// The settings-search view pops the family Navigator back to this
+/// home view and then requests the tapped row here; this view performs
+/// it through `_onRowTap` exactly as if the row had been tapped. The
+/// host round-trip (M15 static + same-route assertion) cannot deliver
+/// the row: the host route is already `/settings` throughout a family
+/// visit, so the assertion is a no-op, and the one-shot gates are
+/// always spent empty.
+///
+/// Ordering contract: the search view pops FIRST and requests SECOND.
+/// Requesting before the pop would perform the row while the search
+/// route is still on top, and the pop would then discard the pushed
+/// member. The value is cleared on consume ([take]); popping search
+/// with system back requests nothing, so back performs nothing.
+///
+/// The holder lives here, not in the family shell: the family
+/// Navigator has no RouteObserver, so `didPopNext` is unavailable
+/// without touching the shell file. The notifier is the event: this
+/// view's state listens from `initState`, and `load()` drains any
+/// value that arrived before the snapshot landed.
+class SettingsSearchRowHandoff {
+  static final ValueNotifier<String?> _rowId = ValueNotifier<String?>(null);
+
+  static ValueListenable<String?> get listenable => _rowId;
+
+  static void request(String rowId) {
+    _rowId.value = rowId;
+  }
+
+  /// Read-and-clear. Returns null when nothing is pending.
+  static String? take() {
+    final String? rowId = _rowId.value;
+    _rowId.value = null;
+    return rowId;
+  }
+}
+
 class _SettingsHomeViewState extends State<SettingsHomeView>
     with _B7MemberState<SettingsHomeView> {
   B7SettingsHome? _info;
@@ -49,11 +89,13 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
   @override
   void initState() {
     super.initState();
+    SettingsSearchRowHandoff.listenable.addListener(_onHandoffRow);
     load();
   }
 
   @override
   void dispose() {
+    SettingsSearchRowHandoff.listenable.removeListener(_onHandoffRow);
     _pollTimer?.cancel();
     super.dispose();
   }
@@ -69,6 +111,7 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
       });
       _maybePoll(info);
       _maybeHandlePendingRow();
+      _drainHandoff();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = '加载失败：$e');
@@ -96,6 +139,26 @@ class _SettingsHomeViewState extends State<SettingsHomeView>
     _pendingRowHandled = true;
     final String rowId = info.pendingRowId;
     if (rowId.isEmpty) return;
+    final B7SettingsRow? row = _findRow(rowId);
+    if (row == null) return;
+    _onRowTap(row);
+  }
+
+  /// Handoff listener: a settings-search row tap requests the row
+  /// after popping back to this view. When the snapshot has not
+  /// landed yet the value is left in place; load() drains it once
+  /// the snapshot is available.
+  void _onHandoffRow() {
+    if (_info == null) return;
+    _drainHandoff();
+  }
+
+  /// Read-and-clear the search-row handoff and perform the row, if
+  /// any. Clearing happens before performing, so a row can never
+  /// perform twice.
+  void _drainHandoff() {
+    final String? rowId = SettingsSearchRowHandoff.take();
+    if (rowId == null || rowId.isEmpty) return;
     final B7SettingsRow? row = _findRow(rowId);
     if (row == null) return;
     _onRowTap(row);
