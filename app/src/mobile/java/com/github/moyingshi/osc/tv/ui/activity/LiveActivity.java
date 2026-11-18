@@ -56,6 +56,7 @@ import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Track;
 import com.github.moyingshi.osc.tv.databinding.ActivityLiveBinding;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.impl.ConfigListener;
 import com.github.moyingshi.osc.tv.impl.CustomTarget;
@@ -428,7 +429,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.navigation.setOnItemSelectedListener(item -> {
             if (item.getItemId() == R.id.live) return true;
             int position = item.getItemId() == R.id.setting ? 1 : 0;
-            startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(HomeActivity.EXTRA_NAV_POSITION, position));
+            FlutterNav.openHomeAt(this, position);
             finish();
             return true;
         });
@@ -673,7 +674,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         markPlaybackExiting();
         if (service() != null) service().shutdown();
         else stopPlayback();
-        if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        if (isTaskRoot()) startActivity(FlutterNav.homeIntent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
     }
 

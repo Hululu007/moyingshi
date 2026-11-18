@@ -100,6 +100,7 @@ import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.ActivityVideoBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
 import com.github.moyingshi.osc.tv.event.CastEvent;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.following.Following;
@@ -4290,7 +4291,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     }
 
     private boolean onSearchGlobal() {
-        SearchActivity.start(this, mBinding.name.getText().toString());
+        FlutterNav.openSearch(this, mBinding.name.getText().toString());
         return true;
     }
 
@@ -10609,7 +10610,7 @@ private void checkOrientation() {
             markPlaybackExiting();
             saveHistory(true);
             stopPlayback();
-            if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            if (isTaskRoot()) startActivity(FlutterNav.homeIntent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
             super.onBackInvoked();
         }
     }
@@ -12117,7 +12118,7 @@ private void finishVideoPlaybackFromSystemBack() {
         markPlaybackExiting();
         saveHistory(true);
         stopPlayback();
-        if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        if (isTaskRoot()) startActivity(FlutterNav.homeIntent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         super.onBackInvoked();
     }
 
