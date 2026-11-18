@@ -3,7 +3,7 @@ import 'dart:io' show File;
 import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
-import 'package:vector_math/vector_math_64.dart';
+import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3;
 
 import 'pigeon/b11_home_messages.g.dart';
 import 'pigeon/b8_category_messages.g.dart';
