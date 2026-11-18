@@ -1,8 +1,10 @@
 package com.github.moyingshi.osc.tv.flutter;
 
 import android.app.Activity;
+import android.app.SearchManager;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.activity.result.ActivityResult;
@@ -13,9 +15,32 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 
+import com.catvod.net.OkHttp;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.api.config.LiveConfig;
+import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.config.WallConfig;
+import com.github.moyingshi.osc.tv.bean.Config;
+import com.github.moyingshi.osc.tv.db.AppDatabase;
+import com.github.moyingshi.osc.tv.event.ConfigEvent;
+import com.github.moyingshi.osc.tv.event.ServerEvent;
+import com.github.moyingshi.osc.tv.following.FollowingScheduler;
+import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.lab.LabFilePicker;
+import com.github.moyingshi.osc.tv.player.Source;
+import com.github.moyingshi.osc.tv.server.Server;
+import com.github.moyingshi.osc.tv.setting.AutoBackupPolicy;
+import com.github.moyingshi.osc.tv.setting.Setting;
+import com.github.moyingshi.osc.tv.utils.CrashRestartMode;
 import com.github.moyingshi.osc.tv.utils.FileChooser;
+import com.github.moyingshi.osc.tv.utils.Notify;
+import com.github.moyingshi.osc.tv.utils.PermissionUtil;
+import com.github.moyingshi.osc.tv.utils.PreviousProcessCrashRecovery;
+import com.github.moyingshi.osc.tv.utils.UrlUtil;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import io.flutter.embedding.android.FlutterFragment;
 import io.flutter.embedding.engine.FlutterEngine;
@@ -28,6 +53,7 @@ import io.flutter.plugin.common.StandardMethodCodec;
 import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * B8 C1/C2/B2/B3/B4: host Activity for the migrated screens (About, subtitle
@@ -90,10 +116,13 @@ import java.util.WeakHashMap;
  * routes; the native ShortDramaActivity stays the entry and
  * play-stream host, see docs/b8-b22-drama.md).
  *
- * <p>Mobile only: declared in the mobile manifest, no launcher entry.
- * Entry points are the mobile SettingFragment rows (behind the C1/B3
- * flags), the mobile history entry (behind the C2 flag) and the mobile
- * keep entry (behind the B2 flag), all defaulting to the native screens.
+ * <p>Mobile only: declared in the mobile manifest. Since B8
+ * delete-native phase 3 it is the launcher home (see
+ * docs/b8-delete-native-plan.md §3): the launcher aliases target it,
+ * it owns the startup/teardown sequence the native HomeActivity used
+ * to run, and a launch intent without {@link #EXTRA_ROUTE} shows
+ * {@link #ROUTE_HOME}. Every migrated screen still enters through
+ * {@link #start} with an explicit route.
  *
  * <p>B8 relaunch mechanism (see docs/b8-c1-relaunch-mechanism.md): one
  * cached engine serves many routes, but Dart reads the initial route only
@@ -109,6 +138,8 @@ import java.util.WeakHashMap;
 public class C1ScreenActivity extends AppCompatActivity {
 
     public static final String EXTRA_ROUTE = "b8_c1_route";
+    /** Literal value of the mobile {@code HomeActivity.EXTRA_NAV_POSITION} (plan §2.3, M14). */
+    private static final String EXTRA_NAV_POSITION = "nav_position";
     public static final String ROUTE_ABOUT = "/about";
     public static final String ROUTE_SUBTITLE = "/subtitle";
     public static final String ROUTE_HISTORY = "/history";
@@ -188,9 +219,15 @@ public class C1ScreenActivity extends AppCompatActivity {
      */
     private static Object sRouteOwnerToken;
 
+    /**
+     * B8 delete-native phase 3 (M1): the config load sequence runs once
+     * per process, however many C1 screens are created.
+     */
+    private static final AtomicBoolean sConfigLoadStarted = new AtomicBoolean(false);
+
     private FlutterFragment flutterFragment;
 
-    /** This Activity's route (from {@link #EXTRA_ROUTE}, default {@link #ROUTE_ABOUT}). */
+    /** This Activity's route (from {@link #EXTRA_ROUTE}, default {@link #ROUTE_HOME}). */
     private String mRoute;
 
     /** Per-instance ownership token for the route assertion (see {@link #assertRouteIfNeeded()}). */
@@ -248,8 +285,12 @@ public class C1ScreenActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        // B8 delete-native phase 3 (M10): the manifest declares
+        // Theme.Splash; switch to the app theme before super.onCreate(),
+        // exactly like the native home activity did.
+        setTheme(R.style.Theme_App);
         mRoute = getIntent().getStringExtra(EXTRA_ROUTE);
-        if (mRoute == null) mRoute = ROUTE_ABOUT;
+        if (mRoute == null) mRoute = ROUTE_HOME;
         // B8 relaunch: remember whether the engine already existed
         // before ensureFlutterEngine() runs; a reused engine is already
         // showing another route and must be redirected below.
@@ -260,6 +301,20 @@ public class C1ScreenActivity extends AppCompatActivity {
         ensureFlutterEngine();
         super.onCreate(savedInstanceState);
         sLiveActivities.add(this);
+        // B8 delete-native phase 3 (plan §2.1): this Activity is the
+        // launcher home now, so it owns the startup sequence the native
+        // HomeActivity used to run (M1/M3/M4/M5/M6/M7/M8), in the same
+        // order. The config load is once-guarded; the scheduler calls
+        // are idempotent; the warm-up is once-per-process internally.
+        warmUpHk();
+        PermissionUtil.requestFile(this, allGranted -> PermissionUtil.requestNotify(this));
+        FollowingScheduler.ensurePeriodic(this);
+        FollowingScheduler.enqueueDueNow(this);
+        initConfig();
+        EventBus.getDefault().register(this);
+        if (savedInstanceState == null && getIntent().hasExtra(EXTRA_NAV_POSITION)) {
+            checkAction(getIntent());
+        }
         if (engineReused) {
             // Early hint: tell Dart to switch routes before the
             // fragment's first frame if possible. Deliberately
@@ -288,6 +343,175 @@ public class C1ScreenActivity extends AppCompatActivity {
                     .add(R.id.fragment_container, flutterFragment, TAG_FLUTTER_FRAGMENT)
                     .commit();
         }
+    }
+
+    // ------------------------------------------------------------------
+    // B8 delete-native phase 3: home lifecycle moved from the native
+    // HomeActivity (docs/b8-delete-native-plan.md §2). The code below
+    // mirrors HomeActivity's onCreate/initView/initConfig/handlers,
+    // minus the native navigation (setNavigation, fragment switching),
+    // the glass nav and the WebHome chrome, which die with the native
+    // UI. The StateEvent posts are gone too (VodFragment was the only
+    // subscriber); the Flutter screens re-fetch snapshots on resume.
+    // ------------------------------------------------------------------
+
+    /**
+     * M7: Hk miniapp startup warm-up. HkWarmup is a mobile-only class,
+     * so it is reached by FQCN-string reflection (B20 precedent); on
+     * leanback this is a silent no-op. Failures are swallowed: the
+     * warm-up must never block startup.
+     */
+    private void warmUpHk() {
+        try {
+            Class<?> warmup = Class.forName("com.github.moyingshi.osc.tv.api.hk.HkWarmup");
+            warmup.getMethod("warmUpOnStartup").invoke(null);
+        } catch (ClassNotFoundException ignored) {
+            // Leanback build: no Hk warm-up.
+        } catch (Throwable e) {
+            Log.w(TAG, "HkWarmup failed", e);
+        }
+    }
+
+    /** M1 + M8: config load, gated by the crash-recovery decision. */
+    private void initConfig() {
+        PreviousProcessCrashRecovery.checkBeforeConfig(this, this::loadConfig);
+    }
+
+    /**
+     * M1: the config load sequence (VodConfig + LiveConfig + WallConfig),
+     * run once per process. The crash-restart branch mirrors HomeActivity:
+     * the pending intent is handled and no load runs.
+     */
+    private void loadConfig() {
+        if (CrashRestartMode.consume()) {
+            // Crash restart: no load runs in this process (HomeActivity
+            // semantics — it loaded once per process). Mark the guard so
+            // a later C1 creation cannot load either; the one-shot flag
+            // ("skip_config_once") means the process's one load.
+            sConfigLoadStarted.set(true);
+            checkAction(getIntent());
+            return;
+        }
+        // Once guard (plan §2.1): rotation no longer recreates this
+        // Activity (orientation configChanges), and the guard covers
+        // every other re-entry. Auxiliary D3 predicate: skip when both
+        // configs already hold data (loaded through another entry in
+        // this process); the VodConfig predicate is the same one
+        // VodConfig.isLoaded() uses (getSites() is null-safe).
+        if (!sConfigLoadStarted.compareAndSet(false, true)
+                || (!VodConfig.get().getSites().isEmpty() && LiveConfig.hasLoadedLives())) {
+            return;
+        }
+        VodConfig.get().config(Config.vod()).load(getCallback());
+        LiveConfig.get().init().load();
+        WallConfig.get().init();
+    }
+
+    /** M1: load callback — pending-intent handling + error toast only. */
+    private Callback getCallback() {
+        return new Callback() {
+            @Override
+            public void success() {
+                checkAction(getIntent());
+            }
+
+            @Override
+            public void noConfig() {
+                checkAction(getIntent());
+            }
+
+            @Override
+            public void error(String msg) {
+                checkAction(getIntent());
+                Notify.show(msg);
+            }
+        };
+    }
+
+    /** M5 + M8: intent handling, gated by the crash-recovery decision. */
+    private void checkAction(Intent intent) {
+        PreviousProcessCrashRecovery.checkBeforeConfig(this, () -> handleAction(intent));
+    }
+
+    /**
+     * M5: the four intent inputs, moved from HomeActivity.handleAction.
+     * nav_position maps to a C1 route (M14, FlutterNav) and is asserted
+     * to Dart; SEND/VIEW push video; ACTION_SEARCH opens the Flutter
+     * search page (FlutterNav.openSearch never finishes the caller).
+     */
+    private void handleAction(Intent intent) {
+        if (intent.hasExtra(EXTRA_NAV_POSITION)) {
+            mRoute = FlutterNav.homeRouteForPosition(intent.getIntExtra(EXTRA_NAV_POSITION, 0));
+            intent.removeExtra(EXTRA_NAV_POSITION);
+            assertRouteIfNeeded();
+        } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            FlutterNav.pushVideo(this, intent.getStringExtra(Intent.EXTRA_TEXT));
+        } else if (Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
+            PermissionUtil.requestFile(this, allGranted -> checkType(intent));
+        } else if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+            String keyword = intent.getStringExtra(SearchManager.QUERY);
+            if (!TextUtils.isEmpty(keyword)) FlutterNav.openSearch(this, keyword);
+        }
+    }
+
+    /** M5: VIEW data routing, moved verbatim from HomeActivity.checkType. */
+    private void checkType(Intent intent) {
+        if ("text/plain".equals(intent.getType()) || UrlUtil.path(intent.getData()).endsWith(".m3u")) {
+            loadLive("file:/" + FileChooser.getPathFromUri(intent.getData()));
+        } else {
+            FlutterNav.pushVideo(this, intent.getData().toString());
+        }
+    }
+
+    /** M5: .m3u/file live entry, moved verbatim from HomeActivity.loadLive. */
+    private void loadLive(String url) {
+        LiveConfig.load(Config.find(url, 1), new Callback() {
+            @Override
+            public void success() {
+                openLive();
+            }
+        });
+    }
+
+    /** M5: opens live TV (FlutterNav reflection; LiveActivity is flavor-parallel). */
+    private void openLive() {
+        FlutterNav.startLive(this);
+    }
+
+    /**
+     * M6: only the foreground C1 screen handles bus events. Stacked C1
+     * screens (the scheme-B stack) are all registered, so an ungated
+     * handler would push video / open search twice; the route-assertion
+     * owner token identifies the foreground Activity (see
+     * {@link #assertRouteIfNeeded()}).
+     */
+    private boolean isForegroundC1() {
+        return sRouteOwnerToken == mRouteToken;
+    }
+
+    /**
+     * M6: ConfigEvent, moved from HomeActivity. Only the BOOT branch
+     * survives: VOD/COMMON only refreshed the native navigation (the
+     * Flutter screens re-fetch their snapshots on resume); BOOT opens
+     * live TV on mobile boot-to-live.
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onConfigEvent(ConfigEvent event) {
+        if (!isForegroundC1()) return;
+        if (event.type() == ConfigEvent.Type.BOOT) {
+            FlutterNav.startLive(this);
+        }
+    }
+
+    /**
+     * M6: ServerEvent, moved from HomeActivity. PUSH pushes video;
+     * SEARCH opens the Flutter search page.
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onServerEvent(ServerEvent event) {
+        if (!isForegroundC1()) return;
+        if (event.type() == ServerEvent.Type.PUSH) FlutterNav.pushVideo(this, event.text());
+        if (event.type() == ServerEvent.Type.SEARCH) FlutterNav.openSearch(this, event.text());
     }
 
     /**
@@ -494,6 +718,13 @@ public class C1ScreenActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // M6: manual unregister (this Activity is not a BaseActivity
+        // subclass, so there is no automatic registration lifecycle).
+        EventBus.getDefault().unregister(this);
+        // M8: drop crash-recovery steps parked for this Activity, before
+        // anything below can run them against a dead screen (mirrors
+        // HomeActivity.onDestroy, which releases unconditionally first).
+        PreviousProcessCrashRecovery.release(this);
         sLiveActivities.remove(this);
         // A cached engine outlives its fragment; destroy it only when
         // this Activity is really finishing AND no other C1 screen is
@@ -503,6 +734,27 @@ public class C1ScreenActivity extends AppCompatActivity {
         // screen (G2). Rotation keeps the engine (isFinishing() is
         // false) as before.
         if (isFinishing() && sLiveActivities.isEmpty()) {
+            // M2 + M9: home teardown, moved from HomeActivity.onDestroy
+            // in the same order, under the same guard as the engine
+            // destroy: rotation (orientation configChanges) and
+            // start-then-finish navigation must never run it. The load
+            // guard resets here: the configs below are cleared, so the
+            // next home creation in this process must load again
+            // (launcher re-entry after exit); without the reset the
+            // once-guard would leave the relaunched home empty.
+            sConfigLoadStarted.set(false);
+            LiveConfig.get().clear();
+            VodConfig.get().clear("mobile-home-destroy");
+            if (AutoBackupPolicy.shouldRun(
+                    Setting.isAutoBackup(),
+                    Setting.hasFileAccess(),
+                    isFinishing(),
+                    isChangingConfigurations())) {
+                AppDatabase.autoBackup();
+            }
+            OkHttp.get().clear();
+            Source.get().exit();
+            Server.get().stop();
             FlutterEngine engine = FlutterEngineCache.getInstance().get(ENGINE_ID);
             if (engine != null) {
                 // B8 B20: drop the Hk impl for this engine (its worker
@@ -540,6 +792,25 @@ public class C1ScreenActivity extends AppCompatActivity {
     @Override
     protected void onNewIntent(@NonNull Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
+        // B8 delete-native phase 3 (§3.3): singleTop re-entry. The
+        // action is handled like HomeActivity.onNewIntent (crash-gated);
+        // the route is updated from EXTRA_ROUTE, or reset to HOME for a
+        // launcher re-entry. VIEW/SEND/SEARCH intents keep the current
+        // route: they push another activity on top, and the screen
+        // underneath must not reset. A nav_position extra is owned by
+        // handleAction (it may run later, behind the crash gate), so it
+        // suppresses the HOME default here.
+        boolean hasNavPosition = intent.hasExtra(EXTRA_NAV_POSITION);
+        checkAction(intent);
+        String route = intent.getStringExtra(EXTRA_ROUTE);
+        if (route != null) {
+            mRoute = route;
+        } else if (!hasNavPosition
+                && (Intent.ACTION_MAIN.equals(intent.getAction()) || intent.getAction() == null)) {
+            mRoute = ROUTE_HOME;
+        }
+        assertRouteIfNeeded();
         if (flutterFragment != null) {
             flutterFragment.onNewIntent(intent);
         }

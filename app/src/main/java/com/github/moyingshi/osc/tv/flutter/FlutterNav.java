@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 
+import androidx.fragment.app.FragmentActivity;
+
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.History;
@@ -77,6 +79,12 @@ public final class FlutterNav {
     /** FQCN of the mobile/leanback file-browser activity (parallel classes). */
     public static final String FILE_ACTIVITY_CLASS =
             "com.github.moyingshi.osc.tv.ui.activity.FileActivity";
+    /** FQCN of the mobile/leanback video player activity (parallel classes). */
+    public static final String VIDEO_ACTIVITY_CLASS =
+            "com.github.moyingshi.osc.tv.ui.activity.VideoActivity";
+    /** FQCN of the mobile/leanback live TV activity (parallel classes). */
+    public static final String LIVE_ACTIVITY_CLASS =
+            "com.github.moyingshi.osc.tv.ui.activity.LiveActivity";
 
     /** Literal value of the mobile {@code HomeActivity.EXTRA_NAV_POSITION}. */
     private static final String NAV_POSITION_EXTRA = "nav_position";
@@ -416,6 +424,42 @@ public final class FlutterNav {
                     .putExtra(C1ScreenActivity.EXTRA_ROUTE, C1ScreenActivity.ROUTE_FOLLOWING);
         }
         return FollowingActivity.intent(context, identityKey);
+    }
+
+    /**
+     * Replaces {@code VideoActivity.push(FragmentActivity, String)} for
+     * callers in the main source set (B8 delete-native phase 3: the C1
+     * home's SEND/VIEW intent handling and the ServerEvent PUSH branch).
+     * Both flavors keep a parallel VideoActivity with the same FQCN and
+     * the same push signature, so one reflective call serves both — no
+     * isMobile branch. A failure only logs: pushing video must never
+     * crash the home screen.
+     */
+    public static void pushVideo(FragmentActivity activity, String text) {
+        if (activity == null) return;
+        try {
+            Class<?> type = Class.forName(VIDEO_ACTIVITY_CLASS);
+            type.getMethod("push", FragmentActivity.class, String.class)
+                    .invoke(null, activity, text);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Replaces {@code LiveActivity.start(Context)} for callers in the
+     * main source set (B8 delete-native phase 3: the C1 home's BOOT
+     * branch and .m3u VIEW handling). Same shape as {@link #pushVideo}:
+     * parallel classes, one reflective call, failures only logged.
+     */
+    public static void startLive(Context context) {
+        if (context == null) return;
+        try {
+            Class<?> type = Class.forName(LIVE_ACTIVITY_CLASS);
+            type.getMethod("start", Context.class).invoke(null, context);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
     // ------------------------------------------------------------------
