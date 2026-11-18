@@ -1,8 +1,9 @@
 import 'dart:async' show Timer;
 import 'dart:io' show File;
-import 'dart:ui' show ImageFilter, Matrix4;
+import 'dart:ui' show ImageFilter;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:vector_math/vector_math_64.dart';
 
 import 'pigeon/b11_home_messages.g.dart';
 import 'pigeon/b8_category_messages.g.dart';
@@ -1600,9 +1601,9 @@ class _GlassBottomBar extends StatelessWidget {
               final double cx = constraints.maxWidth / 2;
               const double cy = _glassBarHeight / 2;
               final Matrix4 lens = Matrix4.identity()
-                ..translate(cx, cy)
-                ..scale(lensScale)
-                ..translate(-cx, -cy);
+                ..translateByVector3(Vector3(cx, cy, 0.0))
+                ..scaleByVector3(Vector3.all(lensScale))
+                ..translateByVector3(Vector3(-cx, -cy, 0.0));
               filter = ImageFilter.compose(
                 outer: filter,
                 inner: ImageFilter.matrix(

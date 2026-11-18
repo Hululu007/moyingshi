@@ -539,7 +539,6 @@ class _HomeRow extends StatelessWidget {
     required this.value,
     this.showChevron = true,
     this.isError = false,
-    this.trailing,
     required this.onTap,
     this.onLongPress,
   });
@@ -551,11 +550,6 @@ class _HomeRow extends StatelessWidget {
   final String value;
   final bool showChevron;
   final bool isError;
-
-  /// Optional trailing widget shown after the value (no row passes one
-  /// since the master-switch row was removed).
-  /// when set it replaces the chevron.
-  final Widget? trailing;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
@@ -627,11 +621,7 @@ class _HomeRow extends StatelessWidget {
                   ),
                 ),
               ],
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
-              if (trailing == null && showChevron) ...[
+              if (showChevron) ...[
                 const SizedBox(width: 8),
                 Icon(
                   Icons.chevron_right,
