@@ -334,9 +334,9 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 .show(getSupportFragmentManager());
     }
 
-    /** 海阔小程序分组：管理页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开；打不开时只留内嵌列表。B8 B20：开关开且是手机时走 Flutter 管理页（/hk-manager），否则走原来的隐式 intent（TV 永远走这里）。 */
+    /** 海阔小程序分组：管理页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开；打不开时只留内嵌列表。B8 B20：手机走 Flutter 管理页（/hk-manager），TV 走原来的隐式 intent。 */
     private void openMiniappManager() {
-        if (Util.isMobile() && Setting.isFlutterB20Enabled()) {
+        if (Util.isMobile()) {
             C1ScreenActivity.start(this, C1ScreenActivity.ROUTE_HK_MANAGER);
             return;
         }
