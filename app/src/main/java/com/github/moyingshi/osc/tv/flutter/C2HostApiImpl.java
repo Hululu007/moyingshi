@@ -1,7 +1,6 @@
 package com.github.moyingshi.osc.tv.flutter;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Build;
 import android.text.TextUtils;
@@ -21,7 +20,6 @@ import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.ViewingReportActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.ViewingReportRangeDialog;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
@@ -192,9 +190,8 @@ public class C2HostApiImpl implements C2Messages.C2HostApi {
 
     @Override
     public void goHome() {
-        // Same intent as HistoryActivity.goHome().
-        activity.startActivity(new Intent(activity, HomeActivity.class).addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        // Same destination as HistoryActivity.goHome(), via the router.
+        FlutterNav.goHome(activity);
     }
 
     /** Finds a displayed item in a fresh snapshot by (cid, key); null when stale. */

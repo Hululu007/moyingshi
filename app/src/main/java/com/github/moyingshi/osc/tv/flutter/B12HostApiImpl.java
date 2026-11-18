@@ -21,7 +21,6 @@ import com.github.moyingshi.osc.tv.content.ActionCardHelper;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
@@ -214,7 +213,7 @@ public class B12HostApiImpl implements B12Messages.B12HostApi {
         if (item.isAction()) {
             ActionCardHelper.handleAction(activity, key, text(item.getAction()));
         } else if (home != null && home.isIndex()) {
-            SearchActivity.start(activity, text(item.getName()));
+            FlutterNav.openSearch(activity, text(item.getName()));
         } else {
             VideoActivity.start(activity, key, text(item.getId()), text(item.getName()),
                     text(item.getPic()), null);

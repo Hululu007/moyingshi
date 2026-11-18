@@ -1,7 +1,6 @@
 package com.github.moyingshi.osc.tv.flutter;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
@@ -24,8 +23,6 @@ import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
@@ -125,7 +122,7 @@ public class B2HostApiImpl implements B2Messages.B2HostApi {
         }
         Config config = Config.find(keep.getCid());
         if (config == null) {
-            SearchActivity.start(activity, keep.getVodName());
+            FlutterNav.openSearch(activity, keep.getVodName());
             result.success(openedResult());
             return;
         }
@@ -265,9 +262,8 @@ public class B2HostApiImpl implements B2Messages.B2HostApi {
 
     @Override
     public void goHome() {
-        // Same intent as KeepActivity.goHome().
-        activity.startActivity(new Intent(activity, HomeActivity.class).addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        // Same destination as KeepActivity.goHome(), via the router.
+        FlutterNav.goHome(activity);
     }
 
     /** Finds a displayed item in a fresh snapshot by (cid, key); null when stale. */

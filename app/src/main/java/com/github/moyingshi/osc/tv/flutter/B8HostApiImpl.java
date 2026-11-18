@@ -31,7 +31,6 @@ import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
@@ -275,7 +274,7 @@ public class B8HostApiImpl implements B8Messages.B8HostApi {
                 HistoryResumeCoordinator.openSearch(activity, historyResumeCid.intValue(), historyResumeKey,
                         historyResumeTargetCid.intValue(), text(itemName));
             } else {
-                SearchActivity.start(activity, text(itemName));
+                FlutterNav.openSearch(activity, text(itemName));
             }
             return;
         }
@@ -301,7 +300,7 @@ public class B8HostApiImpl implements B8Messages.B8HostApi {
             HistoryResumeCoordinator.openSearch(activity, historyResumeCid.intValue(), historyResumeKey,
                     historyResumeTargetCid.intValue(), text(keyword));
         } else {
-            SearchActivity.start(activity, text(keyword));
+            FlutterNav.openSearch(activity, text(keyword));
         }
     }
 

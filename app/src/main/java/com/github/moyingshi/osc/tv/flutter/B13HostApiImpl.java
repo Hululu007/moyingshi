@@ -11,7 +11,6 @@ import com.bumptech.glide.load.model.GlideUrl;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.setting.Setting;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.TmdbProxy;
@@ -261,7 +260,7 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
         // in the current site (B9-diverted when its flag is on, same as
         // native). A blank title would open an empty search; ignore it.
         if (TextUtils.isEmpty(title)) return;
-        SearchActivity.start(activity, title);
+        FlutterNav.openSearch(activity, title);
     }
 
     @Override

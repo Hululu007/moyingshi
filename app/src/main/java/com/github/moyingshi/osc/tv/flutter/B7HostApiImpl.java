@@ -1,6 +1,5 @@
 package com.github.moyingshi.osc.tv.flutter;
 
-import android.content.Intent;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
@@ -35,7 +34,6 @@ import com.github.moyingshi.osc.tv.setting.ConfigSyncPolicy;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.SiteHealthStore;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.AboutDialog;
@@ -951,12 +949,9 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         activity.finish();
     }
 
-    /** B5 openSearchEntry pattern: CLEAR_TOP | SINGLE_TOP + literal "nav_position". */
+    /** B5 openSearchEntry pattern; routing lives in FlutterNav.openHomeAt. */
     private void openHomeAt(int position) {
-        Intent intent = new Intent(activity, HomeActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra("nav_position", position);
-        activity.startActivity(intent);
+        FlutterNav.openHomeAt(activity, position);
     }
 
     @Override

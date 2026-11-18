@@ -50,12 +50,8 @@ import com.github.moyingshi.osc.tv.setting.AppBranding;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
-import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
-import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.moyingshi.osc.tv.lab.LabActivity;
 import com.github.moyingshi.osc.tv.ui.activity.LiveActivity;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.custom.CustomWallView;
 import com.github.moyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
@@ -883,7 +879,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
         if (isMiniapp(home)) {
             openHkSearch(hkTitleOf(home));
         } else {
-            SearchActivity.start(activity);
+            FlutterNav.openSearch(activity);
         }
     }
 
@@ -893,7 +889,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
         if (isMiniapp(home)) {
             openHkSearch(hkTitleOf(home));
         } else {
-            SearchActivity.start(activity, "", home.getKey());
+            FlutterNav.openSearch(activity, "", home.getKey());
         }
     }
 
@@ -917,7 +913,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_HISTORY);
             activity.finish();
         } else {
-            HistoryActivity.start(activity);
+            FlutterNav.openHistory(activity);
         }
     }
 
@@ -933,7 +929,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                     C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_KEEP);
                     activity.finish();
                 } else {
-                    KeepActivity.start(activity);
+                    FlutterNav.openKeep(activity);
                 }
                 break;
             case "search":
@@ -1378,12 +1374,9 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
         }
     }
 
-    /** B5/B7 pattern: CLEAR_TOP | SINGLE_TOP + literal "nav_position". */
+    /** B5/B7 pattern; routing lives in FlutterNav.openHomeAt. */
     private void openHomeAt(int position) {
-        Intent intent = new Intent(activity, HomeActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra("nav_position", position);
-        activity.startActivity(intent);
+        FlutterNav.openHomeAt(activity, position);
     }
 
     // ------------------------------------------------------------------

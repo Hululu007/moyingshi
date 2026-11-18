@@ -1,6 +1,5 @@
 package com.github.moyingshi.osc.tv.flutter;
 
-import android.content.Intent;
 
 import androidx.fragment.app.FragmentActivity;
 
@@ -16,7 +15,6 @@ import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.activity.AppBrandingActivity;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.GroupRuleDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.SliderNumberDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.SpeedSettingDialog;
@@ -500,19 +498,10 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
     }
 
     /**
-     * Opens the mobile HomeActivity at a fragment position, following
-     * the LiveActivity precedent (CLEAR_TOP | SINGLE_TOP + nav_position
-     * extra). The leanback HomeActivity has no change(int) method and
-     * no EXTRA_NAV_POSITION constant, so the constant is inlined as the
-     * literal "nav_position" (the mobile source-set field has the same
-     * value); the class itself exists in both flavors, so the reference
-     * compiles everywhere. Unreachable on leanback: no leanback entry
-     * leads to this screen.
+     * Opens the home at a fragment position; routing lives in
+     * {@link FlutterNav#openHomeAt(android.app.Activity, int)}.
      */
     private void openHomeAt(int position) {
-        Intent intent = new Intent(activity, HomeActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra("nav_position", position);
-        activity.startActivity(intent);
+        FlutterNav.openHomeAt(activity, position);
     }
 }

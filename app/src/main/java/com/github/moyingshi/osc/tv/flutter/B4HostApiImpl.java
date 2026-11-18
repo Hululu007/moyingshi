@@ -20,7 +20,6 @@ import com.github.moyingshi.osc.tv.setting.ProxySetting;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.SiteHealthStore;
 import com.github.moyingshi.osc.tv.setting.SiteNameStore;
-import com.github.moyingshi.osc.tv.ui.activity.FileActivity;
 import com.github.moyingshi.osc.tv.ui.activity.PluginManagerActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.AudioSourceDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ComicSourceDialog;
@@ -324,9 +323,7 @@ public class B4HostApiImpl implements B4Messages.B4HostApi {
             activity.finish();
             return;
         }
-        Intent intent = new Intent(activity, FileActivity.class);
-        intent.putExtra("read_mode", true);
-        activity.startActivity(intent);
+        FlutterNav.openLocalReader(activity);
     }
 
     @Override

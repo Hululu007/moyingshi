@@ -17,7 +17,6 @@ import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.Word;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.setting.Setting;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.utils.SearchSuggest;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.reflect.TypeToken;
@@ -382,10 +381,11 @@ public class B9HostApiImpl implements B9Messages.B9HostApi {
             }
         }
         // Results stay native in B9 (direct mode); the Flutter results
-        // list is B10. The 5-arg direct overload exists in both flavors
-        // with this signature, so this main-source-set reference compiles
+        // list is B10. The routing lives in FlutterNav.direct (mobile
+        // goes to the C1 /search route, TV to the reflective native
+        // SearchActivity), so this main-source-set reference compiles
         // for leanback too.
-        SearchActivity.direct(activity, query, resolvedSiteKey, pic, wallPic);
+        FlutterNav.direct(activity, query, resolvedSiteKey, pic, wallPic);
     }
 
     /** Mirrors RecordAdapter.checkToAdd: dedupe, most recent first, max 10. */

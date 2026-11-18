@@ -21,7 +21,6 @@ import com.github.moyingshi.osc.tv.bean.TmdbPerson;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.service.TmdbService;
 import com.github.moyingshi.osc.tv.setting.Setting;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.TmdbDetailActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
@@ -173,13 +172,13 @@ item = workByKey.get(text(mediaType) + ":" + tmdbId);
 if (item == null) {
 // Unknown work (stale snapshot): fall back to a direct
 // search, like the native no-match path.
-SearchActivity.direct(activity, keyword);
+FlutterNav.direct(activity, keyword);
 return;
 }
 final TmdbItem work = item;
 Site site = VodConfig.get().getSite(sessionSiteKey);
 if (site == null || site.isEmpty() ||!site.isSearchable()) {
-SearchActivity.direct(activity, keyword);
+FlutterNav.direct(activity, keyword);
 return;
 }
 Notify.show(activity.getString(R.string.detail_work_searching, keyword));
@@ -190,7 +189,7 @@ if (activity.isFinishing() || activity.isDestroyed()) return;
 if (match == null) {
 Notify.show(activity.getString(
 R.string.detail_work_global_searching, keyword));
-SearchActivity.direct(activity, keyword);
+FlutterNav.direct(activity, keyword);
 return;
 }
 TmdbDetailActivity.start(activity, site.getKey(), match.getId(),
