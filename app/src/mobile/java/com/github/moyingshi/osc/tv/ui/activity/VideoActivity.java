@@ -2964,7 +2964,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         return new ClickableSpan() {
             @Override
             public void onClick(@NonNull View view) {
-                FolderActivity.start(getActivity(), getKey(), result);
+                FlutterNav.openFolder(getActivity(), getKey(), result);
                 ((TextView) view).setMaxLines(Integer.MAX_VALUE);
                 setRedirect(true);
             }
