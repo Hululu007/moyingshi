@@ -716,6 +716,7 @@
     <string name="web_home_extension_loaded_extensions">Loaded extensions</string>
     <string name="web_home_extension_user_source_status">User source · %1$s</string>
     <string name="web_home_extension_site_scope">Site: %1$s</string>
+    <string name="web_home_shell_loading">Loading…</string>
     <string name="web_home_extension_add_file">File</string>
     <string name="web_home_extension_add_link">Link</string>
     <string name="web_home_extension_add_code">Code</string>
