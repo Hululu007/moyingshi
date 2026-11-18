@@ -1,6 +1,5 @@
 package com.github.moyingshi.osc.tv.flutter;
 
-import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -19,7 +18,6 @@ import com.github.moyingshi.osc.tv.widget.WidgetItem;
 import com.github.moyingshi.osc.tv.widget.WidgetManager;
 
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -66,9 +64,9 @@ import java.util.Map;
  * are main-source-set, so direct references are safe.
  * {@code SearchActivity} exists in BOTH flavors with identical
  * {@code start(Activity, String)} signatures, so the direct reference
- * is safe (B2 precedent). {@code WidgetBrowseActivity} is mobile-only
- * and is opened via reflection (plan §4.8招4); the ProGuard keep
- * {@code -keep com.github.moyingshi.osc.tv.**} covers it. The only
+ * is safe (B2 precedent). The widget browse page is the Flutter
+ * {@code /widgets} route on mobile (see {@link #openWidgetMore}); TV
+ * never had the native browse page. The only
  * string used here, {@code widget_more}, is main-res (verified per
  * directory). The widget geometry (104x140dp cards) is fixed numbers
  * in the Dart widget; {@code WidgetSectionAdapter} (mobile-only) is
@@ -259,23 +257,15 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
         // the Flutter /widgets route on the shared C1 engine and finish
         // this (Flutter) home screen — start-then-finish, the B11 V10
         // G2 race risk (see docs/b8-b18-widget.md §6). It must NOT go
-        // through WidgetBrowseActivity.start() here, or the old Flutter
-        // home Activity would stay alive and violate the
-        // single-C1-engine invariant. TV = the original reflection path
-        // to the native browse page.
+        // through the deleted WidgetBrowseActivity.start() here, or the
+        // old Flutter home Activity would stay alive and violate the
+        // single-C1-engine invariant. TV never had the native browse
+        // page, so there is nothing to open there (the old reflective
+        // branch could never succeed on any flavor).
         if (TextUtils.isEmpty(widgetId)) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_WIDGETS + "?widgetId=" + encode(widgetId));
             activity.finish();
-            return;
-        }
-        try {
-            Class<?> clazz = Class.forName(
-                    "com.github.moyingshi.osc.tv.ui.activity.WidgetBrowseActivity");
-            Method start = clazz.getMethod("start", Activity.class, String.class);
-            start.invoke(null, activity, widgetId);
-        } catch (Throwable e) {
-            e.printStackTrace();
         }
     }
 

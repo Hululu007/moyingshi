@@ -50,7 +50,6 @@ import com.github.moyingshi.osc.tv.utils.PermissionUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
 
 import java.io.File;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -63,10 +62,11 @@ import java.util.Map;
  * SettingFragment, 1012 lines), now the {@code /settings} family home.
  *
  * <p>Every display string and computed value is resolved here; Dart only
- * renders the snapshot. The native SettingFragment is untouched and stays
- * the flag-off path. Row keys are the same literals as
- * SettingFragment.ROW_* (that class is mobile-only, so the literals are
- * inlined here, not referenced). See docs/b8-b7-settings-home.md.
+ * renders the snapshot. The native SettingFragment was deleted in
+ * phase 4a (mobile is Flutter-only now). Row keys are the same
+ * literals as the deleted SettingFragment.ROW_* (that class was
+ * mobile-only, so the literals are inlined here, not referenced).
+ * See docs/b8-b7-settings-home.md.
  *
  * <p>Dialogs: HistoryDialog / SiteDialog / LiveDialog /
  * AppearanceDialog / LocalSourceDialog / RestoreDialog are mobile-only,
@@ -83,7 +83,6 @@ import java.util.Map;
 public class B7HostApiImpl implements B7Messages.B7HostApi {
 
     private static final String TAG_HOME_HOST = "b8_b7_home_host";
-    private static final String FRAGMENT_SETTING = "com.github.moyingshi.osc.tv.ui.fragment.SettingFragment";
     private static final String DIALOG_HISTORY = "com.github.moyingshi.osc.tv.ui.dialog.HistoryDialog";
     private static final String DIALOG_SITE = "com.github.moyingshi.osc.tv.ui.dialog.SiteDialog";
     private static final String DIALOG_LIVE = "com.github.moyingshi.osc.tv.ui.dialog.LiveDialog";
@@ -150,10 +149,10 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
                 .build();
     }
 
-    /** Reads the pending settings-search row once per engine: the M15
-     * host static first, then the legacy SettingFragment.sPendingRow
-     * (mobile-only, via reflection) as a fallback while the native
-     * settings search still writes it. */
+    /** Reads the pending settings-search row once per engine from the
+     * M15 host static. The legacy SettingFragment.sPendingRow
+     * reflective fallback is gone with that class (phase 4a); the B5
+     * host static is the only writer. */
     private void consumePendingRow() {
         if (pendingRowConsumed) return;
         pendingRowConsumed = true;
@@ -161,18 +160,6 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         sPendingRowId = "";
         if (staticRow != null && !staticRow.isEmpty()) {
             pendingRowId = staticRow;
-            return;
-        }
-        try {
-            Class<?> fragmentClass = Class.forName(FRAGMENT_SETTING);
-            Field field = fragmentClass.getDeclaredField("sPendingRow");
-            field.setAccessible(true);
-            Object value = field.get(null);
-            field.set(null, null);
-            if (value instanceof String) pendingRowId = (String) value;
-        } catch (Exception ignored) {
-            // Leanback has no SettingFragment, or the field moved: no
-            // pending row, the home just opens normally.
         }
     }
 

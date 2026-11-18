@@ -1,6 +1,5 @@
 package com.github.moyingshi.osc.tv.flutter;
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.res.ColorStateList;
@@ -89,10 +88,11 @@ import java.util.Map;
  * <p>Flavor safety: this class lives in the main source set and must
  * compile for both flavors. Mobile-only classes are never referenced
  * directly: grid geometry is re-implemented below (copied from
- * CollectFragment's Product calls, like B8); FolderActivity is opened
- * reflectively (B9 SiteDialog pattern) so its own B8 diversion still
- * applies; {@code VideoActivity.collect} and {@code SearchActivity}
- * exist in BOTH flavors with identical signatures. All strings used
+ * CollectFragment's Product calls, like B8); folder taps go through
+ * {@code FlutterNav.openFolder} (the deleted FolderActivity.start
+ * diversion, now the Flutter /category route); and
+ * {@code VideoActivity.collect} exists in BOTH flavors with identical
+ * signatures. All strings used
  * here live in main res, so no runtime {@code mobileString} lookup is
  * needed. The similarity slider dialog is built inline from the same
  * LightDialog primitive SliderNumberDialog uses, because that helper
@@ -106,9 +106,6 @@ public class B10HostApiImpl implements B10Messages.B10HostApi {
 
     /** Native search-record cap (RecordAdapter.checkToAdd). */
     private static final int RECORD_LIMIT = 10;
-
-    /** FolderActivity is mobile-only; opened reflectively (B9 pattern). */
-    private static final String FOLDER_ACTIVITY_CLASS = "com.github.moyingshi.osc.tv.ui.activity.FolderActivity";
 
     private final FragmentActivity activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -729,21 +726,21 @@ public class B10HostApiImpl implements B10Messages.B10HostApi {
         Site site = VodConfig.get().getSite(key);
         if (site != null) item.setSite(site);
         if (Boolean.TRUE.equals(itemIsFolder)) {
-            // FolderActivity is mobile-only: reflection (B9 SiteDialog
-            // pattern). Its own start() diversion still applies, so a
-            // B8-enabled device opens the Flutter category page.
-            try {
-                Class<?> folderClass = Class.forName(FOLDER_ACTIVITY_CLASS);
-                if (isHistoryResume()) {
-                    folderClass.getMethod("start", Activity.class, String.class, Result.class, int.class,
-                            String.class, int.class).invoke(null, activity, key, Result.folder(item), hrCid,
-                            hrKey, hrTargetCid);
-                } else {
-                    folderClass.getMethod("start", Activity.class, String.class, Result.class).invoke(null,
-                            activity, key, Result.folder(item));
-                }
-            } catch (Throwable e) {
-                e.printStackTrace();
+            // FolderActivity was deleted in phase 4a; its start()
+            // diversion (the Flutter /category route) now lives in
+            // FlutterNav.openFolder. An empty result is a silent
+            // no-op, exactly like the deleted start()'s early
+            // return; TV (no folder page) falls back to the
+            // detail/collect page, as the old reflective call did.
+            Result folder = Result.folder(item);
+            if (folder == null || folder.getTypes().isEmpty()) return;
+            boolean opened;
+            if (isHistoryResume()) {
+                opened = FlutterNav.openFolder(activity, key, folder, hrCid, hrKey, hrTargetCid);
+            } else {
+                opened = FlutterNav.openFolder(activity, key, folder);
+            }
+            if (!opened) {
                 // Defensive fallback (B8 folder pattern): never leave a
                 // tap silent.
                 VideoActivity.collect(activity, key, id, name, rawPic.isEmpty() ? pic : rawPic, wallPic, keyword);

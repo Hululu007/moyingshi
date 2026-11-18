@@ -9,6 +9,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.History;
+import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.playback.HistoryResumePayload;
 import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
 import com.github.moyingshi.osc.tv.utils.Util;
@@ -317,6 +318,67 @@ public final class FlutterNav {
             return;
         }
         reflectDirectFromHistory(activity, history, keyword, targetCid);
+    }
+
+    /**
+     * Replaces {@code FolderActivity.start(...)} (deleted in phase
+     * 4a): the standalone category screen is the Flutter
+     * {@code /category} page. The route query is copied verbatim
+     * from the deleted {@code FolderActivity.start} (same parameter
+     * names, order and URL-encoding: key, typeId, type JSON, hrCid,
+     * hrKey, hrTargetCid), so Dart sees identical input. Never
+     * finishes the caller (the native form stacked the folder page
+     * on top). The bean type is fully qualified because this file
+     * also uses {@code java.lang.Class} for the TV reflection.
+     *
+     * <p>TV has no folder activity (leanback never had
+     * {@code FolderActivity}), so this returns {@code false} there
+     * and the caller falls back to its detail page — the same
+     * outcome as the old reflective call failing on TV. Also
+     * returns {@code false} when the result has no types (the
+     * native early return) or the route cannot be built.
+     */
+    public static boolean openFolder(Activity activity, String key, Result result) {
+        return openFolder(activity, key, result, -1, null, -1);
+    }
+
+    public static boolean openFolder(Activity activity, String key, Result result,
+            int historyResumeCid, String historyResumeKey, int historyResumeTargetCid) {
+        if (activity == null || !Util.isMobile()) return false;
+        if (result == null || result.getTypes().isEmpty()) return false;
+        try {
+            com.github.moyingshi.osc.tv.bean.Class type = result.getTypes().get(0);
+            String route = C1ScreenActivity.ROUTE_CATEGORY
+                    + "?key=" + URLEncoder.encode(key == null ? "" : key, "UTF-8")
+                    + "&typeId=" + URLEncoder.encode(type.getTypeId(), "UTF-8")
+                    + "&type=" + URLEncoder.encode(App.gson().toJson(type), "UTF-8")
+                    + "&hrCid=" + historyResumeCid
+                    + "&hrKey=" + URLEncoder.encode(historyResumeKey == null ? "" : historyResumeKey, "UTF-8")
+                    + "&hrTargetCid=" + historyResumeTargetCid;
+            C1ScreenActivity.start(activity, route);
+            return true;
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Replaces {@code WidgetBrowseActivity.start(activity, widgetId)}
+     * (deleted in phase 4a): mobile opens the Flutter
+     * {@code /widgets} route with the same {@code ?widgetId=} query
+     * the B13 host uses. Never finishes the caller (unlike the B13
+     * start-then-finish form, which keeps its own inline call). TV
+     * never had the browse activity, so this is a no-op there.
+     */
+    public static void openWidgetBrowse(Activity activity, String widgetId) {
+        if (activity == null || !Util.isMobile() || widgetId == null || widgetId.isEmpty()) return;
+        try {
+            C1ScreenActivity.start(activity,
+                    C1ScreenActivity.ROUTE_WIDGETS + "?widgetId=" + URLEncoder.encode(widgetId, "UTF-8"));
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
     /**

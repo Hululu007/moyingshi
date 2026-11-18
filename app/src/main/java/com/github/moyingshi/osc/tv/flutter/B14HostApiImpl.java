@@ -1,7 +1,6 @@
 package com.github.moyingshi.osc.tv.flutter;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
@@ -81,10 +80,10 @@ import java.util.Map;
  * main-source-set, so direct references are safe.
  * {@code VideoActivity.startFromFollowingHistory} exists in BOTH flavors
  * with identical signatures (mobile + leanback), so the direct reference
- * is safe (B2 precedent). {@code SearchActivity} is mobile+leanback
- * only and is opened via reflection, exactly like native
- * FollowingActivity.onChangeSource (plan §4.8招4); the ProGuard keep
- * {@code -keep com.github.moyingshi.osc.tv.**} covers it. All
+ * is safe (B2 precedent). Search opens through {@code FlutterNav}
+ * (mobile: the Flutter /search route; TV: the native search activity
+ * by reflection), exactly like native FollowingActivity.onChangeSource.
+ * All
  * {@code following_*} strings and {@code R.array.following_weekdays}
  * are main-res (verified per directory: mobile/leanback res contain no
  * following_* strings), so direct R references are leanback-safe.
@@ -349,8 +348,7 @@ public class B14HostApiImpl implements B14Messages.B14HostApi {
             if (item == null) return;
             App.post(() -> {
                 try {
-                    Class<?> type = Class.forName("com.github.moyingshi.osc.tv.ui.activity.SearchActivity");
-                    type.getMethod("start", Activity.class, String.class).invoke(null, activity, item.vodName);
+                    FlutterNav.openSearch(activity, item.vodName);
                 } catch (Throwable error) {
                     Notify.show(error.getMessage());
                 }
