@@ -20,7 +20,6 @@ import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.bean.TmdbPerson;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.service.TmdbService;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.TmdbDetailActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
@@ -106,16 +105,6 @@ private boolean savingPhoto;
 
 public B17HostApiImpl(FragmentActivity activity) {
 this.activity = activity;
-}
-
-@Override
-public Boolean isB17Enabled() {
-return Setting.isFlutterB17Enabled();
-}
-
-@Override
-public void setB17Enabled(Boolean enabled) {
-Setting.putFlutterB17Enabled(enabled!= null && enabled);
 }
 
 @Override

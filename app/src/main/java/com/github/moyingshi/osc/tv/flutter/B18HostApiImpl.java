@@ -15,7 +15,6 @@ import com.bumptech.glide.load.model.GlideUrl;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
@@ -125,16 +124,6 @@ public class B18HostApiImpl implements B18Messages.B18HostApi {
 
     public B18HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB18Enabled() {
-        return Setting.isFlutterB18Enabled();
-    }
-
-    @Override
-    public void setB18Enabled(Boolean enabled) {
-        Setting.putFlutterB18Enabled(Boolean.TRUE.equals(enabled));
     }
 
     @Override

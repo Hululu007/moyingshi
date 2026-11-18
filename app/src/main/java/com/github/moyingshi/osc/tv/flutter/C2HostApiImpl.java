@@ -26,6 +26,7 @@ import com.github.moyingshi.osc.tv.utils.ColorGenerator;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
 import com.github.moyingshi.osc.tv.utils.TmdbProxy;
+import com.github.moyingshi.osc.tv.utils.Util;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -66,16 +67,6 @@ public class C2HostApiImpl implements C2Messages.C2HostApi {
 
     public C2HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isC2Enabled() {
-        return Setting.isFlutterC2Enabled();
-    }
-
-    @Override
-    public void setC2Enabled(Boolean enabled) {
-        Setting.putFlutterC2Enabled(enabled);
     }
 
     @Override
@@ -172,12 +163,11 @@ public class C2HostApiImpl implements C2Messages.C2HostApi {
         // Same chain as HistoryActivity.onReport().
         ViewingReportRangeDialog.create(activity)
                 .callback(range -> {
-                    if (Setting.isFlutterB16Enabled()) {
-                        // B8 B16: B6→B7-style pre-authorized diversion (see
-                        // docs/b8-b16-report.md §5 V1): the Flutter report
-                        // page takes the selected range from the route
-                        // query; start-then-finish, so back lands on the
-                        // native history page (G2 risk, B7 §5 V10).
+                    // B8 B16: the Flutter report page takes the selected
+                    // range from the route query; start-then-finish, so
+                    // back lands on the native history page (G2 risk,
+                    // B7 §5 V10). TV keeps the native page.
+                    if (Util.isMobile()) {
                         C1ScreenActivity.start(activity,
                                 C1ScreenActivity.ROUTE_REPORT + "?range=" + range.name());
                         activity.finish();

@@ -112,16 +112,6 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
         this.activity = activity;
     }
 
-    @Override
-    public Boolean isB13Enabled() {
-        return Setting.isFlutterB13Enabled();
-    }
-
-    @Override
-    public void setB13Enabled(Boolean enabled) {
-        Setting.putFlutterB13Enabled(Boolean.TRUE.equals(enabled));
-    }
-
     // ------------------------------------------------------------------
     // Widget sections snapshot (host-side JS, one-shot, cache then fresh)
     // ------------------------------------------------------------------
@@ -265,16 +255,16 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
 
     @Override
     public void openWidgetMore(String widgetId) {
-        // B8 B18 takes over the "more" opening (B13 V5): when the B18
-        // flag is on, open the Flutter /widgets route on the shared C1
-        // engine and finish this (Flutter) home screen — start-then-
-        // finish, the B11 V10 G2 race risk (see docs/b8-b18-widget.md
-        // §6). It must NOT go through WidgetBrowseActivity.start()
-        // here, or the old Flutter home Activity would stay alive and
-        // violate the single-C1-engine invariant. Flag off = the
-        // original reflection path to the native browse page.
+        // B8 B18 takes over the "more" opening (B13 V5): on mobile, open
+        // the Flutter /widgets route on the shared C1 engine and finish
+        // this (Flutter) home screen — start-then-finish, the B11 V10
+        // G2 race risk (see docs/b8-b18-widget.md §6). It must NOT go
+        // through WidgetBrowseActivity.start() here, or the old Flutter
+        // home Activity would stay alive and violate the
+        // single-C1-engine invariant. TV = the original reflection path
+        // to the native browse page.
         if (TextUtils.isEmpty(widgetId)) return;
-        if (Setting.isFlutterB18Enabled() && Util.isMobile()) {
+        if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_WIDGETS + "?widgetId=" + encode(widgetId));
             activity.finish();
             return;

@@ -537,16 +537,6 @@ public final class B21HostApiImpl implements B21Messages.B21HostApi {
     // ------------------------------------------------------------------
 
     @Override
-    public Boolean isB21Enabled() {
-        return Setting.isFlutterB21Enabled();
-    }
-
-    @Override
-    public void setB21Enabled(Boolean enabled) {
-        Setting.putFlutterB21Enabled(Boolean.TRUE.equals(enabled));
-    }
-
-    @Override
     public B21Messages.B21LabShell getLabShell() {
         AppCompatActivity act = activity;
         String empty = "";
@@ -1060,12 +1050,12 @@ public final class B21HostApiImpl implements B21Messages.B21HostApi {
     public void openLabMiniappManager() {
         AppCompatActivity act = activity;
         if (act == null) return;
-        // Native LabActivity.openMiniappManager (B20): when the B20
-        // flag is on, the Flutter /hk-manager page — from this Flutter
-        // page that is start-then-finish (B15/B19 precedent, same G2
-        // cross-screen race); otherwise the ".hk_miniapp" implicit
-        // intent stacks on top and returns here.
-        if (Util.isMobile() && Setting.isFlutterB20Enabled()) {
+        // Native LabActivity.openMiniappManager (B20): on mobile, the
+        // Flutter /hk-manager page — from this Flutter page that is
+        // start-then-finish (B15/B19 precedent, same G2 cross-screen
+        // race); on TV the ".hk_miniapp" implicit intent stacks on top
+        // and returns here.
+        if (Util.isMobile()) {
             C1ScreenActivity.start(act, C1ScreenActivity.ROUTE_HK_MANAGER);
             act.finish();
             return;

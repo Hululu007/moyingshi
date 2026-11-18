@@ -8,7 +8,6 @@ import androidx.fragment.app.FragmentActivity;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.utils.Task;
 import com.github.moyingshi.osc.tv.viewing.ViewingReport;
 import com.github.moyingshi.osc.tv.viewing.ViewingReportAiAnalyzer;
@@ -70,16 +69,6 @@ public class B16HostApiImpl implements B16Messages.B16HostApi {
 
     public B16HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB16Enabled() {
-        return Setting.isFlutterB16Enabled();
-    }
-
-    @Override
-    public void setB16Enabled(Boolean enabled) {
-        Setting.putFlutterB16Enabled(enabled != null && enabled);
     }
 
     @Override

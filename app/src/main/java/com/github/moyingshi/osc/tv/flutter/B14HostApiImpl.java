@@ -135,16 +135,6 @@ public class B14HostApiImpl implements B14Messages.B14HostApi {
     }
 
     @Override
-    public Boolean isB14Enabled() {
-        return Setting.isFlutterB14Enabled();
-    }
-
-    @Override
-    public void setB14Enabled(Boolean enabled) {
-        Setting.putFlutterB14Enabled(Boolean.TRUE.equals(enabled));
-    }
-
-    @Override
     public void getFollowing(Long filterIndex, B14Messages.Result<B14Messages.B14FollowingScreen> result) {
         int filter = filterIndex == null ? FILTER_ALL : filterIndex.intValue();
         if (filter < FILTER_ALL || filter > FILTER_FAILED) filter = FILTER_ALL;

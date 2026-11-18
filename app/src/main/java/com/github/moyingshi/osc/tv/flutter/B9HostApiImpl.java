@@ -65,9 +65,6 @@ public class B9HostApiImpl implements B9Messages.B9HostApi {
     /** Hot/suggest network timeout: every @async method must complete on all paths. */
     private static final long NETWORK_TIMEOUT_MS = 8_000L;
 
-    /** Native search-record cap (RecordAdapter.checkToAdd). */
-    private static final int RECORD_LIMIT = 10;
-
     /** Native hot-word cap per group (SearchFragment.HOT_LIMIT). */
     private static final int HOT_LIMIT = 10;
 
@@ -80,16 +77,6 @@ public class B9HostApiImpl implements B9Messages.B9HostApi {
 
     public B9HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB9Enabled() {
-        return Setting.isFlutterB9Enabled();
-    }
-
-    @Override
-    public void setB9Enabled(Boolean enabled) {
-        Setting.putFlutterB9Enabled(enabled);
     }
 
     @Override
@@ -356,45 +343,6 @@ public class B9HostApiImpl implements B9Messages.B9HostApi {
             completed[0] = true;
             result.success(currentSiteAvailable());
         });
-    }
-
-    @Override
-    public void submitSearch(String keyword, Boolean currentSite, String siteKey, String pic, String wallPic) {
-        String query = keyword == null ? "" : keyword.trim();
-        if (query.isEmpty()) return;
-        // Native SearchFragment.search() adds the keyword to the records
-        // 250ms later (App.post delay); same here.
-        App.post(() -> addRecord(query), 250);
-        // Mirrors SearchFragment.getSearchSiteKey(): the current-site
-        // scope resolves to the entry siteKey, or the home site's key.
-        String resolvedSiteKey = "";
-        if (Boolean.TRUE.equals(currentSite)) {
-            if (!TextUtils.isEmpty(siteKey)) {
-                resolvedSiteKey = siteKey;
-            } else {
-                try {
-                    Site home = VodConfig.get().getHome();
-                    if (home != null) resolvedSiteKey = home.getKey();
-                } catch (Throwable e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        // Results stay native in B9 (direct mode); the Flutter results
-        // list is B10. The routing lives in FlutterNav.direct (mobile
-        // goes to the C1 /search route, TV to the reflective native
-        // SearchActivity), so this main-source-set reference compiles
-        // for leanback too.
-        FlutterNav.direct(activity, query, resolvedSiteKey, pic, wallPic);
-    }
-
-    /** Mirrors RecordAdapter.checkToAdd: dedupe, most recent first, max 10. */
-    private void addRecord(String keyword) {
-        List<String> records = getRecords();
-        records.remove(keyword);
-        records.add(0, keyword);
-        while (records.size() > RECORD_LIMIT) records.remove(records.size() - 1);
-        Setting.putKeyword(App.gson().toJson(records));
     }
 
     /** Parses one cached hot-word JSON the way SearchFragment.hotItems() does (cap 10). */

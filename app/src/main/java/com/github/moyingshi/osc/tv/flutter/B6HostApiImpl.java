@@ -82,16 +82,6 @@ public class B6HostApiImpl implements B6Messages.B6HostApi {
     }
 
     @Override
-    public Boolean isB6Enabled() {
-        return Setting.isFlutterB6Enabled();
-    }
-
-    @Override
-    public void setB6Enabled(Boolean enabled) {
-        Setting.putFlutterB6Enabled(enabled);
-    }
-
-    @Override
     public B6Messages.B6PlayerSettings getPlayerSettings() {
         String[] kernel = ResUtil.getStringArray(R.array.select_player_kernel);
         String[] scale = ResUtil.getStringArray(R.array.select_scale);

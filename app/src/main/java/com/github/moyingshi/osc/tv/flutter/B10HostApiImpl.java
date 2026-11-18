@@ -154,16 +154,6 @@ public class B10HostApiImpl implements B10Messages.B10HostApi {
     }
 
     @Override
-    public Boolean isB10Enabled() {
-        return Setting.isFlutterB10Enabled();
-    }
-
-    @Override
-    public void setB10Enabled(Boolean enabled) {
-        Setting.putFlutterB10Enabled(enabled);
-    }
-
-    @Override
     public void startSearch(String keyword, Boolean currentSite, String siteKey, String group, String pic,
             String wallPic, Long historyResumeCid, String historyResumeKey, Long historyResumeTargetCid,
             B10Messages.Result<B10Messages.B10CollectScreen> result) {
@@ -180,7 +170,7 @@ public class B10HostApiImpl implements B10Messages.B10HostApi {
         this.hrCid = historyResumeCid == null ? -1 : historyResumeCid.intValue();
         this.hrKey = text(historyResumeKey);
         this.hrTargetCid = historyResumeTargetCid == null ? -1 : historyResumeTargetCid.intValue();
-        // Site-key rule (B9HostApiImpl.submitSearch, factored): under
+        // Site-key rule (B9 submit rule, factored): under
         // current-site scope the entry key counts, or the home key when
         // it is empty; otherwise the key is the explicit filter (empty
         // = all sites). Callers pre-apply the native scope rule.

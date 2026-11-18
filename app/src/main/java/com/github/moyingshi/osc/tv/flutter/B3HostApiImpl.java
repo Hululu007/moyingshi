@@ -89,16 +89,6 @@ public class B3HostApiImpl implements B3Messages.B3HostApi {
         this.activity = activity;
     }
 
-    @Override
-    public Boolean isB3Enabled() {
-        return Setting.isFlutterB3Enabled();
-    }
-
-    @Override
-    public void setB3Enabled(Boolean enabled) {
-        Setting.putFlutterB3Enabled(enabled);
-    }
-
     // ------------------------------------------------------------------ TMDB
 
     @Override

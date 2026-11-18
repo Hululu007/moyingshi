@@ -173,16 +173,6 @@ public final class B22HostApiImpl implements B22Messages.B22HostApi {
     // Feature flag
     // ------------------------------------------------------------------
 
-    @Override
-    public Boolean isB22Enabled() {
-        return Setting.isFlutterB22Enabled();
-    }
-
-    @Override
-    public void setB22Enabled(Boolean enabled) {
-        Setting.putFlutterB22Enabled(Boolean.TRUE.equals(enabled));
-    }
-
     // ------------------------------------------------------------------
     // Theater snapshot (ShortDramaActivity.loadSource, step for step)
     // ------------------------------------------------------------------

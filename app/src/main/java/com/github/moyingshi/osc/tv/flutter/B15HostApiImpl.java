@@ -13,7 +13,6 @@ import com.github.catvod.utils.Path;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.web.WebReaderActivity;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
 import com.github.moyingshi.osc.tv.utils.Task;
@@ -76,16 +75,6 @@ public class B15HostApiImpl implements B15Messages.B15HostApi {
 
     public B15HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB15Enabled() {
-        return Setting.isFlutterB15Enabled();
-    }
-
-    @Override
-    public void setB15Enabled(Boolean enabled) {
-        Setting.putFlutterB15Enabled(enabled != null && enabled);
     }
 
     @Override

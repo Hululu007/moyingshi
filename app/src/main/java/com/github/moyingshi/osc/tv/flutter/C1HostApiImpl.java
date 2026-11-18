@@ -51,16 +51,6 @@ public class C1HostApiImpl implements C1Messages.C1HostApi {
     }
 
     @Override
-    public Boolean isC1Enabled() {
-        return Setting.isFlutterC1Enabled();
-    }
-
-    @Override
-    public void setC1Enabled(Boolean enabled) {
-        Setting.putFlutterC1Enabled(enabled);
-    }
-
-    @Override
     public C1Messages.C1AboutInfo getAboutInfo() {
         return new C1Messages.C1AboutInfo.Builder()
                 .setTitle(activity.getString(R.string.about_title))

@@ -197,16 +197,6 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
         this.activity = activity;
     }
 
-    @Override
-    public Boolean isB11Enabled() {
-        return Setting.isFlutterB11Enabled();
-    }
-
-    @Override
-    public void setB11Enabled(Boolean enabled) {
-        Setting.putFlutterB11Enabled(Boolean.TRUE.equals(enabled));
-    }
-
     // ------------------------------------------------------------------
     // Home shell snapshot (one-shot, B8 pattern)
     // ------------------------------------------------------------------
@@ -906,15 +896,10 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
 
     @Override
     public void openHistory() {
-        if (Setting.isFlutterC2Enabled()) {
-            // Cross-screen navigation always goes through the host
-            // (plan §4.4): start-then-finish, shared G2 engine-reuse race
-            // (see docs/b8-b11-home.md V11).
-            C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_HISTORY);
-            activity.finish();
-        } else {
-            FlutterNav.openHistory(activity);
-        }
+        // Cross-screen navigation always goes through the host
+        // (plan §4.4); the router carries the TV fallback and the
+        // start-then-finish finish rule (see docs/b8-b11-home.md V11).
+        FlutterNav.openHistory(activity);
     }
 
     @Override
@@ -925,12 +910,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 // Handled in Dart by re-calling getHomeShell(); no host work.
                 break;
             case "keep":
-                if (Setting.isFlutterB2Enabled()) {
-                    C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_KEEP);
-                    activity.finish();
-                } else {
-                    FlutterNav.openKeep(activity);
-                }
+                FlutterNav.openKeep(activity);
                 break;
             case "search":
                 openSearch();
@@ -939,12 +919,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 OneKeySyncDialog.create().show(activity);
                 break;
             case "enhance":
-                if (Setting.isFlutterB4Enabled()) {
-                    C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_SETTINGS + "?member=enhance");
-                    activity.finish();
-                } else {
-                    openHomeAt(3);
-                }
+                openHomeAt(3);
                 break;
             default:
                 break;
@@ -1263,22 +1238,27 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 }
                 break;
             case "following":
-                // B8 B14: B6→B7 同款预授权分流（见 docs/b8-b14-following.md §5 V9）。
-                // 开关开时走 Flutter 追更页（/following），关时走原生页。
-                // 与 "setting" 行同为 start-then-finish，G2 跨屏竞态风险同款
-                // （B11 文档 §5 V10），若复现需在 C1ScreenActivity 加重启机制。
-                if (Setting.isFlutterB14Enabled()) {
-                    C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_FOLLOWING);
-                    activity.finish();
+                // B8 B14: the following page is Flutter on mobile
+                // (start-then-finish, same G2 cross-screen race as the
+                // other start-then-finish sites); TV stays native.
+                // The feature-disabled gate mirrors the native
+                // Activity's onCreate check.
+                if (FollowingSettings.isEnabled()) {
+                    if (Util.isMobile()) {
+                        C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_FOLLOWING);
+                        activity.finish();
+                    } else {
+                        FollowingActivity.start(activity, null);
+                    }
                 } else {
                     FollowingActivity.start(activity, null);
                 }
                 break;
             case "local_source":
                 if (Setting.isLabNav()) {
-                    // B8 B21: same gate as B4/B7 openLab (mobile +
-                    // flag on -> Flutter lab page, start-then-finish).
-                    if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+                    // B8 B21: same gate as B4/B7 openLab (mobile ->
+                    // Flutter lab page, start-then-finish).
+                    if (Util.isMobile()) {
                         C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LAB);
                         activity.finish();
                     } else {
@@ -1289,12 +1269,7 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 }
                 break;
             case "setting":
-                if (Setting.isFlutterB7Enabled()) {
-                    C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_SETTINGS);
-                    activity.finish();
-                } else {
-                    openHomeAt(1);
-                }
+                openHomeAt(1);
                 break;
             default:
                 break;

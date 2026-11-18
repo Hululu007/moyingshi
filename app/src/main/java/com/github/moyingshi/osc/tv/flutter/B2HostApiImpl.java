@@ -21,7 +21,6 @@ import com.github.moyingshi.osc.tv.bean.Keep;
 import com.github.moyingshi.osc.tv.bean.Style;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
@@ -78,16 +77,6 @@ public class B2HostApiImpl implements B2Messages.B2HostApi {
 
     public B2HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB2Enabled() {
-        return Setting.isFlutterB2Enabled();
-    }
-
-    @Override
-    public void setB2Enabled(Boolean enabled) {
-        Setting.putFlutterB2Enabled(enabled);
     }
 
     @Override

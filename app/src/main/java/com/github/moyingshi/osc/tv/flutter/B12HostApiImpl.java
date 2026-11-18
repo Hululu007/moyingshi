@@ -19,7 +19,6 @@ import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.content.ActionCardHelper;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
@@ -90,16 +89,6 @@ public class B12HostApiImpl implements B12Messages.B12HostApi {
 
     public B12HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB12Enabled() {
-        return Setting.isFlutterB12Enabled();
-    }
-
-    @Override
-    public void setB12Enabled(Boolean enabled) {
-        Setting.putFlutterB12Enabled(Boolean.TRUE.equals(enabled));
     }
 
     // ------------------------------------------------------------------

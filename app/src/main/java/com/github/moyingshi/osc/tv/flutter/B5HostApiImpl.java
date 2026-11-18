@@ -55,16 +55,6 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
     // B5 feature flag
     // ------------------------------------------------------------------
 
-    @Override
-    public Boolean isB5Enabled() {
-        return Setting.isFlutterB5Enabled();
-    }
-
-    @Override
-    public void setB5Enabled(Boolean enabled) {
-        Setting.putFlutterB5Enabled(enabled != null && enabled);
-    }
-
     // ------------------------------------------------------------------
     // Personal settings snapshot
     // ------------------------------------------------------------------
@@ -442,21 +432,19 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
                 .build();
     }
 
-    /** True only when the destination is a migrated family member whose
-     * flag is currently on. The player page (2) and the subtitle page
+    /** True when the destination is a migrated family member (all of
+     * them now live in Flutter). The player page (2) and the subtitle page
      * (6, a top-level C1 route, not a family member) always go through
      * the host. */
     private boolean isFlutterDestination(int page) {
         switch (page) {
             case 3:
-                return Setting.isFlutterB4Enabled();
             case 4:
+            case 5:
             case 7:
             case 8:
             case 9:
-                return Setting.isFlutterB3Enabled();
-            case 5:
-                return Setting.isFlutterB5Enabled();
+                return true;
             default:
                 return false;
         }
@@ -467,10 +455,10 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
         int targetPage = page == null ? -1 : page.intValue();
         String targetRowId = rowId == null ? "" : rowId;
         // The subtitle page (6) is a top-level C1 route, not a family
-        // member: when the C1 flag is on, open the Flutter screen,
-        // otherwise the native page.
+        // member: mobile opens the Flutter screen, TV the native page
+        // (via the router).
         if (targetPage == 6) {
-            if (Setting.isFlutterC1Enabled()) {
+            if (Util.isMobile()) {
                 C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_SUBTITLE);
             } else {
                 openHomeAt(targetPage);
@@ -481,17 +469,11 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
         if (targetRowId.isEmpty()) {
             openHomeAt(targetPage);
         } else {
-            // Settings-home row deep link: the static requestRow is
-            // mobile-only, so it is set via reflection, then the native
-            // settings home is opened and performs the row on resume.
-            try {
-                Class<?> fragmentClass = Class.forName("com.github.moyingshi.osc.tv.ui.fragment.SettingFragment");
-                Method requestRow = fragmentClass.getMethod("requestRow", String.class);
-                requestRow.invoke(null, targetRowId);
-            } catch (Exception ignored) {
-                // Without the pending row the user still lands on the
-                // settings home; only the deep link is lost.
-            }
+            // Settings-home row deep link: the row id travels through
+            // the B7 host static (M15); the settings home snapshot
+            // carries it and Dart performs the row on load. The old
+            // SettingFragment.sPendingRow reflection write is gone.
+            B7HostApiImpl.setPendingRowId(targetRowId);
             openHomeAt(1);
         }
         activity.finish();

@@ -95,16 +95,6 @@ public class B4HostApiImpl implements B4Messages.B4HostApi {
         this.activity = activity;
     }
 
-    @Override
-    public Boolean isB4Enabled() {
-        return Setting.isFlutterB4Enabled();
-    }
-
-    @Override
-    public void setB4Enabled(Boolean enabled) {
-        Setting.putFlutterB4Enabled(enabled);
-    }
-
     // ------------------------------------------------------------------ snapshot
 
     @Override
@@ -300,11 +290,10 @@ public class B4HostApiImpl implements B4Messages.B4HostApi {
 
     @Override
     public void openLab() {
-        // B8 B21: mobile + flag on goes to the Flutter lab page
-        // (start-then-finish: one C1-engine screen at a time, same G2
-        // race as the other start-then-finish sites); TV and flag off
-        // stay on the native LabActivity.
-        if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+        // B8 B21: mobile goes to the Flutter lab page (start-then-finish:
+        // one C1-engine screen at a time, same G2 race as the other
+        // start-then-finish sites); TV stays on the native LabActivity.
+        if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LAB);
             activity.finish();
             return;
@@ -314,25 +303,17 @@ public class B4HostApiImpl implements B4Messages.B4HostApi {
 
     @Override
     public void openLocalReader() {
-        // B8 B15: B6→B7 同款预授权分流（见 docs/b8-b15-local.md §5 V3）。
-        // 开关开时走 Flutter 本地文件页（read_mode）；与 B7 的 openAbout
-        // 同为 start-then-finish，G2 跨屏竞态风险同款——返回时落在原生
-        // 增强设置页，而不是 Flutter 增强设置页。
-        if (Setting.isFlutterB15Enabled()) {
-            C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LOCAL + "?selectDir=false&readMode=true");
-            activity.finish();
-            return;
-        }
+        // B8 B15: the Flutter local-file page (read_mode); the router
+        // carries the TV fallback (leanback file activity).
         FlutterNav.openLocalReader(activity);
     }
 
     @Override
     public void openPluginManager() {
-        // B8 B19: B6→B7 同款预授权分流（见 docs/b8-b19-plugin.md §5 V3）。
-        // 开关开时走 Flutter 插件管理页；与 B15 的 openLocalReader
-        // 同为 start-then-finish，G2 跨屏竞态风险同款——返回时落在原生
-        // 增强设置页，而不是 Flutter 增强设置页。
-        if (Setting.isFlutterB19Enabled()) {
+        // B8 B19: mobile goes to the Flutter plugin manager page
+        // (start-then-finish, same G2 cross-screen race as the other
+        // start-then-finish sites); TV stays on the native page.
+        if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_PLUGINS);
             activity.finish();
             return;

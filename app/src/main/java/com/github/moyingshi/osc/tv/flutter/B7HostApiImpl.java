@@ -107,26 +107,18 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
     private boolean pendingRowConsumed;
     private String pendingRowId = "";
 
+    /** M15: settings-search deep-link row written by the B5 host
+     * (B5HostApiImpl.openSearchEntry) instead of the old
+     * SettingFragment.sPendingRow reflection write. Read once by
+     * consumePendingRow() when the settings home snapshot is built. */
+    private static String sPendingRowId = "";
+
+    public static void setPendingRowId(String rowId) {
+        sPendingRowId = rowId == null ? "" : rowId;
+    }
+
     public B7HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    // ------------------------------------------------------------------ flag
-
-    @Override
-    public Boolean isB7Enabled() {
-        return Setting.isFlutterB7Enabled();
-    }
-
-    @Override
-    public void setB7Enabled(Boolean enabled) {
-        Setting.putFlutterB7Enabled(enabled != null && enabled);
-    }
-
-    /** B8 master switch: writes the single {@code flutter_enabled} key (see docs/b8-master-switch.md). */
-    @Override
-    public void setFlutterEnabled(Boolean enabled) {
-        Setting.putFlutterEnabled(enabled != null && enabled);
     }
 
     // ------------------------------------------------------------------ snapshot
@@ -145,7 +137,6 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         if (Setting.isHiddenSettingsEnabled()) groups.add(hiddenGroup());
         return new B7Messages.B7SettingsHome.Builder()
                 .setScreenTitle(activity.getString(R.string.nav_setting))
-                .setSearchFlutter(Setting.isFlutterB5Enabled())
                 .setCacheManagementEnabled(CachePolicyStore.isManagementEnabled())
                 .setHiddenVisible(Setting.isHiddenSettingsEnabled())
                 .setDownloadEnabled(Setting.isDownloadEnabled())
@@ -156,14 +147,22 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
                 .setDownloadsActive(downloadsActive())
                 .setCacheScanning(cacheComputing)
                 .setPendingRowId(pendingRowId)
-                .setFlutterEnabled(Setting.isFlutterEnabled())
                 .build();
     }
 
-    /** Reads + clears SettingFragment.sPendingRow (mobile-only, via reflection) once per engine. */
+    /** Reads the pending settings-search row once per engine: the M15
+     * host static first, then the legacy SettingFragment.sPendingRow
+     * (mobile-only, via reflection) as a fallback while the native
+     * settings search still writes it. */
     private void consumePendingRow() {
         if (pendingRowConsumed) return;
         pendingRowConsumed = true;
+        String staticRow = sPendingRowId;
+        sPendingRowId = "";
+        if (staticRow != null && !staticRow.isEmpty()) {
+            pendingRowId = staticRow;
+            return;
+        }
         try {
             Class<?> fragmentClass = Class.forName(FRAGMENT_SETTING);
             Field field = fragmentClass.getDeclaredField("sPendingRow");
@@ -182,8 +181,7 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
     }
 
     private B7Messages.B7SettingsRow row(String key, int titleRes, int subtitleRes,
-            String value, boolean hasError, boolean isConfig, String member,
-            boolean memberFlutter, long nativePage) {
+            String value, boolean hasError, boolean isConfig, String member) {
         return new B7Messages.B7SettingsRow.Builder()
                 .setKey(key)
                 .setTitle(activity.getString(titleRes))
@@ -192,8 +190,6 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
                 .setHasError(hasError)
                 .setIsConfig(isConfig)
                 .setMember(member)
-                .setMemberFlutter(memberFlutter)
-                .setNativePage(nativePage)
                 .build();
     }
 
@@ -223,92 +219,80 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
     private B7Messages.B7SettingsGroup siteGroup() {
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         RowText vod = safeRow(VodConfig::getDesc);
-        rows.add(row("vod", R.string.setting_vod, 0, vod.text, vod.error, true, "", false, -1));
+        rows.add(row("vod", R.string.setting_vod, 0, vod.text, vod.error, true, ""));
         RowText live = safeRow(LiveConfig::getDesc);
-        rows.add(row("live", R.string.setting_live, 0, live.text, live.error, true, "", false, -1));
+        rows.add(row("live", R.string.setting_live, 0, live.text, live.error, true, ""));
         RowText wall = safeRow(() -> Setting.getWallDesc(WallConfig.getDesc()));
-        rows.add(row("wall", R.string.setting_wall, 0, wall.text, wall.error, true, "", false, -1));
+        rows.add(row("wall", R.string.setting_wall, 0, wall.text, wall.error, true, ""));
         return group(activity.getString(R.string.setting_group_site), rows);
     }
 
     private B7Messages.B7SettingsGroup generalGroup() {
-        boolean b3 = Setting.isFlutterB3Enabled();
-        boolean b4 = Setting.isFlutterB4Enabled();
-        boolean b5 = Setting.isFlutterB5Enabled();
-        boolean b6 = Setting.isFlutterB6Enabled();
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         RowText appearance = safeRow(this::getThemeModeText);
-        // B8 master switch first in the general group, mirroring the
-        // native SettingFragment row order (see docs/b8-master-switch.md).
-        // The value stays empty: Dart renders a Switch from the snapshot's
-        // flutterEnabled field instead of an on/off text.
-        rows.add(row("flutter", R.string.b8_flutter_title, R.string.b8_flutter_sub,
-                "", false, false, "", false, -1));
         rows.add(row("appearance", R.string.setting_appearance, R.string.setting_appearance_sub,
-                appearance.text, appearance.error, false, "", false, -1));
+                appearance.text, appearance.error, false, ""));
         rows.add(row("widget", R.string.setting_enhance, R.string.setting_enhance_sub,
-                "", false, false, "enhance", b4, 3));
+                "", false, false, "enhance"));
         rows.add(row("player", R.string.setting_player, R.string.setting_player_sub,
-                "", false, false, "player", b6, 2));
+                "", false, false, "player"));
         rows.add(row("danmaku", R.string.setting_danmaku, R.string.setting_danmaku_sub,
-                "", false, false, "danmaku", b3, 4));
+                "", false, false, "danmaku"));
         rows.add(row("subtitle", R.string.setting_subtitle, R.string.setting_subtitle_sub,
-                "", false, false, "", false, -1));
+                "", false, false, ""));
         rows.add(row("ai", R.string.setting_ai, R.string.setting_ai_sub,
-                "", false, false, "ai", b3, 8));
+                "", false, false, "ai"));
         rows.add(row("ad", R.string.setting_ad, R.string.setting_ad_sub,
-                "", false, false, "ad", b3, 9));
+                "", false, false, "ad"));
         return group(activity.getString(R.string.setting_group_general), rows);
     }
 
     private B7Messages.B7SettingsGroup accountGroup() {
-        boolean b3 = Setting.isFlutterB3Enabled();
-        boolean b5 = Setting.isFlutterB5Enabled();
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         RowText tmdb = safeRow(() -> activity.getString(Setting.isTmdbReady()
                 ? R.string.setting_configured : R.string.setting_unconfigured));
         rows.add(row("account", R.string.setting_tmdb, R.string.setting_tmdb_sub,
-                tmdb.text, tmdb.error, false, "tmdb", b3, 7));
+                tmdb.text, tmdb.error, false, "tmdb"));
         rows.add(row("personal", R.string.setting_personal, R.string.setting_personal_sub,
-                "", false, false, "personal", b5, 5));
+                "", false, false, "personal"));
         return group(activity.getString(R.string.setting_group_account), rows);
     }
 
     private B7Messages.B7SettingsGroup featureGroup() {
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         rows.add(row("local_source", R.string.setting_local_source, R.string.setting_local_source_sub,
-                "", false, false, "", false, -1));
+                "", false, false, ""));
         rows.add(row("lab", R.string.setting_lab, R.string.setting_lab_sub,
-                "", false, false, "", false, -1));
+                "", false, false, ""));
         RowText gitCloud = safeRow(() -> activity.getString(
                 R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         rows.add(row("gitcloud", R.string.setting_git_cloud, R.string.setting_gitcloud_sub,
-                gitCloud.text, gitCloud.error, false, "", false, -1));
+                gitCloud.text, gitCloud.error, false, ""));
         rows.add(row("onekey", R.string.setting_one_key_sync, R.string.setting_onekey_sub,
-                "", false, false, "", false, -1));
+                "", false, false, ""));
         RowText drive = safeRow(() -> getSwitch(Setting.isDriveCheck()));
         rows.add(row("drive", R.string.setting_drive_check, R.string.setting_drive_sub,
-                drive.text, drive.error, false, "", false, -1));
+                drive.text, drive.error, false, ""));
         RowText siteHealth = safeRow(this::getSiteHealthText);
         rows.add(row("site_health", R.string.setting_site_health, R.string.setting_site_health_sub,
-                siteHealth.text, siteHealth.error, false, "", false, -1));
+                siteHealth.text, siteHealth.error, false, ""));
         return group(activity.getString(R.string.setting_group_feature), rows);
     }
 
     private B7Messages.B7SettingsGroup storageGroup() {
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         rows.add(row("cache", R.string.setting_cache, R.string.setting_cache_sub,
-                cacheTextShown(), false, false, "", false, -1));
+                cacheTextShown(), false, false, ""));
         rows.add(row("backup", R.string.setting_backup, R.string.setting_backup_sub,
-                "", false, false, "", false, -1));
+                "", false, false, ""));
         rows.add(row("restore", R.string.setting_restore, R.string.setting_restore_sub,
-                "", false, false, "", false, -1));
+                "", false, false, ""));
         RowText doh = safeRow(() -> getDohList()[getDohIndex()]);
         rows.add(row("doh", R.string.setting_doh, R.string.setting_doh_sub,
-                doh.text, doh.error, false, "", false, -1));
+                doh.text, doh.error, false, ""));
         RowText incognito = safeRow(() -> getSwitch(Setting.isIncognito()));
         rows.add(row("incognito", R.string.setting_incognito, R.string.setting_incognito_sub,
-                incognito.text, incognito.error, false, "", false, -1));
+                incognito.text, incognito.error, false, ""));
         return group(activity.getString(R.string.setting_group_storage), rows);
     }
 
@@ -316,7 +300,7 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         RowText about = safeRow(AppVersion::fullName);
         rows.add(row("about", R.string.setting_about, R.string.setting_about_sub,
-                about.text, about.error, false, "", false, -1));
+                about.text, about.error, false, ""));
         return group(activity.getString(R.string.setting_group_about), rows);
     }
 
@@ -324,7 +308,7 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
         List<B7Messages.B7SettingsRow> rows = new ArrayList<>();
         RowText download = safeRow(() -> getSwitch(Setting.isDownloadEnabled()));
         rows.add(row("download", R.string.setting_download, R.string.setting_download_sub,
-                download.text, download.error, false, "", false, -1));
+                download.text, download.error, false, ""));
         return group(activity.getString(R.string.setting_group_hidden), rows);
     }
 
@@ -719,11 +703,10 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
 
     @Override
     public void openLab() {
-        // B8 B21: mobile + flag on goes to the Flutter lab page
-        // (start-then-finish: one C1-engine screen at a time, same G2
-        // race as the other start-then-finish sites); TV and flag off
-        // stay on the native LabActivity.
-        if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+        // B8 B21: mobile goes to the Flutter lab page (start-then-finish:
+        // one C1-engine screen at a time, same G2 race as the other
+        // start-then-finish sites); TV stays on the native LabActivity.
+        if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LAB);
             activity.finish();
             return;
@@ -912,8 +895,9 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
 
     @Override
     public void openAbout() {
-        // Mirrors SettingFragment.onVersion (C1 flag split).
-        if (Setting.isFlutterC1Enabled()) {
+        // Mirrors SettingFragment.onVersion: mobile opens the Flutter
+        // About screen; TV keeps the native dialog.
+        if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_ABOUT);
             activity.finish();
             return;
@@ -923,12 +907,8 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
 
     @Override
     public void openSubtitle() {
-        // Mirrors SettingFragment.onSubtitle (C1 flag split).
-        if (Setting.isFlutterC1Enabled()) {
-            C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_SUBTITLE);
-            activity.finish();
-            return;
-        }
+        // Mirrors SettingFragment.onSubtitle: the subtitle page is a
+        // top-level C1 route (native page index 6).
         openHomeAt(6);
     }
 
@@ -940,13 +920,6 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
             Setting.putHiddenSettingsEnabled(false);
             Notify.show(R.string.hidden_settings_disabled);
         }
-    }
-
-    @Override
-    public void openNativePage(Long page) {
-        int targetPage = page == null ? -1 : page.intValue();
-        openHomeAt(targetPage);
-        activity.finish();
     }
 
     /** B5 openSearchEntry pattern; routing lives in FlutterNav.openHomeAt. */

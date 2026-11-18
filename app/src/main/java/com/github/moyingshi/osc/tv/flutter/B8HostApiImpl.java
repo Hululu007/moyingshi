@@ -29,7 +29,6 @@ import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.content.ActionCardHelper;
 import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.ColorGenerator;
@@ -93,16 +92,6 @@ public class B8HostApiImpl implements B8Messages.B8HostApi {
 
     public B8HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB8Enabled() {
-        return Setting.isFlutterB8Enabled();
-    }
-
-    @Override
-    public void setB8Enabled(Boolean enabled) {
-        Setting.putFlutterB8Enabled(enabled);
     }
 
     @Override

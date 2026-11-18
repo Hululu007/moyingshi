@@ -17,7 +17,6 @@ import com.github.moyingshi.osc.tv.plugin.PluginEnvironmentStore;
 import com.github.moyingshi.osc.tv.plugin.PluginPackageImporter;
 import com.github.moyingshi.osc.tv.plugin.PluginRemoteSource;
 import com.github.moyingshi.osc.tv.plugin.PluginSourceConfig;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
 import com.github.catvod.utils.Path;
 import com.google.gson.JsonElement;
@@ -110,16 +109,6 @@ public class B19HostApiImpl implements B19Messages.B19HostApi {
 
     public B19HostApiImpl(FragmentActivity activity) {
         this.activity = activity;
-    }
-
-    @Override
-    public Boolean isB19Enabled() {
-        return Setting.isFlutterB19Enabled();
-    }
-
-    @Override
-    public void setB19Enabled(Boolean enabled) {
-        Setting.putFlutterB19Enabled(Boolean.TRUE.equals(enabled));
     }
 
     @Override
