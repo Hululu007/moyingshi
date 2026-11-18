@@ -195,17 +195,13 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
     private void onReport() {
         com.github.moyingshi.osc.tv.ui.dialog.ViewingReportRangeDialog.create(this)
                 .callback(range -> {
-                    if (Setting.isFlutterB16Enabled()) {
-                        // B8 B16: the Flutter report page takes the
-                        // selected range from the route query (see
-                        // docs/b8-b16-report.md §5 V1). The native
-                        // history page stays underneath; back from the
-                        // report returns to it, like the native report.
-                        C1ScreenActivity.start(this,
-                                C1ScreenActivity.ROUTE_REPORT + "?range=" + range.name());
-                    } else {
-                        com.github.moyingshi.osc.tv.ui.activity.ViewingReportActivity.start(this, range);
-                    }
+                    // B8 B16: the Flutter report page takes the selected
+                    // range from the route query (see docs/b8-b16-report.md
+                    // §5 V1). The native history page stays underneath;
+                    // back from the report returns to it, like the
+                    // native report.
+                    C1ScreenActivity.start(this,
+                            C1ScreenActivity.ROUTE_REPORT + "?range=" + range.name());
                 })
                 .show();
     }

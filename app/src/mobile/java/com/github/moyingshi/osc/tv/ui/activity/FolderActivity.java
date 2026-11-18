@@ -16,7 +16,6 @@ import com.github.moyingshi.osc.tv.bean.Class;
 import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.databinding.ActivityFolderBinding;
 import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 import com.github.moyingshi.osc.tv.ui.fragment.FolderFragment;
 
@@ -32,12 +31,11 @@ public class FolderActivity extends BaseActivity {
 
     public static void start(Activity activity, String key, Result result, int historyResumeCid, String historyResumeKey, int historyResumeTargetCid) {
         if (result == null || result.getTypes().isEmpty()) return;
-        // B8 B8: when the flag is on, the standalone category screen is
-        // the Flutter page (same entry, same first Class, same
-        // history-resume params — the Class travels as a URL-encoded
-        // JSON in the route query because Site has no type lookup).
-        // Any failure here falls through to the native screen.
-        if (Setting.isFlutterB8Enabled()) {
+        // B8 B8: the standalone category screen is the Flutter page
+        // (same entry, same first Class, same history-resume params —
+        // the Class travels as a URL-encoded JSON in the route query
+        // because Site has no type lookup). Any failure here falls
+        // through to the native screen.
             try {
                 Class type = result.getTypes().get(0);
                 String route = C1ScreenActivity.ROUTE_CATEGORY
@@ -52,7 +50,6 @@ public class FolderActivity extends BaseActivity {
             } catch (Throwable e) {
                 e.printStackTrace();
             }
-        }
         Intent intent = new Intent(activity, FolderActivity.class);
         intent.putExtra("key", key);
         intent.putExtra("result", result);

@@ -44,7 +44,6 @@ import com.github.moyingshi.osc.tv.databinding.ItemDramaPageBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
 import com.github.moyingshi.osc.tv.drama.DramaSites;
 import com.github.moyingshi.osc.tv.flutter.C1ScreenActivity;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.adapter.EpisodeAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.EpisodeGridDialog;
@@ -603,14 +602,14 @@ public class ShortDramaActivity extends BaseActivity implements EpisodeAdapter.O
     // --- modes ----------------------------------------------------------
 
     private void setMode(Mode target) {
-        // B8 B22 (scheme B): with the flag on, the theater/history tabs
-        // open Flutter screens instead of switching the native views.
-        // The native Activity stays in FEED mode underneath (mode is
-        // deliberately not changed here); back from the Flutter screen
-        // returns to the play stream, and the player pauses via the
-        // existing onPause. Only the two tab taps can reach this guard
-        // with a non-FEED target; every other setMode call passes FEED.
-        if (target != Mode.FEED && Setting.isFlutterB22Enabled()) {
+        // B8 B22 (scheme B): the theater/history tabs open Flutter
+        // screens instead of switching the native views. The native
+        // Activity stays in FEED mode underneath (mode is deliberately
+        // not changed here); back from the Flutter screen returns to
+        // the play stream, and the player pauses via the existing
+        // onPause. Only the two tab taps can reach this guard with a
+        // non-FEED target; every other setMode call passes FEED.
+        if (target != Mode.FEED) {
             C1ScreenActivity.start(this, target == Mode.THEATER ? C1ScreenActivity.ROUTE_DRAMA_THEATER : C1ScreenActivity.ROUTE_DRAMA_HISTORY);
             return;
         }
