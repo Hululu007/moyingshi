@@ -188,17 +188,33 @@ class _B11HomePageState extends State<B11HomePage>
   }
 
   /// hk:// miniapp sites and WebHome-themed sites stay native (plan
-  /// §4.4): close this screen, the native home underneath takes over.
-  /// The diversion in HomeActivity already filters these, so this only
-  /// fires after a site switch inside the Flutter home.
+  /// §4.4). hk:// closes this screen (the native miniapp page takes
+  /// over, and hk wins when a site is both, like native loadHome);
+  /// WebHome opens the minimal native fallback shell
+  /// (WebHomeShellActivity, delete-native plan §6 R1 / §7 D6) on top
+  /// of this screen, and backing out of the shell lands back here.
+  /// The host refuses to reopen the shell for a site the user already
+  /// backed out of, so the resume reload cannot loop it open.
   void _maybeCloseForFallback(B11HomeScreen screen) {
     if (_fallbackClosing || (!screen.isHkHome && !screen.isWebHome)) {
       return;
     }
     _fallbackClosing = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _c1Api.closeScreen();
+      if (mounted) _openFallback(screen);
     });
+  }
+
+  Future<void> _openFallback(B11HomeScreen screen) async {
+    if (screen.isHkHome) {
+      await _c1Api.closeScreen();
+    } else {
+      try {
+        await _b11Api.openWebHomeShell();
+      } catch (_) {
+        // The shell failed to open; the home grid stays as-is.
+      }
+    }
   }
 
   Future<void> _close() async {
@@ -404,11 +420,11 @@ class _B11HomePageState extends State<B11HomePage>
 
   /// The three floating action buttons (b8-home-fabs), mirroring
   /// fragment_vod.xml + VodFragment.setFabVisible + CustomFabBehavior:
-  /// hk/WebHome screens show none (the screen closes for those sites
-  /// anyway); with categories the browse (tune) FAB shows and link
-  /// hides, without categories it is the other way round; scrolling
-  /// down swaps the visible FAB for the top FAB, scrolling back up
-  /// swaps it back. The glass background is setting_card_bg
+  /// hk/WebHome screens show none (hk closes the screen, WebHome opens
+  /// the fallback shell on top); with categories the browse (tune) FAB
+  /// shows and link hides, without categories it is the other way round;
+  /// scrolling down swaps the visible FAB for the top FAB, scrolling
+  /// back up swaps it back. The glass background is setting_card_bg
   /// (#BFFFFFFF light / #BF1E1E1E night, no live blur — native
   /// setFabGlass paints the same translucent color). Icons are
   /// Material approximations of the native ic_fab_* drawables (same
