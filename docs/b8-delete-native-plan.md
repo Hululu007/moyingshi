@@ -477,7 +477,7 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
 | 阶段 | 内容 | 关键产出 / 验收 |
 |---|---|---|
 | **阶段 1：路由器 + 改线**（✅ 已完成 2026-11-18，见 §5.1） | 新建 main 源集 flavor 安全路由器（建议名 `FlutterNav`，`flutter` 包内；mobile 分支直接引用 `C1ScreenActivity`，TV 分支用 FQCN 字符串反射，`Util.isMobile()` 门控）。改线全部 main 源集对被删类的直接引用（行为不变，flag 门保留）：`AppBranding.java:140/152`（alias 派生改字符串常量）、`CrashActivity.java:229`（删 `HomeActivity.class` fallback，主路径 `getLaunchIntentForPackage` 已自动跟随）、`TmdbDetailActivity.java:9806`（`finishPlaybackToHome` 改 launcher-intent 形态）、`B5:513`/`B7:956`/`B11:1383` 的 `openHomeAt`（改为 C1 路由 intent，`nav_position`→路由映射 M14）、`C2:196`/`B2:269` 的 `goHome`（同上）、`HomeWebBridge.java:434/455` 与 `WebHomeThemeBridge.java:443`（search/keep 路由器化）、`TmdbNavigation.java:112`、`HistoryResumeCoordinator.java:88/150`（`directFromHistory` 路由器化）、`TmdbPersonActivity.java:278/288`（`openWork`）、`TmdbDetailActivity.java:12608/12798/12823`（`direct` 调用）、`B9HostApiImpl.java:388`（`direct` 调用，阶段 2 随 `submitSearch` 删除——阶段 1 先改路由器形态）、`FileChooser.java:95`（mobile 恒 C1，TV 反射 `FileActivity`）、`VideoActivity.java:4293`（`onSearchGlobal` 改 C1 路由）、`LiveActivity.java:431`（底栏返回改 C1 路由）与 `:676`（`isTaskRoot` 改 C1 `ROUTE_HOME`）、`VideoActivity.java:10612/12120`（`isTaskRoot` 同上）、`B11:920/936` 的 `HistoryActivity.start`/`KeepActivity.start` 回退分支（改为路由器调用）。`SearchActivity.direct` 的 `!(activity instanceof C1ScreenActivity)` G2 例外随路由器消失：C1 调用方一律走 in-family push（Dart）或 start-then-finish（host），relaunch 机制承担断言（见 §6 R4） | 零删除、零行为变化；mobile + leanback 双编译通过；真机回归：搜索/收藏/历史/设置跳转、WebHome 主题内 search/keep、详情页搜同名、直播底栏返回 |
-| **阶段 2：总开关拆除** | §4 全部内容：`Setting.java` 24 getter + 24 putter、Pigeon 契约 regen、Dart 4 处读取 + B7 开关行 + `openNativePage`/`submitSearch` 删除、全部 impl 内分流改为无条件 C1、`sPendingRow` 改线（M15）、`ShortDramaActivity.setMode` 门删除、`LabActivity.openMiniappManager` 门删除、`AppBrandingActivity:31`/`TmdbPersonActivity:109` 门删除、`b8_c0_strings.xml` 删除 | 行为：mobile 恒 Flutter；真机验收：开关消失、每屏直达、B9 提交直达 B10、B7 player 行 in-family、短剧 tab 恒分流 |
+| **阶段 2：总开关拆除**（✅ 已完成 2026-11-18，见 §5.2） | §4 全部内容：`Setting.java` 24 getter + 24 putter、Pigeon 契约 regen、Dart 4 处读取 + B7 开关行 + `openNativePage`/`submitSearch` 删除、全部 impl 内分流改为无条件 C1、`sPendingRow` 改线（M15）、`ShortDramaActivity.setMode` 门删除、`LabActivity.openMiniappManager` 门删除、`AppBrandingActivity:31`/`TmdbPersonActivity:109` 门删除、`b8_c0_strings.xml` 删除 | 行为：mobile 恒 Flutter；真机验收：开关消失、每屏直达、B9 提交直达 B10、B7 player 行 in-family、短剧 tab 恒分流 |
 | **阶段 3：生命周期 + launcher 迁移** | §2 + §3 全部内容：`C1ScreenActivity` 承担 M1–M10/M12、manifest 改向（exported/singleTop/Theme.Splash/configChanges/全部 intent-filter + searchable）、alias `targetActivity` 改向、默认路由 `ROUTE_HOME`、`onNewIntent` 路由断言。`HomeActivity` 文件与声明**本阶段不删**（仅不再是 launcher、不可达），作为回退垫 | 真机验收（关键门）：冷启动、回跳消失、launcher 二次点击回首页、SEND/VIEW/SEARCH intent、旋转、退出清理（Server 停、配置清）、开机 BOOT 进直播、根返回行为（D1） |
 | **阶段 4：代码删除** | §1.1 的 48 个文件 + manifest 7 个 activity 声明删除。建议拆两个提交：4a activities + fragments + SettingSearchAdapter（24 个）+ manifest；4b adapters + glass + 4 个 helper（24 个）。**前置条件**：§6 R1 的 WebHome 决策已定；如选“保留回退壳”，回退壳在本阶段前另立阶段建成 | 双编译通过；真机全量回归（§7 验收清单） |
 | **阶段 5：资源删除** | §1.2 的 62 个资源文件（布局 43 + 菜单 8 + drawable 10 + strings 文件 1）；`shape_search_hot_word.xml` 按条件执行 | 编译通过（binding 引用已随阶段 4 消失）；APK 体积对照 |
@@ -516,6 +516,59 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
   会在运行时失效（ClassNotFoundException 被捕获后 toast/静默），其中 B13 分支计划已定阶段 2 处理。
 - **待验**：推送后 CI（b8-c0.yml）跑通即为双 flavor 首次真实编译检查；真机回归按阶段 1 行
   （搜索/收藏/历史/设置跳转、WebHome 主题内 search/keep、详情页搜同名、直播底栏返回）。
+
+### 5.2 阶段 2 实施记录（2026-11-18，已完成）
+
+- **产出**：总开关彻底拆除，mobile 恒走 Flutter。`Setting.java` 删 24 getter + 24 putter
+  （239 行，含注释）；23 个 Pigeon 契约各删 flag 方法对（B7 另删 `setFlutterEnabled`、`openNativePage`、
+  `B7SettingsHome.searchFlutter`/`flutterEnabled`、`B7SettingsRow.memberFlutter`/`nativePage`；
+  B9 另删 `submitSearch`；B5 契约只改注释）；全部 23 个 HostApiImpl 的 is/set 对删除，B4/B5/B7/B9/
+  B11/B13/B21/C2 的分流改为无条件 C1（TV 分支保留：`Util.isMobile()` / `!Util.isLeanback()` 门与
+  反射回退）；B7 `row()` 签名去掉 `memberFlutter`/`nativePage`（26 处调用点同步），快照删
+  `flutter` 行；B9 删 `submitSearch` 连带死代码 `addRecord` + `RECORD_LIMIT`；Dart：B7 删开关行/
+  `_setFlutterEnabled`/`'flutter'`/`'player'` case（player 行走通用 member 分支 in-family）、
+  `_openSearch` 恒 `pushNamed('/search')`，B9 `_submit` 恒走 in-family B10 push（删 `isB10Enabled`
+  读与 `submitSearch` 回退），B12 两处 + B13 一处 `_initFlagAndLoad` 删除、恒加载；
+  mobile 门：`ShortDramaActivity.setMode` 恒分流、`LabActivity.openMiniappManager` 恒 Flutter、
+  `AppBrandingActivity:31`/`TmdbPersonActivity:109` 去 flag（TV 门保留）、`HomeActivity` 6 处/
+  `VodFragment` 2 处/`SettingFragment`（删 `ROW_FLUTTER` 行 + `setFlutterEnabled` + 10 处门）/
+  `FolderActivity`/`HistoryActivity`/`SearchActivity`（3 处，G2 的 `!(activity instanceof
+  C1ScreenActivity)` 例外保留）/`WidgetBrowseActivity`（原生 Intent 回退删除）/`SearchFragment`/
+  `SettingEnhanceFragment`（2 处）的 flag 条件剥离；M15 落地为 `B7HostApiImpl.setPendingRowId`
+  host 静态（见偏差 P2-3）；`b8_c0_strings.xml` 删除（3 个字符串零引用已核实）。
+  播放器 / 直播 / 弹窗 / 数据层 / TV 未动；`HomeActivity` 与 `VodFragment` 只动了 flag 条件，
+  生命周期与删除工作仍在阶段 3/4。
+- **静态核查（本机无 SDK，CI 为第一次真实编译检查）**：
+  `grep -rn "isFlutter[A-Za-z0-9]*Enabled|putFlutter" --include=*.java app/src` ——仅剩
+  B5 有意保留的 `isFlutterDestination`/`flutterAvailable`（见偏差 P2-4）与阶段 6 待清的
+  `C0HostApiImpl` 死代码；`grep -rn "isB[0-9]*Enabled|isC[0-9]*Enabled|submitSearch|
+  openNativePage|memberFlutter|nativePage|searchFlutter|flutterEnabled" flutter_module/lib/`
+  ——零命中；`grep -rn "b8_c0_launcher_label|b8_flutter_title|b8_flutter_sub" app/src` ——零命中；
+  `git diff` 复查仅 66 个 scope 文件（含计划文档本体与已删 strings 文件），无超范围改动。
+- **偏差**：
+  - **P2-1**：§4.4 称 native 侧“文件删除后自然消失，无需改”——不成立。阶段 2 删 `Setting` 的
+    24 个 getter 后，阶段 4 文件（`HomeActivity`、`VodFragment`、`SettingFragment`、
+    `FolderActivity`、`HistoryActivity`、`SearchActivity`、`WidgetBrowseActivity`、
+    `SearchFragment`、`SettingEnhanceFragment`）的 flag 条件引用会编译失败，因此阶段 2 一并
+    剥离了这些文件的 flag 条件，改为 flag-on（Flutter）分支；`HomeActivity`/`VodFragment`
+    只动 flag 条件，不做生命周期/删除工作（仍在阶段 3/4）。
+  - **P2-2**：§4.2 称“删除 23 个契约”——不成立。每个 `b<N>_messages.dart` 文件还承载该 batch 的
+    真实契约方法，只删了各文件的 flag 方法对（+ 注释），文件保留。
+  - **P2-3**：M15 未用路由 query（§6 R12 的“路由 query 优先”不可行）：`"/settings?rowId="` 不是
+    已注册路由（路由表精确匹配，`onGenerateRoute` 返回 null），且 Dart 从快照读 `pendingRowId`
+    而非路由。改为 host 静态 `B7HostApiImpl.setPendingRowId(String)`，`getSettingsHome()` 消费
+    一次；`consumePendingRow` 的 `SettingFragment.sPendingRow` 反射读保留为过渡回退。
+  - **P2-4**：B5 的 `flutterAvailable` 字段与 `isFlutterDestination` 保留（Dart 仍需区分走
+    family push 的页 3/4/5/7/8/9 与走 host 的页 2/6）；方法体简化为字面量 true/false，
+    不再读 flag。
+  - **P2-5**：B9 删 `submitSearch` 后其私有 `addRecord` + `RECORD_LIMIT` 成死代码，一并删除；
+    B9 Dart 的 `_b10Api.isB10Enabled()` 读随 B10 契约 flag 对删除而删除，`_submit` 恒走 B10。
+  - **P2-6**：§4.4 称 B13 `openWidgetMore` 的反射分支删除——未按字面执行：反射分支作为 TV 回退
+    保留（只去 flag，`Util.isMobile()` 门保留）。该方法只在 mobile C1 引擎内被调用，TV 侧从未
+    到达；删除会使 TV 侧彻底无路，保留无害。
+- **待验**：推送后 CI（b8-c0.yml）跑通即为双 flavor 真实编译检查；真机验收按阶段 2 行
+  （开关消失、每屏直达、B9 提交直达 B10、B7 player 行 in-family、短剧 tab 恒分流、
+  设置内搜索 → 点结果 → 落在对应行）。
 
 **回退策略**：阶段 1–2 完全可回退（单提交 revert）；阶段 3 回退 = manifest + `C1ScreenActivity` 改动 revert，
 `HomeActivity` 仍在；阶段 4 起回退成本陡增，因此阶段 3 的真机验收门必须通过后才进阶段 4。
