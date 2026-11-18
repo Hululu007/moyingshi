@@ -254,18 +254,18 @@ public class B13HostApiImpl implements B13Messages.B13HostApi {
     @Override
     public void openWidgetMore(String widgetId) {
         // B8 B18 takes over the "more" opening (B13 V5): on mobile, open
-        // the Flutter /widgets route on the shared C1 engine and finish
-        // this (Flutter) home screen — start-then-finish, the B11 V10
-        // G2 race risk (see docs/b8-b18-widget.md §6). It must NOT go
-        // through the deleted WidgetBrowseActivity.start() here, or the
-        // old Flutter home Activity would stay alive and violate the
-        // single-C1-engine invariant. TV never had the native browse
-        // page, so there is nothing to open there (the old reflective
-        // branch could never succeed on any flavor).
+        // the Flutter /widgets route on the shared C1 engine without
+        // finishing this screen — C1 is singleTop, start() reuses the
+        // same instance via onNewIntent, so the single-C1-engine
+        // invariant holds and finishing the caller would drop the user
+        // to the launcher (see docs/b8-crash-singletop-fix.md). It must
+        // NOT go through the deleted WidgetBrowseActivity.start() here.
+        // TV never had the native browse page, so there is nothing to
+        // open there (the old reflective branch could never succeed on
+        // any flavor).
         if (TextUtils.isEmpty(widgetId)) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_WIDGETS + "?widgetId=" + encode(widgetId));
-            activity.finish();
         }
     }
 

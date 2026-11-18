@@ -1051,13 +1051,14 @@ public final class B21HostApiImpl implements B21Messages.B21HostApi {
         AppCompatActivity act = activity;
         if (act == null) return;
         // Native LabActivity.openMiniappManager (B20): on mobile, the
-        // Flutter /hk-manager page — from this Flutter page that is
-        // start-then-finish (B15/B19 precedent, same G2 cross-screen
-        // race); on TV the ".hk_miniapp" implicit intent stacks on top
-        // and returns here.
+        // Flutter /hk-manager page. The caller is the bound C1 instance
+        // (via register/rebind with the C1 activity), so it is never
+        // finished: C1 is singleTop, start() reuses it via onNewIntent,
+        // and finishing it would drop the user to the launcher (see
+        // docs/b8-crash-singletop-fix.md). On TV the ".hk_miniapp"
+        // implicit intent stacks on top and returns here.
         if (Util.isMobile()) {
             C1ScreenActivity.start(act, C1ScreenActivity.ROUTE_HK_MANAGER);
-            act.finish();
             return;
         }
         Intent intent = new Intent(App.get().getPackageName() + ".hk_miniapp");

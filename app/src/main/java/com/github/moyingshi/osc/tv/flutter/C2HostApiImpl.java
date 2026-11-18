@@ -164,13 +164,15 @@ public class C2HostApiImpl implements C2Messages.C2HostApi {
         ViewingReportRangeDialog.create(activity)
                 .callback(range -> {
                     // B8 B16: the Flutter report page takes the selected
-                    // range from the route query; start-then-finish, so
-                    // back lands on the native history page (G2 risk,
-                    // B7 §5 V10). TV keeps the native page.
+                    // range from the route query. The caller is the bound
+                    // C1 instance and is never finished (singleTop:
+                    // start() reuses it via onNewIntent; finishing it
+                    // would drop the user to the launcher, see
+                    // docs/b8-crash-singletop-fix.md). TV keeps the
+                    // native page.
                     if (Util.isMobile()) {
                         C1ScreenActivity.start(activity,
                                 C1ScreenActivity.ROUTE_REPORT + "?range=" + range.name());
-                        activity.finish();
                     } else {
                         ViewingReportActivity.start(activity, range);
                     }

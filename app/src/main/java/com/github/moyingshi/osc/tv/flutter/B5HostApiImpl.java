@@ -456,14 +456,18 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
         String targetRowId = rowId == null ? "" : rowId;
         // The subtitle page (6) is a top-level C1 route, not a family
         // member: mobile opens the Flutter screen, TV the native page
-        // (via the router).
+        // (via the router). The caller is the bound C1 instance and is
+        // never finished here: C1 is singleTop, start() reuses it via
+        // onNewIntent, and finishing it would drop the user to the
+        // launcher (see docs/b8-crash-singletop-fix.md). The TV branch
+        // never executes in practice — C1 is declared only in the mobile
+        // manifest, so these impls are never bound on TV.
         if (targetPage == 6) {
             if (Util.isMobile()) {
                 C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_SUBTITLE);
             } else {
                 openHomeAt(targetPage);
             }
-            activity.finish();
             return;
         }
         if (targetRowId.isEmpty()) {
@@ -476,7 +480,8 @@ public class B5HostApiImpl implements B5Messages.B5HostApi {
             B7HostApiImpl.setPendingRowId(targetRowId);
             openHomeAt(1);
         }
-        activity.finish();
+        // No finish here either: openHomeAt() is itself caller-aware
+        // (FlutterNav), and this caller is the bound C1 instance.
     }
 
     /**
