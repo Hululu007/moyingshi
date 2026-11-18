@@ -19,7 +19,7 @@ import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.Config;
-import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.catvod.utils.Prefers;
 
@@ -137,7 +137,7 @@ public final class AppBranding {
 
     public static void applyLauncherIcon(@NonNull Context context) {
         boolean history = getIconMode(context) == ICON_HISTORY;
-        String homeActivity = HomeActivity.class.getName();
+        String homeActivity = FlutterNav.HOME_ACTIVITY_CLASS;
         setComponentEnabled(context, launcherAliasClassName(homeActivity, ICON_CURRENT), !history);
         setComponentEnabled(context, launcherAliasClassName(homeActivity, ICON_HISTORY), history);
     }
@@ -149,7 +149,7 @@ public final class AppBranding {
 
     @NonNull
     public static Intent launcherIntent(@NonNull Context context) {
-        String alias = launcherAliasClassName(HomeActivity.class.getName(), getIconMode(context));
+        String alias = launcherAliasClassName(FlutterNav.HOME_ACTIVITY_CLASS, getIconMode(context));
         return new Intent(Intent.ACTION_MAIN)
                 .addCategory(Intent.CATEGORY_LAUNCHER)
                 .setComponent(new ComponentName(context.getPackageName(), alias));
