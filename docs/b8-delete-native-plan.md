@@ -479,7 +479,7 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
 | **阶段 1：路由器 + 改线**（✅ 已完成 2026-11-18，见 §5.1） | 新建 main 源集 flavor 安全路由器（建议名 `FlutterNav`，`flutter` 包内；mobile 分支直接引用 `C1ScreenActivity`，TV 分支用 FQCN 字符串反射，`Util.isMobile()` 门控）。改线全部 main 源集对被删类的直接引用（行为不变，flag 门保留）：`AppBranding.java:140/152`（alias 派生改字符串常量）、`CrashActivity.java:229`（删 `HomeActivity.class` fallback，主路径 `getLaunchIntentForPackage` 已自动跟随）、`TmdbDetailActivity.java:9806`（`finishPlaybackToHome` 改 launcher-intent 形态）、`B5:513`/`B7:956`/`B11:1383` 的 `openHomeAt`（改为 C1 路由 intent，`nav_position`→路由映射 M14）、`C2:196`/`B2:269` 的 `goHome`（同上）、`HomeWebBridge.java:434/455` 与 `WebHomeThemeBridge.java:443`（search/keep 路由器化）、`TmdbNavigation.java:112`、`HistoryResumeCoordinator.java:88/150`（`directFromHistory` 路由器化）、`TmdbPersonActivity.java:278/288`（`openWork`）、`TmdbDetailActivity.java:12608/12798/12823`（`direct` 调用）、`B9HostApiImpl.java:388`（`direct` 调用，阶段 2 随 `submitSearch` 删除——阶段 1 先改路由器形态）、`FileChooser.java:95`（mobile 恒 C1，TV 反射 `FileActivity`）、`VideoActivity.java:4293`（`onSearchGlobal` 改 C1 路由）、`LiveActivity.java:431`（底栏返回改 C1 路由）与 `:676`（`isTaskRoot` 改 C1 `ROUTE_HOME`）、`VideoActivity.java:10612/12120`（`isTaskRoot` 同上）、`B11:920/936` 的 `HistoryActivity.start`/`KeepActivity.start` 回退分支（改为路由器调用）。`SearchActivity.direct` 的 `!(activity instanceof C1ScreenActivity)` G2 例外随路由器消失：C1 调用方一律走 in-family push（Dart）或 start-then-finish（host），relaunch 机制承担断言（见 §6 R4） | 零删除、零行为变化；mobile + leanback 双编译通过；真机回归：搜索/收藏/历史/设置跳转、WebHome 主题内 search/keep、详情页搜同名、直播底栏返回 |
 | **阶段 2：总开关拆除**（✅ 已完成 2026-11-18，见 §5.2） | §4 全部内容：`Setting.java` 24 getter + 24 putter、Pigeon 契约 regen、Dart 4 处读取 + B7 开关行 + `openNativePage`/`submitSearch` 删除、全部 impl 内分流改为无条件 C1、`sPendingRow` 改线（M15）、`ShortDramaActivity.setMode` 门删除、`LabActivity.openMiniappManager` 门删除、`AppBrandingActivity:31`/`TmdbPersonActivity:109` 门删除、`b8_c0_strings.xml` 删除 | 行为：mobile 恒 Flutter；真机验收：开关消失、每屏直达、B9 提交直达 B10、B7 player 行 in-family、短剧 tab 恒分流 |
 | **阶段 3：生命周期 + launcher 迁移**（✅ 已完成 2026-11-18，见 §5.3） | §2 + §3 全部内容：`C1ScreenActivity` 承担 M1–M10/M12、manifest 改向（exported/singleTop/Theme.Splash/configChanges/全部 intent-filter + searchable）、alias `targetActivity` 改向、默认路由 `ROUTE_HOME`、`onNewIntent` 路由断言。`HomeActivity` 文件与声明**本阶段不删**（仅不再是 launcher、不可达），作为回退垫 | 真机验收（关键门）：冷启动、回跳消失、launcher 二次点击回首页、SEND/VIEW/SEARCH intent、旋转、退出清理（Server 停、配置清）、开机 BOOT 进直播、根返回行为（D1） |
-| **阶段 4：代码删除** | §1.1 的 48 个文件 + manifest 7 个 activity 声明删除。建议拆两个提交：4a activities + fragments + SettingSearchAdapter（24 个）+ manifest；4b adapters + glass + 4 个 helper（24 个）。**前置条件**：§6 R1 的 WebHome 决策已定；如选“保留回退壳”，回退壳在本阶段前另立阶段建成 | 双编译通过；真机全量回归（§7 验收清单） |
+| **阶段 4：代码删除**（4a ✅ 已完成 2026-11-18，见 §5.4；4b/4c 待排） | §1.1 的 48 个文件 + manifest 8 个 activity 声明删除（含阶段 3 保留的 `HomeActivity` 声明）。实际拆三个提交：4a activities + fragments + SettingSearchAdapter + `WebHomeChromeController`（22 个）+ manifest（`VodFragment`/`FolderFragment`/`TypeFragment` 保留至 4c）；4b adapters + glass + 剩余 3 个 helper（23 个）；4c `VodFragment` + `FolderFragment` + `TypeFragment`（待回退壳真机验收后）。**前置条件**：§6 R1 的 WebHome 决策已定；回退壳已建成（待验收，见 `docs/b8-webhome-shell.md`） | 双编译通过；真机全量回归（§7 验收清单） |
 | **阶段 5：资源删除** | §1.2 的 62 个资源文件（布局 43 + 菜单 8 + drawable 10 + strings 文件 1）；`shape_search_hot_word.xml` 按条件执行 | 编译通过（binding 引用已随阶段 4 消失）；APK 体积对照 |
 | **阶段 6（可选）：死代码清理** | `C0HostApiImpl.java` + `c0_messages.dart` + 生成物（零注册、零 Dart 引用，已核实）；`ThemeController.applyWallpaperBlur` 方法（调用已消失，方法可留可删）；Lint `UnusedResources` 扫 drawable/strings 孤儿 | 与删除 program 无关，可独立排期 |
 
@@ -630,6 +630,92 @@ following/lab/setting 菜单项）、B13（`:264` widget item、`:278-290` 已�
 - **待验**：推送后 CI（b8-c0.yml）跑通即为双 flavor 真实编译检查；真机验收按阶段 3 行
   （冷启动、回跳消失、launcher 二次点击回首页、SEND/VIEW/SEARCH intent、旋转、退出清理、
   开机 BOOT 进直播、根返回行为）。
+
+### 5.4 阶段 4a 实施记录（2026-11-18，已完成）
+
+- **产出**：删除 **22 个文件**——8 个 Activity（`HomeActivity`、`SearchActivity`、
+  `HistoryActivity`、`KeepActivity`、`FileActivity`、`FolderActivity`、
+  `WidgetBrowseActivity`、`HkMiniappActivity.kt`）、13 个 Fragment/Adapter
+  （`CollectFragment`、`SearchFragment`、`SettingFragment`、`SettingPlayerFragment`、
+  `SettingEnhanceFragment`、`SettingDanmakuFragment`、`SettingPersonalFragment`、
+  `SettingSubtitleFragment`、`SettingTmdbFragment`、`SettingAiFragment`、
+  `SettingAdFragment`、`SettingSearchFragment`、`SettingSearchAdapter`）与 1 个 helper
+  （`WebHomeChromeController`，见偏差 P4a-1）；mobile manifest 删 8 个 activity 声明
+  （含阶段 3 保留的 `HomeActivity` 声明与 `.hk_miniapp` intent-filter），7 处
+  `parentActivityName` 改向 `.flutter.C1ScreenActivity`（见偏差 P4a-3）。
+  `FlutterNav` 新增 `openFolder`（2 个重载，路由构造逐字抄已删 `FolderActivity.start`）
+  与 `openWidgetBrowse`（`?widgetId=` 与 B13 同形）；`VideoActivity:2967` 的
+  `FolderActivity.start` 与 B10 文件夹分支改走 `openFolder`；B14
+  `changeSource` 与 `FollowingActivity.onChangeSource` 改走 `FlutterNav.openSearch`
+  （TV 仍反射 leanback `SearchActivity`，行为不变）；B13 `openWidgetMore` 的 TV
+  反射分支删除（见偏差 P4a-4）；B7 `consumePendingRow` 的 `sPendingRow` 反射回退删除
+  （见偏差 P4a-5）；`VodFragment` 的 4 处 `SearchActivity.start` 改走 `openSearch`、
+  1 处 `WidgetBrowseActivity.start` 改走 `openWidgetBrowse`、8 处 `HomeActivity`
+  chrome 委托改为既有 null 分支语义（见偏差 P4a-8 含 `R.id.enhance` 分支）、
+  `TypeFragment` 的 2 处 `SearchActivity.start` 改走 `openSearch`；
+  `SettingSearchIndex` 的 24 个 `SettingFragment.ROW_*` 内联为逐字字面量
+  （见偏差 P4a-6）。零资源文件删除（阶段 5）；播放器 / 直播 / 弹窗 / 数据层 / TV
+  未动；零 Dart 改动。
+- **保留（4c 清理，待回退壳真机验收后）**：`VodFragment`（WebHome 渲染最后兜底）+
+  `FolderFragment` + `TypeFragment`（`VodFragment` pager 的页面，见偏差 P4a-2）+
+  `WebHomeShellActivity` + `B11FabHostFragment`（永留）。`FragmentStateManager`、
+  glass 包、13 个 adapter 经复核无被删类引用，留待 4b。
+- **反射点处理（§5.1 遗留 4 处，全部闭环）**：`B14:352` 与 `FollowingActivity:530`
+  的 `SearchActivity` 反射——改路由器，TV 分支仍反射 leanback 平行类（mobile 上原
+  反射在删除后会 toast 报错，改线后 mobile 走 Flutter 搜索，TV 不变）；
+  `B10:111/742` 的 `FolderActivity` 反射——改 `FlutterNav.openFolder`，TV 无
+  `FolderActivity` 故返回 false 走既有 `VideoActivity.collect` 回退（与旧反射失败
+  行为一致）；`B13:273-290` 的 `WidgetBrowseActivity` 反射——分支删除（TV 从无此类，
+  保留即静默失败）。另：`B7:86` 的 `SettingFragment` 反射回退一并删除（B5 host
+  静态量为唯一写方）；`.hk_miniapp` 隐式 intent 的两处发送方（`LabActivity`、
+  `B21HostApiImpl`）均有 mobile 分流 + `resolveActivity` 门，无需改动。
+- **静态核查（本机无 SDK，CI 为第一次真实编译检查）**：22 个被删类名全仓扫荡
+  （main + mobile + flutter_module），剩余命中仅注释/文档、leanback 平行类的
+  `FlutterNav` FQCN 字符串（TV 分支）、`HkSearchActivity`/`HkSearchFragment`
+  （不同类）与 2 个 launcher alias 组件名；`WebHomeChromeController` 仅剩
+  `WebHomeShellActivity` 一处注释引用；三处 XML well-formed（manifest 复核）；
+  10 个改动 Java 文件括号/圆括号计数与 HEAD 基线逐一一致；main 源集改动文件无
+  mobile 类直接引用（`FlutterNav` 的 bean `Class` 用 FQCN，避免与
+  `java.lang.Class` 冲突）；`git diff` 仅 34 个 scope 文件。
+- **偏差**：
+  - **P4a-1**：`WebHomeChromeController`（§1.1 C 列为 4b）提前到 4a 删除——它以
+    `HomeActivity` 为构造参数类型（同包，无 import，import 扫荡查不出），留则
+    mobile 编译失败；唯一使用者 `HomeActivity` 已删，`WebHomeShellActivity`
+    未复用它（W1），删除无行为影响。Guard 会话因此 abort 后以 34 scope +
+    `--adopt-dirty` 重启（同一 task id）。
+  - **P4a-2**：`FolderFragment` + `TypeFragment` 未按 4a 清单删除——`VodFragment`
+    的 pager 直接用 `FolderFragment`，`FolderFragment` 与 `TypeFragment` 互引；
+    挖掉 pager 的改动量与风险远高于保留，改列 4c 与 `VodFragment` 同删。
+  - **P4a-3**：§1.2/§3 未提 `parentActivityName`——7 个保留声明的 parent 指向已删
+    `HomeActivity`，悬空 parent 是潜在运行时崩溃；改向 `.flutter.C1ScreenActivity`
+   （`WebHomeShellActivity` 已有先例；`NavUtils` 全仓零使用，改向无行为变化）。
+  - **P4a-4**：B13 TV 反射分支未按 P2-6 保留——TV 从无 `WidgetBrowseActivity`
+    （leanback 无此文件），该分支在任何 flavor 都不可能成功，保留即静默失败；
+    删除后 TV 行为不变（原先也是 catch 后静默）。
+  - **P4a-5**：B7 `sPendingRow` 反射回退未保留为“过渡”——`SettingFragment` 删除后
+    该反射永失败；B5 的反射写方已在阶段 2 删除，host 静态量为唯一写方。
+  - **P4a-6**：`SettingSearchIndex` 未在 §1.1 清单中——B5 经反射在用（设置搜索），
+    必须保留；它直接引用 `SettingFragment.ROW_*`，改为内联逐字字面量（B7 前例，
+    值取自 git HEAD 的 `SettingFragment`，24/24 替换已核对）。
+  - **P4a-7**：§1.1 C 的 `FragmentStateManager` 路径有误——实际在
+    `ui/custom/FragmentStateManager.java`（非 `ui/fragment/`）；4b 用实际路径。
+    该文件仅用 `Fragment`/`BaseFragment`，4a 后可编译。
+  - **P4a-8**：`VodFragment` 的 `R.id.enhance` 菜单分支改走 Flutter enhance
+    member 页（原 `HomeActivity.openEnhanceFromVod` 已无宿主；与同方法内
+    `R.id.keep` 的 B2 形态一致）；其余 7 处 chrome 委托取既有 null 分支语义，
+    与 `HomeActivity` 不可达时的行为逐字一致。
+- **遗留（非阻塞，另立任务）**：测试源文件读已删文件源码，本地 `./gradlew test`
+  会失败——`HistoryAdapterTest`（读 `HistoryActivity`/`KeepActivity`）、
+  `VideoActivityLayoutTest`、`SearchResultLayoutTest`、`SearchScopePopupLayoutTest`、
+  `TmdbDetailActivityLayoutTest`、`GlobalHistoryResumeSourceTest`（断言已删
+  `CollectFragment` 源码含 `FolderActivity.start`）、`ThemeControllerContractTest`
+  （读 `WebHomeChromeController`）、`OriginIsolationPlaybackTest`（androidTest，
+  import `SearchActivity`）。CI（b8-c0.yml）只跑 assemble，不阻塞；测试清理与
+  4b/4c 分开排期，勿混入删除提交。
+- **待验**：推送后 CI（b8-c0.yml）跑通即为双 flavor 真实编译检查；真机验收按
+  §8 清单，重点：追更换源搜索（B14/原生页）、搜索结果文件夹点进分类页（B10）、
+  widget more（B13）、设置搜索行直达（B5/B7）、详情页 clickable span 进分类
+  （`VideoActivity`）、`parentActivityName` 改向后的 Up 导航。
 
 **回退策略**：阶段 1–2 完全可回退（单提交 revert）；阶段 3 回退 = manifest + `C1ScreenActivity` 改动 revert，
 `HomeActivity` 仍在；阶段 4 起回退成本陡增，因此阶段 3 的真机验收门必须通过后才进阶段 4。
