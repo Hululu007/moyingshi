@@ -50,7 +50,9 @@ import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.StandardMethodCodec;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -225,6 +227,27 @@ public class C1ScreenActivity extends AppCompatActivity {
      */
     private static final AtomicBoolean sConfigLoadStarted = new AtomicBoolean(false);
 
+    /**
+     * B8 crash fix (docs/b8-crash-singletop-fix.md, root cause B):
+     * completion state for the once-per-process config load above. Set
+     * by {@link #markConfigLoadDone()} from every path that ends the
+     * load (the VodConfig callback's success/noConfig/error branches,
+     * the crash-restart branch, and the already-loaded D3 branch), so
+     * a waiter can never hang on a load that will never call back.
+     * Reset with {@link #sConfigLoadStarted} in the onDestroy teardown.
+     */
+    private static final AtomicBoolean sConfigLoadDone = new AtomicBoolean(false);
+
+    /**
+     * B8 crash fix (root cause B): actions waiting for the config load
+     * (see {@link #runAfterConfigLoad(Runnable)}). Guarded by its own
+     * monitor: the VodConfig callback may fire off the main thread
+     * (VodConfig.finishSuccess/finishFailure invoke the callback
+     * directly), while waiters register from Pigeon calls on the main
+     * thread. Cleared with the completion marker in the teardown.
+     */
+    private static final List<Runnable> sConfigLoadWaiters = new ArrayList<>();
+
     private FlutterFragment flutterFragment;
 
     /** This Activity's route (from {@link #EXTRA_ROUTE}, default {@link #ROUTE_HOME}). */
@@ -372,6 +395,51 @@ public class C1ScreenActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * B8 crash fix (root cause B): true while the process's one config
+     * load has started but not completed. Callers combine this with
+     * their own "no data yet" check before waiting: when no load is
+     * running, or the load already ended, there is nothing to wait for.
+     */
+    public static boolean isConfigLoadPending() {
+        return sConfigLoadStarted.get() && !sConfigLoadDone.get();
+    }
+
+    /**
+     * B8 crash fix (root cause B): runs {@code action} once the
+     * process's one config load completes (success, noConfig or error
+     * all count — the load is over either way). Runs it immediately
+     * when the load already completed. The action may run on the
+     * callback's thread, so a caller that needs the main thread must
+     * hop back itself. Thread-safe: registration and completion share
+     * the waiter monitor, so no waiter is ever lost between the
+     * {@link #isConfigLoadPending()} check and registration.
+     */
+    public static void runAfterConfigLoad(Runnable action) {
+        boolean done;
+        synchronized (sConfigLoadWaiters) {
+            done = sConfigLoadDone.get();
+            if (!done) sConfigLoadWaiters.add(action);
+        }
+        if (done) action.run();
+    }
+
+    /**
+     * B8 crash fix (root cause B): marks the config load complete and
+     * drains the queued waiters. Idempotent: only the first call drains
+     * (the VodConfig callback branches are terminal, but a second call
+     * must never re-run a waiter).
+     */
+    private static void markConfigLoadDone() {
+        List<Runnable> waiters;
+        synchronized (sConfigLoadWaiters) {
+            if (!sConfigLoadDone.compareAndSet(false, true)) return;
+            waiters = new ArrayList<>(sConfigLoadWaiters);
+            sConfigLoadWaiters.clear();
+        }
+        for (Runnable waiter : waiters) waiter.run();
+    }
+
     /** M1 + M8: config load, gated by the crash-recovery decision. */
     private void initConfig() {
         PreviousProcessCrashRecovery.checkBeforeConfig(this, this::loadConfig);
@@ -387,19 +455,29 @@ public class C1ScreenActivity extends AppCompatActivity {
             // Crash restart: no load runs in this process (HomeActivity
             // semantics — it loaded once per process). Mark the guard so
             // a later C1 creation cannot load either; the one-shot flag
-            // ("skip_config_once") means the process's one load.
+            // ("skip_config_once") means the process's one load. Mark
+            // completion too: no callback will ever fire, so a waiter
+            // must not hang on this branch.
             sConfigLoadStarted.set(true);
+            markConfigLoadDone();
             checkAction(getIntent());
             return;
         }
         // Once guard (plan §2.1): rotation no longer recreates this
         // Activity (orientation configChanges), and the guard covers
-        // every other re-entry. Auxiliary D3 predicate: skip when both
-        // configs already hold data (loaded through another entry in
-        // this process); the VodConfig predicate is the same one
-        // VodConfig.isLoaded() uses (getSites() is null-safe).
-        if (!sConfigLoadStarted.compareAndSet(false, true)
-                || (!VodConfig.get().getSites().isEmpty() && LiveConfig.hasLoadedLives())) {
+        // every other re-entry. A lost compareAndSet means another
+        // creation owns the load; its completion path marks done.
+        if (!sConfigLoadStarted.compareAndSet(false, true)) {
+            return;
+        }
+        // Auxiliary D3 predicate: skip when both configs already hold
+        // data (loaded through another entry in this process); the
+        // VodConfig predicate is the same one VodConfig.isLoaded() uses
+        // (getSites() is null-safe). No load runs here either, so mark
+        // completion — otherwise a later waiter would hang on a load
+        // that never started.
+        if (!VodConfig.get().getSites().isEmpty() && LiveConfig.hasLoadedLives()) {
+            markConfigLoadDone();
             return;
         }
         VodConfig.get().config(Config.vod()).load(getCallback());
@@ -412,16 +490,19 @@ public class C1ScreenActivity extends AppCompatActivity {
         return new Callback() {
             @Override
             public void success() {
+                markConfigLoadDone();
                 checkAction(getIntent());
             }
 
             @Override
             public void noConfig() {
+                markConfigLoadDone();
                 checkAction(getIntent());
             }
 
             @Override
             public void error(String msg) {
+                markConfigLoadDone();
                 checkAction(getIntent());
                 Notify.show(msg);
             }
@@ -741,8 +822,15 @@ public class C1ScreenActivity extends AppCompatActivity {
             // guard resets here: the configs below are cleared, so the
             // next home creation in this process must load again
             // (launcher re-entry after exit); without the reset the
-            // once-guard would leave the relaunched home empty.
+            // once-guard would leave the relaunched home empty. The
+            // completion marker resets with it, and queued waiters are
+            // dropped: they belong to the dying engine and must never
+            // fire against the next load.
             sConfigLoadStarted.set(false);
+            synchronized (sConfigLoadWaiters) {
+                sConfigLoadDone.set(false);
+                sConfigLoadWaiters.clear();
+            }
             LiveConfig.get().clear();
             VodConfig.get().clear("mobile-home-destroy");
             if (AutoBackupPolicy.shouldRun(

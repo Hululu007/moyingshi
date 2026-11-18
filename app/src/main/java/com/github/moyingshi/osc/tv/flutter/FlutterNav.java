@@ -36,25 +36,25 @@ import java.net.URLEncoder;
  *       identical arguments. Nothing here references a mobile-only class.</li>
  * </ul>
  *
- * <p>Finish rules (mirroring the native call they replace):
+ * <p>Finish rules under singleTop (B8 crash fix, see
+ * docs/b8-crash-singletop-fix.md): {@link C1ScreenActivity} is
+ * {@code singleTop} in the mobile manifest, so starting a C1 route from
+ * a C1 screen reuses the same instance via {@code onNewIntent} — the
+ * route assertion there performs the switch. Finishing the caller in
+ * that case destroys the only instance and drops the user to the
+ * launcher. So a C1 caller is NEVER finished after starting a C1 route;
+ * a non-C1 caller keeps the finish semantics of the native call the
+ * router replaces.
  * <ul>
- *   <li>{@link #openHomeAt} / {@link #goHome} — the native form was
- *       {@code CLEAR_TOP | SINGLE_TOP} to the home activity, which finished
- *       the caller; the mobile form is start-then-finish.</li>
- *   <li>{@link #openHistory} / {@link #openKeep} — finish only when the
- *       caller is itself a C1 screen (the existing flag-on branches already
- *       did start-then-finish); a native caller keeps the plain-start
- *       semantics of {@code HistoryActivity.start} / {@code KeepActivity.start}.</li>
- *   <li>{@link #openSearch} — never finishes: the native
- *       {@code SearchActivity.start} stacks the search page on top, and the
- *       B8/B12/B13/B18 call sites rely on Back returning to the calling
- *       Flutter screen.</li>
- *   <li>{@link #direct} / {@link #directFromHistory} — finish only when the
- *       caller is a C1 screen. The native {@code direct()} refused C1
- *       callers (G2 engine race) and fell back to the native results page;
- *       the router's C1 form is start-then-finish instead, so the G2
- *       exception is gone and the relaunch mechanism owns the assertion
- *       (plan §6 R4).</li>
+ *   <li>{@link #openHomeAt} / {@link #goHome} / {@link #openLocalReader}
+ *       — finish only a non-C1 caller (e.g. LiveActivity's bottom bar);
+ *       a C1 caller is left alive for {@code onNewIntent}.</li>
+ *   <li>{@link #openHistory} / {@link #openKeep} / {@link #direct} /
+ *       {@link #directFromHistory} — never finish: the old
+ *       {@code instanceof C1ScreenActivity} finish was exactly the
+ *       crash, and non-C1 callers never finished here anyway.</li>
+ *   <li>{@link #openSearch} / {@link #openFolder} /
+ *       {@link #openWidgetBrowse} — never finished the caller; unchanged.</li>
  * </ul>
  *
  * <p>Route query encoding is copied verbatim from the mobile
@@ -152,15 +152,16 @@ public final class FlutterNav {
 
     /**
      * Replaces the B5/B7/B11 {@code openHomeAt(int)} helper: mobile opens
-     * the C1 route for the position (start-then-finish); TV opens the
-     * leanback home activity with the same flags and the
-     * {@code nav_position} extra.
+     * the C1 route for the position; TV opens the leanback home activity
+     * with the same flags and the {@code nav_position} extra. A C1 caller
+     * is not finished (singleTop: onNewIntent + route assertion switch
+     * the screen); a non-C1 caller is finished, as the native form did.
      */
     public static void openHomeAt(Activity activity, int position) {
         if (activity == null) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, homeRouteForPosition(position));
-            activity.finish();
+            if (!(activity instanceof C1ScreenActivity)) activity.finish();
             return;
         }
         try {
@@ -175,14 +176,15 @@ public final class FlutterNav {
 
     /**
      * Replaces the C2/B2 {@code goHome()}: mobile opens C1
-     * {@code ROUTE_HOME} (start-then-finish); TV opens the leanback home
-     * activity with the same flags the native {@code goHome()} used.
+     * {@code ROUTE_HOME}; TV opens the leanback home activity with the
+     * same flags the native {@code goHome()} used. Finish rule is the
+     * same as {@link #openHomeAt}.
      */
     public static void goHome(Activity activity) {
         if (activity == null) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_HOME);
-            activity.finish();
+            if (!(activity instanceof C1ScreenActivity)) activity.finish();
             return;
         }
         try {
@@ -250,8 +252,9 @@ public final class FlutterNav {
      * String, String)}: mobile opens C1 {@code ROUTE_COLLECT} with the
      * same URL-encoded query (currentSite=false, empty group, hrCid/hrKey/
      * hrTargetCid -1/empty/-1); TV reflects the native {@code direct}.
-     * A C1 caller is finished (start-then-finish replaces the native G2
-     * exception); any other caller is left alive under the new screen.
+     * Never finishes the caller: under singleTop a C1 caller would be
+     * the instance receiving onNewIntent, and finishing it drops the
+     * user to the launcher (see docs/b8-crash-singletop-fix.md).
      */
     public static void direct(Activity activity, String keyword, String siteKey, String pic, String wallPic) {
         if (activity == null) return;
@@ -266,7 +269,6 @@ public final class FlutterNav {
                         + "&wallPic=" + URLEncoder.encode(wallPic == null ? "" : wallPic, "UTF-8")
                         + "&hrCid=-1&hrKey=&hrTargetCid=-1";
                 C1ScreenActivity.start(activity, route);
-                if (activity instanceof C1ScreenActivity) activity.finish();
             } catch (Throwable e) {
                 e.printStackTrace();
                 reflectDirect(activity, keyword, siteKey, pic, wallPic);
@@ -310,7 +312,6 @@ public final class FlutterNav {
                         + "&hrKey=" + URLEncoder.encode(HistoryResumePayload.encode(history), "UTF-8")
                         + "&hrTargetCid=" + targetCid;
                 C1ScreenActivity.start(activity, route);
-                if (activity instanceof C1ScreenActivity) activity.finish();
             } catch (Throwable e) {
                 e.printStackTrace();
                 reflectDirectFromHistory(activity, history, keyword, targetCid);
@@ -384,15 +385,13 @@ public final class FlutterNav {
     /**
      * Replaces the {@code HistoryActivity.start} fallback branches
      * (B11 openHistory): mobile opens C1 {@code ROUTE_HISTORY}; TV
-     * reflects the native {@code HistoryActivity.start}. Finishes a C1
-     * caller (the existing flag-on branches already did
-     * start-then-finish); a native caller is left alive.
+     * reflects the native {@code HistoryActivity.start}. Never finishes
+     * the caller (see {@link #direct}).
      */
     public static void openHistory(Activity activity) {
         if (activity == null) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_HISTORY);
-            if (activity instanceof C1ScreenActivity) activity.finish();
             return;
         }
         try {
@@ -413,7 +412,6 @@ public final class FlutterNav {
         if (activity == null) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_KEEP);
-            if (activity instanceof C1ScreenActivity) activity.finish();
             return;
         }
         try {
@@ -426,16 +424,16 @@ public final class FlutterNav {
 
     /**
      * Replaces the B4 {@code openLocalReader} flag-off branch: mobile
-     * opens C1 {@code ROUTE_LOCAL} in read mode (start-then-finish, like
-     * the flag-on branch); TV opens the leanback file activity with the
-     * {@code read_mode} extra.
+     * opens C1 {@code ROUTE_LOCAL} in read mode; TV opens the leanback
+     * file activity with the {@code read_mode} extra. Finish rule is
+     * the same as {@link #openHomeAt}.
      */
     public static void openLocalReader(Activity activity) {
         if (activity == null) return;
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity,
                     C1ScreenActivity.ROUTE_LOCAL + "?selectDir=false&readMode=true");
-            activity.finish();
+            if (!(activity instanceof C1ScreenActivity)) activity.finish();
             return;
         }
         try {

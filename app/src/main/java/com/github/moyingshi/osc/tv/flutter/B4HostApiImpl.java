@@ -290,12 +290,11 @@ public class B4HostApiImpl implements B4Messages.B4HostApi {
 
     @Override
     public void openLab() {
-        // B8 B21: mobile goes to the Flutter lab page (start-then-finish:
-        // one C1-engine screen at a time, same G2 race as the other
-        // start-then-finish sites); TV stays on the native LabActivity.
+        // B8 B21: mobile goes to the Flutter lab page; TV stays on the
+        // native LabActivity. The caller is the bound C1 instance and is
+        // never finished (singleTop, see docs/b8-crash-singletop-fix.md).
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LAB);
-            activity.finish();
             return;
         }
         LabActivity.start(activity);
@@ -310,12 +309,12 @@ public class B4HostApiImpl implements B4Messages.B4HostApi {
 
     @Override
     public void openPluginManager() {
-        // B8 B19: mobile goes to the Flutter plugin manager page
-        // (start-then-finish, same G2 cross-screen race as the other
-        // start-then-finish sites); TV stays on the native page.
+        // B8 B19: mobile goes to the Flutter plugin manager page; TV
+        // stays on the native page. The caller is the bound C1 instance
+        // and is never finished (singleTop, see
+        // docs/b8-crash-singletop-fix.md).
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_PLUGINS);
-            activity.finish();
             return;
         }
         PluginManagerActivity.start(activity);

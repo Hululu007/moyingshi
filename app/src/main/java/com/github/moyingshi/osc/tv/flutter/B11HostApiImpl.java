@@ -222,17 +222,37 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
             result.success(buildScreen(null, activity.getString(R.string.error_play_timeout)));
         };
         handler.postDelayed(timeout, LOAD_TIMEOUT_MS);
-        Observer<Result> observer = loaded -> {
-            if (loaded == null || completed[0]) return;
-            completed[0] = true;
-            loading = false;
-            handler.removeCallbacks(timeout);
-            viewModel.getResult().removeObserver(observerRef.get());
-            result.success(buildScreen(loaded, ""));
+        // B8 crash fix (docs/b8-crash-singletop-fix.md, root cause B):
+        // when the process config load is still in flight and VodConfig
+        // holds no sites yet, homeContent() would read an empty home
+        // Site and answer an empty screen — and no signal ever tells
+        // Dart to re-fetch. Wait for that one load instead; the
+        // watchdog above still bounds the total wait, and a late
+        // runnable no-ops via completed[0]. When the config is already
+        // loaded, no load is running, or the load ended with no config
+        // (a legal empty state), start immediately.
+        Runnable startLoad = () -> {
+            if (completed[0]) return;
+            Observer<Result> observer = loaded -> {
+                if (loaded == null || completed[0]) return;
+                completed[0] = true;
+                loading = false;
+                handler.removeCallbacks(timeout);
+                viewModel.getResult().removeObserver(observerRef.get());
+                result.success(buildScreen(loaded, ""));
+            };
+            observerRef.set(observer);
+            viewModel.getResult().observeForever(observer);
+            viewModel.homeContent();
         };
-        observerRef.set(observer);
-        viewModel.getResult().observeForever(observer);
-        viewModel.homeContent();
+        if (VodConfig.get().getSites().isEmpty() && C1ScreenActivity.isConfigLoadPending()) {
+            // The config callback may fire off the main thread; hop
+            // back so the observer registration and homeContent() run
+            // on it, like the immediate path below.
+            C1ScreenActivity.runAfterConfigLoad(() -> handler.post(startLoad));
+        } else {
+            startLoad.run();
+        }
     }
 
     /** Builds the shell snapshot. {@code loaded == null} means the watchdog fired. */
@@ -1259,15 +1279,17 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                 }
                 break;
             case "following":
-                // B8 B14: the following page is Flutter on mobile
-                // (start-then-finish, same G2 cross-screen race as the
-                // other start-then-finish sites); TV stays native.
+                // B8 B14: the following page is Flutter on mobile. No
+                // finish: C1ScreenActivity is singleTop, so the start
+                // reuses this instance via onNewIntent and the route
+                // assertion switches the screen (finishing here used
+                // to drop the user to the launcher — see
+                // docs/b8-crash-singletop-fix.md). TV stays native.
                 // The feature-disabled gate mirrors the native
                 // Activity's onCreate check.
                 if (FollowingSettings.isEnabled()) {
                     if (Util.isMobile()) {
                         C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_FOLLOWING);
-                        activity.finish();
                     } else {
                         FollowingActivity.start(activity, null);
                     }
@@ -1278,10 +1300,10 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
             case "local_source":
                 if (Setting.isLabNav()) {
                     // B8 B21: same gate as B4/B7 openLab (mobile ->
-                    // Flutter lab page, start-then-finish).
+                    // Flutter lab page, no finish — singleTop reuses
+                    // this instance, see the "following" case above).
                     if (Util.isMobile()) {
                         C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LAB);
-                        activity.finish();
                     } else {
                         LabActivity.start(activity);
                     }
@@ -1347,8 +1369,8 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
     @Override
     public void openTabCategory(String typeId, String typeJson) {
         // Host builds the B8 /category route (key = home site key,
-        // type = URL-encoded Class JSON), start-then-finish, shared G2
-        // race (see docs/b8-b11-home.md V11).
+        // type = URL-encoded Class JSON). No finish: singleTop reuses
+        // this instance via onNewIntent (see docs/b8-crash-singletop-fix.md).
         try {
             String key = VodConfig.get().getHome().getKey();
             String route = C1ScreenActivity.ROUTE_CATEGORY
@@ -1356,7 +1378,6 @@ public class B11HostApiImpl implements B11Messages.B11HostApi {
                     + "&typeId=" + encode(typeId == null ? "" : typeId)
                     + "&type=" + encode(typeJson == null ? "" : typeJson);
             C1ScreenActivity.start(activity, route);
-            activity.finish();
         } catch (Throwable e) {
             e.printStackTrace();
         }

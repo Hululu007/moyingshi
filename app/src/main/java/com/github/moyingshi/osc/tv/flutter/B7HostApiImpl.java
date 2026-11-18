@@ -690,12 +690,13 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
 
     @Override
     public void openLab() {
-        // B8 B21: mobile goes to the Flutter lab page (start-then-finish:
-        // one C1-engine screen at a time, same G2 race as the other
-        // start-then-finish sites); TV stays on the native LabActivity.
+        // B8 B21: mobile goes to the Flutter lab page; TV stays on the
+        // native LabActivity. The caller is the bound C1 instance, so it
+        // is never finished here: C1 is singleTop, start() reuses it via
+        // onNewIntent, and finishing it would drop the user to the
+        // launcher (see docs/b8-crash-singletop-fix.md).
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_LAB);
-            activity.finish();
             return;
         }
         LabActivity.start(activity);
@@ -883,10 +884,11 @@ public class B7HostApiImpl implements B7Messages.B7HostApi {
     @Override
     public void openAbout() {
         // Mirrors SettingFragment.onVersion: mobile opens the Flutter
-        // About screen; TV keeps the native dialog.
+        // About screen; TV keeps the native dialog. The caller is the
+        // bound C1 instance and is never finished (singleTop, see
+        // docs/b8-crash-singletop-fix.md).
         if (Util.isMobile()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_ABOUT);
-            activity.finish();
             return;
         }
         AboutDialog.show(activity, () -> Updater.create().force().start(activity));
