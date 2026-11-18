@@ -22,7 +22,7 @@ import com.github.moyingshi.osc.tv.bean.TmdbPerson;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
 import com.github.moyingshi.osc.tv.service.RecommendationFeedbackStore;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.ui.activity.TmdbDetailActivity;
 import com.github.moyingshi.osc.tv.ui.activity.TmdbPersonActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
@@ -440,7 +440,7 @@ final class WebHomeThemeBridge {
     private String search(JsonObject payload, BooleanSupplier active) {
         String keyword = limited(Json.safeString(payload, "keyword"), 256);
         if (TextUtils.isEmpty(keyword)) throw new IllegalArgumentException("keyword is required");
-        postIfActive(active, () -> SearchActivity.start(activity, keyword, null, "", ""));
+        postIfActive(active, () -> FlutterNav.openSearch(activity, keyword, null, "", ""));
         return "{}";
     }
 

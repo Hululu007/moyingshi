@@ -18,9 +18,8 @@ import com.github.moyingshi.osc.tv.bean.drive.DriveCheckRequest;
 import com.github.moyingshi.osc.tv.server.Server;
 import com.github.moyingshi.osc.tv.service.DriveCheckService;
 import com.github.moyingshi.osc.tv.service.PlaybackService;
-import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.ui.activity.LiveActivity;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.AppCache;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
@@ -430,8 +429,8 @@ public class HomeWebBridge {
         String wall = wallPic(payload);
         boolean direct = payload.has("direct") && payload.get("direct").getAsBoolean();
         App.post(() -> {
-            if (direct) SearchActivity.direct(activity, keyword, null, pic, wall);
-            else SearchActivity.start(activity, keyword, null, pic, wall);
+            if (direct) FlutterNav.direct(activity, keyword, null, pic, wall);
+            else FlutterNav.openSearch(activity, keyword, null, pic, wall);
         });
         return "{}";
     }
@@ -452,7 +451,7 @@ public class HomeWebBridge {
     }
 
     private String openKeep() {
-        App.post(() -> KeepActivity.start(activity));
+        App.post(() -> FlutterNav.openKeep(activity));
         return "{}";
     }
 
