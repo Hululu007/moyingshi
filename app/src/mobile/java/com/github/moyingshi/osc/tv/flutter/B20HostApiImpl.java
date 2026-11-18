@@ -21,7 +21,6 @@ import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.impl.Callback;
-import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.ui.hk.HkListActivity;
 import com.github.moyingshi.osc.tv.utils.LocalSource;
 
@@ -146,16 +145,6 @@ public class B20HostApiImpl implements B20Messages.B20HostApi {
             executor.shutdownNow();
             executor = null;
         }
-    }
-
-    @Override
-    public Boolean isB20Enabled() {
-        return Setting.isFlutterB20Enabled();
-    }
-
-    @Override
-    public void setB20Enabled(Boolean enabled) {
-        Setting.putFlutterB20Enabled(Boolean.TRUE.equals(enabled));
     }
 
     @Override
