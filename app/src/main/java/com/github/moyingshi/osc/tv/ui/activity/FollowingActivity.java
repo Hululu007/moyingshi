@@ -26,6 +26,7 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.bean.History;
 import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.databinding.ActivityFollowingBinding;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.following.AlistSubscriptionImporter;
 import com.github.moyingshi.osc.tv.following.Following;
 import com.github.moyingshi.osc.tv.following.FollowingNotifier;
@@ -527,8 +528,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     @Override
     public void onChangeSource(Following item) {
         try {
-            Class<?> type = Class.forName("com.github.moyingshi.osc.tv.ui.activity.SearchActivity");
-            type.getMethod("start", Activity.class, String.class).invoke(null, this, item.vodName);
+            FlutterNav.openSearch(this, item.vodName);
         } catch (Throwable error) {
             Notify.show(error.getMessage());
         }
