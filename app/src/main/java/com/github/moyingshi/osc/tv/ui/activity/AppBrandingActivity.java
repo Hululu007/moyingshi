@@ -22,14 +22,14 @@ public class AppBrandingActivity extends BaseActivity {
 
     public static void start(Activity activity) {
         // B8 B15: mobile opens the Flutter branding page (leanback guard
-        // keeps TV native). Caller is a Flutter screen (B5 personal
-        // settings page): start-then-finish, G2 cross-screen race — back
-        // lands on the native personal settings page; caller is a native
-        // Activity: only start, no finish (native behavior: the branding
-        // page covers the top, back returns to the settings page).
+        // keeps TV native). Neither caller is finished here: a C1 caller
+        // (B5 personal settings page) must stay alive — C1 is singleTop,
+        // start() reuses it via onNewIntent, and finishing it would drop
+        // the user to the launcher (see docs/b8-crash-singletop-fix.md);
+        // a native caller keeps native behavior (the branding page covers
+        // the top, back returns to the settings page).
         if (!Util.isLeanback()) {
             C1ScreenActivity.start(activity, C1ScreenActivity.ROUTE_BRANDING);
-            if (activity instanceof C1ScreenActivity) activity.finish();
             return;
         }
         activity.startActivity(new Intent(activity, AppBrandingActivity.class));
