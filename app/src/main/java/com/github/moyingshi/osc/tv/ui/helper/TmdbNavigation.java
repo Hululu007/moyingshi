@@ -9,7 +9,7 @@ import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.bean.Vod;
-import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
+import com.github.moyingshi.osc.tv.flutter.FlutterNav;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.Task;
@@ -109,7 +109,7 @@ public final class TmdbNavigation {
     }
 
     private static void openGlobal(Activity activity, TmdbItem item) {
-        SearchActivity.direct(activity, item.getTitle(), null, item.getPosterUrl(), item.getBackdropUrl());
+        FlutterNav.direct(activity, item.getTitle(), null, item.getPosterUrl(), item.getBackdropUrl());
     }
 
     private static boolean allowed(BooleanSupplier active) {
