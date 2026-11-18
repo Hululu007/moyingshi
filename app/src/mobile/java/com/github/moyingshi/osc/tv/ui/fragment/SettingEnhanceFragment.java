@@ -99,9 +99,9 @@ public class SettingEnhanceFragment extends BaseFragment {
             return false;
         });
         mBinding.lab.setOnClickListener(view -> {
-            // B8 B21: mobile + flag on opens the Flutter lab page
-            // (stacks on top, no finish); TV and flag off stay native.
-            if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+            // B8 B21: mobile opens the Flutter lab page (stacks on top,
+            // no finish); TV stays native.
+            if (Util.isMobile()) {
                 C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_LAB);
             } else {
                 LabActivity.start(requireContext());
@@ -141,10 +141,10 @@ public class SettingEnhanceFragment extends BaseFragment {
         }));
         mBinding.loginState.setOnClickListener(view -> LoginStateLearnDialog.show(this, this::setText));
         mBinding.oneKeySync.setOnClickListener(v -> OneKeySyncDialog.create().show(requireActivity()));
-        // B8 B19: when the flag is on, the plugin row opens the Flutter
-        // plugin manager page; otherwise the native page, unchanged.
+        // B8 B19: the plugin row opens the Flutter plugin manager page
+        // on mobile; TV keeps the native page.
         mBinding.pluginManager.setOnClickListener(view -> {
-            if (Setting.isFlutterB19Enabled()) {
+            if (Util.isMobile()) {
                 C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_PLUGINS);
             } else {
                 PluginManagerActivity.start(requireActivity());

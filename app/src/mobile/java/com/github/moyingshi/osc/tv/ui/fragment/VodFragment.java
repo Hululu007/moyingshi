@@ -53,9 +53,7 @@ import com.github.moyingshi.osc.tv.model.SiteViewModel;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
-import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
-import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.activity.WidgetBrowseActivity;
@@ -318,10 +316,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             return true;
         });
         mBinding.searchHistory.setOnClickListener(v -> {
-            // B8 C2: route to the Flutter history screen when the C2 flag
-            // is on; otherwise the native screen, unchanged.
-            if (Setting.isFlutterC2Enabled()) C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_HISTORY);
-            else HistoryActivity.start(requireActivity());
+            // B8 C2: the history screen is Flutter.
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_HISTORY);
         });
         mBinding.searchMore.setOnClickListener(this::onSearchMore);
         mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
@@ -673,10 +669,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             if (mWeb != null && mWeb.isVisible()) mWeb.reload();
             else homeContent();
         } else if (item.getItemId() == R.id.keep) {
-            // B8 B2: route to the Flutter keep screen when the B2 flag
-            // is on; otherwise the native screen, unchanged.
-            if (Setting.isFlutterB2Enabled()) C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_KEEP);
-            else KeepActivity.start(requireActivity());
+            // B8 B2: the keep screen is Flutter.
+            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_KEEP);
         } else if (item.getItemId() == R.id.search) onSearchClick();
         else if (item.getItemId() == R.id.sync) OneKeySyncDialog.create().show(requireActivity());
         else if (item.getItemId() == R.id.push_apk) ApkPushDialog.create().listener(this::onApkDeviceSelected).show(requireActivity());

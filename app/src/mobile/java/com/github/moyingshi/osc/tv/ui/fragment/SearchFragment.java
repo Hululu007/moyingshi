@@ -225,15 +225,14 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     }
 
     private void collect(String keyword) {
-        // B8 B10: when the flag is on, the results page is the Flutter
-        // page (same entry, same params — the params travel URL-encoded
-        // in the route query). The siteKey is already resolved by
-        // getSearchSiteKey(), the group by getSearchGroup(). The native
-        // SearchActivity stays underneath, so back from the results page
-        // returns to this input page; the "edit" keyboard pop is not
-        // carried over (see docs/b8-b10-collect.md V8). Any failure here
-        // falls through to the native fragment transaction.
-        if (Setting.isFlutterB10Enabled()) {
+        // B8 B10: the results page is the Flutter page (same entry, same
+        // params — the params travel URL-encoded in the route query). The
+        // siteKey is already resolved by getSearchSiteKey(), the group by
+        // getSearchGroup(). The native SearchActivity stays underneath,
+        // so back from the results page returns to this input page; the
+        // "edit" keyboard pop is not carried over (see
+        // docs/b8-b10-collect.md V8). Any failure here falls through to
+        // the native fragment transaction.
             try {
                 String siteKey = getSearchSiteKey();
                 String group = getSearchGroup();
@@ -250,7 +249,6 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
             } catch (Throwable e) {
                 e.printStackTrace();
             }
-        }
         FragmentManager fm = requireActivity().getSupportFragmentManager();
         String collectTag = CollectFragment.class.getSimpleName();
         if (fm.findFragmentByTag(collectTag) != null) return;

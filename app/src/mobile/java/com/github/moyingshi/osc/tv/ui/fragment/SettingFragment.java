@@ -12,7 +12,6 @@ import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.Updater;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.api.config.WallConfig;
@@ -47,7 +46,6 @@ import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
-import com.github.moyingshi.osc.tv.ui.dialog.AboutDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.AppearanceDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.BackupProgressDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.CacheManagementDialog;
@@ -116,8 +114,6 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_INCOGNITO = "incognito";
     public static final String ROW_ABOUT = "about";
     public static final String ROW_DOWNLOAD = "download";
-    /** B8 master switch row ("flutter", same key as the B7 snapshot row). */
-    public static final String ROW_FLUTTER = "flutter";
 
     /** Row requested by settings search; consumed (posted) when this page becomes visible. */
     private static String sPendingRow;
@@ -204,11 +200,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                 R.string.setting_wall, ROW_WALL, this::onWall, this::setWallDefault, this::setWallRefresh);
         wallRow.findViewById(R.id.historyBtn).setOnLongClickListener(v -> onWallHistory());
 
-        // 通用：Flutter 总开关 / 外观 / 增强功能 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
+        // 通用：外观 / 增强功能 / 播放设置 / 弹幕 / 字幕 / AI / 去广告
         ViewGroup general = addGroup(container, inflater, R.string.setting_group_general, false);
-        addRow(general, inflater, R.drawable.ic_setting_switch, R.drawable.shape_setting_circle_blue,
-                R.string.b8_flutter_title, R.string.b8_flutter_sub, ROW_FLUTTER, this::setFlutterEnabled);
-        addDivider(general);
         addRow(general, inflater, R.drawable.ic_setting_appearance, R.drawable.shape_setting_circle_purple,
                 R.string.setting_appearance, R.string.setting_appearance_sub, ROW_APPEARANCE, this::onAppearance);
         addDivider(general);
@@ -376,7 +369,6 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_VOD, VodConfig.getDesc());
         setValue(ROW_LIVE, LiveConfig.getDesc());
         setValue(ROW_WALL, Setting.getWallDesc(WallConfig.getDesc()));
-        setValue(ROW_FLUTTER, getSwitch(Setting.isFlutterEnabled()));
         setValue(ROW_APPEARANCE, getThemeModeText());
         setValue(ROW_ACCOUNT, getString(Setting.isTmdbReady() ? R.string.setting_configured : R.string.setting_unconfigured));
         setValue(ROW_GITCLOUD, getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
@@ -440,7 +432,6 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             case ROW_VOD -> onVod();
             case ROW_LIVE -> onLive();
             case ROW_WALL -> onWall();
-            case ROW_FLUTTER -> setFlutterEnabled();
             case ROW_APPEARANCE -> onAppearance();
             case ROW_PERSONAL -> openPersonalSettings();
             case ROW_WIDGET -> openEnhanceSettings();
@@ -580,7 +571,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         // (stacks on top, no finish — this funnels both the ROW_LAB
         // tap and the performRow deep link); TV and flag off stay
         // on the native LabActivity.
-        if (Util.isMobile() && Setting.isFlutterB21Enabled()) {
+        if (Util.isMobile()) {
             C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_LAB);
         } else {
             LabActivity.start(requireContext());
@@ -612,105 +603,66 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     }
 
     private void onVersion() {
-        // B8 C1: flag on opens the Flutter About screen, flag off (default)
-        // keeps the native dialog; see docs/b8-c1-about-subtitle.md.
-        if (Setting.isFlutterC1Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_ABOUT);
-            return;
-        }
-        AboutDialog.show(requireActivity(), () -> Updater.create().force().start(requireActivity()));
+        // B8 C1: the About screen is Flutter; see
+        // docs/b8-c1-about-subtitle.md.
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_ABOUT);
     }
 
     private void onSubtitle() {
-        // B8 C1: same flag split as onVersion(); native page is index 6.
-        if (Setting.isFlutterC1Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SUBTITLE);
-            return;
-        }
-        getRoot().change(6);
+        // B8 C1: the subtitle page is a top-level C1 route (native page
+        // index 6).
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SUBTITLE);
     }
 
-    // B8 B3: same flag split as onSubtitle(); the native pages are
-    // HomeActivity indices 4 (danmaku), 7 (TMDB), 8 (AI), 9 (ad). Both
-    // the settings-home rows (buildGroups) and the settings-search deep
-    // link (performRow) go through these methods, so the flag cannot be
-    // bypassed via search. (C1's performRow ROW_SUBTITLE still calls
-    // change(6) directly; C1 is frozen, that stays.)
-    // B8 B4: same flag split as the B3 open* methods; the native page is
-    // HomeActivity index 3. Both the settings-home row (buildGroups) and
-    // the settings-search deep link (performRow) go through this method,
-    // so the flag cannot be bypassed via search.
+    // B8 B3: the native pages are HomeActivity indices 4 (danmaku), 7
+    // (TMDB), 8 (AI), 9 (ad). Both the settings-home rows (buildGroups)
+    // and the settings-search deep link (performRow) go through these
+    // methods, so the destination cannot be bypassed via search. (C1's
+    // performRow ROW_SUBTITLE still calls change(6) directly; C1 is
+    // frozen, that stays.)
+    // B8 B4: the native page is HomeActivity index 3. Both the
+    // settings-home row (buildGroups) and the settings-search deep link
+    // (performRow) go through this method, so the destination cannot be
+    // bypassed via search.
     private void openEnhanceSettings() {
-        if (Setting.isFlutterB4Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=enhance");
-            return;
-        }
-        getRoot().change(3);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=enhance");
     }
 
-    // B8 B5: same flag split as the B4 open* methods; the native pages
-    // are HomeActivity indices 5 (personal) and 10 (settings search).
-    // Both the settings-home entries (buildGroups / search button) and
-    // the settings-search deep link (performRow) go through these
-    // methods, so the flag cannot be bypassed via search.
+    // B8 B5: the native pages are HomeActivity indices 5 (personal) and
+    // 10 (settings search). Both the settings-home entries (buildGroups
+    // / search button) and the settings-search deep link (performRow) go
+    // through these methods, so the destination cannot be bypassed via
+    // search.
     private void openPersonalSettings() {
-        if (Setting.isFlutterB5Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=personal");
-            return;
-        }
-        getRoot().change(5);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=personal");
     }
 
     private void openSettingSearch() {
-        if (Setting.isFlutterB5Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=search");
-            return;
-        }
-        getRoot().change(10);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=search");
     }
 
     private void openDanmakuSettings() {
-        if (Setting.isFlutterB3Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=danmaku");
-            return;
-        }
-        getRoot().change(4);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=danmaku");
     }
 
     private void openTmdbSettings() {
-        if (Setting.isFlutterB3Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=tmdb");
-            return;
-        }
-        getRoot().change(7);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=tmdb");
     }
 
     private void openAiSettings() {
-        if (Setting.isFlutterB3Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=ai");
-            return;
-        }
-        getRoot().change(8);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=ai");
     }
 
     private void openAdSettings() {
-        if (Setting.isFlutterB3Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=ad");
-            return;
-        }
-        getRoot().change(9);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=ad");
     }
 
-    // B8 B6: same flag split as the B3 open* methods; the native page is
-    // HomeActivity index 2. Both the settings-home row (buildGroups) and
-    // the settings-search deep link (performRow) go through this method,
-    // so the flag cannot be bypassed via search.
+    // B8 B6: the native page is HomeActivity index 2. Both the
+    // settings-home row (buildGroups) and the settings-search deep link
+    // (performRow) go through this method, so the destination cannot be
+    // bypassed via search.
     private void openPlayerSettings() {
-        if (Setting.isFlutterB6Enabled()) {
-            C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=player");
-            return;
-        }
-        getRoot().change(2);
+        C1ScreenActivity.start(requireActivity(), C1ScreenActivity.ROUTE_SETTINGS + "?member=player");
     }
 
     private void setWallDefault() {
@@ -728,12 +680,6 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private boolean onWallHistory() {
         HistoryDialog.create().wall().show(this);
         return true;
-    }
-
-    /** B8 master switch: flip the single Flutter flag; the next entry to any migrated screen follows it. */
-    private void setFlutterEnabled() {
-        Setting.putFlutterEnabled(!Setting.isFlutterEnabled());
-        setValue(ROW_FLUTTER, getSwitch(Setting.isFlutterEnabled()));
     }
 
     private void setIncognito() {
