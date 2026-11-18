@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B3HostApi {
-  /// B3 feature flag (persisted in Setting, default false = native screens).
-  bool isB3Enabled();
-  void setB3Enabled(bool enabled);
-
   /// TMDB settings page (native SettingTmdbFragment): one snapshot with
   /// every row's title, value text and visibility, so Dart never sees a
   /// torn state between two calls. All strings are resolved by the host.

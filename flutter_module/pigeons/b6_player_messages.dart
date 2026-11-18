@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B6HostApi {
-  /// B6 feature flag (persisted in Setting, default false = native page).
-  bool isB6Enabled();
-  void setB6Enabled(bool enabled);
-
   /// One snapshot of the mobile player settings page
   /// (SettingPlayerFragment): all 23 visible rows plus the visibility
   /// flags the host computes (pad-only, MPV-kernel-only, caption

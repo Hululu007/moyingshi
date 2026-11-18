@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B11HostApi {
-  /// B11 feature flag (persisted in Setting, default false = native home).
-  bool isB11Enabled();
-  void setB11Enabled(bool enabled);
-
   /// One-shot home shell snapshot (B8 pattern: SiteViewModel.homeContent
   /// one-shot subscription, 35s watchdog, completes exactly once on
   /// every path). Covers the top bar, the category tabs and the bottom

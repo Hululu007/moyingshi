@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B9HostApi {
-  /// B9 feature flag (persisted in Setting, default false = native screen).
-  bool isB9Enabled();
-  void setB9Enabled(bool enabled);
-
   /// Initial snapshot for the search input page: every display string,
   /// the cached hot-word groups (Setting, as the native page shows them
   /// before the network refresh), the stored search records, and the
@@ -72,20 +68,6 @@ abstract class B9HostApi {
   /// changed.
   @async
   bool openSiteDialog();
-
-  /// Submits the search: adds the keyword to the records 250ms later
-  /// (like native) and opens the native results page in direct mode
-  /// (SearchActivity.direct). The Flutter results list is B10. The
-  /// group scope is not passed: direct mode has no group slot (see
-  /// docs/b8-b9-search.md V5), so the B9 scope popup offers all-sites
-  /// and current-site only.
-  void submitSearch(
-    String keyword,
-    bool currentSite,
-    String siteKey,
-    String pic,
-    String wallPic,
-  );
 }
 
 /// Initial snapshot of the search input page, so Dart never sees a torn

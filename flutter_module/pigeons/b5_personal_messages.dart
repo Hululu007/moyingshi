@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B5HostApi {
-  /// B5 feature flag (persisted in Setting, default false = native pages).
-  bool isB5Enabled();
-  void setB5Enabled(bool enabled);
-
   /// Personal settings page (native SettingPersonalFragment): one
   /// snapshot with every row's title, value text and error flag, in the
   /// native layout order. All strings are resolved by the host; Dart
@@ -109,16 +105,16 @@ abstract class B5HostApi {
   /// keystroke. The entries are built by reflecting the mobile-only
   /// SettingSearchIndex (see docs/b8-b5-personal.md §2.9); the
   /// flutterAvailable flag tells Dart whether the destination can be
-  /// reached by a family-internal push (a migrated member whose flag is
-  /// on) or must go through the host instead.
+  /// reached by a family-internal push (a migrated member) or must go
+  /// through the host instead.
   B5SearchScreen getSettingSearch();
 
-  /// Opens a search result's native destination: finishes this Flutter
-  /// screen, then opens the native HomeActivity at the given page, or —
-  /// when rowId is non-empty — at the settings home with that row
-  /// deep-linked (SettingFragment.requestRow via reflection). The
-  /// subtitle page (page 6) goes to the Flutter screen when the C1 flag
-  /// is on, native otherwise. Fire-and-forget: it leaves this screen.
+  /// Opens a search result's destination: finishes this Flutter
+  /// screen, then opens the destination — a settings-family member via
+  /// the router, or the subtitle page (page 6, a top-level C1 route).
+  /// When rowId is non-empty, the settings home opens with that row
+  /// deep-linked (B7HostApiImpl pending row). Fire-and-forget: it
+  /// leaves this screen.
   void openSearchEntry(int page, String rowId);
 }
 
@@ -153,7 +149,8 @@ class B5PersonalSettings {
 /// host. page is the native HomeActivity fragment index (>= 0) or -1
 /// for a settings-home row deep link (rowId != ""); rowId is "" when
 /// the entry points at a page. flutterAvailable is true only when the
-/// destination is a migrated family member whose flag is currently on.
+/// destination is a migrated family member (reachable by a
+/// family-internal push).
 class B5SearchEntry {
   B5SearchEntry({
     required this.title,

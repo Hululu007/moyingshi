@@ -18,15 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B19HostApi {
-  /// B19 feature flag (persisted in Setting, default false = native
-  /// PluginManagerActivity). The flag gates the two diversion points:
-  /// the mobile SettingEnhanceFragment plugin row and the B4 Flutter
-  /// enhance page's openPluginManager (B6→B7-style diversion, same as
-  /// B15's openLocalReader). The leanback enhance page keeps calling
-  /// PluginManagerActivity directly (TV untouched).
-  bool isB19Enabled();
-  void setB19Enabled(bool enabled);
-
   /// Static page chrome (toolbar title, button labels, empty text,
   /// dialog button labels, remote-import dialog strings). Synchronous:
   /// Dart renders the page chrome from this before the first plugin

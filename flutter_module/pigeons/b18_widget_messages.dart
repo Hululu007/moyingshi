@@ -18,15 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B18HostApi {
-  /// B18 feature flag (persisted in Setting, default false = native
-  /// WidgetBrowseActivity). The flag gates the single diversion point
-  /// inside WidgetBrowseActivity.start() and the B13 "more" opening
-  /// (B13HostApiImpl.openWidgetMore); both callers (the native home
-  /// section header in VodFragment and the Flutter home widget
-  /// section) go through them.
-  bool isB18Enabled();
-  void setB18Enabled(bool enabled);
-
   /// Static chrome for the browse page (dialog buttons, refresh
   /// tooltip, retry label). Synchronous: Dart renders the page chrome
   /// from this before the first browse snapshot arrives. All strings

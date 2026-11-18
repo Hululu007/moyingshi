@@ -18,19 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B21HostApi {
-  /// B21 feature flag (persisted in Setting, default false = native
-  /// LabActivity / LabDetailActivity). The flag gates every diversion
-  /// point: the mobile HomeActivity bottom-bar lab item, the mobile
-  /// local-source bottom-bar item (when lab nav is on), the mobile
-  /// SettingFragment lab row, the mobile SettingEnhanceFragment lab
-  /// row, and the B4 / B7 / B11 Flutter screens' openLab paths.
-  /// The leanback SettingEnhanceActivity lab row is untouched, and
-  /// the LabRuntimeService notification intent builds its Intent
-  /// directly (never through LabActivity.start), so TV and the
-  /// "show running" notification always stay native.
-  bool isB21Enabled();
-  void setB21Enabled(bool enabled);
-
   /// Static page chrome (toolbar title, group labels, menu labels,
   /// empty texts, import-dialog strings). Synchronous: Dart renders
   /// the page chrome from this before the first lab snapshot

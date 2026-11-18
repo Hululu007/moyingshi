@@ -18,13 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B16HostApi {
-  /// B16 feature flag (persisted in Setting, default false = native
-  /// ViewingReportActivity). The flag only gates the mobile entries;
-  /// the TV history entry stays native (the leanback HistoryActivity
-  /// is untouched).
-  bool isB16Enabled();
-  void setB16Enabled(bool enabled);
-
   /// Static chrome for the report page (labels + the range list).
   /// Synchronous: Dart renders the AppBar and the range selector from
   /// this before the first report snapshot arrives. All strings come

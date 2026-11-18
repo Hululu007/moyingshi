@@ -18,16 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B7HostApi {
-  /// B7 feature flag (persisted in Setting, default false = native page).
-  bool isB7Enabled();
-  void setB7Enabled(bool enabled);
-
-  /// B8 master switch (see docs/b8-master-switch.md): writes the single
-  /// `flutter_enabled` key. Called from the Flutter settings home's
-  /// master-switch row; Dart closes the screen afterwards so the next
-  /// entry follows the new value.
-  void setFlutterEnabled(bool enabled);
-
   /// Settings home (native SettingFragment): one snapshot with every
   /// group's rows in native order, the download list, and the pending
   /// deep-link row. All strings and computed values come from the host;
@@ -178,11 +168,6 @@ abstract class B7HostApi {
   /// SettingFragment.setDownloadEnabled). Dart re-fetches afterwards.
   void toggleDownloadEnabled();
 
-  /// Opens a native HomeActivity page (used for member rows whose flag
-  /// is off, for the player row, and for the search button when the B5
-  /// flag is off). Fire-and-forget: it leaves this screen.
-  void openNativePage(int page);
-
   /// One download episode row tap. Mirrors
   /// SettingFragment.onEpisodeRowClick: DONE plays the downloaded
   /// file, FAILED retries, PAUSED resumes, QUEUED / RESOLVING /
@@ -199,12 +184,9 @@ abstract class B7HostApi {
 /// One row of the settings home, in native group order. The key is a
 /// fixed token (never a locale string); Dart switches on it for the
 /// icon, circle color, and tap handler. `member` is the family member
-/// id ("" when the row is not a family member); `memberFlutter` says
-/// whether that member is currently a Flutter screen. `nativePage` is
-/// the HomeActivity fragment index for the native fallback (-1 when
-/// the row has no native page). `value` is "" when the native row
-/// shows no value; `subtitle` is "" when the native row shows no
-/// subtitle.
+/// id ("" when the row is not a family member); every member is a
+/// Flutter screen. `value` is "" when the native row shows no value;
+/// `subtitle` is "" when the native row shows no subtitle.
 class B7SettingsRow {
   B7SettingsRow({
     required this.key,
@@ -214,8 +196,6 @@ class B7SettingsRow {
     required this.hasError,
     required this.isConfig,
     required this.member,
-    required this.memberFlutter,
-    required this.nativePage,
   });
 
   String key;
@@ -225,8 +205,6 @@ class B7SettingsRow {
   bool hasError;
   bool isConfig;
   String member;
-  bool memberFlutter;
-  int nativePage;
 }
 
 class B7SettingsGroup {
@@ -278,7 +256,6 @@ class B7DownloadDrama {
 class B7SettingsHome {
   B7SettingsHome({
     required this.screenTitle,
-    required this.searchFlutter,
     required this.cacheManagementEnabled,
     required this.hiddenVisible,
     required this.downloadEnabled,
@@ -289,11 +266,9 @@ class B7SettingsHome {
     required this.downloadsActive,
     required this.cacheScanning,
     required this.pendingRowId,
-    required this.flutterEnabled,
   });
 
   String screenTitle;
-  bool searchFlutter;
   bool cacheManagementEnabled;
   bool hiddenVisible;
   bool downloadEnabled;
@@ -304,10 +279,4 @@ class B7SettingsHome {
   bool downloadsActive;
   bool cacheScanning;
   String pendingRowId;
-
-  /// B8 master switch state (see docs/b8-master-switch.md): the
-  /// settings home is only reachable while it is on, so this is true
-  /// in practice — Dart still reads it from the snapshot instead of
-  /// hard-coding it, and renders the master-switch row from it.
-  bool flutterEnabled;
 }

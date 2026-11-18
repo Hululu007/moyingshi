@@ -24,10 +24,6 @@ abstract class C1HostApi {
   /// Activity intent.
   String getInitialRoute();
 
-  /// C1 feature flag (persisted in Setting, default false = native screens).
-  bool isC1Enabled();
-  void setC1Enabled(bool enabled);
-
   /// All display strings for the About screen, resolved by the host from
   /// resources so Dart never hard-codes locale strings.
   C1AboutInfo getAboutInfo();

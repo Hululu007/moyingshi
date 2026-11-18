@@ -18,15 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B20HostApi {
-  /// B20 feature flag (persisted in Setting, default false = native
-  /// HkMiniappActivity). The flag gates the single diversion point:
-  /// LabActivity.openMiniappManager (the "海阔小程序" group + menu).
-  /// The Hk list / detail / search pages stay native (plan §6 P3),
-  /// and the leanback LabActivity keeps firing the implicit intent
-  /// (TV untouched).
-  bool isB20Enabled();
-  void setB20Enabled(bool enabled);
-
   /// Static page chrome (toolbar title, the five button labels, the
   /// dialog button labels, pick-chooser strings, paste / cloud dialog
   /// strings). Synchronous: Dart renders the page chrome from this

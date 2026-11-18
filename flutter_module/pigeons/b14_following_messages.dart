@@ -18,12 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B14HostApi {
-  /// B14 feature flag (persisted in Setting, default false = native
-  /// FollowingActivity). The flag only gates the mobile bottom-bar
-  /// following entry; the TV entries stay native.
-  bool isB14Enabled();
-  void setB14Enabled(bool enabled);
-
   /// One-shot snapshot of the following list for the given filter index
   /// (0 all, 1 updates, 2 unwatched, 3 ended, 4 failed — native
   /// FILTER_* order). The host filters, sorts (LIST_ORDER) and formats

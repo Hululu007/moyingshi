@@ -18,15 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B22HostApi {
-  /// B22 feature flag (persisted in Setting, default false = native
-  /// theater grid and history list inside ShortDramaActivity). The
-  /// flag gates only the THEATER / HISTORY tab diversion in
-  /// ShortDramaActivity.setMode: the entry (tap-to-play vertical
-  /// feed) always stays native, and the player never moves. TV has
-  /// no short-drama screen, so the flag is unreachable on leanback.
-  bool isB22Enabled();
-  void setB22Enabled(bool enabled);
-
   /// One-shot snapshot of the theater grid (native GridAdapter over
   /// the same feed ShortDramaActivity.loadSource builds: homeContent
   /// -> fetchPic -> empty + types -> categoryContent of the first

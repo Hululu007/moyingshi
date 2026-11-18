@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B2HostApi {
-  /// B2 feature flag (persisted in Setting, default false = native screen).
-  bool isB2Enabled();
-  void setB2Enabled(bool enabled);
-
   /// One snapshot: the list plus all screen strings and grid geometry, so
   /// Dart never sees a torn state between two calls.
   B2KeepScreen getKeep();

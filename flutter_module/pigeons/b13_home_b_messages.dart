@@ -18,13 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B13HostApi {
-  /// B13 feature flag (persisted in Setting, default false = native
-  /// widget sections). The flag only gates the JS widget sections
-  /// inside the Flutter home (/home, B11): B11 off means the native
-  /// home, so this flag never takes effect on its own.
-  bool isB13Enabled();
-  void setB13Enabled(bool enabled);
-
   /// One-shot snapshot of the JS widget sections, in native display
   /// order (builtinOrder: Bangumi -> Douban -> Mikan -> TMDB). All
   /// JavaScript runs host-side (WidgetManager / WidgetHost, QuickJS);

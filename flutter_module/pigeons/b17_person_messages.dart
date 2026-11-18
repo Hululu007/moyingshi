@@ -18,16 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B17HostApi {
-  /// B17 feature flag (persisted in Setting, default false = native
-  /// TmdbPersonActivity). The flag only gates the single diversion
-  /// point inside TmdbPersonActivity.start(); both callers
-  /// (TmdbDetailActivity.loadPersonDetail and
-  /// WebHomeThemeBridge.openPerson) go through it, and the leanback
-  /// detail page is untouched because the diversion also requires
-  /// Util.isMobile().
-  bool isB17Enabled();
-  void setB17Enabled(bool enabled);
-
   /// Static chrome for the person page (section titles + viewer
   /// labels). Synchronous: Dart renders the page chrome from this
   /// before the first person snapshot arrives. All strings come from

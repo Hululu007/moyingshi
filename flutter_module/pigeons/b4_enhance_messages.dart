@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B4HostApi {
-  /// B4 feature flag (persisted in Setting, default false = native page).
-  bool isB4Enabled();
-  void setB4Enabled(bool enabled);
-
   /// Enhance settings page (native SettingEnhanceFragment): one snapshot
   /// with every row's title, value text and error flag, in the native
   /// display order (SettingEnhanceFragment.reorderItems()). All strings

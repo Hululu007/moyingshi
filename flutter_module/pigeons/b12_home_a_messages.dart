@@ -18,13 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B12HostApi {
-  /// B12 feature flag (persisted in Setting, default false = native
-  /// home blocks). The flag only gates the two blocks inside the
-  /// Flutter home (/home, B11): B11 off means the native home, so this
-  /// flag never takes effect on its own.
-  bool isB12Enabled();
-  void setB12Enabled(bool enabled);
-
   /// Banner snapshot. Piggybacks on the B11 shell's homeContent
   /// result: this method NEVER calls SiteViewModel.init() or
   /// homeContent() itself. SiteViewModel.execute() cancels the previous

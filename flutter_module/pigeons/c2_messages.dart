@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class C2HostApi {
-  /// C2 feature flag (persisted in Setting, default false = native screen).
-  bool isC2Enabled();
-  void setC2Enabled(bool enabled);
-
   /// One snapshot: the list plus all screen strings and grid geometry, so
   /// Dart never sees a torn state between two calls.
   C2HistoryScreen getHistory();

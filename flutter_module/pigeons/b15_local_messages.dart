@@ -18,13 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B15HostApi {
-  /// B15 feature flag (persisted in Setting, default false = native
-  /// FileActivity / AppBrandingActivity). The flag only gates the
-  /// mobile entries; the TV entries stay native (the host diversion
-  /// checks Util.isLeanback()).
-  bool isB15Enabled();
-  void setB15Enabled(bool enabled);
-
   /// One-shot snapshot of one directory (native FileActivity.update +
   /// list). dirPath empty means the root (Path.root()). The host
   /// requests storage permission on the first call of this engine

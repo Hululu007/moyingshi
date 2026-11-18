@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B10HostApi {
-  /// B10 feature flag (persisted in Setting, default false = native page).
-  bool isB10Enabled();
-  void setB10Enabled(bool enabled);
-
   /// Starts the multi-site parallel search and completes with the full
   /// snapshot when every site has answered (or the watchdog fired).
   /// The host owns the whole search session (SiteViewModel observers,
@@ -30,7 +26,7 @@ abstract class B10HostApi {
   /// Async: completes exactly once on every path (finished, empty
   /// site list, or the 35s watchdog). A second call supersedes the
   /// first: the stale call completes with the then-current snapshot.
-  /// siteKey rule (factored from B9HostApiImpl.submitSearch): when
+  /// siteKey rule (factored from the B9 submit rule): when
   /// currentSite is true and siteKey is empty, the home site's key is
   /// used; otherwise siteKey is taken as the explicit filter (empty =
   /// all sites). Callers pre-apply the native scope rule — the B9 page
@@ -114,8 +110,7 @@ abstract class B10HostApi {
   /// Records one search keyword (dedupe, most recent first, max 10,
   /// persisted 250ms later — RecordAdapter.checkToAdd, like native).
   /// Used by the B9 input page when it pushes this results page
-  /// inside the family instead of going through submitSearch (see
-  /// docs/b8-b10-collect.md V8).
+  /// inside the family (see docs/b8-b10-collect.md V8).
   void recordSearch(String keyword);
 
   /// Stops the running search, removes the session observers and

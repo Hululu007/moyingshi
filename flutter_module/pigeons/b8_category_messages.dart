@@ -18,10 +18,6 @@ import 'package:pigeon/pigeon.dart';
 )
 @HostApi()
 abstract class B8HostApi {
-  /// B8 feature flag (persisted in Setting, default false = native screen).
-  bool isB8Enabled();
-  void setB8Enabled(bool enabled);
-
   /// One page of the category list: first load, pull-to-refresh,
   /// load-more and filter change all go through this one method with
   /// the page to load. The host owns the page/hasMore computation (from
