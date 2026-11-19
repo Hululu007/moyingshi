@@ -12,7 +12,6 @@ annotation = "1.10.0"
 appcompat = "1.7.1"
 biometric = "1.1.0"
 desugar = "2.1.5"
-documentfile = "1.0.1"
 leanback = "1.2.0"
 lifecycleService = "2.10.0"
 media = "1.8.0"
@@ -47,7 +46,6 @@ androidxTestExtJunit = "1.2.1"
 juniversalchardet = "1.0.3"
 jgit = "6.10.0.202406032230-r"
 jsoup = "1.22.2"
-htmlcleaner = "2.29"
 logger = "2.2.0"
 lottie = "6.7.1"
 material = "1.14.0"
@@ -60,7 +58,6 @@ nextlib = "1.10.0-0.12.1-fongmi-softload-av3a-avs3-ffmpeg901-r5"
 okhttp = "5.4.0"
 permissionx = "1.8.1"
 quickjs = "3.2.3"
-rhino = "1.7.15"
 rtmpClient = "v3.2.0.m2"
 sardine = "0.9"
 simpleXml = "2.7.1"
@@ -80,7 +77,6 @@ annotation = { group = "androidx.annotation", name = "annotation", version.ref =
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 desugar = { group = "com.android.tools", name = "desugar_jdk_libs_nio", version.ref = "desugar" }
-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 leanback = { group = "androidx.leanback", name = "leanback", version.ref = "leanback" }
 lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycleService" }
 media = { group = "androidx.media", name = "media", version.ref = "media" }
@@ -117,7 +113,6 @@ jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 juniversalchardet = { group = "com.googlecode.juniversalchardet", name = "juniversalchardet", version.ref = "juniversalchardet" }
 jgit = { group = "org.eclipse.jgit", name = "org.eclipse.jgit", version.ref = "jgit" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
-htmlcleaner = { group = "net.sourceforge.htmlcleaner", name = "htmlcleaner", version.ref = "htmlcleaner" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRules" }
@@ -159,7 +154,6 @@ org-jupnp-support = { group = "org.jupnp", name = "org.jupnp.support", version.r
 permissionx = { group = "com.guolindev.permissionx", name = "permissionx", version.ref = "permissionx" }
 quickjs-android = { group = "wang.harlon.quickjs", name = "wrapper-android", version.ref = "quickjs" }
 quickjs-java = { group = "wang.harlon.quickjs", name = "wrapper-java", version.ref = "quickjs" }
-rhino = { group = "org.mozilla", name = "rhino", version.ref = "rhino" }
 sardine = { group = "com.github.thegrizzlylabs", name = "sardine-android", version.ref = "sardine" }
 simple-xml = { group = "org.simpleframework", name = "simple-xml", version.ref = "simpleXml" }
 smbj = { group = "com.hierynomus", name = "smbj", version.ref = "smbj" }

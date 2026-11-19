@@ -69,8 +69,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private static final String GROUP_ALL = "all";
     /** 本地源分组 id：下划线前缀，避免与 lab.json 里的分组 id 撞上。 */
     private static final String GROUP_LOCAL_SOURCE = "__local_source__";
-    /** 海阔小程序分组 id：下划线前缀，避免与 lab.json 里的分组 id 撞上。 */
-    private static final String GROUP_MINIAPP = "__miniapp__";
     private static final int[] SOURCE_MODES = {LabConfig.SOURCE_LOCAL, LabConfig.SOURCE_URL};
     public static final String EXTRA_SHOW_RUNNING = "show_running";
 
@@ -91,8 +89,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private int swipeFlingDelta;
     /** 结算动画的代次：新开手势或重渲染时 +1，旧动画的结束回调凭它认出自己已过期，不再切分组。 */
     private int swipeSettleToken;
-    /** 上次看到的“海阔小程序”开关值：增强设置里切了开关、回实验室时分组要跟着重渲染（与 HomeActivity 的 lastLabNav 同款）。 */
-    private boolean lastHkMiniapp;
     private final Set<String> autoInstallAttempted = new HashSet<>();
     private AlertDialog settingsDialog;
     /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
@@ -131,13 +127,9 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
             }
             if (id == R.id.import_pkg) {
                 // + 按当前分组走不同功能：本地源分组开本地源弹窗（搜索、分类、更多操作都在里面），
-                // 海阔小程序分组开小程序管理页，全部及其它分组保持原来的“导入包”。
+                // 全部及其它分组保持原来的“导入包”。
                 if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
                     openLocalSourceDialog();
-                    return true;
-                }
-                if (GROUP_MINIAPP.equals(currentGroup)) {
-                    openMiniappManager();
                     return true;
                 }
                 showImportDialog();
@@ -166,7 +158,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         if (!Util.isLeanback()) {
             groupSwipeDetector = new GestureDetector(this, new GroupSwipeListener());
             mBinding.recycler.setOnTouchListener((v, event) -> onSwipeTouch(event));
-            // 占位页（海阔小程序）和空态时列表是隐藏的，手势挂到空态视图上，左右滑动一样能切分组。
+            // 空态时列表是隐藏的，手势挂到空态视图上，左右滑动一样能切分组。
             mBinding.empty.getRoot().setOnTouchListener((v, event) -> onSwipeTouch(event));
             // 悬浮 tune 按钮：底部面板列出全部分组，点哪个切哪个分组；TV 没有触摸滑动，不显示。
             mBinding.fabGroup.setVisibility(View.VISIBLE);
@@ -174,7 +166,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         }
         mBinding.empty.getRoot().setVisibility(View.GONE);
         mBinding.progress.setVisibility(View.VISIBLE);
-        lastHkMiniapp = Setting.isHkMiniapp();
         reload();
         handleShowRunning(getIntent());
         App.post(this::requestNotifyPermission, 300);
@@ -205,14 +196,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     @Override
     protected void onResume() {
         super.onResume();
-        // 增强设置里“海阔小程序”开关可能刚被切换：分组变了就重渲染（正在小程序分组时开关被关掉会切回“全部”）。
-        if (lastHkMiniapp != Setting.isHkMiniapp()) {
-            lastHkMiniapp = Setting.isHkMiniapp();
-            render(LabConfig.get().getLabRoot());
-            return;
-        }
-        // 从小程序管理页回来时刷新内嵌列表（可能刚导进/删掉规则）；其它分组不动。
-        if (GROUP_MINIAPP.equals(currentGroup)) showMiniappList();
     }
 
     private void handleShowRunning(Intent intent) {
@@ -253,9 +236,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         groups.add(new LabGroupAdapter.Row(GROUP_ALL, "全部"));
         // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
         if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_LOCAL_SOURCE, getString(R.string.setting_local_source)));
-        // 海阔小程序分组紧跟本地源之后，同样只在手机端出现；点开只显示内嵌列表，不再跳管理页（管理页改走工具栏 +，海阔小程序分组时）。
-        // 增强设置里“海阔小程序”开关关掉时不显示这个分组。
-        if (!Util.isLeanback() && Setting.isHkMiniapp()) groups.add(new LabGroupAdapter.Row(GROUP_MINIAPP, "海阔小程序"));
         List<LabModels.Item> all = new ArrayList<>();
         if (root != null && root.lists != null) {
             if (root.groups != null) {
@@ -273,10 +253,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         groupAdapter.select(selectedIndex);
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
             showLocalSources();
-            return;
-        }
-        if (GROUP_MINIAPP.equals(currentGroup)) {
-            showMiniappList();
             return;
         }
         setScanMenuVisible(false);
@@ -333,14 +309,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 .show(getSupportFragmentManager());
     }
 
-    /** 海阔小程序分组：管理页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开；打不开时只留内嵌列表。 */
-    private void openMiniappManager() {
-        Intent intent = new Intent(App.get().getPackageName() + ".hk_miniapp");
-        intent.addCategory(Intent.CATEGORY_DEFAULT);
-        if (intent.resolveActivity(getPackageManager()) != null) startActivity(intent);
-    }
-
-    /** 本地源分组：+ 打开本地源弹窗；弹窗是 mobile 专属的 DialogFragment（main 源集不能直接引用），走透明宿主 Activity + 隐式 intent（与海阔小程序管理页同款）。 */
+    /** 本地源分组：+ 打开本地源弹窗；弹窗是 mobile 专属的 DialogFragment（main 源集不能直接引用），走透明宿主 Activity + 隐式 intent。 */
     private void openLocalSourceDialog() {
         Intent intent = new Intent(App.get().getPackageName() + ".local_source_dialog");
         intent.addCategory(Intent.CATEGORY_DEFAULT);
@@ -419,22 +388,20 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         LabDetailActivity.start(this, item.name);
     }
 
-    /** 下拉刷新：本地源分组时重扫上次的扫描目录（弹窗“扫描全部”的行为），小程序分组时刷新内嵌列表，否则重载实验室配置。 */
+    /** 下拉刷新：本地源分组时重扫上次的扫描目录（弹窗“扫描全部”的行为），否则重载实验室配置。 */
     private void onRefresh() {
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) scanLocalSourceDir();
-        else if (GROUP_MINIAPP.equals(currentGroup)) showMiniappList();
         else reload();
     }
 
-    /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）；海阔小程序不是本地源，hk:// 条目不进这里。 */
+    /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）。 */
     private void showLocalSources() {
         if (localSourceAdapter == null) {
             localSourceAdapter = new LocalSourceAdapter(this);
             localSourceAdapter.setCheckable(false).setCardBackground(true);
         }
         if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
-        List<Site> sites = new ArrayList<>();
-        for (Site site : LocalSource.getSites()) if (!LocalSource.isMiniapp(site)) sites.add(site);
+        List<Site> sites = new ArrayList<>(LocalSource.getSites());
         localSourceAdapter.setItems(sites);
         boolean empty = sites.isEmpty();
         mBinding.empty.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -443,32 +410,6 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         setScanMenuVisible(true);
         mBinding.progress.setVisibility(View.GONE);
         mBinding.swipeRefresh.setRefreshing(false);
-    }
-
-    /** 海阔小程序分组的内嵌列表：本地源里登记的 hk:// 站源（标题⁽ʰᵏ⁾┃[类型]）；点分组只显示这个列表，管理页改走工具栏 +（海阔小程序分组时）。 */
-    private void showMiniappList() {
-        if (localSourceAdapter == null) {
-            localSourceAdapter = new LocalSourceAdapter(this);
-            localSourceAdapter.setCheckable(false).setCardBackground(true);
-        }
-        if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
-        List<Site> sites = new ArrayList<>();
-        for (Site site : LocalSource.getSites()) {
-            if (isMiniappSite(site)) sites.add(site);
-        }
-        localSourceAdapter.setItems(sites);
-        boolean empty = sites.isEmpty();
-        mBinding.empty.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
-        mBinding.recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
-        mBinding.empty.text.setText(R.string.hk_miniapp_empty);
-        setScanMenuVisible(false);
-        mBinding.progress.setVisibility(View.GONE);
-        mBinding.swipeRefresh.setRefreshing(false);
-    }
-
-    /** 是不是小程序站源（main 源集不能引用 mobile 的 HkStore，判断逻辑在 LocalSource.isMiniapp 里）。 */
-    private static boolean isMiniappSite(Site site) {
-        return LocalSource.isMiniapp(site);
     }
 
     private void setScanMenuVisible(boolean visible) {
@@ -521,29 +462,19 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         FileChooser.from(localSourceLauncher).showDirectory();
     }
 
-    /** 点一条本地源：小程序站源进它自己的列表页（第 3 步），不切站源、不进蜘蛛空页，实验室页留在下面，返回键回来；其余设为当前站源并回首页（与弹窗一致；首页在后台已收到事件刷新）。 */
+    /** 点一条本地源：设为当前站源并回首页（与弹窗一致；首页在后台已收到事件刷新）。 */
     @Override
     public void onItemClick(Site item) {
-        if (isMiniappSite(item)) {
-            // 列表页是 mobile 专属的 Activity（main 源集不能直接引用），用隐式 intent 打开（与管理页同款）；打不开时弹原占位句，不崩。
-            Intent intent = new Intent(App.get().getPackageName() + ".hk_list");
-            intent.addCategory(Intent.CATEGORY_DEFAULT);
-            intent.putExtra("title", LocalSource.miniappTitle(item));
-            if (intent.resolveActivity(getPackageManager()) != null) startActivity(intent);
-            else Notify.show(R.string.hk_miniapp_list_pending);
-            return;
-        }
         VodConfig.get().setHome(item);
         ConfigEvent.vod();
         finish();
     }
 
-    /** 行末删除按钮：只删这一条，删完刷新列表并重载配置（与弹窗一致）；小程序分组删完刷新内嵌列表。 */
+    /** 行末删除按钮：只删这一条，删完刷新列表并重载配置（与弹窗一致）。 */
     @Override
     public void onDeleteClick(Site item) {
         LocalSource.removeByKeys(List.of(item.getKey()));
-        if (GROUP_MINIAPP.equals(currentGroup)) showMiniappList();
-        else showLocalSources();
+        showLocalSources();
         Notify.show(getString(R.string.lab_local_source_deleted, 1));
         reloadLocalConfig();
     }

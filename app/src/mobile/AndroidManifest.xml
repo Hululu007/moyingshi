@@ -137,51 +137,6 @@
             android:screenOrientation="fullUser" />
 
         <activity
-            android:name=".ui.hk.HkMiniappActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:parentActivityName=".lab.LabActivity"
-            android:screenOrientation="fullUser">
-            <intent-filter>
-                <action android:name="${applicationId}.hk_miniapp" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".ui.hk.HkListActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:parentActivityName=".lab.LabActivity"
-            android:screenOrientation="fullUser">
-            <intent-filter>
-                <action android:name="${applicationId}.hk_list" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".ui.hk.HkDetailActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:parentActivityName=".ui.hk.HkListActivity"
-            android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.hk.HkSearchActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:parentActivityName=".ui.hk.HkListActivity"
-            android:screenOrientation="fullUser" />
-
-        <activity
-            android:name=".ui.activity.HkPageActivity"
-            android:configChanges="screenSize|smallestScreenSize|screenLayout"
-            android:parentActivityName=".ui.hk.HkListActivity"
-            android:screenOrientation="fullUser">
-            <intent-filter>
-                <action android:name="${applicationId}.hk_page" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
-
-        <activity
             android:name=".ui.activity.LocalSourceDialogActivity"
             android:configChanges="screenSize|smallestScreenSize|screenLayout"
             android:parentActivityName=".lab.LabActivity"

@@ -198,15 +198,6 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-    <!-- 海阔小程序首页内嵌容器（第 7 步之五）：当前站是 hk:// 时挂 HkListFragment，
-         与 pager 同款 appbar 行为；默认隐藏，普通站源不受影响。 -->
-    <FrameLayout
-        android:id="@+id/hkContainer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
-
     <WebView
         android:id="@+id/homeWeb"
         android:layout_width="match_parent"

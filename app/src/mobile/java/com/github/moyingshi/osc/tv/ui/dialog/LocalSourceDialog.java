@@ -13,7 +13,6 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
-import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.DialogLocalSourceBinding;
@@ -22,7 +21,6 @@ import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.adapter.LocalSourceAdapter;
 import com.github.moyingshi.osc.tv.ui.custom.CustomTextListener;
-import com.github.moyingshi.osc.tv.ui.hk.HkListActivity;
 import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.LocalSource;
 import com.github.moyingshi.osc.tv.utils.Notify;
@@ -176,10 +174,7 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
     }
 
     private void refreshList() {
-        // 海阔小程序不是本地源：hk:// 条目不进这个列表（分类 tabs、条数、搜索都只算本地源），
-        // 它们只在实验室“海阔小程序”分组 / 小程序管理页里出现。
-        all = new ArrayList<>();
-        for (Site site : LocalSource.getSites()) if (!LocalSource.isMiniapp(site)) all.add(site);
+        all = new ArrayList<>(LocalSource.getSites());
         List<String> categories = LocalSource.categoriesOf(all);
         if (!categories.contains(category)) category = "全部";
         buildTabs(categories);
@@ -298,12 +293,6 @@ public class LocalSourceDialog extends BaseAlertDialog implements LocalSourceAda
 
     @Override
     public void onItemClick(Site item) {
-        // 小程序站源：进它自己的列表页（第 3 步），不切站源、不进蜘蛛空页；弹窗关掉，回来在列表页。
-        if (HkStore.isMiniapp(item)) {
-            HkListActivity.open(requireContext(), HkStore.titleOf(item));
-            dismiss();
-            return;
-        }
         VodConfig.get().setHome(item);
         ConfigEvent.vod();
         dismiss();

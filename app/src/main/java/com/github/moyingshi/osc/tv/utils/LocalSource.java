@@ -131,8 +131,8 @@ public class LocalSource {
         return end > start && "密密".equals(site.getName().substring(start + 2, end));
     }
 
-    /** 是不是海阔小程序站源（api 或 key 以 hk:// 开头；main 源集不能引用 mobile 的 HkStore，这里只按字符串判断，与 HkStore.isMiniapp 同义）。 */
-    public static boolean isMiniapp(Site site) {
+    /** 是不是已废弃的海阔小程序站源（api 或 key 以 hk:// 开头）：小程序功能已删除，这类条目不再加载；只按字符串判断。 */
+    private static boolean isMiniapp(Site site) {
         if (site == null) return false;
         String api = site.getApi();
         if (!TextUtils.isEmpty(api) && api.startsWith("hk://")) return true;
@@ -140,17 +140,7 @@ public class LocalSource {
         return !TextUtils.isEmpty(key) && key.startsWith("hk://");
     }
 
-    /** 从小程序站源取规则标题（api/key 去掉 hk:// 前缀）；不是小程序站源返回 ""（HkStore.titleOf 的 main 源集版，纯字符串操作）。 */
-    public static String miniappTitle(Site site) {
-        if (site == null) return "";
-        String api = site.getApi();
-        if (!TextUtils.isEmpty(api) && api.startsWith("hk://")) return api.substring(5);
-        String key = site.getKey();
-        if (!TextUtils.isEmpty(key) && key.startsWith("hk://")) return key.substring(5);
-        return "";
-    }
-
-    /** 读出本地源站点列表（api/ext 按当前本机服务端口换成本机地址；密源未开开关时过滤掉）。 */
+    /** 读出本地源站点列表（api/ext 按当前本机服务端口换成本机地址；密源未开开关时过滤掉；已废弃的 hk:// 小程序条目跳过，不展示、不加载）。 */
     public static synchronized List<Site> getSites() {
         if (sites != null) return new ArrayList<>(sites);
         // 旧版扫进来的 .py 条目 api 是 csp_<文件名>，走 JarLoader 读不出数据：
@@ -163,6 +153,7 @@ public class LocalSource {
             if (!element.isJsonObject()) continue;
             Site site = siteFrom(element.getAsJsonObject());
             if (site == null || site.getKey().isEmpty()) continue;
+            if (isMiniapp(site)) continue;
             if (!showSecret && isSecret(site)) continue;
             result.add(site);
         }
@@ -185,12 +176,9 @@ public class LocalSource {
         sites = new ArrayList<>(list);
     }
 
-    /** 清空本地源（删掉全部本地源站点；海阔小程序不是本地源，登记的 hk:// 条目保留，仍在小程序管理页里）。 */
+    /** 清空本地源（删掉全部本地源站点，包括已废弃的 hk:// 小程序残留条目）。 */
     public static synchronized void clear() {
-        List<Site> raw = getSitesRaw();
-        List<Site> kept = new ArrayList<>();
-        for (Site site : raw) if (isMiniapp(site)) kept.add(site);
-        saveSites(kept);
+        saveSites(new ArrayList<>());
     }
 
     /** 按 key 删站点（直接操作原始列表，不经过地址转换，写回的还是 file://）。 */
@@ -199,37 +187,6 @@ public class LocalSource {
         List<Site> raw = getSitesRaw();
         boolean changed = raw.removeIf(site -> keys.contains(site.getKey()));
         if (changed) saveSites(raw);
-    }
-
-    /**
-     * 合并站点（小程序导入/同步用）：直接操作原始列表，不经过地址转换。
-     * 同 key 的替换（重导更新，不产生 key_1 后缀），新 key 的追加；返回新追加的条数。
-     * 不能用 getSites() + saveSites() 往返：getSites() 会把 .php 的 api 换成本机地址，
-     * 写回就把 file:// 变成了当前端口的 http://127.0.0.1 地址（removeByKeys 的注释同理）。
-     * 写完清掉内存缓存，下次 getSites() 重新读文件换地址（不然缓存里留的是原始列表）。
-     */
-    public static synchronized int mergeSites(List<Site> merged) {
-        if (merged == null || merged.isEmpty()) return 0;
-        List<Site> raw = getSitesRaw();
-        int added = 0;
-        for (Site site : merged) {
-            if (site == null || site.getKey() == null || site.getKey().isEmpty()) continue;
-            int index = -1;
-            for (int i = 0; i < raw.size(); i++) {
-                if (site.getKey().equals(raw.get(i).getKey())) {
-                    index = i;
-                    break;
-                }
-            }
-            if (index >= 0) raw.set(index, site);
-            else {
-                raw.add(site);
-                added++;
-            }
-        }
-        saveSites(raw);
-        invalidate();
-        return added;
     }
 
     private static Site siteFrom(JsonObject object) {

@@ -67,11 +67,6 @@ import com.github.moyingshi.osc.tv.api.DanmakuApi;
 import com.github.moyingshi.osc.tv.api.SiteApi;
 import com.github.moyingshi.osc.tv.api.config.AdBlockStatsStore;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
-import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
-import com.github.moyingshi.osc.tv.api.hk.HkPlay;
-import com.github.moyingshi.osc.tv.api.hk.HkRouter;
-import com.github.moyingshi.osc.tv.api.hk.HkRule;
-import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.AdDetectionRequest;
 import com.github.moyingshi.osc.tv.bean.AdDetectionResult;
 import com.github.moyingshi.osc.tv.bean.AiConfig;
@@ -95,7 +90,6 @@ import com.github.moyingshi.osc.tv.bean.TmdbEpisode;
 import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.bean.TmdbConfig;
 import com.github.moyingshi.osc.tv.bean.TmdbSourcePayload;
-import com.github.moyingshi.osc.tv.bean.Url;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.ActivityVideoBinding;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
@@ -206,7 +200,6 @@ import com.github.moyingshi.osc.tv.utils.BatteryUtil;
 import com.github.moyingshi.osc.tv.utils.Clock;
 import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
-import com.github.moyingshi.osc.tv.utils.LyricUtil;
 import com.github.moyingshi.osc.tv.utils.EpisodeHistoryTitleResolver;
 import com.github.moyingshi.osc.tv.utils.EpisodeTitleFormatter;
 import com.github.moyingshi.osc.tv.utils.Formatters;
@@ -220,7 +213,6 @@ import com.github.moyingshi.osc.tv.utils.Timer;
 import com.github.moyingshi.osc.tv.utils.TmdbDetailCache;
 import com.github.moyingshi.osc.tv.utils.Traffic;
 import com.github.moyingshi.osc.tv.utils.Util;
-import com.github.moyingshi.osc.tv.utils.UrlUtil;
 import com.github.moyingshi.osc.tv.utils.VodDetailCache;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -474,8 +466,6 @@ private int mAudioBackgroundRandomNonce;
     private AutoDanmakuToken mDecodeRestoreToken;
     private Object mDecodeRestoreOwner;
     private boolean mDanmakuRetired;
-    /** 海阔多线路各线路的请求头（与当前 Result 的 Url values 下标一一对应；切线路时按 position 换 header，见 applyHkLineHeaders）。 */
-    private List<Map<String, String>> mHkLineHeaders;
 
     private static final class AutoDanmakuToken {
         final PlaybackService binding;
@@ -797,29 +787,6 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         intent.putExtra("pic", vod.getPic());
         intent.putExtra("mark", vod.getRemarks());
         intent.putExtra("content", vod.getContent());
-        putDetailVodCache(intent, vod);
-        activity.startActivity(intent);
-    }
-
-    /**
-     * 海阔小程序播放入口（第 5 步）：详情页点选集后，带已拼好的 Vod 与目标选集进播放器。
-     * 与 startDirectResolved 同款 intent，只多一个 putIntentPlaybackSelection（点哪集选中哪集）。
-     */
-    public static void startHk(Activity activity, Vod vod, String playFlag, String playEpisodeName, String playEpisodeUrl) {
-        if (activity == null || vod == null) return;
-        Intent intent = new Intent(activity, VideoActivity.class);
-        intent.putExtra("detail_mode", Setting.DETAIL_OPEN_DIRECT);
-        intent.putExtra(EXTRA_DETAIL_RUNTIME_MODE, Setting.DETAIL_OPEN_DIRECT);
-        intent.putExtra("scan", false);
-        intent.putExtra("collect", false);
-        intent.putExtra("cast", false);
-        intent.putExtra("key", vod.getSiteKey());
-        intent.putExtra("id", vod.getId());
-        intent.putExtra("name", vod.getName());
-        intent.putExtra("pic", vod.getPic());
-        intent.putExtra("mark", vod.getRemarks());
-        intent.putExtra("content", vod.getContent());
-        putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);
         putDetailVodCache(intent, vod);
         activity.startActivity(intent);
     }
@@ -3062,9 +3029,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         if (shouldUseImmersiveAudio()) setAudioStageVisible(true);
         beginPlayerContentRequest(getKey(), playFlag, episode.getUrl());
         mPlaybackFlagKey = playbackFlagKey(flag);
-        if (isHkSite()) {
-            resolveHkPlayerContent(episode, playFlag);
-        } else if (isOriginSession()) {
+        if (isOriginSession()) {
             if (!mOrigin.requestPlay(flag, episode)) {
                 invalidatePlayerContent();
                 showOriginError("原源会话已结束，请返回后重新打开");
@@ -3074,131 +3039,6 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.control.title.setSelected(true);
         updateHistory(episode);
         showProgress();
-    }
-
-    /** 当前站是不是海阔小程序（key 即 hk://&lt;标题&gt;，与 HkStore.isMiniapp 同款判定）。 */
-    private boolean isHkSite() {
-        return getKey().startsWith("hk://");
-    }
-
-    /**
-     * 海阔小程序取流（5d：改走新引擎 {@link HkRouter#play(String)}）：后台线程跑懒加载解析，
-     * 解析出地址后喂给 setPlayer；空地址或失败时弹解析方给出的明确错误文案（无文案时
-     * 弹“小程序未解析出播放地址”），不进空白播放器。
-     * generation 快照防串位：切集/切线路后旧解析结果回来直接丢掉。
-     * 5d：新引擎不消费 {@code HkEngine.DialogHost}（JS 的 confirm 走 ConfirmHandler），
-     * 本方法的 DialogHost 构造随旧 {@code HkExecutor.play} 一并删除。
-     */
-    private void resolveHkPlayerContent(Episode episode, String playFlag) {
-        String episodeUrl = episode.getUrl();
-        String episodeName = episode.getName();
-        String key = getKey();
-        int generation = playerContentGeneration;
-        // 新一次解析开始，旧的多线路 headers 暂存作废（成功回调里与新 Result 同步重写）。
-        mHkLineHeaders = null;
-        new Thread(() -> {
-            Result resolved = null;
-            String error = null;
-            try {
-                HkRule rule = HkStore.read(key.substring("hk://".length()));
-                if (rule != null) {
-                    // MY_POSITION 槽：详情页点击时已放过一次（消费后清零）；自动连播等
-                    // 无点击的起播在这里补放（当前 Flag 内下标；取不到不放，不串位）。
-                    try {
-                        Flag flag = getFlag();
-                        int pos = flag == null || flag.getEpisodes() == null
-                                ? -1 : flag.getEpisodes().indexOf(episode);
-                        if (pos >= 0) HkDetailBridge.setClickPosition(pos, rule.getTitle(), episodeUrl);
-                    } catch (Throwable ignored) {
-                    }
-                }
-                HkPlay play = rule == null ? null : new HkRouter(rule).play(episodeUrl);
-                // 漫画结果（pics）与只切换变量的结果（refreshOnly）误入视频路时不进播放器，
-                // 与旧 PlayOutcome.isEmpty() 收口一致。
-                if (play != null && !play.isEmpty() && !play.isRefreshOnly() && play.getPics().isEmpty()) {
-                    resolved = new Result();
-                    if (!play.getUrls().isEmpty()) {
-                        // 多线路（含单条）：Url 多值进画质切换器，names 即切换器选项名；
-                        // 各线路 headers 记进 stash，切线路时按 Url position 换（见 applyHkLineHeaders）。
-                        Url url = Url.create();
-                        List<Map<String, String>> lineHeaders = new ArrayList<>();
-                        for (int i = 0; i < play.getUrls().size(); i++) {
-                            url.add(play.getName(i), play.getUrl(i));
-                            lineHeaders.add(play.getHeaders(i));
-                        }
-                        resolved.setUrl(url);
-                        mHkLineHeaders = lineHeaders;
-                    } else {
-                        resolved.setUrl(play.getUrl());
-                    }
-                    resolved.setHeader(play.getHeaders());
-                    resolved.setFlag(playFlag);
-                    resolved.setParse(0);
-                    if (!TextUtils.isEmpty(play.getSubtitle())) {
-                        // 外挂字幕：Sub.from(地址) → Result.setSubs，进现有外挂字幕通道。
-                        List<Sub> subs = new ArrayList<>();
-                        subs.add(Sub.from(play.getSubtitle()));
-                        resolved.setSubs(subs);
-                    }
-                    if (!TextUtils.isEmpty(play.getDanmu())) {
-                        // 弹幕：Danmaku → Result.setDanmaku，进现有弹幕通道（PlaySpec → setDanmakus）。
-                        List<Danmaku> items = new ArrayList<>();
-                        Danmaku item = Danmaku.from(play.getDanmu());
-                        item.setName(UrlUtil.path(play.getDanmu()));
-                        items.add(item);
-                        resolved.setDanmaku(items);
-                    }
-                    if (!TextUtils.isEmpty(play.getLyric())) {
-                        // 歌词：后台线程取文本（URL 抓、内嵌原样），失败只丢歌词、不影响播放。
-                        try {
-                            String text = LyricUtil.loadProvided(play.getLyric());
-                            if (!TextUtils.isEmpty(text)) resolved.setLrc(text);
-                        } catch (Exception e) {
-                            SpiderDebug.log("hk", "lyric load failed: %s", e.getMessage());
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                error = e.getMessage();
-            }
-            final Result result = resolved;
-            final String err = error;
-            App.post(() -> {
-                if (isFinishing() || isDestroyed() || generation != playerContentGeneration) return;
-                if (result != null) {
-                    setPlayer(result);
-                    return;
-                }
-                SpiderDebug.log("video-flow", "hk play empty key=%s episode=%s error=%s", key, episodeName, err);
-                invalidatePlayerContent();
-                hideProgress();
-                // 5d：解析方给出了明确错误文案时显示它（如 Router.play 的 checkPlayExit 文案），
-                // 旧代码一律吞成通用提示；无文案时仍弹通用提示。
-                if (err != null && !err.isEmpty()) {
-                    Notify.show(err);
-                } else {
-                    Notify.show(R.string.hk_play_no_url);
-                }
-            });
-        }).start();
-    }
-
-    /**
-     * 海阔多线路切线路（第 7 步之八）：按 Url 当前 position，把 stash 里该线路的
-     * headers 换进 Result 再重播。字幕/弹幕/歌词都在同一个 Result 里，切线路时
-     * 原样跟着走。只在 hk 播放时调；非 hk 结果或无 stash 时什么都不做。
-     * 注意：Result.getHeader() 在 header 已设时返回 live map（resolveHkPlayerContent
-     * 里一定调过 setHeader，所以这里的原地换内容是有效的）。
-     */
-    private void applyHkLineHeaders(Result result) {
-        if (result == null || mHkLineHeaders == null) return;
-        int position = result.getUrl().getPosition();
-        if (position < 0 || position >= mHkLineHeaders.size()) return;
-        Map<String, String> headers = mHkLineHeaders.get(position);
-        if (headers == null) return;
-        Map<String, String> current = result.getHeader();
-        current.clear();
-        current.putAll(headers);
     }
 
     /**
@@ -3608,9 +3448,6 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
             setText(mBinding.content, 0, result.getDesc());
             setPlaybackLyrics(result.getDesc());
         }
-        // 海阔歌词（第 7 步之八）：Result.lrc 是后台取好的歌词文本，hk-only 喂内嵌歌词通道；
-        // 蜘蛛结果的 lrc 只在 AudioActivity 里读，这里不碰，零回归。
-        if (isHkSite() && !TextUtils.isEmpty(result.getLrc())) setPlaybackLyrics(result.getLrc());
         applyAudioQueueMetadata(getPlaybackEpisode());
         mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() && PlayerButtonSetting.isVisible(PlayerButtonSetting.PARSE) ? View.VISIBLE : View.GONE);
         if (redirectToAudioIfNeeded(result)) return;
@@ -3751,8 +3588,6 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     public void onItemClick(Result result) {
         invalidateShortDramaQueue("quality");
         updateActionQuality(result);
-        // 海阔多线路：切线路时把该线路的 headers 换进 Result 再重播（见 applyHkLineHeaders）。
-        if (isHkSite()) applyHkLineHeaders(result);
         PlayerManager manager = service() != null ? player() : null;
         String beforeTrace = manager != null ? manager.getPlaybackTraceId() : null;
         beginPlayHealth();

@@ -21,7 +21,6 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.api.config.WallConfig;
-import com.github.moyingshi.osc.tv.api.hk.HkWarmup;
 import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.ActivityHomeBinding;
@@ -117,9 +116,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.Theme_App);
         super.onCreate(savedInstanceState);
-        // 海阔小程序启动预热（第 7 步之十）：进程内只跑一次，只起后台线程；
-        // 没装规则时不跑；失败静默，不阻塞启动。
-        HkWarmup.warmUpOnStartup();
     }
 
     @Override

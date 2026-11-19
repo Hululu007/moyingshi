@@ -22,7 +22,6 @@ import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
-import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.databinding.DialogSiteBinding;
 import com.github.moyingshi.osc.tv.impl.SiteListener;
@@ -34,7 +33,6 @@ import com.github.moyingshi.osc.tv.ui.adapter.SiteGroupAdapter;
 import com.github.moyingshi.osc.tv.ui.custom.CustomTextListener;
 import com.github.moyingshi.osc.tv.ui.custom.SpaceItemDecoration;
 import com.github.moyingshi.osc.tv.ui.helper.SiteDialogTheme;
-import com.github.moyingshi.osc.tv.ui.hk.HkListActivity;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -227,11 +225,11 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private List<String> getGroups() {
-        return SiteGroupOrderStore.sort(Site.getGroups(HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), block))));
+        return SiteGroupOrderStore.sort(Site.getGroups(SiteBlockSetting.filter(VodConfig.get().getSites(), block)));
     }
 
     private List<String> getAllGroups() {
-        return Site.getGroups(HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), true)));
+        return Site.getGroups(SiteBlockSetting.filter(VodConfig.get().getSites(), true));
     }
 
     private void setGroupView() {
@@ -272,12 +270,6 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         if (block) {
             SiteBlockSetting.toggle(item);
             filter();
-            return;
-        }
-        // 小程序站源：进它自己的列表页（第 3 步），不切站源、不进蜘蛛空页；弹窗关掉，回来在列表页。
-        if (HkStore.isMiniapp(item)) {
-            HkListActivity.open(requireContext(), HkStore.titleOf(item));
-            dismiss();
             return;
         }
         if (listener != null) listener.setSite(item);
@@ -323,7 +315,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     @Override
     public void onStart() {
         super.onStart();
-        if (adapter.getItemCount() == 0 && HkStore.withoutMiniapps(SiteBlockSetting.filter(VodConfig.get().getSites(), true)).isEmpty()) dismiss();
+        if (adapter.getItemCount() == 0 && SiteBlockSetting.filter(VodConfig.get().getSites(), true).isEmpty()) dismiss();
         else configureWindow();
     }
 
