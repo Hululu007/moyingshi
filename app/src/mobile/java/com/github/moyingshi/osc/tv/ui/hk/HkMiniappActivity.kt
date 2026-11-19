@@ -12,9 +12,8 @@ import androidx.viewbinding.ViewBinding
 import com.github.moyingshi.osc.tv.R
 import com.github.moyingshi.osc.tv.api.config.VodConfig
 import com.github.moyingshi.osc.tv.api.hk.HkCache
-import com.github.moyingshi.osc.tv.api.hk.HkCloudExport
-import com.github.moyingshi.osc.tv.api.hk.HkCloudImport
 import com.github.moyingshi.osc.tv.api.hk.HkImportPicker
+import com.github.moyingshi.osc.tv.api.hk.HkRuleManager
 import com.github.moyingshi.osc.tv.api.hk.HkStore
 import com.github.moyingshi.osc.tv.api.hk.HkWarmup
 import com.github.moyingshi.osc.tv.bean.Config
@@ -133,8 +132,9 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
     }
 
     /**
-     * 云口令导入（第 7 步之四）：输入框贴入云口令（每行一条，也支持直接粘一整段分享文本），
-     * 按口令里的云号分流取回规则 JSON，走 HkStore.importJsonText 落盘登记。
+     * 云口令导入（阶段 6b 改走 HkRuleManager + HkStore，见 6b 文档 §2.7）：输入框贴入云口令
+     * （每行一条，也支持直接粘一整段分享文本），按口令里的云号分流取回规则 JSON
+     * （HkRuleManager.importByCloudCode，6a 分发表），落盘登记。
      * 打开时读剪贴板预提取口令填进去（与魔影 bc0 case 2 同款行为）；提取不到口令时
      * 只 toast、不关框、不发请求。注意：云口令只是公开短链，不是加密，拿到口令的人
      * 都能取回同一份规则，对话框 message 里写清楚这一点。
@@ -153,7 +153,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             val clip = clipboard?.takeIf { it.hasPrimaryClip() }?.primaryClip
             val clipText = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this)?.toString().orEmpty() else ""
-            val codes = HkCloudImport.extractCloudCodes(clipText)
+            val codes = HkRuleManager.extractCloudCodes(clipText)
             if (codes.isNotEmpty()) edit.setText(codes.joinToString("\n"))
         } catch (ignored: Throwable) {
             // 读剪贴板失败不阻断导入，用户可手动粘贴。
@@ -167,7 +167,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val codes = HkCloudImport.extractCloudCodes(edit.text?.toString().orEmpty())
+                val codes = HkRuleManager.extractCloudCodes(edit.text?.toString().orEmpty())
                 if (codes.isEmpty()) {
                     Notify.show(R.string.hk_miniapp_cloud_code_none)
                     return@setOnClickListener
@@ -175,11 +175,11 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
                 dialog.dismiss()
                 binding.btnCloudCode.isEnabled = false
                 Thread {
-                    val added = HkCloudImport.importCloudCodes(codes)
+                    val added = HkStore.importCloudCodes(codes)
                     runOnUiThread {
                         binding.btnCloudCode.isEnabled = true
                         if (added > 0) {
-                            val error = HkCloudImport.lastError().orEmpty()
+                            val error = HkStore.lastError().orEmpty()
                             if (error.isEmpty()) {
                                 onImported(added)
                             } else {
@@ -191,7 +191,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
                                 HkWarmup.warmUpAfterImport()
                             }
                         } else {
-                            val error = HkCloudImport.lastError().orEmpty()
+                            val error = HkStore.lastError().orEmpty()
                             if (error.isEmpty()) Notify.show(R.string.hk_miniapp_no_rule)
                             else Notify.show(getString(R.string.hk_miniapp_import_error, error))
                             refreshList()
@@ -248,7 +248,7 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
             var failed = 0
             for (title in titles) {
                 try {
-                    codes[title] = HkCloudExport.uploadTextDb(title)
+                    codes[title] = HkRuleManager.get().exportAsCloudCode(title)
                 } catch (e: Exception) {
                     failed++
                     if (firstError == null) firstError = e.message ?: e.toString()
@@ -265,12 +265,25 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
                 }
                 val share = Intent(Intent.ACTION_SEND)
                 share.type = "text/plain"
-                share.putExtra(Intent.EXTRA_TEXT, HkCloudExport.shareText(codes, getString(R.string.hk_miniapp_export_share_note)))
+                share.putExtra(Intent.EXTRA_TEXT, shareText(codes, getString(R.string.hk_miniapp_export_share_note)))
                 val chooserTitle = if (codes.size == 1) getString(R.string.hk_miniapp_export_share_title_one, codes.keys.first())
                 else getString(R.string.hk_miniapp_export_share_title_many, codes.size)
                 startActivity(Intent.createChooser(share, chooserTitle))
             }
         }.start()
+    }
+
+    /**
+     * 分享文本（旧 HkCloudExport.shareText 同格式，见 6b 文档 §2.7）：首行是公开短链提醒
+     * （云口令不是加密），随后每行一条 "标题：云口令"。codes 按导出顺序（LinkedHashMap）。
+     */
+    private fun shareText(codes: Map<String, String>, note: String): String {
+        val sb = StringBuilder()
+        if (note.isNotEmpty()) sb.append(note).append("\n")
+        for ((title, code) in codes) {
+            sb.append(title).append("：").append(code).append("\n")
+        }
+        return sb.toString().trim()
     }
 
     /** 导入回调（已在主线程）：报数 + 重载配置 + 刷新列表 + 触发后台预热（第 7 步之十）。 */

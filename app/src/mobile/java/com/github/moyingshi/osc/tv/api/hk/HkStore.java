@@ -571,6 +571,45 @@ public class HkStore {
     }
 
     /**
+     * 逐条导入云口令（旧 HkCloudImport.importCloudCodes 的口径，见
+     * docs/miniapp-xingchen-6b-share-publish.md §2.5）：逐条
+     * HkRuleManager.importByCloudCode（6a 分发表）→ 登记站源；单条失败记
+     * lastError、记日志、继续下一条；返回成功登记的条数。
+     */
+    public static int importCloudCodes(List<String> codes) {
+        lastError = null;
+        if (codes == null || codes.isEmpty()) return 0;
+        int added = 0;
+        for (String code : codes) {
+            if (TextUtils.isEmpty(code)) continue;
+            try {
+                HkRule rule = HkRuleManager.get().importByCloudCode(code.trim());
+                registerSites(Collections.singletonList(rule));
+                added++;
+            } catch (Exception e) {
+                lastError = e.getMessage() == null ? String.valueOf(e) : e.getMessage();
+                Log.w(TAG, "cloud import fail code=" + mask(code) + " err=" + lastError, e);
+            }
+        }
+        Log.i(TAG, "cloud import codes=" + codes.size() + " added=" + added);
+        return added;
+    }
+
+    /** 登记已落盘的规则为站源（供 HkShareHelper.importFromFile 的调用方），返回登记条数。 */
+    public static int registerImportedRules(List<HkRule> rules) {
+        if (rules == null || rules.isEmpty()) return 0;
+        registerSites(rules);
+        return rules.size();
+    }
+
+    /** 日志里不打完整口令：只留前 20 字（旧 HkCloudImport.mask 的同款做法）。 */
+    private static String mask(String code) {
+        if (code == null) return "";
+        String trimmed = code.trim();
+        return trimmed.length() <= 20 ? trimmed : trimmed.substring(0, 20) + "…";
+    }
+
+    /**
      * 同步已装规则：枚举 plugins/hk/*.json，缺失的站源条目重新登记（已有的不动），
      * 返回新登记的条数。委托给 HkRuleManager.getRules + LocalSource.mergeSites。
      */

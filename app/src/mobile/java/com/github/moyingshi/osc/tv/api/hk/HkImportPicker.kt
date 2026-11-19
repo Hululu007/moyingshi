@@ -3,6 +3,7 @@ package com.github.moyingshi.osc.tv.api.hk
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -10,23 +11,28 @@ import androidx.documentfile.provider.DocumentFile
 import java.io.File
 
 /**
- * 小程序导入的 SAF 接线，改编自用户给的参考实现 HkImportPicker（com.example.hkminiapp）。
+ * 小程序导入的 SAF 接线，阶段 6b 重写后端（见 docs/miniapp-xingchen-6b-share-publish.md §2.6）。
  *
- * 改动（相对参考实现）：
- * - 包名改成咱们的；对接的后端是 HkStore.importFiles（i22 的导入方法），参考实现里
- *   的 HkSiteAdapter 门面咱们还没有，不造。
- * - 复制 + 收集也在后台线程做（参考实现里目录收集在主线程）。
- * - 文件选择也按扩展名过滤（参考实现只在目录路径过滤了扩展名）。
- * - 缓存文件名用 nanoTime，避免同一毫秒同名覆盖。
- * - 取消选择器时不回调（参考实现里空列表也会走到 onImported(0)）。
+ * 不变的部分（相对 6b 之前）：
+ * - 包名；SAF 选择器（文件多选 / 目录树）与拿持久读权限；
+ * - 复制 + 收集在后台线程做；文件选择按扩展名过滤；
+ * - 缓存文件名用 nanoTime，避免同一毫秒同名覆盖；
+ * - 取消选择器时不回调。
+ *
+ * 改动（相对 6b 之前）：
+ * - 后端由 HkStore.importFiles 改走星辰助手 HkShareHelper.importFromFile
+ *  （.json/.txt/.hiker 单规则文本、.zip/.hkzip 包、合集包），成功后经
+ *   HkStore.registerImportedRules 登记站源；单文件失败记日志、继续下一个。
+ * - 合集包只解压落盘、不自动导入条目（星辰官形；条目点选面在阶段 7），added 计 0。
+ * - 无 mirrorToCache 失败重试（星辰 importFromFile 无重试）。
+ * - isRuleFile 新收 .txt/.hiker（星辰 importFromFile 支持的单规则文本格式）。
  *
  * 用法（在 Activity 的 onCreate 里，先于使用创建）：
  *     picker = HkImportPicker(this) { added -> ... }
  *     // “文件/目录”按钮 -> picker.pickFiles() / picker.pickDirectory()
  *
  * 依赖：androidx.documentfile:documentfile:1.0.1。
- * 只收 .json / .zip / .hkzip；目录导入递归子目录。
- * 没在 Android Studio 编译过，以编译结果为准。
+ * 只收 .json / .txt / .hiker / .zip / .hkzip；目录导入递归子目录。
  */
 class HkImportPicker(
     private val activity: AppCompatActivity,
@@ -52,7 +58,7 @@ class HkImportPicker(
             importDirectory(root)
         }
 
-    /** 文件导入：系统选择器，可多选 .json / .zip / .hkzip。 */
+    /** 文件导入：系统选择器，可多选 .json / .txt / .hiker / .zip / .hkzip。 */
     fun pickFiles() {
         pickFilesLauncher.launch(arrayOf("application/json", "application/zip", "*/*"))
     }
@@ -66,7 +72,7 @@ class HkImportPicker(
         if (uris.isEmpty()) return
         Thread {
             val files = uris.mapNotNull { uri -> copyUriToCache(activity, uri) }
-            val added = HkStore.importFiles(files)
+            val added = importFiles(files)
             activity.runOnUiThread { onImported(added) }
         }.start()
     }
@@ -75,9 +81,27 @@ class HkImportPicker(
         Thread {
             val files = mutableListOf<File>()
             collectRuleFiles(root, files)
-            val added = HkStore.importFiles(files)
+            val added = importFiles(files)
             activity.runOnUiThread { onImported(added) }
         }.start()
+    }
+
+    /**
+     * 逐文件经新助手导入并登记站源，返回成功登记的条数。
+     * 合集包只解压落盘（HkShareHelper.importFromFile 回空列表），added 计 0，见类头注。
+     * 单文件失败记日志、继续下一个文件（与旧 HkStore.importFiles 的逐文件容错同口径）。
+     */
+    private fun importFiles(files: List<File>): Int {
+        var added = 0
+        for (file in files) {
+            try {
+                val rules = HkShareHelper.importFromFile(file)
+                added += HkStore.registerImportedRules(rules)
+            } catch (e: Exception) {
+                Log.w(TAG, "import failed: " + file.name, e)
+            }
+        }
+        return added
     }
 
     private fun collectRuleFiles(dir: DocumentFile, out: MutableList<File>) {
@@ -91,9 +115,12 @@ class HkImportPicker(
     }
 
     companion object {
+        private const val TAG = "HkImportPicker"
+
         private fun isRuleFile(name: String?): Boolean {
             val n = name?.lowercase().orEmpty()
-            return n.endsWith(".json") || n.endsWith(".zip") || n.endsWith(".hkzip")
+            return n.endsWith(".json") || n.endsWith(".txt") || n.endsWith(".hiker")
+                    || n.endsWith(".zip") || n.endsWith(".hkzip")
         }
 
         /** SAF 的 Uri 读一次就复制到缓存，得到 importFiles() 能用的 File；不是规则文件返回 null。 */

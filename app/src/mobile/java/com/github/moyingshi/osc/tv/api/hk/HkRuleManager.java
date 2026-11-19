@@ -1067,6 +1067,23 @@ public class HkRuleManager {
     }
 
     /**
+     * 从一段文本里提取云口令（旧 HkCloudImport.extractCloudCodes 的口径，见
+     * docs/miniapp-xingchen-6b-share-publish.md §2.4）：全文找，每条过
+     * normalizeCloudCode（oooole 后缺 / 补 /），去重保序。星辰 HkRuleManager
+     * 无批量提取法；管理页云口令对话框需要它。
+     */
+    public static List<String> extractCloudCodes(String text) {
+        List<String> codes = new ArrayList<>();
+        if (text == null || text.isEmpty()) return codes;
+        Matcher matcher = CLOUD_CODE_FIND.matcher(text);
+        while (matcher.find()) {
+            String code = normalizeCloudCode(matcher.group());
+            if (!codes.contains(code)) codes.add(code);
+        }
+        return codes;
+    }
+
+    /**
      * 解析 JSON 文本（不落盘）：兼容单个规则对象与规则数组（一个文件多个小程序）。
      * 数组中单个损坏/不合规的条目只跳过、不影响其它。
      *
