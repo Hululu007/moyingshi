@@ -48,7 +48,7 @@ public final class HkRuleFetch {
     }
 
     /** 详情请求：URL 来自卡片（无 fy 占位符），请求头与首页同款（firstHeader + ua），编码默认 UTF-8。 */
-    static RequestSpec buildDetailRequest(HkRule rule, String url) {
+    public static RequestSpec buildDetailRequest(HkRule rule, String url) {
         RequestSpec spec = new RequestSpec();
         spec.url = url;
         spec.charset = "UTF-8";
@@ -60,7 +60,7 @@ public final class HkRuleFetch {
     }
 
     /** 同步抓一页，按指定编码解码；失败抛 HkException（带 URL 与原因）。 */
-    static String fetch(RequestSpec spec) throws HkEngine.HkException {
+    public static String fetch(RequestSpec spec) throws HkEngine.HkException {
         OkHttpClient client = HkHttpClient.client();
         Request.Builder builder = new Request.Builder().url(spec.url);
         for (Map.Entry<String, String> e : spec.headers.entrySet()) {
@@ -87,7 +87,7 @@ public final class HkRuleFetch {
     }
 
     /** 只有 http/https 才走 OkHttp：hiker://empty 等规则内地址不抓页（见 docs/miniapp-hk-fixes.md）。 */
-    static boolean isHttpUrl(String url) {
+    public static boolean isHttpUrl(String url) {
         if (TextUtils.isEmpty(url)) return false;
         String lower = url.trim().toLowerCase(Locale.ROOT);
         return lower.startsWith("http://") || lower.startsWith("https://");
