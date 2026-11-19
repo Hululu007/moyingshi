@@ -7,7 +7,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import org.mozilla.javascript.Undefined;
 
 import java.net.URLDecoder;
 import java.util.ArrayList;
@@ -17,7 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * hiker://page/ 子页面展开 + require 执行，对应魔影小程序的
+ * hiker://page/ 子页面展开，对应魔影小程序的
  * HkSiteAdapter.expandPage（见逆向报告 §7.1：本体反编译失败，527 条指令被跳过，
  * 只有子页面编解码逻辑 subPageId/subPageRealUrl/subPageTitle 是可读的）。
  * <p>
@@ -28,15 +27,14 @@ import java.util.Map;
  *       {@code name} 或 {@code path} 匹配。</li>
  *   <li>JS 里 {@code fetch('hiker://page/<名>')} 返回页面对象的 JSON 字符串
  *       （含 {@code rule} 字段），所以 {@code JSON.parse(...).rule} 能 eval
- *       （西瓜影院的 find_rule 就是这么写的）。</li>
- *   <li>{@code require('hiker://page/<名>')} 执行该页的 rule，返回导出值：
- *       {@code $.exports} 优先，其次 setResult 的卡片（转回 JS 数组），再其次
- *       eval 返回值。{@code |} 多页按序执行，取最后一页导出。页面在子引擎里跑
- *       （独立 scope，避免 {@code const}/{@code let} 重声明撞名——ClassTab 在
- *       一次首页执行里会被 require 两次）。</li>
+ *       （西瓜影院的 find_rule 就是这么写的；本类的 {@code pageJson} 已随 5e 删除，
+ *       JS 侧 fetch 由 {@code HkJsRuntime.handlePageRequest} 承接）。</li>
+ *   <li>JS 里 {@code require('hiker://page/<名>')} 由 {@code HkJsRuntime} 内部处理，
+ *       不走本类（5e 删除本类的 {@code require}/{@code requireOne}：唯一消费方是已死的
+ *       require 链；{@code getExports}/{@code jsValueFromCards} 已随 HkEngine 适配段瘦身删除）。</li>
  *   <li>子页面卡片点开（url 是 {@code hiker://page/...}）走 {@link #expand}，
- *       在 {@link HkExecutor#detail} 里分流；选集地址是子页面时
- *       {@link HkExecutor} 同样先展开再找可播地址。</li>
+ *       经 {@link com.github.moyingshi.osc.tv.ui.hk.HkListActivity#openSubpage} 开新列表页（5e）；
+ *       选集地址是子页面时 {@link HkRouter#play} 的子页面支先展开再找可播地址（5e）。</li>
  * </ul>
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。调用方必须在后台线程跑（网络同步 +
@@ -49,15 +47,6 @@ public final class HkSubpage {
 
     /** 子页面地址前缀。 */
     public static final String PREFIX = "hiker://page/";
-
-    /**
-     * require 递归深度上限：funcTools → ClassTab 这类嵌套 require 是正常情况，
-     * 8 层足够；超了说明规则在循环 require。
-     */
-    private static final int MAX_REQUIRE_DEPTH = 8;
-
-    /** 当前线程的 require 嵌套深度（子页面互相 require 时累加）。 */
-    private static final ThreadLocal<Integer> REQUIRE_DEPTH = ThreadLocal.withInitial(() -> 0);
 
     private HkSubpage() {
     }
@@ -170,22 +159,16 @@ public final class HkSubpage {
     }
 
     /**
-     * {@code fetch('hiker://page/<名>')} 的返回值：页面对象的 JSON 字符串
-     * （含 {@code rule} 字段，供 {@code JSON.parse(...).rule} 用）。
-     * 页不存在抛 HkException（带页名），不返回 ""——否则 JS 侧
-     * {@code JSON.parse('')} 报错含糊，看不出是页不存在。
+     * 子页面列表页定样式用（5e）：读页面对象的 {@code col_type} 字段，空则回落规则 {@code col_type}。
+     * 页不存在时回落规则 col_type（expand 会抛错，样式只在 expand 成功后用）。
      */
-    public static String pageJson(HkRule rule, String pageUrl) throws HkEngine.HkException {
+    public static String pageColType(HkRule rule, String pageUrl) {
         Parsed parsed = parse(pageUrl);
-        if (parsed == null || parsed.names.isEmpty()) {
-            throw new HkEngine.HkException("不是子页面地址：" + pageUrl);
-        }
-        String name = parsed.names.get(0);
-        JsonObject page = findPage(rule, name);
-        if (page == null) {
-            throw new HkEngine.HkException("子页面不存在：" + name + "（规则 " + titleOf(rule) + " 的 pages 里没有这一页）");
-        }
-        return page.toString();
+        String name = parsed == null || parsed.names.isEmpty() ? "" : parsed.names.get(0);
+        JsonObject page = TextUtils.isEmpty(name) ? null : findPage(rule, name);
+        String colType = page == null ? "" : pageString(page, "col_type");
+        if (TextUtils.isEmpty(colType)) colType = rule == null ? "" : rule.getColType();
+        return colType == null ? "" : colType;
     }
 
     /**
@@ -215,66 +198,6 @@ public final class HkSubpage {
         List<HkCard> cards = engine.evalFindRule(pageRule);
         Log.i(TAG, "expand page=" + name + " cards=" + cards.size());
         return cards;
-    }
-
-    /**
-     * {@code require('hiker://page/<名>[|...][?query]', importParam)}：
-     * 执行一页（{@code |} 多页按序执行，取最后一页导出），返回导出值。
-     * 返回值优先级：{@code $.exports}（已设置且非 Undefined）→ 子引擎 setResult
-     * 的卡片（转回调用方 scope 的 JS 数组，供 {@code .filter/.map}）→ eval 返回值。
-     * importParam：第二个参数（非 Undefined 时）优先，否则取地址里的 query 参数。
-     */
-    public static Object require(HkEngine caller, HkRule rule, String pageUrl, Object importParam) throws HkEngine.HkException {
-        Parsed parsed = parse(pageUrl);
-        if (parsed == null || parsed.names.isEmpty()) {
-            throw new HkEngine.HkException("require 不支持的地址：" + pageUrl + "（只支持 hiker://page/...）");
-        }
-        int depth = REQUIRE_DEPTH.get();
-        if (depth >= MAX_REQUIRE_DEPTH) {
-            throw new HkEngine.HkException("require 嵌套太深（超过 " + MAX_REQUIRE_DEPTH + " 层），疑似循环 require：" + pageUrl);
-        }
-        REQUIRE_DEPTH.set(depth + 1);
-        try {
-            Object exported = Undefined.instance;
-            for (String name : parsed.names) {
-                exported = requireOne(caller, rule, pageUrl, name, parsed.query, importParam);
-            }
-            return exported;
-        } finally {
-            REQUIRE_DEPTH.set(depth);
-        }
-    }
-
-    /** require 一页（见 {@link #require}）：子引擎执行页面 rule，返回导出值。 */
-    private static Object requireOne(HkEngine caller, HkRule rule, String pageUrl, String name,
-                                     Map<String, String> query, Object importParam) throws HkEngine.HkException {
-        JsonObject page = findPage(rule, name);
-        if (page == null) {
-            throw new HkEngine.HkException("子页面不存在：" + name + "（规则 " + titleOf(rule) + " 的 pages 里没有这一页）");
-        }
-        String pageRule = pageString(page, "rule");
-        if (TextUtils.isEmpty(pageRule)) {
-            Log.w(TAG, "require empty page rule: " + name);
-            return Undefined.instance;
-        }
-        HkEngine engine = new HkEngine();
-        // 第 7 步之七：子引擎从父引擎抄弹框宿主（子页面规则 JS 调 confirm/select 时也能弹框）。
-        engine.setDialogHost(caller.getDialogHost());
-        engine.prepare(rule, pageUrl, 1, "page", "");
-        if (importParam != null && !(importParam instanceof Undefined)) {
-            engine.setImportParam(importParam);
-        } else {
-            engine.setImportParams(query);
-        }
-        engine.evalPreRule();
-        Object returned = engine.eval(HkParserKit.jsBody(pageRule), "page:" + name);
-        Object exports = engine.getExports();
-        if (exports != null && !(exports instanceof Undefined)) return exports;
-        if (engine.wasResultSet()) {
-            List<HkCard> cards = engine.getResultCards();
-            return caller.jsValueFromCards(cards);
-        }
-        return returned;
     }
 
     /**

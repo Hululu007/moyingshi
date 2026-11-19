@@ -316,8 +316,8 @@ public class HkRouter {
         if (TextUtils.isEmpty(text)) return "";
         try {
             HkEngine engine = new HkEngine();
-            // 装饰性求值：不发 refreshPage 事件，防详情页多一次重载。
-            engine.setRefreshEventEnabled(false);
+            // 5e：装饰性求值本就不发 refreshPage 事件（全树无 OnRefreshPageEvent 订阅方，
+            // 见 5d 文档 §7；setRefreshEventEnabled 已随适配段瘦身删除，不另设门控）。
             engine.prepare(rule, detailUrl, 1, "detail", text);
             engine.evalPreRule();
             if (HkSelector.isJsRule(field)) return engine.evalTextRule(field);
@@ -579,6 +579,30 @@ public class HkRouter {
             lazyPageUrl = u.substring(0, lr0).trim();
             lazyRuleText = decodeConflict(u.substring(lr0 + 10).trim());
             u = lazyPageUrl;
+        }
+        // 0.05 子页面选集（5e，旧行为保留，星辰无此支）：选集地址是子页面时先展开，
+        // 在展开卡片里找第一条可播地址继续解析；展开不到可播地址时报明确错（不把
+        // hiker://page/… 原样塞给播放器）。@lazyRule= 已在步骤 0 剥离，u 为页地址部分；
+        // HkSubpage.parse 自带 # 剥离，无需预处理。.js: 懒规则不走这里：它只对地址
+        // 字符串求值，不抓页，没有 scheme 问题。循环展开最多 3 次（子页面套子页面），
+        // 直到非子页面地址，再调一次 playRoute。
+        if (HkSubpage.isSubpageUrl(u)
+                && (lazyRuleText == null || !(lazyRuleText.startsWith(".js:") || lazyRuleText.startsWith("js:")))) {
+            String target = u;
+            for (int depth = 0; depth < 3; depth++) {
+                java.util.List<HkCard> cards = HkSubpage.expand(rule, target);
+                String playable = HkSubpage.findPlayableUrl(cards);
+                if (TextUtils.isEmpty(playable)) {
+                    throw new IllegalStateException("子页面未解析出播放地址：" + HkSubpage.subpageName(target)
+                            + "（展开得 " + cards.size() + " 张卡片）");
+                }
+                if (!HkSubpage.isSubpageUrl(playable)) {
+                    return playRoute(playable, itemExtra);
+                }
+                target = playable;
+            }
+            throw new IllegalStateException("子页面未解析出播放地址：" + HkSubpage.subpageName(u)
+                    + "（展开 3 层仍是子页面）");
         }
         // 0.1 播放数据 JSON 必须最先认：urls 里的地址常带 #isVideo=true# 等标记，
         // 若先走下面第 1 步按 # 切串，JSON 会被拦腰截断、解析失败后整串塞给播放器（白屏）

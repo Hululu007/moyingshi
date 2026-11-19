@@ -4,15 +4,11 @@ package com.github.moyingshi.osc.tv.api.hk;
 import android.text.TextUtils;
 
 import com.github.catvod.crawler.SpiderDebug;
-import com.google.gson.Gson;
-import com.google.gson.JsonParser;
 import com.orhanobut.logger.Logger;
 
-import org.mozilla.javascript.Undefined;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,17 +18,16 @@ import java.util.Map;
  * <p>门面部分：把 {@link HkRule}、{@link HkJsRuntime} 串起来，home/search 时按规则形态
  * 自动分流——{@code js:} 走 JS 运行时，否则走选择器（阶段 4 已恢复 HkSelector 分支）。
  *
- * <p>适配段部分：旧手写版 HkEngine（2016 行）的调用点（HkExecutor、
- * HkSubpage）未重接线到门面 home()/search()——门面不跑 preRule、
- * URL 拼法与 HkExecutor 的 buildHomeRequest/buildDetailRequest 不等价。
- * 旧 API 以 {@code @Deprecated} 适配方法保留，用新运行时实现，调用点零改动。
+ * <p>适配段部分：旧手写版 HkEngine（2016 行）的 prepare/evalPreRule/evalFindRule/
+ * evalTextRule 仍被 HkSubpage.expand 与 HkRouter.computeLastChapter 调用（门面不跑
+ * preRule，子页面展开与最新章节求值都在门面之外）；旧 API 以 {@code @Deprecated}
+ * 适配方法保留，用新运行时实现。HkExecutor 已随阶段 5 删除，适配段同步瘦身（见下）。
  * 旧实现（BOOTSTRAP/config/initConfig/rc/storage0/batchFetch/require、HkContextFactory、
  * CxHandle、vars/myVars/items 内务）已退役，由 HkJsRuntime 接管。
  */
 public class HkEngine {
 
     private static final String TAG = "HkEngine";
-    private static final Gson GSON = new Gson();
     // resolveUa shim 保留旧串（见 §6.2）：不得委托给 HkUaEnum——HkUaEnum.MOBILE 是
     // Android 15/Chrome 128 串，与旧串不同，改了会悄悄换全部 hk 请求 UA。
     private static final String MOBILE_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36";
@@ -288,12 +283,15 @@ public class HkEngine {
     }
 
     // ================= 旧 HkEngine API 适配段（@Deprecated，3e-2） =================
-    // 旧手写版 HkEngine（2016 行）的调用点（HkExecutor、HkSubpage，
-    // 约 85 处）未重接线到门面 home()/search()：门面不跑 preRule、
-    // URL 拼法与 HkExecutor 的 buildHomeRequest/buildDetailRequest
-    // 不等价（homeDetailed 的 classUrl ID 式/fyAll/POST 守卫/诊断、详情/播放链的
-    // preRule + initialVars 都在门面之外）。本段用新运行时实现旧 API，调用点
-    // 零改动；阶段 5/7 接管弹框/详情/播放时按需移除。逐项映射见文档 §6.2。
+    // 旧手写版 HkEngine（2016 行）的调用点未重接线到门面 home()/search()：门面不跑 preRule、
+    // URL 拼法与旧 buildHomeRequest/buildDetailRequest 不等价（homeDetailed 的 classUrl ID 式/
+    // fyAll/POST 守卫/诊断、详情/播放链的 preRule + initialVars 都在门面之外）。
+    // 本段用新运行时实现旧 API；5e 起调用点只剩 HkSubpage.expand（子页面展开）与
+    // HkRouter.computeLastChapter（最新章节求值）——HkExecutor 已随阶段 5 删除。
+    // 适配段瘦身（5e）：wasResultSet/getResultCards/getExports/jsValueFromCards/setImportParam/
+    // getVarsSnapshot/setRefreshEventEnabled/wasRefreshRequested/setDialogHost/getDialogHost/
+    // DialogHost/evalExpression/eval 已删除（唯一消费方是已死的 HkExecutor、HkSubpage.requireOne
+    // 与 HkActionHandler）；setImportParams 改为直通运行时。逐项映射见文档 §6.2。
     // 语义变化（旧“每引擎清 vars”→新“进程级 varMap 共享”、旧“prepared scope 直跑”
     // →新“每发鲜 scope”、旧“live JS 数组”→新“JSON 字符串”）已在文档写明。
 
@@ -316,77 +314,17 @@ public class HkEngine {
         public HkException(String message, Throwable cause) { super(message, cause); }
     }
 
-    /**
-     * 弹框宿主（第 7 步之七）：规则 JS 调 {@code confirm/select/input} 时，
-     * 引擎经它弹框问用户；返回 null/false = 用户取消。宿主由调用方
-     * （Fragment/Activity）在后台线程求值前通过 {@link #setDialogHost} 挂上；
-     * 没挂 host 时 confirm/select 仍抛明确错（第 1–6 步的原行为）。
-     * 实现方（见 {@code HkDialogs}）必须在主线程弹框、后台线程 latch 等结果，
-     * 取消路径（按钮/返回键/点框外/Activity 销毁）都要回取消默认值，不悬挂。
-     * （旧版原样保留接口；3e-2 适配段只存取、不 consult——新运行时 confirm/select
-     * 走 authGate/AuthBridgeEvent 授权链，阶段 5/6 接管弹框时移除本接口。）
-     */
-    public interface DialogHost {
-        boolean confirm(String title, String message);
-
-        String select(String title, List<String> options);
-
-        String input(String title, String hint, String preset);
-    }
-
     // ---- 适配段实例状态（门面字段 rule/jsRuntime 复用，prepare 时赋值） ----
     private String pageUrl = "";
     private int page = 1;
     private String pageType = "home";
     private String resCode = "";
-    private DialogHost dialogHost;
-    private boolean refreshEventEnabled = true;
-    /** require 的第二个参数 / 子页面 query 参数：运行时无 Java 侧设置口，只存值。 */
-    private Object importParam;
-    private Map<String, String> importParams;
-    /** 上次 evalFindRule/eval 交的卡片（getResultCards 用）；未交过为 null。 */
-    private List<HkCard> lastResultCards;
-    /** 上次求值是否调过 setResult 一族（wasResultSet 用）。 */
-    private boolean resultSetFlag;
 
-    /** 旧调用点专用无参构造（HkExecutor/HkSubpage 均 new HkEngine() 后调 prepare）。 */
+    /** 旧调用点专用无参构造（HkSubpage/HkRouter.computeLastChapter 均 new HkEngine() 后调 prepare；5e 前另有 HkExecutor）。 */
     @Deprecated
     public HkEngine() {
         // 5a：adopted 是 final 字段，无参适配构造须显式置 false（独立引擎口径）。
         this.adopted = false;
-    }
-
-    @Deprecated
-    public void setRefreshEventEnabled(boolean enabled) {
-        // 只存值：新运行时 refreshPage 无门控，恒投 OnRefreshPageEvent；
-        // 当前我方 UI 无该事件订阅方（全树 grep 为零），无 live 行为变化；
-        // 阶段 5 恢复门控时删除本方法。
-        this.refreshEventEnabled = enabled;
-    }
-
-    @Deprecated
-    public void setDialogHost(DialogHost host) {
-        this.dialogHost = host;
-    }
-
-    @Deprecated
-    public DialogHost getDialogHost() {
-        return dialogHost;
-    }
-
-    @Deprecated
-    public boolean wasRefreshRequested() {
-        return jsRuntime != null && jsRuntime.isRefreshRequested();
-    }
-
-    /**
-     * 旧 vars 快照：新运行时 vars 在进程级 varMap 共享，跨发无需快照携带；
-     * 调用方传回的空 initialVars 不丢东西（prepare 已把 initialVars 写进 varMap）。
-     * 阶段 5 删除本方法。
-     */
-    @Deprecated
-    public Map<String, Object> getVarsSnapshot() {
-        return new HashMap<>();
     }
 
     @Deprecated
@@ -412,8 +350,6 @@ public class HkEngine {
         this.page = page;
         this.pageType = TextUtils.isEmpty(pageType) ? "home" : pageType;
         this.resCode = resCode == null ? "" : resCode;
-        this.lastResultCards = null;
-        this.resultSetFlag = false;
         try {
             this.jsRuntime = new HkJsRuntime(rule);
             this.jsRuntime.init();
@@ -449,28 +385,19 @@ public class HkEngine {
         }
     }
 
-    /** JS 是否调过 setResult/setHomeResult/setSearchResult（命中诊断用）。 */
-    @Deprecated
-    public boolean wasResultSet() {
-        return resultSetFlag;
-    }
-
     /**
      * 执行整段 js: find_rule，返回卡片列表。
      * 3e-2 实现：HkJsRuntime.parseList(findRule, pageUrl, page)（3 参版，自成顶替作用域；
      * parseListInternal 内已调 stripJsPrefix，传原始 find_rule 即可），再 HkItem→HkCard
-     * 逐字段转换。注意：新运行时只认 setResult 一族交付（直接 return 数组不再回落转换，
-     * 与旧 cardsFromJs 回落不同）；wasResultSet 以返回表非空计（setResult 空数组不计，
-     * 见文档 §6.2——deliverResult 走 findSink 时不写共享 results 表，计数差值法不成立）。
+     * 逐字段转换。5e：parseListInternal 已恢复直接 return 数组的回落（3e 缺口⑤），
+     * wasResultSet 随适配段瘦身删除（唯一消费方是已死的 HkExecutor 命中诊断）。
      */
     @Deprecated
     public List<HkCard> evalFindRule(String findRule) throws HkException {
         if (jsRuntime == null) throw new HkException("引擎未 prepare");
         try {
             List<HkItem> items = jsRuntime.parseList(findRule, pageUrl, page);
-            resultSetFlag = items != null && !items.isEmpty();
-            lastResultCards = toCards(items);
-            return new ArrayList<>(lastResultCards);
+            return toCards(items);
         } catch (HkJsRuntime.ListEvalSupersededException e) {
             throw new HkException("列表求值被顶替", e);
         } catch (Exception e) {
@@ -483,11 +410,11 @@ public class HkEngine {
      * 3e-2 实现：HkJsRuntime.evalJS(jsBody, resCode, false)；优先级：setStrResult/
      * setLastChapterResult 写下的 strResult 变化 → 新交付条目首标题 → JS 直接返回值；
      * evalJS 出错回 "error:..." 字符串，shim 遇此外转 HkException。
-     * 已知缺口（见文档 §6.2）：纯字符串 setResult("第…集") 在 evalJS 的 fresh scope 里
-     * 走 collectResult，buildResultItems 解析不成条目会被静默丢掉；parseLastChapterRule
-     * 的 JSEngineCallback 是 HkJsRuntime 私有接口，外部无法驱动。last_chapter_rule
-     * 在野外绝大多数是直接返回表达式（如 js:pdfh(…)），最坏只是装饰文案缺失
-     * （HkExecutor.lastChapter 全 catch 回 ""），不炸详情页。
+     * 5e：纯字符串 setResult("第…集") 的缺口已恢复（HkJsRuntime.noteStringResult，
+     * 见 3e 缺口①），strAfter 正常读到；parseLastChapterRule 的 JSEngineCallback
+     * 是 HkJsRuntime 私有接口，外部无法驱动（不变）。last_chapter_rule 在野外绝大多数
+     * 是直接返回表达式（如 js:pdfh(…)），最坏只是装饰文案缺失
+     * （HkRouter.computeLastChapter 全 catch 回 ""），不炸详情页。
      */
     @Deprecated
     public String evalTextRule(String rule) throws HkException {
@@ -516,119 +443,14 @@ public class HkEngine {
     }
 
     /**
-     * 求一段 .js: 后处理表达式的值，input 是待处理的值（进 scope 当全局变量）。
-     * 返回字符串；JS 返回 undefined/null 时返回 ""。
-     * 3e-2 实现：setNextInputOverride(input) + evalLazy(js, pageUrl, -1)
-     * （evalLazyInternal 经 evalRawInFreshScope 注入 input，与旧“置 input 全局
-     * 再求值”同形；区别是鲜 scope 而非 prepared scope，vars 经 varMap 延续）。
-     */
-    @Deprecated
-    public String evalExpression(String js, String input) throws HkException {
-        if (TextUtils.isEmpty(js)) return input == null ? "" : input;
-        if (jsRuntime == null) throw new HkException("引擎未 prepare");
-        try {
-            jsRuntime.setNextInputOverride(input == null ? "" : input);
-            String ret = jsRuntime.evalLazy(js, pageUrl, -1);
-            if (ret == null || "undefined".equals(ret)) return "";
-            return ret;
-        } catch (Exception e) {
-            throw new HkException(".js: 执行失败: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 在当前 scope 里执行一段 JS，返回求值结果（调用方决定怎么解读）。
-     * 3e-2 实现：evalJS(js, resCode, false) 回 String；出错转 HkException。
-     * 区别：旧 eval 在 prepared scope 里直跑、回 live JS 值；新 evalJS 每发鲜 scope、
-     * 回字符串（对象/数组已 JSON 化）。HkSubpage.requireOne 的 fallback 仍可用。
-     * sourceName 入参现仅作占位（曾是 Rhino 脚本名，供堆栈用）。
-     */
-    @Deprecated
-    public Object eval(String js, String sourceName) throws HkException {
-        if (jsRuntime == null) throw new HkException("引擎未 prepare");
-        int before = jsRuntime.actionResultCount();
-        String ret;
-        try {
-            ret = jsRuntime.evalJS(js, resCode, false);
-        } catch (Throwable t) {
-            throw new HkException("JS 执行失败: " + t.getMessage(), t);
-        }
-        if (ret != null && ret.startsWith("error:")) {
-            throw new HkException("JS 执行失败: " + ret);
-        }
-        List<HkItem> snap = jsRuntime.snapshotActionResults();
-        if (snap != null && snap.size() > before) {
-            lastResultCards = toCards(snap.subList(before, snap.size()));
-            resultSetFlag = true;
-        }
-        return ret == null ? "" : ret;
-    }
-
-    /**
-     * 读当前 scope 里 $.exports（页面规则用它交导出值；未设置返回 Undefined）。
-     * 3e-2 实现：新运行时每发鲜 scope，$.exports 不跨发留存，恒回 Undefined.instance；
-     * 子页面 require 的 exports 优先分支在 3e 恒走不到，阶段 5/7 恢复。
-     */
-    @Deprecated
-    public Object getExports() {
-        return Undefined.instance;
-    }
-
-    /**
-     * 把 $.importParam 设为 require 的第二个参数（任意 JS 值；Undefined 时不改）。
-     * 3e-2 实现：只存值（运行时无 Java 侧 importParam 设置口）。
-     */
-    @Deprecated
-    public void setImportParam(Object value) {
-        this.importParam = value;
-    }
-
-    /**
      * 把 $.importParam 设为给定的 query 参数对象（子页面展开时用）。
-     * 3e-2 实现：只存值（同上）。
+     * 5e（3e 缺口③恢复）：直通 HkJsRuntime.setImportParams——运行时在 assembleFreshScope
+     * 里把参数挂到 $ 对象上（见 HkJsRuntime.importParams 字段注）。prepare 之后调
+     * （HkSubpage.expand 的调用序），运行时已存在；prepare 之前调则无运行时可转，静默丢弃。
      */
     @Deprecated
     public void setImportParams(Map<String, String> params) {
-        this.importParams = params;
-    }
-
-    /** JS 调过 setResult 后交的卡片列表（require 取子引擎结果时用）；没调过返回 null。 */
-    @Deprecated
-    List<HkCard> getResultCards() {
-        return lastResultCards;
-    }
-
-    /**
-     * 把卡片列表转回调用方 scope 里的 JS 数组（require 返回子引擎的 setResult
-     * 结果时用，供调用方 .filter/.map；空列表返回 []）。
-     * 3e-2 实现：新运行时无 scope 外露，无法回 live JS 数组，回 JSON 字符串
-     * （字段与旧版一致：title/url/img/pic/desc/col_type/extra）；仅 HkSubpage:275
-     * 一个调用方，父规则对 require 结果做 .filter/.map 会失效，见文档 §6.2。
-     */
-    @Deprecated
-    public Object jsValueFromCards(List<HkCard> cards) throws HkException {
-        if (jsRuntime == null) throw new HkException("引擎未 prepare");
-        List<Map<String, Object>> plain = new ArrayList<>();
-        if (cards != null) {
-            for (HkCard card : cards) {
-                Map<String, Object> m = new HashMap<>();
-                m.put("title", card.getTitle());
-                m.put("url", card.getUrl());
-                m.put("img", card.getPic());
-                m.put("pic", card.getPic());
-                m.put("desc", card.getDesc());
-                m.put("col_type", card.getColType());
-                if (!TextUtils.isEmpty(card.getExtra())) {
-                    try {
-                        m.put("extra", JsonParser.parseString(card.getExtra()));
-                    } catch (Exception ignored) {
-                        m.put("extra", card.getExtra());
-                    }
-                }
-                plain.add(m);
-            }
-        }
-        return GSON.toJson(plain);
+        if (jsRuntime != null) jsRuntime.setImportParams(params);
     }
 
     /** HkItem → HkCard 逐字段转换（两模型字段 1:1；HkItem.getType 无对应字段，丢弃）。 */

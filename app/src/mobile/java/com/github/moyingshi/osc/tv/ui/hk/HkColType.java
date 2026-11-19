@@ -1,5 +1,9 @@
 package com.github.moyingshi.osc.tv.ui.hk;
-/** 移植自星辰 app/src/mobile/java/com/fongmi/android/tv/ui/hk/HkColType.java（124 行）：除包名外与原文一致；详见 docs/miniapp-xingchen-5b-search-episodes.md。 */
+
+import com.github.moyingshi.osc.tv.bean.Style;
+/** 移植自星辰 app/src/mobile/java/com/fongmi/android/tv/ui/hk/HkColType.java（124 行）：除包名外与原文一致；详见 docs/miniapp-xingchen-5b-search-episodes.md。
+ * 5e 增补：{@link #styleFor}/{@link #columnsFor} 是本项目自有方法（非星辰原文），按本 enum 的官表派生列表样式与列数，
+ * 替代已删 {@code HkListHelper} 的旧表；“除包名外与原文一致”自此只适用于 enum 本体 57 码与已有方法。 */
 
 /**
  * 照抄 8.83 com.example.hikerview.constants.ArticleColTypeEnum（smali 逐常量转写）。
@@ -119,6 +123,48 @@ public enum HkColType {
             if (t.itemType == itemType) return t.leftRight;
         }
         return 0;
+    }
+
+    /**
+     * col_type 到本 App 列表样式的映射（5e 自有，替代 {@code HkListHelper.styleFor} 的旧表；
+     * 派生规则与行为差见 docs/miniapp-xingchen-5e-click-dispatch-cleanup.md §4）。
+     * 按 code 家族派生（查不到回退 {@code MOVIE_3}，即星辰官行为）：
+     * 文字/结构行 → {@code Style.list()}；含 {@code round} 或 {@code avatar} → oval；
+     * {@code pic_1} 族 → 横图 rect 1.33；其余 {@code pic_*}/{@code icon_*} → 方图 rect 1.0；
+     * 其余（{@code movie_2/3}、{@code card_pic_*}、{@code video}、未知/空）→ 海报 rect 0.75。
+     */
+    public static Style styleFor(String colType) {
+        String code = byCode(colType).code;
+        if (code.startsWith("text_") || "long_text".equals(code) || "rich_text".equals(code)
+                || "input".equals(code) || "flex_button".equals(code) || "scroll_button".equals(code)
+                || "icon_1_search".equals(code) || "icon_1_left_pic".equals(code) || "text_icon".equals(code)
+                || "blank_block".equals(code) || "big_blank_block".equals(code) || "big_big_blank_block".equals(code)
+                || "line".equals(code) || "line_blank".equals(code) || "header".equals(code) || "footer".equals(code)
+                || code.startsWith("movie_1")) {
+            return Style.list();
+        }
+        if (code.contains("round") || "avatar".equals(code)) {
+            return new Style("oval", 1.0f);
+        }
+        if ("pic_1".equals(code) || "pic_1_full".equals(code) || "pic_1_center".equals(code) || "pic_1_card".equals(code)) {
+            return new Style("rect", 1.33f);
+        }
+        if (code.startsWith("pic_") || code.startsWith("icon_")) {
+            return new Style("rect", 1.0f);
+        }
+        return Style.rect();
+    }
+
+    /**
+     * col_type 到网格列数的映射（5e 自有，与 {@link #styleFor} 共用同一张官表）。
+     * list 形态回 0（走 {@code Product.getColumn} 的 App 默认列数，与旧 {@code LIST_FORM} 一致）；
+     * 其余回 {@code 60 / spanCount}（60 栅格：60=1 列，30=2 列，20=3 列，15=4 列，12=5 列；
+     * 横竖屏不分，旧表也不分，{@code setStyle} 无横竖分支）。
+     */
+    public static int columnsFor(String colType) {
+        HkColType t = byCode(colType);
+        if (styleFor(colType).isList()) return 0;
+        return 60 / t.spanCount;
     }
 
     private static final HkColType[] VALUES = values();

@@ -17,10 +17,9 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
+import com.github.moyingshi.osc.tv.api.hk.HkClickDispatcher;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
-import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
@@ -42,7 +41,6 @@ import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 海阔小程序搜索 Fragment，对应魔影 HkSearchActivity 里的结果列表部分
@@ -53,13 +51,13 @@ import java.util.Map;
  * （{@link CustomScroller}，搜索翻页走 search_url 的 fypage）+ 加载/空/错
  * 三态（ProgressLayout）。取数走 5c 的
  * {@link HkRouter#search(String, int)}（新引擎门面，经 HkEngineManager
- * 常驻运行时；后台线程），回来先 {@link HkListHelper#pickCards} 再转 Vod，
+ * 常驻运行时；后台线程），回来先 {@link HkCard#pickCards} 再转 Vod，
  * 直接复用首页同款 {@link VodAdapter} 渲染。点卡片进详情页（第 4 步，
  * {@link HkDetailActivity}）；换关键词重搜时回到第 1 页，旧结果靠序号丢弃。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
-public class HkSearchFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, HkActionHandler.Host {
+public class HkSearchFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, HkClickDispatcher.Host {
 
     private FragmentHkSearchBinding mBinding;
     private static final String TAG = "HkSearchFragment";
@@ -184,10 +182,10 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         reloadPage();
     }
 
-    /** 按规则 col_type 定样式与列数（单源：HkListHelper 全表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
+    /** 按规则 col_type 定样式与列数（单源：HkColType 官表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
     private void setStyle(String colType) {
-        Style style = HkListHelper.styleFor(colType);
-        int columns = HkListHelper.columnsFor(colType);
+        Style style = HkColType.styleFor(colType);
+        int columns = HkColType.columnsFor(colType);
         int span = columns > 0 ? columns : Product.getColumn(requireActivity(), style);
         int[] spec = columns > 0 ? Product.getSpec(requireActivity(), style, columns) : Product.getSpec(requireActivity(), style);
         mBinding.recycler.setAdapter(mAdapter = new VodAdapter(this, style, spec));
@@ -245,7 +243,7 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
                 HkRouter router = routerFor(rule);
                 List<SearchResult> results = router.search(keyword, page);
                 List<HkCard> cards = HkCard.fromSearchResults(results);
-                vods = HkListHelper.toVods(HkListHelper.pickCards(cards, rule), rule.getType());
+                vods = HkCard.toVods(HkCard.pickCards(cards, rule), rule.getType());
                 if (cards.isEmpty()) {
                     String engineError = router.getEngine() == null ? "" : router.getEngine().getError();
                     if (engineError != null && !engineError.isEmpty()) {
@@ -286,7 +284,7 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
             return;
         }
         // 同一列表内相同 URL 的卡只留一张（翻页每页都回同一张卡时去重；不同 URL 照常追加）。
-        vods = HkListHelper.dedupeByUrl(append ? mAdapter.getItems() : null, vods);
+        vods = HkCard.dedupeByUrl(append ? mAdapter.getItems() : null, vods);
         Result result = new Result();
         result.setList(vods);
         boolean first = mScroller.first();
@@ -335,23 +333,23 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
         return true;
     }
 
-    /** 点卡片：动作 URL 先走 HkActionHandler 执行（第 7 步之七），普通卡片进详情页（第 4 步），不进空白蜘蛛页（与列表页同一行调用）。 */
+    /** 点卡片：动作 URL 先走 HkClickDispatcher 执行（5e），普通卡片进详情页（第 4 步），不进空白蜘蛛页（与列表页同一行调用）。 */
     @Override
     public void onItemClick(Vod item) {
         if (mRule != null) {
             HkCard card = new HkCard(item.getName(), item.getId(), item.getPic(), item.getRemarks());
-            if (HkActionHandler.handle(this, card)) return;
+            if (HkClickDispatcher.handle(this, card)) return;
         }
         // x5_webview_single 卡是网页卡（官方 dealWithUrl：x5/web 分流不进详情页；
         // 星辰无 X5 引擎，走系统 WebView 顶替）：点开进站内 WebView，不进详情页。
-        if (HkListHelper.isX5Url(item.getId())) {
+        if (HkCard.isX5Url(item.getId())) {
             startActivity(CatWebActivity.intent(requireContext(), item.getId()));
             return;
         }
         HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
     }
 
-    /* ---------------- HkActionHandler.Host（第 7 步之七；搜索页不保留 vars） ---------------- */
+    /* ---------------- HkClickDispatcher.Host（5e；搜索页不保留 vars） ---------------- */
 
     @Override
     public Activity activity() {
@@ -369,13 +367,8 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
     }
 
     @Override
-    public Map<String, Object> vars() {
-        return HkActionHandler.emptyVars();
-    }
-
-    @Override
-    public void updateVars(Map<String, Object> vars) {
-        // 搜索页没有 tab 状态要留，putVar 结果不保留。
+    public HkRouter router() {
+        return mRouter;
     }
 
     @Override
@@ -387,6 +380,12 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
     public void openDetail(String url, String title, String pic, String desc) {
         if (mRule == null) return;
         HkDetailActivity.open(requireContext(), mRule.getTitle(), url, title, pic, desc);
+    }
+
+    @Override
+    public void openSubpage(String url, String title) {
+        if (mRule == null) return;
+        HkListActivity.openSubpage(requireContext(), mRule.getTitle(), url);
     }
 
     @Override

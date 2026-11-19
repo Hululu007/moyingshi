@@ -13,16 +13,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 线程跑 lambda$warmUp$0——前 5 条串行跑首页 {@code f22.p(标题).k(1, "")}，
  * 0 条且有分类时再跑一次首分类；每条独立 try/catch，只记日志，不抛、不弹）。
  * <p>
- * 预热 = 后台先跑列表页同一条取数链路（{@link HkExecutor#home(HkRule, int, String)}，
- * 含第 3 步的子页面/require 展开），结果经 {@link HkListHelper#pickCards}/
- * {@link HkListHelper#toVods} 成 Vod 后写进 {@link HkCache}；列表页打开时
- * 命中缓存直接渲染。预热失败（规则坏了、站点挂了、断网了）只记一条日志，
+ * 预热 = 后台先跑列表页同一条取数链路（{@link HkRouter#home(int, String, String, String, String)}），
+ * 结果经 {@link HkCard#pickCards}/{@link HkCard#toVods} 成 Vod 后写进 {@link HkCache}；
+ * 列表页打开时命中缓存直接渲染。预热失败（规则坏了、站点挂了、断网了）只记一条日志，
  * 不弹提示、不阻断下一条、不阻塞前台。
  * <p>
  * 并发：单线程串行（与上游一致，不一次把 5 条全并行打满）；同一时间最多一个
  * 预热线程在跑（{@code running} 门），导入与启动几乎同时触发时后到的直接丢弃。
  * 超时：单条规则的网络由 OkHttp 共享客户端的 30s connect/read/write 兜底
- *（{@code HkExecutor.fetch} 用 {@code HkHttpClient.client()}）；另设总时限 120s，
+ *（{@code HkRuleFetch.fetch} 用 {@code HkHttpClient.client()}）；另设总时限 120s，
  * 跑下一条前若已超时就停。Rhino 单次执行本身没有安全的硬中断手段，总时限只
  * 约束“不再起新规则”，不谎称能中断正在跑的那条；最坏情况是最后一条由 OkHttp
  * 30s 兜底结束，后台线程自然退出，不阻塞前台、不阻塞退出。
@@ -114,13 +113,24 @@ public final class HkWarmup {
                 String[] names = rule.classNames();
                 String firstClass = names != null && names.length > 0 ? names[0] : null;
                 try {
-                    List<HkCard> cards = HkExecutor.home(rule, 1, firstClass);
-                    List<Vod> vods = HkListHelper.toVods(HkListHelper.pickCards(cards, rule), rule.getType());
-                    if (vods == null || vods.isEmpty()) {
-                        Log.i(TAG, "warmup rule=" + title + " items=0");
-                    } else {
-                        HkCache.put(title, firstClass, 1, vods, HkStore.lastModified(title));
-                        Log.i(TAG, "warmup rule=" + title + " items=" + vods.size());
+                    // 5e：取数改走新引擎 HkRouter.home（与列表页同一条链路）；new HkRouter 不建
+                    // surface，构造器只接常驻运行时，故预热不需 destroy()（常驻引擎上是空操作）；
+                    // 取数前后各加一次 surfaceOpened/surfaceClosed 配对（无界面的后台取数，
+                    // 配对持有可保常驻运行时在取数期间不被清定时器；净计数为零）。
+                    HkEngineManager.surfaceOpened(rule);
+                    try {
+                        HkRouter router = new HkRouter(rule);
+                        List<HkItem> items = router.home(1, firstClass, "", "", "");
+                        List<HkCard> cards = HkCard.fromItems(items);
+                        List<Vod> vods = HkCard.toVods(HkCard.pickCards(cards, rule), rule.getType());
+                        if (vods == null || vods.isEmpty()) {
+                            Log.i(TAG, "warmup rule=" + title + " items=0");
+                        } else {
+                            HkCache.put(title, firstClass, 1, vods, HkStore.lastModified(title));
+                            Log.i(TAG, "warmup rule=" + title + " items=" + vods.size());
+                        }
+                    } finally {
+                        HkEngineManager.surfaceClosed(rule);
                     }
                 } catch (Throwable th) {
                     Log.w(TAG, "warmup fail rule=" + title + " err=" + th.getMessage());

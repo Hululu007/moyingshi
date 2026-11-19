@@ -125,7 +125,7 @@ public final class HkDetailHelper {
     static boolean isActionable(HkCard card) {
         if (card == null || !card.usable()) return false;
         String url = card.getUrl().trim();
-        return HkListHelper.isActionUrl(url)
+        return HkRouter.isActionUrl(url)
                 || url.contains("@lazyRule=") || url.contains("@input=") || url.contains("@rule=");
     }
 
@@ -136,7 +136,7 @@ public final class HkDetailHelper {
             return false;
         }
         String url = card.getUrl().trim();
-        return url.isEmpty() || HkListHelper.isActionUrl(url) || url.startsWith("#");
+        return url.isEmpty() || HkRouter.isActionUrl(url) || url.startsWith("#");
     }
 
     /**
@@ -152,7 +152,7 @@ public final class HkDetailHelper {
             return false;
         }
         String url = card.getUrl().trim();
-        if (HkListHelper.isActionUrl(url)) return false;
+        if (HkRouter.isActionUrl(url)) return false;
         return url.startsWith("http://") || url.startsWith("https://")
                 || url.contains("@lazyRule=") || url.contains("@rule=") || url.startsWith("js:");
     }

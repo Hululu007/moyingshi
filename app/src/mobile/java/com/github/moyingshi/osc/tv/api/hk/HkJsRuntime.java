@@ -710,6 +710,10 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
     private String lastChapterRule = "";
     /** setStrResult/setLastChapterResult：官方 JS 回调字符串结果，宿主存字段供上层取用。 */
     private volatile String strResult = "";
+    /** 5e（3e 缺口③恢复）：子页面展开时 HkSubpage.expand 经 HkEngine.setImportParams 传入的
+     * query 参数；assembleFreshScope 在 Hikerurl.js 评入后、返回前从 scope 取 $ 对象并挂
+     * importParam 属性。expand 每次新建引擎，字段只活在该子页面引擎内，不会漏进主规则求值。 */
+    private volatile Map<String, String> importParams;
     /**
      * 当前求值入口的类型（与注入的 var MY_TYPE 一致）：parseHome→home、parseLastChapterRule→lastChapter、
      * parseSearch/parseSearchRes→search、eval 系→eval、preEngine/preHome/string 同名。
@@ -726,6 +730,11 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
 
     public void setConfirmHandler(ConfirmHandler h) {
         this.confirmHandler = h;
+    }
+
+    /** 5e（3e 缺口③恢复）：子页面 query 参数（见 importParams 字段注）。 */
+    public void setImportParams(Map<String, String> params) {
+        this.importParams = params;
     }
 
     /** 求值 confirm 回调 JS（8.83 ArticleListIsland.lambda$confirm$1 同款：evalJS 回调串，结果走路由）。 */
@@ -2311,6 +2320,20 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         // 一致，记名接受）；LIB_CARRY 回放自此在 plugin 已评入的环境
         // 跑（与官正文期环境同形）。评入失败经 ensurePluginIn 直穿，
         // 本发装配失败显形（与官串内 eval 失败同终局）。
+        // 5e（3e 缺口③恢复）：子页面 query 参数挂到 $ 对象上（HkSubpage.expand 经
+        // HkEngine.setImportParams 传入；$ 由 Hikerurl.js 在每发鲜 scope 里定义）。
+        // 注入包 try/catch：失败只记日志，绝不炸 scope 装配（失败即现状：$.importParam 为 undefined）。
+        if (importParams != null) {
+            try {
+                Object dollar = ScriptableObject.getProperty(fresh, "$");
+                if (dollar instanceof ScriptableObject) {
+                    ScriptableObject.putProperty((ScriptableObject) dollar, "importParam",
+                            Context.javaToJS(importParams, fresh));
+                }
+            } catch (Throwable e) {
+                Logger.t(TAG).d("importParam inject failed: %s", e.getMessage());
+            }
+        }
         putDisplayNameInto(fresh);
         ensurePluginIn(fresh);
         return fresh;
@@ -3165,6 +3188,22 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         return null;
     }
 
+    /**
+     * 5e（3e 缺口①恢复）：纯字符串 setResult 补救——旧版 setResult 处理器只在
+     * typeKey=="lastChapter" 时写 strResult；普通 setResult("…") 走
+     * deliverResult→collectResult→buildResultItems，纯字符串解析不成条目被静默丢掉
+     * （buildResultItems 回 null，appendResultItems 无声返回），HkEngine.evalTextRule
+     * 的 strAfter 读不到。strResult 的全树唯一调用方是 HkEngine.evalTextRule
+     * （且 computeLastChapter 用全新引擎实例，strResult 是运行时实例字段，无跨页串扰）。
+     * setPreResult 不补（PRE 按契约是列表型交付）。只影响 evalTextRule 的 strAfter 读取，
+     * 不影响任何列表/搜索交付（strResult 无其他读者）。
+     */
+    private void noteStringResult(Object[] args) {
+        if (args == null || args.length == 0 || !(args[0] instanceof String)) return;
+        String s = argStr(args[0]);
+        if (s != null && !s.isEmpty()) strResult = s;
+    }
+
     private void registerApi() {
         // 8.83 原版 JSON.parse：空串/非法 JSON 抛 SyntaxError（"Empty JSON string"），不吞错。
         // 之前宽容模式（返回空对象）导致规则 try/catch 降级失效，空对象往下传才在各处报 startsWith on undefined。
@@ -3183,8 +3222,10 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
             } else if ("search".equals(typeKey)) {
                 // 官 setResult（JE:24963）：typeKey="search"→callbackSearchResult，
                 // 余→callbackHomeResult（G27 路由，与下两名同口径）。
+                noteStringResult(args);
                 deliverResult(args, false, true, true);
             } else {
+                noteStringResult(args);
                 deliverResult(args, false, false, true);
             }
             return null;
@@ -3196,10 +3237,12 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         // 否则本发汇点类型，再否则 currentMyType——包装层恒以 MY_TYPE 覆写，
         // 故三名在官侧本就按本发类型归一（官方文档「三者可混用」即此）。
         putFunction("setHomeResult", args -> {
+            noteStringResult(args);
             deliverResult(args, false, "search".equals(resultTypeKey(args)), true);
             return null;
         });
         putFunction("setSearchResult", args -> {
+            noteStringResult(args);
             deliverResult(args, false, !"home".equals(resultTypeKey(args)), true);
             return null;
         });
@@ -4476,6 +4519,71 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
             return file.equals(url) ? url : file + "##" + url;
         });
 
+
+        // 语义：proxyClearM3u8(u, h, r) 去 m3u8 广告片段。
+        //   u: m3u8 URL；h: headers Map（可选，取 "headers"/"header" 子键）；r: 广告规则 JSONArray（可选）。
+        //   返回：清理后的内容存为 hiker://files/_cache/<md5>.m3u8，返回 "file://<path>##<原URL>"；
+        //   若清理结果为空则返回原 URL。
+        // 依赖：8.83 的 M3u8ClearUtil.getProxyContent（2193 行，smali_classes2）。
+        //   完整移植见 HkM3u8ClearUtil.java（待搬运）。
+        putFunction("proxyClearM3u8", args -> {
+            try {
+                if (args == null || args.length == 0 || args[0] == null) return "";
+                String url = argStr(args[0]);
+                if (url == null || url.isEmpty() || "undefined".equals(url)) return "";
+                // h 参数：headers Map（8.83 从 "headers" 或 "header" 子键取）
+                java.util.Map<String, String> headers = new java.util.HashMap<>();
+                if (args.length > 1 && args[1] != null) {
+                    Object h = args[1];
+                    // Rhino NativeObject -> Map 转换（复用现有 argMap 逻辑）
+                    java.util.Map<?, ?> hm = toStringMap(h);
+                    if (hm != null) {
+                        Object sub = hm.get("headers");
+                        if (sub == null) sub = hm.get("header");
+                        java.util.Map<?, ?> sm = toStringMap(sub);
+                        if (sm != null) {
+                            for (java.util.Map.Entry<?, ?> e : sm.entrySet()) {
+                                if (e.getKey() != null && e.getValue() != null) {
+                                    headers.put(String.valueOf(e.getKey()), String.valueOf(e.getValue()));
+                                }
+                            }
+                        }
+                    }
+                }
+                // r 参数：广告规则 JSONArray（8.83 传 List<M3u8ClearAdRule>）
+                java.util.List<HkM3u8ClearAdRule> adRules = null;
+                if (args.length > 2 && args[2] != null) {
+                    try {
+                        String rJson = argStr(args[2]);
+                        if (rJson != null && !rJson.isEmpty() && !"undefined".equals(rJson)) {
+                            adRules = new com.google.gson.Gson().fromJson(rJson,
+                                    com.google.gson.reflect.TypeToken.getParameterized(
+                                            java.util.List.class, HkM3u8ClearAdRule.class).getType());
+                        }
+                    } catch (Throwable ignored) {
+                        Logger.t(TAG).e(ignored, "proxyClearM3u8 ad rules parse failed, use default rules");
+                    }
+                }
+                if (adRules == null) adRules = HkM3u8ClearUtil.getRules();
+                String cleaned = HkM3u8ClearUtil.getProxyContent(url, headers, adRules);
+                if (cleaned == null || cleaned.isEmpty()) {
+                    return url; // 8.83：清理结果为空返回原 URL
+                }
+                // 存缓存文件，返回 file://## 格式（8.83 JSEngine.smali:21580-21620）
+                String name = md5(url) + ".m3u8";
+                java.io.File cacheDir = new java.io.File(App.get().getFilesDir(), "hk_m3u8_cache");
+                if (!cacheDir.exists()) cacheDir.mkdirs();
+                java.io.File out = new java.io.File(cacheDir, name);
+                try (java.io.FileWriter fw = new java.io.FileWriter(out)) {
+                    fw.write(cleaned);
+                }
+                com.github.moyingshi.osc.tv.api.hk.HkM3u8ClearUtil.pruneCacheDir(cacheDir);
+                return "file://" + out.getAbsolutePath() + "##" + url;
+            } catch (Throwable e) {
+                Logger.t(TAG).d("proxyClearM3u8 failed: %s", e.getMessage());
+                return args != null && args.length > 0 && args[0] != null ? argStr(args[0]) : "";
+            }
+        });
 
         // ---- 页面信息 ----
         // setPageTitle：8.83 JSEngine.setPageTitle(2758)：post SetPageTitleEvent(title) 经 EventBus
@@ -11979,6 +12087,7 @@ private static void generateRequireMap(String dirName, String url, String proxy,
                 // $.exports、Module._cache 不再残留进本发。
                 scope = assembleFreshScope();
                 setContext(myUrl);
+                Object directReturn = null;
                 try {
                     // 8.83 parseHome 同款：每次求值注入 fresh CALLBACK_KEY 并登记正文表
                     //（正文=预抓正文，HkEngine.home() 经 setEvalResCodeBody 传入；
@@ -12012,7 +12121,7 @@ private static void generateRequireMap(String dirName, String url, String proxy,
                     // 改名支会把 _title 覆写成已还原的 title、别名丢失（官每发
                     // 只经 getMyRule 尾巴评一遍、无此问题）。故脚本头只重评
                     // Hikerurl.js（$ 与 Module 缓存随本发全新），不再重评 plugin.js。
-                    evalJs("eval(getJsPlugin());\n"
+                    directReturn = evalJs("eval(getJsPlugin());\n"
                             + getMyCallbackKey(cbKey) + stripJsPrefix(jsCode));
                 } catch (Throwable e) {
                     if (mark != null && mark.superseded) {
@@ -12027,7 +12136,14 @@ private static void generateRequireMap(String dirName, String url, String proxy,
                     throw e;
                 }
                 synchronized (findSink) {
-                    return new ArrayList<>(findSink.items());
+                    List<HkItem> items = findSink.items();
+                    if (items == null || items.isEmpty()) {
+                        // 5e（3e 缺口⑤恢复）：setResult 一族未交付时，回落转换直接 return 的数组
+                        //（findSink 非空时忽略返回值，setResult 优先）。
+                        List<HkItem> direct = itemsFromDirectReturn(directReturn);
+                        if (direct != null && !direct.isEmpty()) return new ArrayList<>(direct);
+                    }
+                    return new ArrayList<>(items == null ? new ArrayList<HkItem>() : items);
                 }
             } finally {
                 if (findSink != null) {
@@ -12063,6 +12179,39 @@ private static void generateRequireMap(String dirName, String url, String proxy,
                 throw (ListEvalSupersededException) ee.getCause();
             }
             throw ee;
+        }
+    }
+
+    /**
+     * 5e（3e 缺口⑤恢复）：把 evalJs 直接返回的数组转成条目表——JS 规则以 `return [...]`
+     * 直接返回条目数组时（不调 setResult 一族），旧版 parseListInternal 把 evalJs 的
+     * 返回值直接丢掉、只回 findSink.items()，本发回空表。findSink 非空时调用方忽略
+     * 返回值（setResult 优先），本方法只在汇点为空时被调。一处修复覆盖 home/search/
+     * detail/expand 全部 JS 列表求值入口（都走 parseListInternal）。失败回 null。
+     * （evalJs 回的是 Rhino 原始值：NativeArray 经 argsNativeObjectAdjust 转 List；
+     * 公开 evalJS 的字符串化出口不影响本修复。）
+     */
+    private List<HkItem> itemsFromDirectReturn(Object value) {
+        try {
+            Object adjusted = argsNativeObjectAdjust(value);
+            String json;
+            if (adjusted instanceof List) {
+                json = GSON.toJson(adjusted);
+            } else if (adjusted instanceof String && ((String) adjusted).trim().startsWith("[")) {
+                json = ((String) adjusted).trim();
+            } else {
+                return null;
+            }
+            List<HkItem> items = buildResultItems(json);
+            if (items == null) return null;
+            List<HkItem> kept = new ArrayList<>();
+            for (HkItem it : items) {
+                // 与阶段 4 选择器同口径：只留标题或链接任一非空的条目。
+                if (it != null && (!TextUtils.isEmpty(it.getTitle()) || !TextUtils.isEmpty(it.getUrl()))) kept.add(it);
+            }
+            return kept;
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 

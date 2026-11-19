@@ -18,16 +18,16 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
 import com.github.moyingshi.osc.tv.api.hk.HkCache;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
+import com.github.moyingshi.osc.tv.api.hk.HkClickDispatcher;
 import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
-import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
+import com.github.moyingshi.osc.tv.api.hk.HkSubpage;
 import com.github.moyingshi.osc.tv.bean.Class;
 import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Style;
@@ -46,7 +46,6 @@ import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 海阔小程序列表 Fragment，对应魔影的 kv1（见逆向报告 §4：无源码，按
@@ -58,14 +57,17 @@ import java.util.Map;
  * <p>
  * 取数走 5c 的 {@link HkRouter#home(int, String, String, String, String)}
  *（新引擎门面，经 HkEngineManager 常驻运行时；后台线程），回来先
- * {@link HkListHelper#pickCards} 再转 Vod，直接复用首页同款
+ * {@link HkCard#pickCards} 再转 Vod，直接复用首页同款
  * {@link VodAdapter} 渲染。点卡片进详情页（第 4 步，
  * {@link HkDetailActivity}）；首屏 0 条时显示命中诊断（区分真没内容还是
  * find_rule 未命中）。
  * <p>
+ * 5e 子页面模式：{@code hiker://page/…} 卡片经 {@link HkListActivity#openSubpage}
+ * 开新列表页，单页由 {@link HkSubpage#expand} 渲染（不翻页、不缓存、不分类）。
+ * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
-public class HkListFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, TypeAdapter.OnClickListener, HkActionHandler.Host {
+public class HkListFragment extends BaseFragment implements CustomScroller.Callback, VodAdapter.OnClickListener, SwipeRefreshLayout.OnRefreshListener, TypeAdapter.OnClickListener, HkClickDispatcher.Host {
 
     /**
      * 内嵌宿主（首页 VodFragment）：内嵌模式下规则缺失/首屏取数失败时不由 Fragment
@@ -108,6 +110,25 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         HkListFragment fragment = new HkListFragment();
         fragment.setArguments(args);
         return fragment;
+    }
+
+    /** 子页面模式（5e）：开新列表页渲染 hiker://page/… 子页面（单页，见 HkSubpage.expand）。 */
+    public static HkListFragment newInstanceSubpage(String title, String pageUrl) {
+        Bundle args = new Bundle();
+        args.putString("title", title);
+        args.putString("subpage_url", pageUrl);
+        HkListFragment fragment = new HkListFragment();
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    private String getSubpageUrl() {
+        Bundle args = getArguments();
+        return args == null ? null : args.getString("subpage_url", null);
+    }
+
+    private boolean isSubpage() {
+        return getSubpageUrl() != null;
     }
 
     private String getTitle() {
@@ -162,8 +183,15 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private void bindRuleLoaded() {
         // 5c：记一面（HkEngineManager 常驻运行时按规则记面；归零时清该规则的 JS 定时器/任务）。
         HkEngineManager.surfaceOpened(mRule);
-        setClasses();
-        setStyle(mRule.getColType());
+        if (isSubpage()) {
+            // 5e 子页面模式：无分类栏（显式隐藏），样式取子页面的 col_type（空则回落规则 col_type）。
+            mClassId = null;
+            mBinding.classRecycler.setVisibility(android.view.View.GONE);
+            setStyle(HkSubpage.pageColType(mRule, getSubpageUrl()));
+        } else {
+            setClasses();
+            setStyle(mRule.getColType());
+        }
         loadPage(1, false);
     }
 
@@ -270,10 +298,10 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         mClassAdapter.addAll(result);
     }
 
-    /** 按规则 col_type 定样式与列数（单源：HkListHelper 全表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
+    /** 按规则 col_type 定样式与列数（单源：HkColType 官表；列数与卡片尺寸成对取，显式列数时用字面列数算尺寸）。 */
     private void setStyle(String colType) {
-        Style style = HkListHelper.styleFor(colType);
-        int columns = HkListHelper.columnsFor(colType);
+        Style style = HkColType.styleFor(colType);
+        int columns = HkColType.columnsFor(colType);
         int span = columns > 0 ? columns : Product.getColumn(requireActivity(), style);
         int[] spec = columns > 0 ? Product.getSpec(requireActivity(), style, columns) : Product.getSpec(requireActivity(), style);
         mBinding.recycler.setAdapter(mAdapter = new VodAdapter(this, style, spec));
@@ -297,11 +325,12 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
      * 取一页（第 7 步之十，缓存版）：force=true（下拉刷新）跳过缓存查、成功后覆盖写回；
      * 否则先查 {@link HkCache}，命中直接渲染、不发请求。缓存键是规则标题 + 分类 + 页码，
      * 与 HkWarmup 预热写入的键同一口径；规则文件 mtime 变了时 get() 内部即判失效。
+     * 5e：子页面模式跳过缓存读写（键是规则标题 + 分类 + 页码，子页面内容与首页同键会互串）。
      */
     private void loadPage(int page, boolean append, boolean force) {
         final int seq = ++mLoadSeq;
         mLoading = true;
-        if (!force) {
+        if (!force && !isSubpage()) {
             List<Vod> cached = HkCache.get(getTitle(), mClassId, page);
             if (cached != null) {
                 // 命中缓存：不显示 loading、不发请求，直接走现成的 onPageLoaded 渲染；
@@ -334,12 +363,19 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
             try {
                 // 5c：取数源改走新引擎 HkRouter.home（门面 home，失败回空表不抛错；
                 // 空表时读引擎错误通道区分真空与失败，见 docs/miniapp-xingchen-5c-list-search-ui.md §3.3）。
+                // 5e：子页面模式单页由 HkSubpage.expand 渲染（与旧 HkExecutor.detail 的子页面支
+                // 行为一致），不走 Router.home；失败由 expand 抛错走外层 catch。
                 HkRouter router = routerFor(rule);
-                List<HkItem> items = router.home(page, classId, "", "", "");
-                List<HkCard> cards = HkCard.fromItems(items);
-                vods = HkListHelper.toVods(HkListHelper.pickCards(cards, rule), rule.getType());
+                List<HkCard> cards;
+                if (isSubpage()) {
+                    cards = HkSubpage.expand(rule, getSubpageUrl());
+                } else {
+                    List<HkItem> items = router.home(page, classId, "", "", "");
+                    cards = HkCard.fromItems(items);
+                }
+                vods = HkCard.toVods(HkCard.pickCards(cards, rule), rule.getType());
                 diag = "得到 " + cards.size() + " 张卡片";
-                if (cards.isEmpty()) {
+                if (!isSubpage() && cards.isEmpty()) {
                     String engineError = router.getEngine() == null ? "" : router.getEngine().getError();
                     if (engineError != null && !engineError.isEmpty()) {
                         // 失败：走错误态分支（vods 置空 + error 文案），不显示“0 条内容”。
@@ -348,7 +384,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
                         diag = "";
                     }
                 }
-                if (vods != null && !vods.isEmpty()) {
+                if (!isSubpage() && vods != null && !vods.isEmpty()) {
                     // 成功且非空才进缓存（0 条不存，见 HkCache.put）；规则文件 mtime
                     // 随条目一起记，文件变了下次 get() 即失效。
                     HkCache.put(rule.getTitle(), classId, page, vods, HkStore.lastModified(rule.getTitle()));
@@ -388,7 +424,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
             return;
         }
         // 同一列表内相同 URL 的卡只留一张（翻页每页都回同一张卡时去重；不同 URL 照常追加）。
-        vods = HkListHelper.dedupeByUrl(append ? mAdapter.getItems() : null, vods);
+        vods = HkCard.dedupeByUrl(append ? mAdapter.getItems() : null, vods);
         Result result = new Result();
         result.setList(vods);
         boolean first = mScroller.first();
@@ -424,6 +460,8 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
 
     @Override
     public boolean onLoadMore(String page) {
+        // 5e 子页面模式：单页，无第 2 页（expand 重跑只会回同一页，去重后也是空追加）。
+        if (isSubpage()) return false;
         int next;
         try {
             next = Integer.parseInt(page);
@@ -434,23 +472,23 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         return true;
     }
 
-    /** 点卡片：动作 URL 先走 HkActionHandler 执行（第 7 步之七），普通卡片进详情页（第 4 步），不进空白蜘蛛页。 */
+    /** 点卡片：动作 URL 先走 HkClickDispatcher 执行（5e），普通卡片进详情页（第 4 步），不进空白蜘蛛页。 */
     @Override
     public void onItemClick(Vod item) {
         if (mRule != null) {
             HkCard card = new HkCard(item.getName(), item.getId(), item.getPic(), item.getRemarks());
-            if (HkActionHandler.handle(this, card)) return;
+            if (HkClickDispatcher.handle(this, card)) return;
         }
         // x5_webview_single 卡是网页卡（官方 dealWithUrl：x5/web 分流不进详情页；
         // 星辰无 X5 引擎，走系统 WebView 顶替）：点开进站内 WebView，不进详情页。
-        if (HkListHelper.isX5Url(item.getId())) {
+        if (HkCard.isX5Url(item.getId())) {
             startActivity(CatWebActivity.intent(requireContext(), item.getId()));
             return;
         }
         HkDetailActivity.open(requireContext(), mRule.getTitle(), item.getId(), item.getName(), item.getPic(), item.getRemarks());
     }
 
-    /* ---------------- HkActionHandler.Host（第 7 步之七；列表页不保留 vars） ---------------- */
+    /* ---------------- HkClickDispatcher.Host（5e；列表页不保留 vars） ---------------- */
 
     @Override
     public Activity activity() {
@@ -468,13 +506,8 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     }
 
     @Override
-    public Map<String, Object> vars() {
-        return HkActionHandler.emptyVars();
-    }
-
-    @Override
-    public void updateVars(Map<String, Object> vars) {
-        // 列表页没有 tab 状态要留，putVar 结果不保留。
+    public HkRouter router() {
+        return mRouter;
     }
 
     @Override
@@ -486,6 +519,12 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     public void openDetail(String url, String title, String pic, String desc) {
         if (mRule == null) return;
         HkDetailActivity.open(requireContext(), mRule.getTitle(), url, title, pic, desc);
+    }
+
+    @Override
+    public void openSubpage(String url, String title) {
+        if (mRule == null) return;
+        HkListActivity.openSubpage(requireContext(), mRule.getTitle(), url);
     }
 
     @Override

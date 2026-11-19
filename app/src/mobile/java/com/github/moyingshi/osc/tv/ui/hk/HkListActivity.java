@@ -12,6 +12,7 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
+import com.github.moyingshi.osc.tv.api.hk.HkSubpage;
 import com.github.moyingshi.osc.tv.databinding.ActivityHkListBinding;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 
@@ -37,6 +38,9 @@ public class HkListActivity extends BaseActivity {
     /** Intent extra：规则标题（hk:// 后面的部分）。 */
     public static final String EXTRA_TITLE = "title";
 
+    /** Intent extra：子页面 URL（5e 子页面模式，hiker://page/…）。 */
+    public static final String EXTRA_SUBPAGE_URL = "subpage_url";
+
     private ActivityHkListBinding binding;
     private String mTitle = "";
     /** 当前规则是否可搜索（search_url 与 searchFind 都非空）：不可搜索时工具栏不显示搜索项。 */
@@ -46,6 +50,14 @@ public class HkListActivity extends BaseActivity {
     public static void open(Context context, String title) {
         Intent intent = new Intent(context, HkListActivity.class);
         intent.putExtra(EXTRA_TITLE, title);
+        context.startActivity(intent);
+    }
+
+    /** 子页面模式启动（5e）：传规则标题 + 子页面 URL；工具栏标题取子页面名，搜索项隐藏。 */
+    public static void openSubpage(Context context, String title, String pageUrl) {
+        Intent intent = new Intent(context, HkListActivity.class);
+        intent.putExtra(EXTRA_TITLE, title);
+        intent.putExtra(EXTRA_SUBPAGE_URL, pageUrl);
         context.startActivity(intent);
     }
 
@@ -63,6 +75,23 @@ public class HkListActivity extends BaseActivity {
         if (title == null) title = "";
         mTitle = title;
         HkRule rule = HkStore.read(title);
+        String subpageUrl = getIntent().getStringExtra(EXTRA_SUBPAGE_URL);
+        if (subpageUrl != null) {
+            // 5e 子页面模式：搜索项隐藏（子页面内搜索无定义，搜主规则会串内容）；
+            // 工具栏标题取子页面名。
+            mSearchable = false;
+            setSupportActionBar(binding.toolbar);
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+                getSupportActionBar().setTitle(HkSubpage.subpageName(subpageUrl));
+            }
+            if (savedInstanceState == null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.hk_list_container, HkListFragment.newInstanceSubpage(title, subpageUrl))
+                        .commit();
+            }
+            return;
+        }
         mSearchable = rule != null && rule.isSearchable();
         setSupportActionBar(binding.toolbar);
         if (getSupportActionBar() != null) {

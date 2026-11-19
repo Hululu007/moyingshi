@@ -189,7 +189,7 @@
 - **改动文件列表与行数**：10 文件 +589/−212（`git diff --stat`，不含本文档；每文件
   数字为改动行总数 = 插入+删除）：HkDetailFragment 290、HkHikerRuleUtil 152、
   VideoActivity 90、HkNonVideo 88、HkPlayer 84（删除）、HkRouter 45、HkCard 20、
-  HkDetail 19、HkDetailBridge 10、5c 文档 3；本文档新增 199 行。
+  HkDetail 19、HkDetailBridge 10、5c 文档 3；本文档新增 214 行。
 - **javac 坑复核**：本笔无 lambda 捕获重赋值变量（`out` 只改字段不重赋，`final LoadResult
   result = out` 定值拷贝）；无 `Json.safeListElement`/`JsonArray` 赋值；无匿名
   LinkedHashMap；无 `JsonElement.isString()`；`switch (kind)` 为字符串 switch；

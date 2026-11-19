@@ -16,7 +16,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
+import com.github.moyingshi.osc.tv.api.hk.HkClickDispatcher;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkDetail;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
@@ -45,7 +45,6 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -64,10 +63,10 @@ import java.util.Map;
  * 只放 mobile 源集，TV/leanback 不可见。
  * <p>
  * 第 7 步之七：详情页多一行可点动作行（线路 tab / 排序切换 / toast 提示行），
- * 点开走 {@link HkActionHandler} 执行；动作执行里 {@code putVar} 的值存在
- * {@code mVars} 里，下次重跑详情时预填回去（tab/排序切换靠它）。
+ * 点开走 {@link HkClickDispatcher} 执行（5e；新运行时 vars 在进程级 varMap 共享，
+ * 不再需要 mVars 快照中转）。
  */
-public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout.OnRefreshListener, HkDetailAdapter.Listener, HkActionHandler.Host {
+public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout.OnRefreshListener, HkDetailAdapter.Listener, HkClickDispatcher.Host {
 
     public static HkDetailFragment newInstance(String ruleTitle, String url, String name, String pic, String desc) {
         Bundle args = new Bundle();
@@ -97,9 +96,6 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     private boolean mPendingRefresh;
     /** 攒下的刷新是否回顶（多事件按 OR 合并，有一个要回顶就回顶）。 */
     private boolean mPendingRefreshToTop;
-    /** 页面变量快照（第 7 步之七）：动作执行里 putVar 的值，下次重跑详情时预填。 */
-    private Map<String, Object> mVars = new HashMap<>();
-
     private String arg(String key) {
         Bundle args = getArguments();
         if (args == null) return "";
@@ -333,8 +329,8 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
             return;
         }
         if (r.actionCard != null) {
-            // 动作 URL：走 HkActionHandler 执行（5e 前仍由它执行），然后结束本页。
-            HkActionHandler.handle(this, r.actionCard);
+            // 动作 URL：走 HkClickDispatcher 执行（5e），然后结束本页。
+            HkClickDispatcher.handle(this, r.actionCard);
             requireActivity().finish();
             return;
         }
@@ -412,6 +408,11 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
                 return;
             }
             case "x5":
+                // 星辰无 X5 引擎，走系统 WebView 顶替（5c 已定）；WebView 载不了 x5:// scheme，
+                // 先剥前缀（5e 顺手修：5d 支原样传 x5:// 进 WebView 会加载失败；星辰 handleDealUrl 同款）。
+                startActivity(CatWebActivity.intent(requireContext(), url.replaceFirst("(?i)^x5://", "")));
+                requireActivity().finish();
+                return;
             case "web":
                 // 星辰无 X5 引擎，走系统 WebView 顶替（5c 已定）。
                 startActivity(CatWebActivity.intent(requireContext(), url));
@@ -469,14 +470,14 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         VideoActivity.startHk(requireActivity(), mVod, line.title, episode.getTitle(), episode.getUrl());
     }
 
-    /** 点动作行：走 HkActionHandler 执行（第 7 步之七），不进详情页。 */
+    /** 点动作行：走 HkClickDispatcher 执行（5e），不进详情页。 */
     @Override
     public void onActionClick(HkCard action) {
         if (mRule == null) return;
-        HkActionHandler.handle(this, action);
+        HkClickDispatcher.handle(this, action);
     }
 
-    /* ---------------- HkActionHandler.Host（第 7 步之七） ---------------- */
+    /* ---------------- HkClickDispatcher.Host（5e） ---------------- */
 
     @Override
     public Activity activity() {
@@ -497,13 +498,8 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     }
 
     @Override
-    public Map<String, Object> vars() {
-        return mVars;
-    }
-
-    @Override
-    public void updateVars(Map<String, Object> vars) {
-        if (vars != null) mVars = vars;
+    public HkRouter router() {
+        return mRouter;
     }
 
     @Override
@@ -515,5 +511,11 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     public void openDetail(String url, String title, String pic, String desc) {
         if (mRule == null) return;
         HkDetailActivity.open(requireContext(), mRule.getTitle(), url, title, pic, desc);
+    }
+
+    @Override
+    public void openSubpage(String url, String title) {
+        if (mRule == null) return;
+        HkListActivity.openSubpage(requireContext(), mRule.getTitle(), url);
     }
 }

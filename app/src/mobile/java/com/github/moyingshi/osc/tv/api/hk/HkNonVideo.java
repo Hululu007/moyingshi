@@ -20,6 +20,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 非影视类规则分流（第 7 步之九，见 docs/miniapp-nonvideo.md）。
@@ -88,8 +89,8 @@ public final class HkNonVideo {
      * <p>
      * 5d：懒播放改走 {@link HkRouter#play(String)}（{@link HkPlay}）；Vod 由调用方
      * （详情页的 {@code HkDetailBridge.toVod} 结果）传入，阅读器与视频回落共用，
-     * 不再经已删除的 {@code HkPlayer.buildVod} 现拼。`sdetail` 仍调
-     * {@code HkExecutor.sdetail}（5e 随 HkExecutor 删除一并搬入，见 5d 文档 §6）。
+     * 不再经已删除的 {@code HkPlayer.buildVod} 现拼。`sdetail` 已随 HkExecutor 删除
+     * 搬入本类（5e，私有静态方法，见下）。
      */
     public static void routeEpisode(Activity activity, HkRule rule, HkDetailHelper.Detail detail,
                                     HkDetailHelper.Line line, HkCard episode, String detailUrl, Vod vod) {
@@ -208,6 +209,60 @@ public final class HkNonVideo {
     }
 
     /**
+     * 二级详情（5e：自 HkExecutor 逐字移入，见 docs/miniapp-xingchen-5e-click-dispatch-cleanup.md §2.11）。
+     * 对目标 URL（通常是章节页）再跑一次详情规则。字段为空回空列表；`*` 继承主规则（主规则为空也不抛错，
+     * 回空列表）；非 `*` 跑二级规则；子页面地址走展开；http(s) 才抓页。
+     * 调用方必须在后台线程跑。返回原始卡片，内容拼装由本类做。
+     * 改动：DialogHost 形参删除（HkEngine.setDialogHost 已随适配段瘦身删除；新运行时
+     * confirm/select/input 走 authGate/AuthBridgeEvent 授权链）；请求改走 HkRuleFetch。
+     */
+    private static List<HkCard> sdetail(HkRule rule, String url, Map<String, Object> initialVars)
+            throws HkEngine.HkException {
+        if (rule == null) throw new HkEngine.HkException("规则为空");
+        String err = rule.validate();
+        if (err != null) throw new HkEngine.HkException(err);
+        String field = rule.getSdetailFindRule();
+        if (TextUtils.isEmpty(field)) return new ArrayList<>();
+        String raw = url == null ? "" : url.trim();
+        if (TextUtils.isEmpty(raw)) throw new HkEngine.HkException("二级详情地址为空");
+        String clean = HkParserKit.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
+        if (HkSubpage.isSubpageUrl(clean)) return HkSubpage.expand(rule, clean);
+        if (raw.contains("@lazyRule=") || raw.contains("@input=")) {
+            throw new HkEngine.HkException("懒加载动作链接请从卡片点击执行（详情页动作行）");
+        }
+        String target = field.trim();
+        if ("*".equals(target)) target = rule.getDetailFindRule();
+        if (TextUtils.isEmpty(target)) return new ArrayList<>();
+        if (TextUtils.isEmpty(clean)) throw new HkEngine.HkException("二级详情地址为空");
+        HkRuleFetch.RequestSpec spec = HkRuleFetch.buildDetailRequest(rule, clean);
+        String pageText = HkRuleFetch.isHttpUrl(spec.url) ? HkRuleFetch.fetch(spec) : "";
+        return evalDetailRule(rule, target, spec.url, pageText, initialVars);
+    }
+
+    /** 对一页详情正文跑一条详情规则（JS 或选择器）；与 home() 的执行顺序一致（5e：自 HkExecutor 逐字移入，改动同 sdetail）。 */
+    private static List<HkCard> evalDetailRule(HkRule rule, String detailRule, String pageUrl, String pageText,
+                                               Map<String, Object> initialVars) throws HkEngine.HkException {
+        HkEngine engine = new HkEngine();
+        engine.prepare(rule, pageUrl, 1, "detail", pageText, initialVars);
+        engine.evalPreRule();
+        if (HkSelector.isJsRule(detailRule)) {
+            return engine.evalFindRule(detailRule);
+        }
+        return HkCard.fromDetailItems(engine.getSelector().parseDetail(pageText, detailRule, pageUrl));
+    }
+
+    /** 去掉详情地址里的二级解析标记（@lazyRule= / @rule= 后的部分只在第 5 步求值，取数时只要干净的页面地址）。5e：自 HkExecutor 逐字移入，只本类用。 */
+    private static String stripLazyMarkers(String url) {
+        if (TextUtils.isEmpty(url)) return "";
+        String u = url.trim();
+        int at = u.indexOf("@lazyRule=");
+        if (at >= 0) u = u.substring(0, at);
+        at = u.indexOf("@rule=");
+        if (at >= 0) u = u.substring(0, at);
+        return u.trim();
+    }
+
+    /**
      * 对章节地址跑 sdetail 二级详情，拼出阅读器内容；无 sdetail / 无可用内容 /
      * 求值失败回 null（sdetail 只是“先试一次”，失败就走后面的懒解析回落，
      * 不能因为章节地址带 @lazyRule= 标记就把整次点击 abort 掉）。
@@ -215,7 +270,7 @@ public final class HkNonVideo {
     private static Content sdetailContent(HkRule rule, String url, String chapterTitle) {
         if (TextUtils.isEmpty(rule.getSdetailFindRule())) return null;
         try {
-            List<HkCard> cards = HkExecutor.sdetail(rule, url, null, null);
+            List<HkCard> cards = sdetail(rule, url, null);
             return contentFromCards(cards, chapterTitle);
         } catch (Exception e) {
             Log.w(TAG, "sdetail 求值失败，走懒解析回落 rule=" + rule.getTitle(), e);
