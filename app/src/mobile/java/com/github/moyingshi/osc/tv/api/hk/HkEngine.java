@@ -104,6 +104,14 @@ public class HkEngine {
         try {
             String verr = rule.validate();
             if (verr != null) throw new IllegalStateException(verr);
+            // 分类名→URL 值（hkfix-1a）：调用方（列表页分类栏、预热）传的是 class_name
+            // （如“电视剧”），而 fyclass/MY_TYPE 要的是 class_url 对应的值（如“2”）。
+            // 2a 移植留下的 HkRule.classUrlFor 本就是此映射，此前却无人调用，致使多分
+            // 类规则首页抓了“list/电视剧_1.html”这类 404 页、回 0 卡（奇优实证：名
+            // 称代入得 655B 404 页，值“2”代入得 28KB、76 个 stui-vodlist）。只在
+            // cls 命中分类名时换值，其余（空、数字、已是 URL 值）原样通过，避免
+            // classUrlFor 的数字下标歧义（“2”既可是值、又可是下标）。
+            cls = classUrlValue(cls);
             String findRule = rule.getFindRule();
             boolean js = isJsRule(findRule);
             // js: 规则的 MY_URL 必须是原始 url（保留 hiker://empty# 前缀），
@@ -211,6 +219,20 @@ public class HkEngine {
             if (cls.equals(p[1])) return p[0];
         }
         return "";
+    }
+
+    /**
+     * 分类名→URL 值（hkfix-1a：home() 入口专用）。调用方传 class_name 时按
+     * getClassPairs 换成配对的 class_url 值；cls 为空、数字或已是 URL 值时
+     * 原样返回（不套 HkRule.classUrlFor 的“找不到回落第一个/数字按下标”
+     * 语义——那会把已是值的数字误当下标）。
+     */
+    private String classUrlValue(String cls) {
+        if (cls == null || cls.isEmpty()) return cls;
+        for (String[] p : rule.getClassPairs()) {
+            if (cls.equals(p[0])) return p[1];
+        }
+        return cls;
     }
 
     public String getError() {
