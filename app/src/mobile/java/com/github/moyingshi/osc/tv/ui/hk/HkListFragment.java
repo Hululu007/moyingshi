@@ -22,12 +22,14 @@ import com.github.moyingshi.osc.tv.api.hk.HkCache;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkClickDispatcher;
 import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
+import com.github.moyingshi.osc.tv.api.hk.HkErrorUtil;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.api.hk.HkSubpage;
+import com.github.moyingshi.osc.tv.api.hk.event.home.ToastEvent;
 import com.github.moyingshi.osc.tv.bean.Class;
 import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Style;
@@ -322,6 +324,19 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
             mBinding.recycler.scrollToPosition(0);
         }
         reloadPage();
+    }
+
+    /**
+     * ToastEvent（7b：星辰 HkArticleFragment.onToastEvent 同款，见 7b 文档 §5.2）：
+     * setError 无回调支投出的规则执行错误，宿主错误式呈现。门：空消息/无 Activity/finishing/
+     * 未 resumed/不可见一律丢弃（isOnPause 同款门；盖住期间到的事件不记不补）。
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onToastEvent(ToastEvent event) {
+        if (event == null || event.message == null || event.message.isEmpty()) return;
+        if (getActivity() == null || getActivity().isFinishing()) return;
+        if (!isResumed() || !getUserVisibleHint()) return;
+        HkErrorUtil.showErrorMsg(getActivity(), event.message, "500", event.message, new Exception(event.message));
     }
 
     /** 本次加载完成时消费进行中攒下的 refreshPage：只重载一次（回顶按攒下的值）。 */

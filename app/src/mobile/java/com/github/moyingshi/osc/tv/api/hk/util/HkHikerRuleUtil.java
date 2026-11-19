@@ -1,6 +1,7 @@
 package com.github.moyingshi.osc.tv.api.hk.util;
 /** 移植自星辰 com/fongmi/android/tv/api/hk/util/HkHikerRuleUtil.java（331 行）：除包名外与原文一致；
- * 异步版已于 6c 搬回，collection 支先回空形（阶段 7）。historyJson 一族已于 5d 搬回（见 §history）。
+ * 异步版已于 6c 搬回，collection 支已于 7b 恢复原文行（HkFavoriteStore.toJson()）。
+ * historyJson 一族已于 5d 搬回（见 §history）。
  * 详见 docs/miniapp-xingchen-3e-facade.md。 */
 
 import android.text.TextUtils;
@@ -8,6 +9,7 @@ import android.util.Log;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
+import com.github.moyingshi.osc.tv.api.hk.HkFavoriteStore;
 import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkRuleManager;
@@ -115,10 +117,8 @@ public final class HkHikerRuleUtil {
             return allRulesJson();
         }
         if (p0.startsWith("collection")) {
-            // 3e 空位：原文返回 HkFavoriteStore.toJson()（收藏库记录 JSON）；
-            // 我方暂无 HkFavoriteStore（阶段 7），按本文件 bookmark/download 两支
-            // “无库恒回空”的同款口径先回 "[]"，阶段 7 搬 HkFavoriteStore 后恢复原文行。
-            return "[]";
+            // 7b：已恢复原文行（HkFavoriteStore.toJson()，收藏库记录 JSON）。
+            return HkFavoriteStore.toJson();
         }
         if (p0.startsWith("bookmark") || p0.startsWith("download")) {
             // 环 17-5/17-6 记名关账：官 Bookmark / DownloadRecord 两库在咱家

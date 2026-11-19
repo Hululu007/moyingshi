@@ -23,12 +23,15 @@ import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailItem;
 import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
+import com.github.moyingshi.osc.tv.api.hk.HkErrorUtil;
+import com.github.moyingshi.osc.tv.api.hk.HkHistoryRecorder;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
 import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
+import com.github.moyingshi.osc.tv.api.hk.event.home.ToastEvent;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
 import com.github.moyingshi.osc.tv.ui.activity.HkPageActivity;
@@ -181,6 +184,19 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
             mBinding.recycler.scrollToPosition(0);
         }
         reloadPage();
+    }
+
+    /**
+     * ToastEvent（7b：星辰 HkArticleFragment.onToastEvent 同款，见 7b 文档 §5.2）：
+     * setError 无回调支投出的规则执行错误，宿主错误式呈现。门：空消息/无 Activity/finishing/
+     * 未 resumed/不可见一律丢弃（isOnPause 同款门；盖住期间到的事件不记不补）。
+     */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onToastEvent(ToastEvent event) {
+        if (event == null || event.message == null || event.message.isEmpty()) return;
+        if (getActivity() == null || getActivity().isFinishing()) return;
+        if (!isResumed() || !getUserVisibleHint()) return;
+        HkErrorUtil.showErrorMsg(getActivity(), event.message, "500", event.message, new Exception(event.message));
     }
 
     /** 本次加载完成时消费进行中攒下的 refreshPage：只重载一次（回顶按攒下的值）。 */
@@ -437,11 +453,23 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         int position = line.episodes == null ? -1 : line.episodes.indexOf(episode);
         if (position >= 0) HkDetailBridge.setClickPosition(position, mRule.getTitle(), episode.getUrl());
         if (HkRouter.isNonVideoRule(mRule)) {
+            recordHistory(line, episode);
             HkPageActivity.routeEpisode(requireActivity(), mRule, mDetail, line, episode, arg("url"), mVod);
             return;
         }
         if (mVod == null) return;
+        recordHistory(line, episode);
         VideoActivity.startHk(requireActivity(), mVod, line.title, episode.getTitle(), episode.getUrl());
+    }
+
+    /**
+     * 点选集记历史（7b：星辰 HkHistoryRecorder.recordOpened，分流/交接处建记录；见 7b 文档 §3.3）：
+     * 键与播放器 getHistoryKey 同形（toVod 口径已核对），不存在才建、已有只刷新展示字段与时间，
+     * 进度字段不动；mVod == null 的影视支不记（没播的东西不建行）。
+     */
+    private void recordHistory(HkDetailHelper.Line line, HkCard episode) {
+        HkHistoryRecorder.recordOpened(HkHistoryRecorder.keyOf(mRule.getTitle(), arg("url")),
+                mDetail.info.title, mDetail.info.pic, line.title, episode.getTitle(), episode.getUrl());
     }
 
     /** 点动作行：走 HkClickDispatcher 执行（5e），不进详情页。 */

@@ -14,6 +14,7 @@ import com.github.moyingshi.osc.tv.api.config.VodConfig
 import com.github.moyingshi.osc.tv.api.hk.HkCache
 import com.github.moyingshi.osc.tv.api.hk.HkImportPicker
 import com.github.moyingshi.osc.tv.api.hk.HkRuleManager
+import com.github.moyingshi.osc.tv.api.hk.HkFavoriteStore
 import com.github.moyingshi.osc.tv.api.hk.HkShareHelper
 import com.github.moyingshi.osc.tv.api.hk.HkStore
 import com.github.moyingshi.osc.tv.api.hk.HkWarmup
@@ -55,6 +56,8 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
     override fun initView(savedInstanceState: Bundle?) {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        // 7b：旧收藏迁移（一次性，幂等；对位星辰 HkPageActivity:301 的调用点）。
+        HkFavoriteStore.migrateIfNeeded()
         picker = HkImportPicker(this) { added -> onImported(added) }
         adapter = LocalSourceAdapter(this).setCheckable(true)
         binding.recycler.adapter = adapter
