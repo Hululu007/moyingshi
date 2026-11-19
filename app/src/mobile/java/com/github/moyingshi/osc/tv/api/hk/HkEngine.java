@@ -20,10 +20,10 @@ import java.util.Map;
  * 海阔规则引擎（星辰 HkEngine 门面 + 旧 HkEngine API 适配段）。
  *
  * <p>门面部分：把 {@link HkRule}、{@link HkJsRuntime} 串起来，home/search 时按规则形态
- * 自动分流——{@code js:} 走 JS 运行时，否则走选择器（选择器分支是阶段 4 的空位）。
+ * 自动分流——{@code js:} 走 JS 运行时，否则走选择器（阶段 4 已恢复 HkSelector 分支）。
  *
- * <p>适配段部分：旧手写版 HkEngine（2016 行）的调用点（HkExecutor、HkParser、
- * HkSubpage）未重接线到门面 home()/search()——门面不跑 preRule、选择器分支是空位、
+ * <p>适配段部分：旧手写版 HkEngine（2016 行）的调用点（HkExecutor、
+ * HkSubpage）未重接线到门面 home()/search()——门面不跑 preRule、
  * URL 拼法与 HkExecutor 的 buildHomeRequest/buildDetailRequest 不等价。
  * 旧 API 以 {@code @Deprecated} 适配方法保留，用新运行时实现，调用点零改动。
  * 旧实现（BOOTSTRAP/config/initConfig/rc/storage0/batchFetch/require、HkContextFactory、
@@ -42,6 +42,8 @@ public class HkEngine {
 
     private HkRule rule;
     private HkJsRuntime jsRuntime;
+    /** 选择器（阶段 4 恢复）：home/search 的非 js 分支走它；无参适配构造在 prepare() 时赋值。 */
+    private HkSelector selector;
     /**
      * 本引擎（＝一个宿主页面）的列表求值顶替身份：顶替只许在本面的新发之间
      * 发生，跨面提交不再把本面首拉顶成空（星辰原文，照搬）。
@@ -63,13 +65,13 @@ public class HkEngine {
         HkImage.setCurrentRuntime(this.jsRuntime);
         HkJsRuntime.setActiveInstance(this.jsRuntime);
         HkImage.setCurrentTitle(rule.getTitle());
+        this.selector = jsRuntime.newSelector();
     }
 
     /**
      * 首页/分类列表（星辰原文改写）。
      * 适配：① validate() 我方返回 String（null=通过），失败时抛 IllegalStateException
-     * （星辰版是 void，失败时自抛）；② 非 js 选择器分支是阶段 4 空位（HkSelector 未搬，
-     * 本步回空列表 + 文件日志，不自造解析）；③ getMarked 去 SourceGate 标记，
+     * （星辰版是 void，失败时自抛）；② getMarked 去 SourceGate 标记，
      * 直接 HkHttp.get（代理选择器链已在 HkHttpClient 里生效）。
      */
     public List<HkItem> home(int page, String cls, String area, String year, String sort) {
@@ -110,10 +112,8 @@ public class HkEngine {
                     jsRuntime.setEvalResCodeBody(null);
                 }
             }
-            // 3e 空位：选择器分支。HkSelector 是阶段 4 的类（selector 字段与
-            // getSelector() 同阶段 4 恢复）；本步按原文结构留空位，不自造解析。
-            SpiderDebug.log("hk", "home selector branch not yet ported rule=%s (stage 4: HkSelector)", rule.getTitle());
-            return new ArrayList<>();
+            String html = getMarked(url);
+            return selector.parseList(html, findRule, url);
         } catch (HkJsRuntime.ListEvalSupersededException cancelled) {
             // 被本面更新的加载顶替（取消语义）：不记 home failed——继任发自会
             // 交付；本 API 无 throws，收口形态与本方法既有失败收口同为回空表，
@@ -130,7 +130,7 @@ public class HkEngine {
 
     /**
      * 搜索（单页内置搜索用）。8.83 同款：返回独立 SearchResult（星辰原文改写）。
-     * 适配与 home() 同款（validate String 版、选择器分支阶段 4 空位、去 SourceGate）。
+     * 适配与 home() 同款（validate String 版、去 SourceGate）。
      */
     public List<SearchResult> search(String keyword, int page) {
         try {
@@ -165,9 +165,8 @@ public class HkEngine {
                     jsRuntime.setEvalResCodeBody(null);
                 }
             }
-            // 3e 空位：选择器分支（阶段 4：HkSelector）。
-            SpiderDebug.log("hk", "search selector branch not yet ported rule=%s (stage 4: HkSelector)", rule.getTitle());
-            return new ArrayList<>();
+            String html = getMarked(url);
+            return selector.parseSearch(html, searchFind, url);
         } catch (Throwable e) {
             Logger.t(TAG).d("search failed: %s", e.getMessage());
             SpiderDebug.log("hk", "search failed rule=%s err=%s", rule.getTitle(), String.valueOf(e));
@@ -225,11 +224,10 @@ public class HkEngine {
 
     /**
      * 星辰 HkSelector.isJsRule（HkSelector.java:42）同款小谓词：
-     * {@code rule != null && rule.trim().startsWith("js:")}。阶段 4 用
-     * HkSelector.isJsRule 替换本方法。
+     * {@code rule != null && rule.trim().startsWith("js:")}。阶段 4 起直接委托。
      */
     private static boolean isJsRule(String rule) {
-        return rule != null && rule.trim().startsWith("js:");
+        return HkSelector.isJsRule(rule);
     }
 
     public HkRule getRule() {
@@ -238,6 +236,11 @@ public class HkEngine {
 
     public HkJsRuntime getJsRuntime() {
         return jsRuntime;
+    }
+
+    /** 选择器（阶段 4 恢复，星辰原文）；无参适配构造在 prepare() 之前调时为 null。 */
+    public HkSelector getSelector() {
+        return selector;
     }
 
     /**
@@ -250,9 +253,9 @@ public class HkEngine {
     }
 
     // ================= 旧 HkEngine API 适配段（@Deprecated，3e-2） =================
-    // 旧手写版 HkEngine（2016 行）的调用点（HkExecutor、HkParser、HkSubpage，
-    // 约 85 处）未重接线到门面 home()/search()：门面不跑 preRule、选择器分支是
-    // 阶段 4 空位、URL 拼法与 HkExecutor 的 buildHomeRequest/buildDetailRequest
+    // 旧手写版 HkEngine（2016 行）的调用点（HkExecutor、HkSubpage，
+    // 约 85 处）未重接线到门面 home()/search()：门面不跑 preRule、
+    // URL 拼法与 HkExecutor 的 buildHomeRequest/buildDetailRequest
     // 不等价（homeDetailed 的 classUrl ID 式/fyAll/POST 守卫/诊断、详情/播放链的
     // preRule + initialVars 都在门面之外）。本段用新运行时实现旧 API，调用点
     // 零改动；阶段 5/7 接管弹框/详情/播放时按需移除。逐项映射见文档 §6.2。
@@ -311,7 +314,7 @@ public class HkEngine {
     /** 上次求值是否调过 setResult 一族（wasResultSet 用）。 */
     private boolean resultSetFlag;
 
-    /** 旧调用点专用无参构造（HkExecutor/HkParser/HkSubpage 均 new HkEngine() 后调 prepare）。 */
+    /** 旧调用点专用无参构造（HkExecutor/HkSubpage 均 new HkEngine() 后调 prepare）。 */
     @Deprecated
     public HkEngine() {
     }
@@ -381,6 +384,7 @@ public class HkEngine {
             SpiderDebug.log("hk", "engine init failed rule=%s err=%s", rule == null ? "" : rule.getTitle(), String.valueOf(e));
             throw new HkException("引擎初始化失败: " + e.getMessage(), e);
         }
+        this.selector = jsRuntime.newSelector();
         HkImage.setCurrentRuntime(this.jsRuntime);
         HkJsRuntime.setActiveInstance(this.jsRuntime);
         if (rule != null) HkImage.setCurrentTitle(rule.getTitle());
@@ -451,7 +455,7 @@ public class HkEngine {
     @Deprecated
     public String evalTextRule(String rule) throws HkException {
         if (jsRuntime == null) throw new HkException("引擎未 prepare");
-        String js = HkParser.jsBody(rule);
+        String js = HkParserKit.jsBody(rule);
         int before = jsRuntime.actionResultCount();
         String strBefore = jsRuntime.getStrResult();
         String ret;

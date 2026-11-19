@@ -11,8 +11,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import org.jsoup.Jsoup;
-
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -100,14 +98,14 @@ public class HkExecutor {
                     + "规则返回 " + outcome.cards.size() + " 条"
                     + (engine.wasResultSet() ? "" : "（规则未调用 setResult）");
         } else {
-            HkParser.ParseOutcome parsed = HkParser.parseHomeListDetailed(pageText, rule.getFindRule(), spec.url, engine, false);
-            outcome.cards = parsed.cards;
+            // 阶段 4：选择器解析改走 HkSelector（星辰行为：留标题或链接任一非空的卡片；
+            // 无命中数概念，诊断不再区分“未命中结构”与“命中了但卡片不可用”）。
+            List<HkItem> items = engine.getSelector().parseList(pageText, rule.getFindRule(), spec.url);
+            outcome.cards = toCards(items);
             outcome.diag = (skippedFetch ? "首页地址 " + spec.url + " 不抓页，" : "页面 " + sizeKb + "，")
-                    + "列表选择器命中 " + parsed.matched + " 项，得到 "
-                    + outcome.cards.size() + " 张卡片"
+                    + "得到 " + outcome.cards.size() + " 张卡片"
                     + (skippedFetch ? "（选择器无页面可解析）"
-                    : parsed.matched == 0 ? "（规则未命中页面结构）"
-                    : outcome.cards.isEmpty() ? "（命中了但卡片都不可用，缺标题或链接）" : "");
+                    : outcome.cards.isEmpty() ? "（未得到可用卡片）" : "");
         }
         return outcome;
     }
@@ -115,7 +113,7 @@ public class HkExecutor {
     /**
      * 搜索（对应报告 §7.1 的 search()，见 docs/miniapp-search.md）。
      * 流程与 homeDetailed 同款：校验 → 拼搜索请求 → OkHttp 抓页 → preRule →
-     * searchFind 是 js: 走 Rhino，否则走 {@link HkParser#parseSearchList}。
+     * searchFind 是 js: 走 Rhino，否则走 {@link HkSelector#parseSearch}。
      * 规则不可搜索（search_url/searchFind 任一为空）时返回空列表，不要假数据；
      * 关键词为空、请求/解析失败时抛 HkException（调用方显示错误态）。
      * 调用方必须在后台线程跑。返回原始搜索卡片，筛选由 HkListHelper.pickCards 做。
@@ -137,10 +135,10 @@ public class HkExecutor {
         HkEngine engine = new HkEngine();
         engine.prepare(rule, spec.url, page, "search", pageText);
         engine.evalPreRule();
-        if (HkParser.isJsRule(rule.getSearchFind())) {
+        if (HkSelector.isJsRule(rule.getSearchFind())) {
             return engine.evalFindRule(rule.getSearchFind());
         }
-        return HkParser.parseSearchList(pageText, rule.getSearchFind(), spec.url, engine);
+        return searchResultsToCards(engine.getSelector().parseSearch(pageText, rule.getSearchFind(), spec.url));
     }
 
     /**
@@ -227,7 +225,7 @@ public class HkExecutor {
      */
     private static UrlModifiers splitUrlModifiers(String template) {
         UrlModifiers mods = new UrlModifiers();
-        List<String> segments = HkParser.splitOutsideQuotes(template, ";");
+        List<String> segments = splitOutsideQuotes(template, ";");
         StringBuilder urlPart = new StringBuilder(segments.get(0));
         boolean modifiersStarted = false;
         for (int i = 1; i < segments.size(); i++) {
@@ -310,7 +308,7 @@ public class HkExecutor {
         if (err != null) throw new HkEngine.HkException(err);
         String raw = detailUrl == null ? "" : detailUrl.trim();
         if (TextUtils.isEmpty(raw)) throw new HkEngine.HkException("详情地址为空");
-        String url = HkParser.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
+        String url = HkParserKit.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
         if (HkSubpage.isSubpageUrl(url)) {
             // 子页面卡片点开：展开子页面，不走 detail_find_rule（阅动漫的 detail_find_rule 为空）。
             DetailOutcome sub = new DetailOutcome();
@@ -347,7 +345,7 @@ public class HkExecutor {
     /**
      * 最新章节（第 7 步之九，last_chapter_rule）：对已抓的详情页正文求值，
      * 不另发请求。JS 规则走 evalTextRule（setResult 交的纯字符串，如全看网的
-     * pdfh 取最后一集名）；选择器规则走 HkParser.extract 取文本。任何失败都
+     * pdfh 取最后一集名）；选择器规则走 HkSelector.evalField 取文本。任何失败都
      * 回 ""（装饰信息，不能炸详情页）。
      */
     static String lastChapter(HkRule rule, String detailUrl, String pageText) {
@@ -359,8 +357,8 @@ public class HkExecutor {
             engine.setRefreshEventEnabled(false);
             engine.prepare(rule, detailUrl, 1, "detail", pageText);
             engine.evalPreRule();
-            if (HkParser.isJsRule(field)) return engine.evalTextRule(field);
-            String text = HkParser.extract(Jsoup.parse(pageText, detailUrl), field, false, detailUrl, engine);
+            if (HkSelector.isJsRule(field)) return engine.evalTextRule(field);
+            String text = engine.getSelector().evalField(pageText, field, detailUrl);
             return text == null ? "" : text.trim();
         } catch (Exception e) {
             Log.w(TAG, "last_chapter_rule 求值失败 rule=" + rule.getTitle(), e);
@@ -383,7 +381,7 @@ public class HkExecutor {
         if (TextUtils.isEmpty(field)) return new ArrayList<>();
         String raw = url == null ? "" : url.trim();
         if (TextUtils.isEmpty(raw)) throw new HkEngine.HkException("二级详情地址为空");
-        String clean = HkParser.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
+        String clean = HkParserKit.resolveUrl(rule.getUrl(), stripLazyMarkers(raw));
         if (HkSubpage.isSubpageUrl(clean)) return HkSubpage.expand(rule, clean);
         if (raw.contains("@lazyRule=") || raw.contains("@input=")) {
             throw new HkEngine.HkException("懒加载动作链接请从卡片点击执行（详情页动作行）");
@@ -404,10 +402,10 @@ public class HkExecutor {
         engine.setDialogHost(host);
         engine.prepare(rule, pageUrl, 1, "detail", pageText, initialVars);
         engine.evalPreRule();
-        if (HkParser.isJsRule(detailRule)) {
+        if (HkSelector.isJsRule(detailRule)) {
             return engine.evalFindRule(detailRule);
         }
-        return HkParser.parseDetailList(pageText, detailRule, pageUrl, engine);
+        return detailItemsToCards(engine.getSelector().parseDetail(pageText, detailRule, pageUrl));
     }
 
     /** 懒加载播放解析结果：最终播放地址 + 请求头；url 为空表示未解析出地址。 */
@@ -491,7 +489,7 @@ public class HkExecutor {
         String lazyPart = at >= 0 ? raw.substring(at + markerLen).trim() : "";
         // URL 部分的 #...# 标记先剥掉（b() 在递归前对 URL 部分做的事）。
         pagePart = stripHashMarkers(pagePart);
-        String pageUrl = HkParser.resolveUrl(rule.getUrl(), pagePart);
+        String pageUrl = HkParserKit.resolveUrl(rule.getUrl(), pagePart);
         if (TextUtils.isEmpty(pageUrl)) return empty;
         if (HkSubpage.isSubpageUrl(pageUrl)
                 && !(lazyPart.startsWith(".js:") || lazyPart.startsWith("js:"))) {
@@ -536,7 +534,7 @@ public class HkExecutor {
             engine.setRefreshEventEnabled(false);
             engine.prepare(rule, pageUrl, 1, "play", pageText);
             engine.evalPreRule();
-            resolved = HkParser.extract(Jsoup.parse(pageText, pageUrl), lazy, true, pageUrl, engine);
+            resolved = engine.getSelector().evalField(pageText, lazy, pageUrl);
         }
         return dispatchResolved(rule, resolved == null ? "" : resolved.trim(), pageUrl, depth, context, host);
     }
@@ -663,7 +661,7 @@ public class HkExecutor {
             String pageText = isHttpUrl(spec.url) ? fetch(spec) : "";
             engine.prepare(rule, page, 1, "action", pageText, initialVars);
             engine.evalPreRule();
-            resolved = HkParser.extract(Jsoup.parse(pageText, page), js, true, page, engine);
+            resolved = engine.getSelector().evalField(pageText, js, page);
         }
         outcome.result = resolved == null ? "" : resolved;
         outcome.vars = engine.getVarsSnapshot();
@@ -781,7 +779,7 @@ public class HkExecutor {
     private static String resolveMediaUrl(String referer, String value) {
         if (TextUtils.isEmpty(value) || TextUtils.isEmpty(value.trim())) return "";
         String v = value.trim();
-        String resolved = HkParser.resolveUrl(referer, v);
+        String resolved = HkParserKit.resolveUrl(referer, v);
         if (TextUtils.isEmpty(resolved)) return "";
         String lower = resolved.toLowerCase(Locale.ROOT);
         if (lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("file://")) return resolved;
@@ -857,6 +855,84 @@ public class HkExecutor {
             return s.substring(0, s.length() - 4).trim();
         }
         return s;
+    }
+
+    /** HkItem → HkCard 逐字段转换（阶段 4：HkSelector.parseList 的返回类型转执行器卡片）。 */
+    private static List<HkCard> toCards(List<HkItem> items) {
+        List<HkCard> out = new ArrayList<>();
+        if (items == null) return out;
+        for (HkItem item : items) {
+            if (item == null) continue;
+            HkCard card = new HkCard(item.getTitle(), item.getUrl(), item.getPic(), item.getDesc());
+            card.setColType(item.getColType());
+            out.add(card);
+        }
+        return out;
+    }
+
+    /** SearchResult → HkCard 逐字段转换（阶段 4：HkSelector.parseSearch 的返回类型转执行器卡片）。 */
+    private static List<HkCard> searchResultsToCards(List<SearchResult> results) {
+        List<HkCard> out = new ArrayList<>();
+        if (results == null) return out;
+        for (SearchResult sr : results) {
+            if (sr == null) continue;
+            HkCard card = new HkCard(sr.getTitle(), sr.getUrl(), sr.getImg(), sr.getDesc());
+            out.add(card);
+        }
+        return out;
+    }
+
+    /** HkDetailItem → HkCard 逐字段转换（阶段 4：HkSelector.parseDetail 的返回类型转执行器卡片）。 */
+    private static List<HkCard> detailItemsToCards(List<HkDetailItem> items) {
+        List<HkCard> out = new ArrayList<>();
+        if (items == null) return out;
+        for (HkDetailItem item : items) {
+            if (item == null) continue;
+            HkCard card = new HkCard(item.getTitle(), item.getUrl(), item.getPic(), item.getDesc());
+            card.setColType(item.getColType());
+            out.add(card);
+        }
+        return out;
+    }
+
+    /**
+     * 引号外按分隔符切分（支持单/双引号与反斜杠转义；空段保留，字段位置不能丢）。
+     * 中文 ＋ 在分隔符是 + 时同样认（只在引号外）。旧 HkParser.splitOutsideQuotes
+     * 原样移入（阶段 4 删 HkParser 后唯一调用方 splitUrlModifiers 在此）。
+     */
+    static List<String> splitOutsideQuotes(String text, String delimiter) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        boolean inSingle = false;
+        boolean inDouble = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\\' && i + 1 < text.length() && (inSingle || inDouble)) {
+                cur.append(c).append(text.charAt(i + 1));
+                i++;
+                continue;
+            }
+            if (c == '\'' && !inDouble) {
+                inSingle = !inSingle;
+                cur.append(c);
+                continue;
+            }
+            if (c == '"' && !inSingle) {
+                inDouble = !inDouble;
+                cur.append(c);
+                continue;
+            }
+            if (!inSingle && !inDouble && (text.startsWith(delimiter, i)
+                    || ("+".equals(delimiter) && c == '＋'))) {
+                parts.add(cur.toString());
+                cur.setLength(0);
+                if (text.startsWith(delimiter, i)) i += delimiter.length() - 1;
+                continue;
+            }
+            cur.append(c);
+        }
+        parts.add(cur.toString());
+        return parts;
     }
 
     /** 请求头里是否已有该键（大小写不敏感，Referer/referer 同算）。 */

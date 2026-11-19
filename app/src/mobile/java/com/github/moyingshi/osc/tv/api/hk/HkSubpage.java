@@ -267,7 +267,7 @@ public final class HkSubpage {
             engine.setImportParams(query);
         }
         engine.evalPreRule();
-        Object returned = engine.eval(HkParser.jsBody(pageRule), "page:" + name);
+        Object returned = engine.eval(HkParserKit.jsBody(pageRule), "page:" + name);
         Object exports = engine.getExports();
         if (exports != null && !(exports instanceof Undefined)) return exports;
         if (engine.wasResultSet()) {

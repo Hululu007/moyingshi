@@ -224,7 +224,7 @@ public class HkStore {
         }
     }
 
-    /** md5 小写 hex（与 HkEngine.Bridge.md5 同款格式，供缓存文件名用）。 */
+    /** md5 小写 hex（供缓存文件名用）。 */
     private static String md5Hex(String s) {
         if (s == null) return "";
         try {

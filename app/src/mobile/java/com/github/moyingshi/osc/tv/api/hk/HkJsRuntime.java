@@ -7970,6 +7970,16 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         return i < 0 ? s : s.substring(0, i) + to + s.substring(i + from.length());
     }
 
+    /**
+     * 给 HkSelector 配一个带 JS 求值能力的实例（M1 的 null 透传升级为真求值）。
+     * 星辰 HkJsRuntime:10565 原文（阶段 4 补入，3b/3c/3d 搬运时漏了它）。
+     */
+    public HkSelector newSelector() {
+        HkSelector selector = new HkSelector();
+        selector.setJsEvaluator(this);
+        return selector;
+    }
+
     public String getError() {
         return error;
     }

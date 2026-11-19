@@ -178,7 +178,7 @@ public final class HkActionHandler {
             });
             return;
         }
-        runLazy(host, card, pagePart, lazy, HkParser.resolveUrl(host.rule().getUrl(), pagePart));
+        runLazy(host, card, pagePart, lazy, HkParserKit.resolveUrl(host.rule().getUrl(), pagePart));
     }
 
     /** 后台线程跑懒 JS（HkExecutor.evalLazy），回来主线程按结果分发。 */

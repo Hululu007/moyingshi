@@ -10,7 +10,7 @@ import com.google.gson.annotations.SerializedName;
  * 列表卡片模型，对应魔影小程序的 uy1（见逆向报告 §7.12）。
  * <p>
  * 字段名按报告里的 @SerializedName 原样保留；get/set 用可读名字。
- * pic 在 JS 规则里也写作 img（setResult 时两者都认，见 HkEngine.Bridge）。
+ * pic 在 JS 规则里也写作 img（setResult 时两者都认）。
  * 只放 mobile 源集，TV/leanback 不可见。
  */
 public class HkCard {

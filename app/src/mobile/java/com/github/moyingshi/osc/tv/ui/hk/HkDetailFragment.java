@@ -21,7 +21,7 @@ import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkEngine;
 import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
 import com.github.moyingshi.osc.tv.api.hk.HkNonVideo;
-import com.github.moyingshi.osc.tv.api.hk.HkParser;
+import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
 import com.github.moyingshi.osc.tv.api.hk.HkPlayer;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
@@ -271,9 +271,9 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     @Override
     public String pageUrl() {
         // MY_URL 要与详情引擎里的 spec.url 是同一字符串：卡片地址是相对地址时
-        // 先按规则基地址补全（绝对地址原样返回，见 HkParser.resolveUrl）。
+        // 先按规则基地址补全（绝对地址原样返回，见 HkParserKit.resolveUrl）。
         if (mRule == null) return arg("url");
-        return HkParser.resolveUrl(mRule.getUrl(), arg("url"));
+        return HkParserKit.resolveUrl(mRule.getUrl(), arg("url"));
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.github.moyingshi.osc.tv.api.hk;
 /** 移植自星辰 com/fongmi/android/tv/api/hk/HkParserKit.java（312 行）：除包名外与原文一致；详见 docs/miniapp-xingchen-4a-selector-kit.md。 */
 
+import android.text.TextUtils;
+
 import java.util.Collection;
 import java.util.List;
 
@@ -309,5 +311,38 @@ public final class HkParserKit {
         str = replaceOnce(str, "#checkMetadata=false#", "");
         str = str.replaceAll("#threads=\\d{1,2}#", "");
         return str;
+    }
+
+    // ---- 墨影视适配：旧 HkParser.java 的两个通用小方法（阶段 4 替换时原样移入） ----
+    // 星辰 HkParserKit 没有这两个方法；HkExecutor/HkSubpage/HkActionHandler/
+    // HkDetailFragment/HkEngine 的调用点需要一个共享落点，故放在此处（兼容工具包定位），
+    // 实现与旧 HkParser.resolveUrl/jsBody 逐字一致，不改语义。
+
+    /** 相对地址按 baseUrl 补全；绝对地址、data:/blob:/file:/javascript: 原样返回。 */
+    public static String resolveUrl(String baseUrl, String value) {
+        if (TextUtils.isEmpty(value)) return "";
+        String v = value.trim();
+        if (v.startsWith("http://") || v.startsWith("https://") || v.startsWith("data:")
+                || v.startsWith("blob:") || v.startsWith("file://") || v.startsWith("javascript:")) {
+            return v;
+        }
+        if (v.startsWith("//") && !TextUtils.isEmpty(baseUrl)) {
+            int schemeEnd = baseUrl.indexOf("://");
+            if (schemeEnd > 0) return baseUrl.substring(0, schemeEnd) + ":" + v;
+            return "https:" + v;
+        }
+        if (TextUtils.isEmpty(baseUrl)) return v;
+        try {
+            return new java.net.URL(new java.net.URL(baseUrl), v).toString();
+        } catch (Exception e) {
+            return v;
+        }
+    }
+
+    /** 去掉 js: 前缀，返回 JS 程序体。 */
+    public static String jsBody(String rule) {
+        if (TextUtils.isEmpty(rule)) return "";
+        String text = rule.trim();
+        return text.startsWith("js:") ? text.substring(3) : text;
     }
 }

@@ -25,9 +25,9 @@ import java.util.List;
  * 通过返回 null；星辰同语义版本是抛 {@code IllegalArgumentException}。
  * 调用方 HkStore（importJsonFile 等三处）与 HkExecutor（六处）都用这个签名。</li>
  * <li>{@link #getFindRule()} 保留 null→"" 归一；星辰是直返 null。原因是我们现有
- * 调用方 HkExecutor:98 {@code evalFindRule(rule.getFindRule())} 与 :103
- * {@code parseHomeListDetailed(..., rule.getFindRule(), ...)} 都不判 null，
- * 改直返 null 会把 NPE 风险带进现版执行链。阶段 4 换 HkSelector 时再复核。</li>
+ * 调用方 HkExecutor（evalFindRule 与首页选择器解析）都不判 null，
+ * 改直返 null 会把 NPE 风险带进现版执行链。阶段 4 已复核：新调用点对 "" 与 null
+ * 同为空结果（HkSelector.parseList 空规则回空表），归一保留，不跟进星辰。</li>
  * </ol>
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
@@ -163,9 +163,9 @@ public class HkRule {
         return isEmpty(ua) ? MOBILE_UA : ua.trim();
     }
 
-    /** find_rule 是否整段 JS（以 js: 开头），对应 b32.f()。委托给 HkParser（HkSelector 阶段 4 才有）。 */
+    /** find_rule 是否整段 JS（以 js: 开头），对应 b32.f()。委托给 HkSelector（阶段 4 已搬）。 */
     public boolean isJsFindRule() {
-        return HkParser.isJsRule(findRule);
+        return HkSelector.isJsRule(findRule);
     }
 
     public boolean isJsSearchRule() {
@@ -396,9 +396,8 @@ public class HkRule {
 
     /**
      * 有意偏差：星辰直返字段（null 可达），这里保留墨影视旧形的 null→"" 归一。
-     * 原因是我们现有调用方 HkExecutor:98 {@code evalFindRule(rule.getFindRule())}
-     * 与 :103 {@code parseHomeListDetailed(..., rule.getFindRule(), ...)} 都不判 null；
-     * 改直返 null 会把 NPE 风险带进现版执行链。阶段 4 换 HkSelector 时再复核。
+     * 原因是我们现有调用方 HkExecutor（evalFindRule 与首页选择器解析）都不判 null；
+     * 改直返 null 会把 NPE 风险带进现版执行链。阶段 4 已复核，归一保留（见类注释）。
      */
     public String getFindRule() {
         return isEmpty(findRule) ? "" : findRule;

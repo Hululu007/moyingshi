@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 并发：单线程串行（与上游一致，不一次把 5 条全并行打满）；同一时间最多一个
  * 预热线程在跑（{@code running} 门），导入与启动几乎同时触发时后到的直接丢弃。
  * 超时：单条规则的网络由 OkHttp 共享客户端的 30s connect/read/write 兜底
- *（{@code HkExecutor.fetch} 用 {@code OkHttp.client()}）；另设总时限 120s，
+ *（{@code HkExecutor.fetch} 用 {@code HkHttpClient.client()}）；另设总时限 120s，
  * 跑下一条前若已超时就停。Rhino 单次执行本身没有安全的硬中断手段，总时限只
  * 约束“不再起新规则”，不谎称能中断正在跑的那条；最坏情况是最后一条由 OkHttp
  * 30s 兜底结束，后台线程自然退出，不阻塞前台、不阻塞退出。
