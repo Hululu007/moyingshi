@@ -21,6 +21,7 @@ public class Episode implements Parcelable, Diffable<Episode> {
     @SerializedName("url")
     private String url;
     private transient String displayName;
+    private transient boolean numberName;
 
     private int index;
     private int number;
@@ -76,6 +77,15 @@ public class Episode implements Parcelable, Diffable<Episode> {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    /** 集名是不是组装时回退出来的序号（源没给名）：只作标记，不参与 parcel/序列化/匹配。 */
+    public boolean isNumberName() {
+        return numberName;
+    }
+
+    public void setNumberName(boolean numberName) {
+        this.numberName = numberName;
     }
 
     public String getUrl() {
