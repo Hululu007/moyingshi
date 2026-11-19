@@ -822,7 +822,7 @@ public class HkHttp {
                             // 8.83 OkHttpUrlLoader.Factory 内建 client：read/write 各 15 秒
                             .readTimeout(15, TimeUnit.SECONDS)
                             .writeTimeout(15, TimeUnit.SECONDS)
-                            .callTimeout(45, TimeUnit.SECONDS)
+                            .callTimeout(45, TimeUnit.SECONDS);
                             // W1（2026-10-18 二诊结论）：补回整次调用总超时 45 秒。8.83 内建 client 虽无 callTimeout，
                             // 但星辰的图片 client 多了一层独有的代理选择器：TLS 握手与代理
                             // CONNECT 阶段不受 connect/read/write 约束（OkHttp 5.4.0：connectTimeout 只管 Socket.connect，
