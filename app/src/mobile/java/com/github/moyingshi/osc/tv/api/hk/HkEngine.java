@@ -49,9 +49,16 @@ public class HkEngine {
      * 发生，跨面提交不再把本面首拉顶成空（星辰原文，照搬）。
      */
     private final Object listEvalScope = new Object();
+    /**
+     * true = 包裹常驻运行时（只借用）：不重复 init、destroy() 是空操作，
+     * 生命周期归 HkEngineManager 管。见修法 A（b12 分类点不进去定案）。
+     * 5a 按星辰原文恢复（3e 删掉的部分）。
+     */
+    private final boolean adopted;
 
     public HkEngine(HkRule rule) throws Exception {
         this.rule = rule;
+        this.adopted = false;
         try {
             this.jsRuntime = new HkJsRuntime(rule);
             this.jsRuntime.init();
@@ -66,6 +73,30 @@ public class HkEngine {
         HkJsRuntime.setActiveInstance(this.jsRuntime);
         HkImage.setCurrentTitle(rule.getTitle());
         this.selector = jsRuntime.newSelector();
+    }
+
+    /**
+     * 修法 A：包裹常驻运行时（HkEngineManager.runtimeFor），不新建不 init，
+     * destroy() 空操作——与 8.83 JSEngine 单例语义一致：写读同一张变量表，
+     * 点击求值的 putMyVar 才能被页面刷新求值读到。
+     * 调用方须先 HkEngineManager.ensureInit(rt)（只跑一次，不清变量表）。
+     * 5a 按星辰原文恢复（3e 删掉的部分）。
+     */
+    private HkEngine(HkRule rule, HkJsRuntime resident) {
+        this.rule = rule;
+        this.adopted = true;
+        this.jsRuntime = resident;
+        // 图片 @js= 求值依赖当前规则的 JS 运行时；与原构造同款兜底登记
+        HkImage.setCurrentRuntime(this.jsRuntime);
+        HkJsRuntime.setActiveInstance(this.jsRuntime);
+        HkImage.setCurrentTitle(rule.getTitle());
+        this.selector = resident.newSelector();
+    }
+
+    /** 修法 A 工厂：HkRouter 取常驻运行时后用此构造包裹。5a 按星辰原文恢复。 */
+    public static HkEngine wrapResident(HkRule rule, HkJsRuntime resident) {
+        if (rule == null || resident == null) throw new IllegalArgumentException("rule/resident null");
+        return new HkEngine(rule, resident);
     }
 
     /**
@@ -244,12 +275,16 @@ public class HkEngine {
     }
 
     /**
-     * 3e 适配：星辰原文分 adopted（常驻运行时，destroy 空操作）与独立引擎两路；
-     * HkEngineManager 在星辰仓库里根本没有这个类，常驻路径整段删掉（我方
-     * HkExecutor 每次执行新建引擎，不必强行常驻）。本方法恒销毁自有运行时。
+     * 5a 恢复：星辰原文分 adopted（常驻运行时，destroy 空操作）与独立引擎两路。
+     * 3e 称“HkEngineManager 在星辰仓库里根本没有这个类”并删掉常驻路径，该判断是错的：
+     * HkEngineManager 在星辰 app/src/mobile/.../ui/hk/ 内（155 行，5a 已搬入），
+     * HkRouter 构造器依赖 wrapResident。见 docs/miniapp-xingchen-5a-router-detail-play.md §3.4。
      */
     public void destroy() {
-        if (jsRuntime != null) jsRuntime.destroy();
+        // 修法 A：包裹常驻运行时时绝不能销毁它（原版单例语义：常驻引擎生命周期
+        // 归 HkEngineManager 管，进程内永不销毁）；旧独立引擎才走原销毁。
+        // 5a 按星辰原文恢复（3e 删掉的部分）；无参适配构造的 jsRuntime 可能为 null，守卫保留。
+        if (!adopted && jsRuntime != null) jsRuntime.destroy();
     }
 
     // ================= 旧 HkEngine API 适配段（@Deprecated，3e-2） =================
@@ -317,6 +352,8 @@ public class HkEngine {
     /** 旧调用点专用无参构造（HkExecutor/HkSubpage 均 new HkEngine() 后调 prepare）。 */
     @Deprecated
     public HkEngine() {
+        // 5a：adopted 是 final 字段，无参适配构造须显式置 false（独立引擎口径）。
+        this.adopted = false;
     }
 
     @Deprecated
