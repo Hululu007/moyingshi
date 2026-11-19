@@ -3,6 +3,7 @@ package com.github.moyingshi.osc.tv.api.hk;
 import android.util.Log;
 
 import com.github.moyingshi.osc.tv.bean.Vod;
+import com.github.moyingshi.osc.tv.ui.hk.HkEngineManager;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
