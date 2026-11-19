@@ -314,9 +314,9 @@ public final class HkParserKit {
     }
 
     // ---- 墨影视适配：旧 HkParser.java 的两个通用小方法（阶段 4 替换时原样移入） ----
-    // 星辰 HkParserKit 没有这两个方法；HkExecutor/HkSubpage/HkActionHandler/
-    // HkDetailFragment/HkEngine 的调用点需要一个共享落点，故放在此处（兼容工具包定位），
-    // 实现与旧 HkParser.resolveUrl/jsBody 逐字一致，不改语义。
+    // 星辰 HkParserKit 没有这两个方法；HkPageActivity.sdetail（7a 起自 HkNonVideo 搬家而来）/
+    // HkClickDispatcher/HkDetailFragment/HkEngine 的调用点需要一个共享落点，故放在此处
+    //（兼容工具包定位），实现与旧 HkParser.resolveUrl/jsBody 逐字一致，不改语义。
 
     /** 相对地址按 baseUrl 补全；绝对地址、data:/blob:/file:/javascript: 原样返回。 */
     public static String resolveUrl(String baseUrl, String value) {

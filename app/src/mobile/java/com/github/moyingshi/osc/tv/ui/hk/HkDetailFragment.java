@@ -27,10 +27,10 @@ import com.github.moyingshi.osc.tv.api.hk.HkErrorUtil;
 import com.github.moyingshi.osc.tv.api.hk.HkHistoryRecorder;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
 import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
-import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
+import com.github.moyingshi.osc.tv.api.hk.event.home.OnRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.event.home.ToastEvent;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
@@ -167,7 +167,7 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
      * 当前页生效，回顶在重跑之前；加载进行中时攒下来等完成后再重载一次（不重入、不丢）。
      */
     @Subscribe(threadMode = ThreadMode.MAIN)
-    public void onHkRefreshPage(HkRefreshPageEvent event) {
+    public void onHkRefreshPage(OnRefreshPageEvent event) {
         if (event == null || getActivity() == null || getActivity().isFinishing()) return;
         if (mRule == null) return;
         if (!isResumed() || !getUserVisibleHint()) {
@@ -176,11 +176,11 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         }
         if (mLoading) {
             mPendingRefresh = true;
-            mPendingRefreshToTop = mPendingRefreshToTop || event.isToTop();
+            mPendingRefreshToTop = mPendingRefreshToTop || event.isScrollTop();
             Log.i(TAG, "onHkRefreshPage deferred: loading in flight");
             return;
         }
-        if (event.isToTop() && mBinding != null && mBinding.recycler != null) {
+        if (event.isScrollTop() && mBinding != null && mBinding.recycler != null) {
             mBinding.recycler.scrollToPosition(0);
         }
         reloadPage();
@@ -242,6 +242,8 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
                 // 标记路回 HkDetail 不抛错，见 docs/miniapp-xingchen-5d-detail-play.md §3）。
                 // fromSearch=false：与旧 HkExecutor.detailOutcome 同口径，不折叠搜索引擎。
                 HkRouter router = routerFor(rule);
+                // 7c：JS confirm() 接管——router 建好后装 handler（共享桥上的 handler 永远是当前页的）。
+                HkClickDispatcher.installConfirmHandler(this);
                 HkItem item = new HkItem(fbName, url, fbPic, fbDesc);
                 HkDetail hd = router.detail(url, item, false);
                 if (hd.isLazyParseFailed()) {
@@ -484,6 +486,11 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     @Override
     public Activity activity() {
         return getActivity();
+    }
+
+    @Override
+    public boolean isActive() {
+        return isResumed() && getUserVisibleHint();
     }
 
     @Override

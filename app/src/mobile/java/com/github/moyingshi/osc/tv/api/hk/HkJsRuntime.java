@@ -9732,7 +9732,7 @@ private void setErrorImpl(Object[] args) {
         if (callback == null) {
             // 官 JSEngine.setError 无回调支（源码行 1537-1540）：投
             // ToastEvent 由宿主 onToast 错误式呈现，不直弹 toast。
-            // 咱家承接点 HkArticleFragment.onToastEvent。
+            // 咱家承接点是三 Fragment 各一个 onToastEvent（7b 接，见 7b 文档 §5.2）。
             org.greenrobot.eventbus.EventBus.getDefault().post(
                     new com.github.moyingshi.osc.tv.api.hk.event.home.ToastEvent(msg));
         } else {

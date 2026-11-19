@@ -348,8 +348,8 @@ public class HkRouter {
         if (TextUtils.isEmpty(text)) return "";
         try {
             HkEngine engine = new HkEngine();
-            // 5e：装饰性求值本就不发 refreshPage 事件（全树无 OnRefreshPageEvent 订阅方，
-            // 见 5d 文档 §7；setRefreshEventEnabled 已随适配段瘦身删除，不另设门控）。
+            // 5e：装饰性求值本就不发 refreshPage 事件（7c：OnRefreshPageEvent 已有三 Fragment
+            // 订阅，见 7c 文档 §5；setRefreshEventEnabled 已随适配段瘦身删除，不另设门控）。
             engine.prepare(rule, detailUrl, 1, "detail", text);
             engine.evalPreRule();
             if (HkSelector.isJsRule(field)) return engine.evalTextRule(field);

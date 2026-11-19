@@ -25,6 +25,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -91,6 +92,14 @@ public final class HkClickDispatcher {
 
         /** 懒结果/卡片是子页面时，开新列表页（单页渲染，见 HkListFragment 子页面模式）。 */
         void openSubpage(String url, String title);
+
+        /**
+         * 当前页是否处于 resumed 且可见（confirm 弹框门，星辰 isOnPause 同款；见 7c 文档 §4.3）。
+         * default 回 true——仅有的三个实现方（三 Fragment）各自 override。
+         */
+        default boolean isActive() {
+            return true;
+        }
     }
 
     private HkClickDispatcher() {
@@ -633,6 +642,56 @@ public final class HkClickDispatcher {
             });
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> dialog.dismiss());
         });
+    }
+
+    /**
+     * JS confirm() 接管（7c：星辰 HkArticleFragment.setConfirmHandler 登记处 + showRuleConfirm/
+     * routeConfirmResult 同款逻辑，见 7c 文档 §4）。页面加载后（router 建好后）由三 Fragment 各调一次；
+     * 共享桥上的 handler 永远是当前页的。JS confirm() 无 handler 时仍回 false（HkJsRuntime 不动）。
+     */
+    public static void installConfirmHandler(Host host) {
+        if (host == null) return;
+        HkRouter router = host.router();
+        if (router == null || router.getEngine() == null) return;
+        HkJsRuntime rt = router.getEngine().getJsRuntime();
+        if (rt == null) return;
+        WeakReference<Host> hostRef = new WeakReference<>(host);
+        rt.setConfirmHandler((title, content, confirmJs, cancelJs) -> {
+            Host h = hostRef.get();
+            Activity act = h == null ? null : h.activity();
+            if (act == null || act.isFinishing() || act.isDestroyed()) return;
+            // 星辰 A9 门：宿主被盖住时不弹，免得确认框串到别页之上。
+            if (h != null && !h.isActive()) return;
+            confirmAsync(act, title, content, confirmed -> {
+                String js = confirmed ? confirmJs : cancelJs;
+                if (js == null || js.isEmpty()) return;
+                routeConfirmResult(hostRef, rt, js);
+            });
+        });
+    }
+
+    /** 8.83 ArticleListIsland.lambda$confirm$1 同款（星辰 routeConfirmResult）：后台求值回调串，结果非空且非 undefined/null/false/hiker://empty 才走路由。 */
+    private static void routeConfirmResult(WeakReference<Host> hostRef, HkJsRuntime rt, String js) {
+        new Thread(() -> {
+            String result;
+            try {
+                result = rt.evalConfirmJs(js);
+            } catch (Throwable t) {
+                return;
+            }
+            if (result == null || result.isEmpty() || "undefined".equalsIgnoreCase(result)
+                    || "null".equalsIgnoreCase(result) || "false".equalsIgnoreCase(result)
+                    || "hiker://empty".equalsIgnoreCase(result)) return;
+            final String url = result;
+            onMain(() -> {
+                Host h = hostRef.get();
+                if (h == null) return;
+                HkCard card = new HkCard();
+                card.setUrl(url);
+                card.setTitle("");
+                handle(h, card);
+            });
+        }).start();
     }
 
     /**

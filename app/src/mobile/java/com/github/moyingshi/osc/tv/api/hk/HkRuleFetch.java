@@ -23,7 +23,7 @@ import okhttp3.Response;
  * 规则页请求工具（5e：自 {@code HkExecutor} 逐字移入，见
  * docs/miniapp-xingchen-5e-click-dispatch-cleanup.md §2.6）。
  * <p>
- * {@code HkExecutor} 删除后仍有两处调用方（{@code HkNonVideo.sdetail}、
+ * {@code HkExecutor} 删除后仍有两处调用方（{@code HkPageActivity.sdetail}、
  * {@code HkClickDispatcher.runLazy} 的选择器路），故请求三件套单独立类；
  * {@code HkParserKit} 是逐字移植文件，不许往里加自有方法。
  * <p>

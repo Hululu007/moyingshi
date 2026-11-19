@@ -1,8 +1,11 @@
 package com.github.moyingshi.osc.tv.ui.hk;
 /** 移植自星辰 app/src/mobile/java/com/fongmi/android/tv/ui/hk/HkEngineManager.java（155 行）：除包名外与原文一致；详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
 
+import android.util.Log;
+
 import com.github.moyingshi.osc.tv.api.hk.HkImage;
 import com.github.moyingshi.osc.tv.api.hk.HkJsRuntime;
+import com.github.moyingshi.osc.tv.api.hk.HkLazyRuleParser;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkRuleManager;
 
@@ -27,6 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  */
 public final class HkEngineManager {
+
+    private static final String TAG = "HkEngineManager";
 
     /** 进程唯一桥（懒建，双检锁）。 */
     private static volatile HkJsRuntime BRIDGE;
@@ -68,6 +73,47 @@ public final class HkEngineManager {
                     // 删规则清账口（HkRuleManager.delete → onRuleDeleted）靠此登记找桥。
                     HkJsRuntime.registerSharedBridge(rt);
                     BRIDGE = rt;
+                    // 7c：HkLazyRuleParser.parse 桥（星辰 HkEngineBridge:116 同款匿名 JsRuntime，
+                    // 见 7c 文档 §6；与桥同寿命，setJsRuntime 是静态 volatile 写，重复调无害）。
+                    HkLazyRuleParser.setJsRuntime(new HkLazyRuleParser.JsRuntime() {
+                        @Override
+                        public String evalLazyRule(Object rule, String myCode, String jsRule) {
+                            if (!(rule instanceof HkRule)) throw new IllegalArgumentException("rule is not HkRule: " + (rule == null ? "null" : rule.getClass().getName()));
+                            HkRule hkRule = (HkRule) rule;
+                            HkJsRuntime runtime = HkEngineManager.runtimeFor(hkRule);
+                            try {
+                                HkEngineManager.ensureInit(runtime);
+                            } catch (Exception e) {
+                                // 初始化失败不许在未初始化的运行时上继续求值装出空结果
+                                // （残项处置 2026-11-14）：抛给 HkLazyRuleParser 既有
+                                // catch → callback.error 失败出口。
+                                Log.e(TAG, "evalLazyRule 引擎初始化失败", e);
+                                throw new RuntimeException("引擎初始化失败：" + e.getMessage(), e);
+                            }
+                            return runtime.evalLazyRule(rule, myCode, jsRule);
+                        }
+
+                        @Override
+                        public Object evalJSForObj(String script, Object input) {
+                            HkRule rule = HkEngineManager.currentRule();
+                            if (rule == null) return null;
+                            HkJsRuntime runtime = HkEngineManager.runtimeFor(rule);
+                            try {
+                                HkEngineManager.ensureInit(runtime);
+                            } catch (Exception e) {
+                                // 同 evalLazyRule：初始化失败抛给调用方既有错误回调，
+                                // 不许回 null 与「求值无结果」同形（残项处置 2026-11-14）。
+                                Log.e(TAG, "evalJSForObj 引擎初始化失败", e);
+                                throw new RuntimeException("引擎初始化失败：" + e.getMessage(), e);
+                            }
+                            return runtime.evalJSForObj(script, input);
+                        }
+
+                        @Override
+                        public String getMyRule(Object rule) {
+                            return HkJsRuntime.getMyRule(rule);
+                        }
+                    });
                 }
             }
         }
