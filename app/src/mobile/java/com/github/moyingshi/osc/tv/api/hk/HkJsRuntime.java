@@ -2138,7 +2138,11 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         try {
             return rhinoCx.evaluateString(newScope, prepared, "hk", 1, null);
         } catch (Throwable e) {
-            logEvalFailure(prepared, e, 1);
+            // hkfix-1c：日志行号偏移一直错——此前硬编码 1，srcLine 恒少减 2
+            // （韩剧实证：asmLine=26，正确规则行号是 23，日志却记 25）。
+            // preLine 就是 appendLineVar 数出的前缀行数（规则行号 = asmLine -
+            // preLine），直接用它；<0 只在空脚本时出现（到不了求值），兜底 0。
+            logEvalFailure(prepared, e, preLine >= 0 ? preLine : 0);
             throw e;
         } finally {
             exitEvalLog();
