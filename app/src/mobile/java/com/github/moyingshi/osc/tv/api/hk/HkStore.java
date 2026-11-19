@@ -550,9 +550,9 @@ public class HkStore {
     /**
      * 粘贴 JSON 导入：先写 cache/hk_import/hk_paste_&lt;时间&gt;.json 再走 importFiles，
      * 与报告里粘贴导入的链路一致。内容为空记 lastError 返回 0。
-     * 注意：云口令文本不走这里（HkCloudImport 先取回 JSON 再调本方法）；2b 起
-     * importJsonList 不再识别云口令/分享包装（那是阶段 6），误贴云口令会按
-     * “内容不是规则 JSON”报错。
+     * 注意：6a 起云口令/分享包装文本也走这里（`HkRuleManager.parseJsonList` 的
+     * 中央分发先识别云口令与 ￥ 包装再解析；旧 `HkCloudImport` 先取回 JSON 的
+     * 路在 6b 删除，见 docs/miniapp-xingchen-6a-cloud-clip.md）。
      */
     public static int importJsonText(String text) {
         if (TextUtils.isEmpty(text)) {

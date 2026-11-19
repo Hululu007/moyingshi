@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Environment;
 import android.util.Log;
+import android.util.Base64;
 
 import com.github.moyingshi.osc.tv.App;
 import com.google.gson.Gson;
@@ -15,6 +16,7 @@ import com.google.gson.JsonParser;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -24,11 +26,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 /**
  * 海阔规则的存取管（设计文档 §4.1）。
@@ -1016,9 +1026,36 @@ public class HkRuleManager {
         return out.toByteArray();
     }
 
+    // 云口令（云剪贴板）：格式 云{version}oooole/{path}，version 为 1~10。
+    // 逆向自海阔视界官方 App（com.example.hikerviewg v8.83）各 Importer 的真实通道（2026-10-10 实测）：
+    //   云1oooole/{id}        → pastebin.com（需官方内嵌 API Key，本 App 不用）
+    //   云1oooole/raw/{pasteId} → pastebin.com（GET https://pastebin.com/raw/{pasteId}）
+    //   云2oooole/apidb/{key} → textdb.online（可用）
+    //   云2oooole/p/{note_id} → netcut.cn（官方已下线 API，失效）
+    //   云5oooole/{id}        → cmd.im（可用：GET https://cmd.im/{id} 取 .test_box 文本）
+    //   云6oooole/xxxxxx/{path}(@{pwd}) → pasteme.tyrantg.com（可用：GET /api/getContent/{path}(@{pwd})）
+    //   云7oooole/{note}      → note.ms（GET https://note.ms/{note} 取 textarea 文本，8.83 同款）
+    //   云9oooole/{id}        → txtpad.cn（GET https://txtpad.cn/{id}）
+    //   云10oooole/share/a/b/{key} → hastebin（GET hassdtebin.com/raw/{key}，回退 hastebin.com/raw/{key}）
+    //   云3、云4、云8 在 8.83 中无实现，不支持
+    private static final Pattern CLOUD_CODE_PATTERN =
+            Pattern.compile("^云([1-9]|10)oooole(/.*)$");
+
+    private static String normalizeCloudCode(String raw) {
+        int i = raw.indexOf("oooole");
+        if (i < 0) return raw;
+        int j = i + "oooole".length();
+        if (j < raw.length() && raw.charAt(j) != '/') return raw.substring(0, j) + "/" + raw.substring(j);
+        return raw;
+    }
+    private static final String TEXTDB_API_UPDATE = "https://api.textdb.online/update/";
+    private static final String TEXTDB_GET = "https://textdb.online/";
+    private static final String PASTEME_API = "https://pasteme.tyrantg.com/api/getContent/";
+    private static final String PASTEME_REFERER = "https://pasteme.tyrantg.com/";
+    private static final String CMDIM_BASE = "https://cmd.im";
     /**
      * 云口令提取（星辰 HkRuleManager.java:75-76，3e 搬入）：用 find() 而非 matches()，
-     * 从任意文本中提取口令子串。parseByCloudCode/unwrapShareText 是阶段 6 的，本步不搬。
+     * 从任意文本中提取口令子串。parseByCloudCode/unwrapShareText 由阶段 6a 补齐（见本文件云区）。
      */
     private static final Pattern CLOUD_CODE_FIND =
             Pattern.compile("云([1-9]|10)oooole/?\\S+");
@@ -1039,10 +1076,23 @@ public class HkRuleManager {
     public List<ParsedRule> parseJsonList(String json) throws Exception {
         if (json == null || json.trim().isEmpty()) throw new IllegalArgumentException("规则内容为空");
         String t = json.trim();
-        // 阶段 6：非 JSON 文本的云口令/分享包装分发（parseByCloudCode/
-        // unwrapShareText）随云口令区一起补（isCloudCode 已在 3e 搬入，见本文件
-        // CLOUD_CODE_FIND）；本步非 {、[ 开头的文本由下行 parseJson
-        // 按「内容不是规则 JSON」报错。
+        // 原版 RuleImporterManager 中央分发同款：粘贴文本先识别云口令与分享包装。
+        // 用户常把「云Noooole/… 小程序：xxx」整段粘进粘贴导入框；此前直接送 Gson 解析，
+        // 报 "Expected BEGIN_OBJECT but was STRING"。只对非 JSON 文本做分发，规则原文不受影响。
+        if (!t.startsWith("{") && !t.startsWith("[")) {
+            // 1) 云口令（云1~云10）：走云通道（各 Importer.canParse 同款识别，兼容前后缀/多行）
+            if (isCloudCode(t)) {
+                List<ParsedRule> single = new ArrayList<>();
+                single.add(parseByCloudCode(t));
+                return single;
+            }
+            // 2) 分享包装：￥home_rule￥/￥home_rule_v2￥ 明文口令、base64:// 壳
+            //    （原版 checkAutoText / importRuleByRuleText 同款）
+            String unwrapped = unwrapShareText(t);
+            if (unwrapped != null && !unwrapped.equals(t)) {
+                t = unwrapped.trim();
+            }
+        }
         if (!t.startsWith("[")) {
             List<ParsedRule> single = new ArrayList<>();
             HkRule rule = parseJson(t);
@@ -1137,7 +1187,721 @@ public class HkRuleManager {
         return new ParsedRule(parseJson(json), json);
     }
 
-    // 阶段 6：云口令取件与导出（HkRuleManager.java:1166-1888）在此补
+    /**
+     * 从云口令解析规则（不落盘）：解析口令 → 从云端拉取 rule.json → 解析校验。
+     * 导入 UI 用它先解析、弹分组选择器，用户选完后再 saveRule 落盘。
+     *
+     * @return 解析通过的规则（含原始 JSON）
+     * @throws Exception 口令格式错误 / 网络失败 / 内容不是合法规则时抛出
+     */
+    public ParsedRule parseByCloudCode(String code) throws Exception {
+        return parseByCloudCode(code, null);
+    }
+
+    /**
+     * 带密码版：分享人给云剪贴板设了访问密码时，接收方要把密码带上才能取到内容。
+     * password 为空时，若粘贴文本在口令后面还跟了一段（空格分隔），按海阔原版习惯把它当密码用。
+     */
+    public ParsedRule parseByCloudCode(String code, String password) throws Exception {
+        if (code == null || code.trim().isEmpty()) throw new IllegalArgumentException("口令为空");
+        // 先从文本中提取口令子串（兼容"云6oooole/xxxxxx/xxx 小程序：yyy"这类带后缀的输入）
+        Matcher f = CLOUD_CODE_FIND.matcher(code);
+        if (!f.find()) throw new IllegalArgumentException("不是有效的云口令（需云1~云10开头）");
+        String raw = normalizeCloudCode(f.group());
+        Matcher m = CLOUD_CODE_PATTERN.matcher(raw);
+        if (!m.matches()) throw new IllegalArgumentException("不是有效的云口令（需云1~云10开头）");
+        String version = m.group(1);
+        String path = m.group(2); // 如 /p/xxxx、/apidb/yyyy、/xxxxxx/pppp、/f7c6
+        String pwd = password;
+        if ((pwd == null || pwd.isEmpty()) && f.end() < code.length()) {
+            // 口令后空格跟的一段当密码（海阔 PastemeImporter 同款切法）；"小程序：xxx"这类说明后缀不算
+            String tail = code.substring(f.end()).trim();
+            if (!tail.isEmpty() && !tail.startsWith("小程序")) {
+                String token = tail.split("\\s+")[0];
+                if (!token.isEmpty() && !token.startsWith("http")) pwd = token;
+            }
+        }
+        String json = fetchCloudJson(path, version, pwd);
+        if (json == null || json.trim().isEmpty()) throw new IllegalArgumentException("云端返回内容为空");
+        String t = json.trim();
+        return new ParsedRule(parseJson(t), t);
+    }
+
+    /**
+     * fetchCloudJson 一次取件顺手留存的通道原文（键=版本|path），供紧随其后的同一次
+     * parsePaste 回退 fetchPasteRawText 复用、免二次取件。按线程绑定（ThreadLocal）：
+     * parsePaste 的「先 importByCloudCode、失败再 fetchPasteRawText」在同一线程顺序直调，
+     * 留存只对本线程这次操作可见，并发操作互不可见、互不清槽；键值成对装在不可变对象里。
+     * 每次 fetchCloudJson 开头先清本线程旧留存，故取件抛错/换口令后旧原文不会被顶替
+     * 使用；消费端入口无条件取走（取走即清、键不合一并丢弃、回退支自行取件）；没被
+     * 消费端取走的留存只活到本线程下一次 fetchCloudJson 入口清槽为止。
+     */
+    private final ThreadLocal<PasteRawStash> pasteRawStash = new ThreadLocal<>();
+
+    private static class PasteRawStash {
+        final String key;
+        final String text;
+
+        PasteRawStash(String key, String text) {
+            this.key = key;
+            this.text = text;
+        }
+    }
+
+    /**
+     * 取云剪贴板粘贴文本原文（不做规则校验）：8.83 parsePaste →
+     * RuleImporterManager.parseSync 语义，返回通道里的原文内容。聚合类（聚阅）口令的
+     * 内容是接口列表文本而非规则 JSON，importByCloudCode 按规则解析失败后走这里把
+     * 原文还给 JS。取不到原文返回 null，调用方回退返回口令原文。
+     */
+    public String fetchPasteRawText(String code) {
+        try {
+            // 入口先取走本线程留存：无论本次格式校验/取件成败，旧留存都不跨过这次调用存活
+            PasteRawStash stashHit = pasteRawStash.get();
+            pasteRawStash.remove();
+            Matcher f = CLOUD_CODE_FIND.matcher(code);
+            if (!f.find()) return null;
+            Matcher m = CLOUD_CODE_PATTERN.matcher(normalizeCloudCode(f.group()));
+            if (!m.matches()) return null;
+            String version = m.group(1);
+            String path = m.group(2);
+            // importByCloudCode 刚为同一口令取过件：原文是同一次取件的副产物（入口取走的
+            // 留存），直接复用，不再二次取件（含密码取到的件也在此复用，本支无密码参不重取）。
+            // 键不合说明是本线程上一次操作的残留，已丢弃、走下面自有支。
+            if (stashHit != null && stashHit.key.equals(version + "|" + path)) return stashHit.text;
+            // 云5 → cmd.im：取 test_box 便签原文（与 extractRuleJsonFromCmdIm 同款提取，不做规则剥壳）
+            if ("5".equals(version)) {
+                String id = path.substring(1).split("[\\s/]")[0];
+                if (id.isEmpty()) return null;
+                OkHttpClient client = HkHttp.client();
+                Request req = new Request.Builder().url(CMDIM_BASE + "/" + id)
+                        .header("User-Agent", "Mozilla/5.0").build();
+                try (Response resp = client.newCall(req).execute()) {
+                    if (!resp.isSuccessful() || resp.body() == null) return null;
+                    Matcher mm = Pattern.compile("class=\"test_box\"[^>]*>(.*?)</div>",
+                            Pattern.DOTALL).matcher(resp.body().string());
+                    if (!mm.find()) return null;
+                    String text = mm.group(1).replaceAll("<[^>]+>", "").trim()
+                            .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                            .replace("&quot;", "\"").replace("&#39;", "'");
+                    return text.isEmpty() ? null : text;
+                }
+            }
+            // 以下原文支共用的取件客户端：与 fetchCloudJson 同款 30 秒总超时派生
+            // （取件是短操作，不许无总超时干等；HkHttp.client() 本体不动；云5 支在上面、
+            // 沿旧口径直接用本体，不经此派生）
+            OkHttpClient client = HkHttp.client().newBuilder()
+                    .callTimeout(30, TimeUnit.SECONDS)
+                    .build();
+            // 云6 → pasteme：取回包 data 字段原文直还（8.83 BailanImporter.parseSync 原文：
+            // fastjson 解信封后 getData() 直接 return，不过 unwrapShareText/规则校验）
+            if (path.startsWith("/xxxxxx/")) {
+                String rest = path.substring("/xxxxxx/".length()).split("\\s")[0];
+                if (rest.isEmpty()) return null;
+                return fetchPastemeData(client, rest);
+            }
+            // 云2 /apidb → textdb：外层 base64 解开即原文（8.83 NetCutImporter.parseSync 原文：
+            // fromSafeBase64 解完直接 return，不剥 base64:// 包装）
+            if (path.startsWith("/apidb/")) {
+                String key = path.substring("/apidb/".length()).split("[\\s/]")[0];
+                if (key.isEmpty()) return null;
+                Request req = new Request.Builder().url(TEXTDB_GET + key)
+                        .header("User-Agent", "Mozilla/5.0").build();
+                try (Response resp = client.newCall(req).execute()) {
+                    if (!resp.isSuccessful() || resp.body() == null) return null;
+                    String decoded = decodeBase64Loose(resp.body().string().trim());
+                    return (decoded == null || decoded.isEmpty()) ? null : decoded;
+                }
+            }
+            // 云7 → note.ms：textarea/正文原文（8.83 NotesImporter.parseSync 原文：
+            // parseDomForUrl "textarea&&Text" 直还）；两姿势与 fetchCloudJson 云7 支同款
+            if ("7".equals(version)) {
+                String id = path.substring(1).split("[\\s/]")[0];
+                if (id.isEmpty()) return null;
+                String noteUrl = "https://note.ms/" + id;
+                String raw = null;
+                try {
+                    raw = fetchNoteMsRaw(client, noteUrl, true);
+                } catch (IOException ignored) {
+                }
+                if (raw == null || raw.trim().isEmpty()) {
+                    try {
+                        raw = fetchNoteMsRaw(client, noteUrl, false);
+                    } catch (IOException ignored) {
+                    }
+                }
+                return (raw == null || raw.trim().isEmpty()) ? null : raw;
+            }
+            // 云10 → hastebin：/raw/ 正文即原文（8.83 HastebinImporter.parseSync 取 share 页
+            // code 元素文本，/raw/ 正文与之等价）；双 base 与 fetchCloudJson 云10 支同款
+            if ("10".equals(version)) {
+                String[] segs = path.split("/");
+                String key = segs[segs.length - 1].split("\\s")[0];
+                if (key.isEmpty()) return null;
+                String[] bases = {"https://hassdtebin.com/raw/", "https://hastebin.com/raw/"};
+                for (String base : bases) {
+                    try {
+                        Request req = new Request.Builder().url(base + key)
+                                .header("User-Agent", "Mozilla/5.0").build();
+                        try (Response resp = client.newCall(req).execute()) {
+                            if (!resp.isSuccessful() || resp.body() == null) continue;
+                            String body = resp.body().string();
+                            if (body != null && !body.trim().isEmpty()) return body;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+                return null;
+            }
+            // 云9 不在此取原文（记名）：8.83 TxtPadImporter.parseSync 是 WebView 取 textarea
+            // 值的形态，与本路普通 GET 不等价，且 txtpad.cn 已停服（2026-11-12 本机实探回
+            // 「服务已停止」页），原文形态无从验对，不估落。
+            // 云1 不在此取原文：8.83 PastebinImporter.canUseSync=false，官 parseSync 不支持。
+            // 其它通道暂不单独取原文：返回 null → 调用方回退口令原文
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    /**
+     * 从云口令导入规则：解析口令 → 从云端拉取 rule.json → 走 importJson 落盘。
+     *
+     * @return 导入成功的规则
+     * @throws Exception 口令格式错误 / 网络失败 / 内容不是合法规则时抛出
+     */
+    public HkRule importByCloudCode(String code) throws Exception {
+        ParsedRule p = parseByCloudCode(code);
+        saveRule(p.rule, p.json);
+        return p.rule;
+    }
+
+    /** 云6 tyrantg 剪贴板取一次、只取回包 data 字段原文（不剥壳）：失败（不存在/需密码/密码错）返回 null。规则形态走 extractRuleJsonFromPasteme 在此原文上剥壳。 */
+    private String fetchPastemeData(OkHttpClient client, String rest) throws Exception {
+        Request req = new Request.Builder().url(PASTEME_API + rest)
+                .header("referer", PASTEME_REFERER)
+                .header("cookie", "")
+                .header("User-Agent", "Mozilla/5.0").build();
+        try (Response resp = client.newCall(req).execute()) {
+            if (!resp.isSuccessful() || resp.body() == null) return null;
+            return extractPastemeData(resp.body().string());
+        }
+    }
+
+    /** 按口令 path 从云端拉取 rule.json 文本（通道按官方 App 逆向结果路由）。 */
+    private String fetchCloudJson(String path, String version, String password) throws Exception {
+        // 新取件开始即清掉本线程旧留存：本次抛错就不再有留存，回退支不会拿旧原文顶替
+        pasteRawStash.remove();
+        CloudContent c = fetchCloudContent(path, version, password);
+        // 同一次取件顺手留存通道原文：parsePaste 回退 fetchPasteRawText 时按 版本|path
+        // 复用，不再二次取件（留存写入点只在此，parseByCloudCode 是唯一调用方）
+        if (c.rawText != null) {
+            pasteRawStash.set(new PasteRawStash(version + "|" + path, c.rawText));
+        }
+        return c.ruleText;
+    }
+
+    /** 一次取件的双形态：ruleText=剥壳后的规则候选（原 fetchCloudJson 的返回值与抛错口径逐支不变）；rawText=通道原文（官 parseSync 形态，官不支持/未验的通道为 null）。 */
+    private static class CloudContent {
+        final String ruleText;
+        final String rawText;
+
+        CloudContent(String ruleText, String rawText) {
+            this.ruleText = ruleText;
+            this.rawText = rawText;
+        }
+    }
+
+    private CloudContent fetchCloudContent(String path, String version, String password) throws Exception {
+        // 8.83 BailanImporter 用 DohProvidersKt.buildAutoClient(url)：走 App 的 DoH 客户端。
+        // 裸 OkHttpClient 与海阔配置不一致，改走 HkHttp.client()（CookieJar/拦截器；DNS 系统默认照原版）。
+        // 取件专用派生：本体无 callTimeout 是规则请求的既定口径（规则长请求不许被总超时掐断），
+        // 但云口令取件是短操作，无总超时时站点连不上能长时间干等（云7 真机实案：note.ms
+        // 取不到时「正在从云端获取规则…」挂很久才失败）。只在此取件口派生一份带 30 秒
+        // 总超时的副本（连接池/分发器/拦截器与本体共享），HkHttp.client() 本体一字不动、
+        // 规则请求不受影响；各通道共用此取件口。
+        OkHttpClient client = HkHttp.client().newBuilder()
+                .callTimeout(30, TimeUnit.SECONDS)
+                .build();
+        // 1) /apidb/{key} → textdb.online（官方云2分享通道，已验证可用）
+        if (path.startsWith("/apidb/")) {
+            String key = path.substring("/apidb/".length()).split("[\\s/]")[0];
+            if (key.isEmpty()) throw new IllegalArgumentException("口令中 apidb key 为空");
+            Request req = new Request.Builder().url(TEXTDB_GET + key)
+                    .header("User-Agent", "Mozilla/5.0").build();
+            try (Response resp = client.newCall(req).execute()) {
+                if (!resp.isSuccessful() || resp.body() == null)
+                    throw new IllegalArgumentException("云端请求失败（HTTP " + resp.code() + "）");
+                String b64 = resp.body().string().trim();
+                // 原版 NetCutImporter.fromSafeBase64：解开外层只要求是合法 base64，不校验是否为规则原文；
+                // 分享内容可能是「说明文本＋base64://@标题@真规则」包装，剥壳走 unwrapShareText（原版分发器同款）。
+                String outer = decodeBase64Loose(b64);
+                if (outer == null) throw new IllegalArgumentException("云端内容不是有效的 base64 规则");
+                String json = unwrapShareText(outer);
+                if (json == null || json.isEmpty()) throw new IllegalArgumentException("云端内容不是有效的 base64 规则");
+                return new CloudContent(json, outer);
+            }
+        }
+        // 2) /xxxxxx/{path}(@{pwd}) → pasteme.tyrantg.com（官方云6通道，白阑剪贴板，已验证可用）
+        if (path.startsWith("/xxxxxx/")) {
+            String rest = path.substring("/xxxxxx/".length()).split("\\s")[0];
+            if (rest.isEmpty()) throw new IllegalArgumentException("口令中缺少便签ID");
+            String data = fetchPastemeData(client, rest);
+            String json = data == null ? null : unwrapShareText(data);
+            if (json == null && password != null && !password.isEmpty() && !rest.contains("(@")) {
+                // 分享人设了访问密码：按 (@密码) 后缀再取一次（与旧 fetchPasteme 口径一致：
+                // 首取剥壳为空即重试，取到新 data 才换入）
+                String data2 = fetchPastemeData(client, rest + "(@" + password + ")");
+                if (data2 != null) {
+                    data = data2;
+                    json = unwrapShareText(data2);
+                }
+            }
+            if (json == null) throw new IllegalArgumentException("云端未返回有效规则（便签不存在或密码错误）");
+            return new CloudContent(json, data);
+        }
+        // 3) 云5 → cmd.im（官方云5通道，已验证可用）
+        if ("5".equals(version)) {
+            String id = path.substring(1).split("[\\s/]")[0];
+            if (id.isEmpty()) throw new IllegalArgumentException("口令中缺少便签ID");
+            Request req = new Request.Builder().url(CMDIM_BASE + "/" + id)
+                    .header("User-Agent", "Mozilla/5.0").build();
+            try (Response resp = client.newCall(req).execute()) {
+                if (!resp.isSuccessful() || resp.body() == null)
+                    throw new IllegalArgumentException("云端请求失败（HTTP " + resp.code() + "）");
+                String text = extractCmdImTextBox(resp.body().string());
+                String json = text == null ? null : unwrapShareText(text);
+                if (json == null) throw new IllegalArgumentException("云端未返回有效规则（便签不存在或内容格式不对）");
+                return new CloudContent(json, text);
+            }
+        }
+        // 4) 云1 → pastebin.com（官方云1通道）：云1oooole/raw/{pasteId}
+        //    8.83 PastebinImporter.parse 原文：code.replace("云1oooole","https://pastebin.com")，
+        //    以 https://pastebin.com/raw/ 开头则直接 GET。
+        if ("1".equals(version)) {
+            String id = path.startsWith("/raw/") ? path.substring("/raw/".length()) : path.substring(1);
+            id = id.split("[\\s/]")[0];
+            if (id.isEmpty()) throw new IllegalArgumentException("口令中缺少 pasteId");
+            Request req = new Request.Builder().url("https://pastebin.com/raw/" + id)
+                    .header("User-Agent", "Mozilla/5.0").build();
+            try (Response resp = client.newCall(req).execute()) {
+                if (!resp.isSuccessful() || resp.body() == null)
+                    throw new IllegalArgumentException("云端请求失败（HTTP " + resp.code() + "）");
+                String json = unwrapShareText(resp.body().string());
+                if (json == null || json.isEmpty()) throw new IllegalArgumentException("云端未返回有效规则");
+                // 云1 原文不给：8.83 PastebinImporter.canUseSync=false，官 parseSync 不支持此通道
+                return new CloudContent(json, null);
+            }
+        }
+        // 5) 云7 → note.ms（官方云7通道）：云7oooole/{note}
+        //    8.83 NotesImporter.parseSync 原文：parseDomForUrl(url, "textarea&&Text", "UTF-8")。
+        if ("7".equals(version)) {
+            String id = path.substring(1).split("[\\s/]")[0];
+            if (id.isEmpty()) throw new IllegalArgumentException("口令中缺少便签ID");
+            String noteUrl = "https://note.ms/" + id;
+            // 两姿势：先按 8.83 口径带浏览器 UA 取页面、textarea 提取；取不到再换非浏览器
+            // 问法——note.ms 对非浏览器 UA 直接回笔记原文，正文直接剥壳（本机实测成立）。
+            // 真机上第一姿势曾长时间取不到（潇洒哥实案），多一条路多一分成功率。
+            // 异常口径分清：两姿势都网络失败才冒泡 IOException（导入侧按网络问题报，
+            // 不误弹密码框）；取到响应但内容不对仍按旧口径报「未返回有效规则」。
+            String json = null;
+            String raw = null;
+            IOException netErr = null;
+            try {
+                raw = fetchNoteMsRaw(client, noteUrl, true);
+                if (raw != null) json = unwrapShareText(raw);
+            } catch (IOException e) {
+                netErr = e;
+            }
+            if (json == null || json.isEmpty()) {
+                try {
+                    String raw2 = fetchNoteMsRaw(client, noteUrl, false);
+                    if (raw2 != null) {
+                        raw = raw2;
+                        json = unwrapShareText(raw2);
+                    }
+                } catch (IOException e) {
+                    netErr = e;
+                }
+            }
+            if (json != null && !json.isEmpty()) return new CloudContent(json, raw);
+            if (netErr != null) throw netErr;
+            throw new IllegalArgumentException("云端未返回有效规则");
+        }
+        // 6) 云9 → txtpad.cn（官方云9通道）：云9oooole/{id}
+        //    8.83 TxtPadImporter.parse 原文：code.replace("云9oooole","https://txtpbbd.cn") 后拉取。
+        if ("9".equals(version)) {
+            String id = path.substring(1).split("[\\s/]")[0];
+            if (id.isEmpty()) throw new IllegalArgumentException("口令中缺少便签ID");
+            Request req = new Request.Builder().url("https://txtpad.cn/" + id)
+                    .header("User-Agent", "Mozilla/5.0").build();
+            try (Response resp = client.newCall(req).execute()) {
+                if (!resp.isSuccessful() || resp.body() == null)
+                    throw new IllegalArgumentException("云端请求失败（HTTP " + resp.code() + "）");
+                String json = unwrapShareText(resp.body().string());
+                if (json == null || json.isEmpty()) throw new IllegalArgumentException("云端未返回有效规则");
+                // 云9 原文不给（记名）：官 parseSync 是 WebView 取 textarea 值、与本路 GET
+                // 不等价且站点已停服，原文形态无从验对（详 fetchPasteRawText 云9 注）
+                return new CloudContent(json, null);
+            }
+        }
+        // 7) 云10 → hastebin（官方云10通道）：云10oooole/share/a/b/{key}
+        //    8.83 HastebinImporter 原文用 https://hassdtebin.com/share/a/b/ 分享。
+        if ("10".equals(version)) {
+            String[] segs = path.split("/");
+            String key = segs[segs.length - 1].split("\\s")[0];
+            if (key.isEmpty()) throw new IllegalArgumentException("口令中缺少 key");
+            String[] bases = {"https://hassdtebin.com/raw/", "https://hastebin.com/raw/"};
+            IOException netErr = null;
+            int ioFails = 0;
+            for (String base : bases) {
+                try {
+                    Request req = new Request.Builder().url(base + key)
+                            .header("User-Agent", "Mozilla/5.0").build();
+                    try (Response resp = client.newCall(req).execute()) {
+                        if (!resp.isSuccessful() || resp.body() == null) continue;
+                        String body = resp.body().string();
+                        String json = unwrapShareText(body);
+                        if (json != null && !json.isEmpty()) return new CloudContent(json, body);
+                    }
+                } catch (IOException e) {
+                    // 网络失败单独记账：双 base 全是网络失败时冒泡 IOException，
+                    // 让导入侧按网络问题报，别被吞成内容失败误弹密码框（与云7同口径）
+                    netErr = e;
+                    ioFails++;
+                } catch (Exception ignored) {
+                }
+            }
+            if (netErr != null && ioFails == bases.length) throw netErr;
+            throw new IllegalArgumentException("云端未返回有效规则");
+        }
+        // 8) /p/{note_id} → netcut.cn：官方已下线该接口，通道失效，给明确提示
+        if (path.startsWith("/p/")) {
+            throw new IllegalArgumentException("该口令走 netcut 通道，netcut 已停止开放接口，无法拉取。"
+                    + "请让分享者用「导出为云口令」重新分享，或索取规则文件导入。");
+        }
+        throw new IllegalArgumentException("暂不支持该云口令通道（当前支持：云1、云2/apidb、云5、云6、云7、云9、云10）");
+    }
+
+    /**
+     * note.ms 取一次原文（不剥壳）：browserUa=true 带浏览器 UA 取页面、走 textarea 提取（8.83 口径）；
+     * false 不带浏览器 UA（OkHttp 默认 UA）、取正文。规则形态由调用方在此原文上 unwrapShareText。
+     * HTTP 失败/内容为空返回 null；网络异常抛 IOException 不吞——导入侧要靠它把网络失败与内容失败分开报。
+     */
+    private String fetchNoteMsRaw(OkHttpClient client, String url, boolean browserUa) throws IOException {
+        Request.Builder rb = new Request.Builder().url(url);
+        if (browserUa) rb.header("User-Agent", "Mozilla/5.0");
+        try (Response resp = client.newCall(rb.build()).execute()) {
+            if (!resp.isSuccessful() || resp.body() == null) return null;
+            String body = resp.body().string();
+            return browserUa ? extractTextarea(body) : body;
+        }
+    }
+
+    /** 从 note.ms 页面中提取 textarea 文本（8.83 NotesImporter 用 "textarea&&Text" 选择器）。 */
+    private String extractTextarea(String html) {
+        if (html == null) return null;
+        try {
+            Matcher m = Pattern.compile("<textarea[^>]*>(.*?)</textarea>",
+                    Pattern.DOTALL | Pattern.CASE_INSENSITIVE).matcher(html);
+            if (!m.find()) return null;
+            String text = m.group(1).replaceAll("<[^>]+>", "").trim();
+            text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                    .replace("&quot;", "\"").replace("&#39;", "'");
+            return text.isEmpty() ? null : text;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /** 从 pasteme API 响应中提取规则内容：{"return_code":0,"data":"...rule.json..."}。 */
+    private String extractRuleJsonFromPasteme(String text) {
+        String data = extractPastemeData(text);
+        return data == null ? null : unwrapShareText(data);
+    }
+
+    /** 从 pasteme API 响应中取 data 字段原文（不剥壳）：信封口径与 extractRuleJsonFromPasteme 一致（return_code 非 0/无 data/data 空 → null）。 */
+    private String extractPastemeData(String text) {
+        if (text == null) return null;
+        try {
+            JsonObject obj = JsonParser.parseString(text.trim()).getAsJsonObject();
+            if (obj.has("return_code") && obj.get("return_code").getAsInt() != 0) return null;
+            if (!obj.has("data") || obj.get("data").isJsonNull()) return null;
+            String data = obj.get("data").getAsString().trim();
+            if (data.isEmpty()) return null;
+            return data;
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    /** 从 cmd.im 页面中提取 .test_box 文本（规则内容）。 */
+    private String extractRuleJsonFromCmdIm(String html) {
+        String text = extractCmdImTextBox(html);
+        return text == null ? null : unwrapShareText(text);
+    }
+
+    /** 从 cmd.im 页面中提取 .test_box 原文（不剥壳）：提取与转义还原口径与 extractRuleJsonFromCmdIm 一致。 */
+    private String extractCmdImTextBox(String html) {
+        if (html == null) return null;
+        try {
+            Matcher m = Pattern.compile("class=\"test_box\"[^>]*>(.*?)</div>", Pattern.DOTALL).matcher(html);
+            if (!m.find()) return null;
+            String text = m.group(1).replaceAll("<[^>]+>", "").trim();
+            // HTML 转义还原
+            text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                    .replace("&quot;", "\"").replace("&#39;", "'");
+            if (text.isEmpty()) return null;
+            return text;
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    /**
+     * 还原分享包装：内容可能是 ￥home_rule￥{json} 明文口令（海阔官方格式），
+     * 也可能是 ￥…￥base64://@标题@BASE64 包装（cmd.im 常见），
+     * 也可能是裸 rule.json / 规则数组 / js: 文本。
+     */
+    private String unwrapShareText(String text) {
+        if (text == null) return null;
+        String t = text.trim();
+        // 海阔明文口令：…￥home_rule￥{json} / ￥home_rule_v2￥{json}
+        String unwrapped = unwrapHomeRuleCommand(t);
+        if (unwrapped != null) return unwrapped;
+        int idx = t.indexOf("base64://");
+        if (idx >= 0) {
+            // base64://@标题@BASE64 → 取 @ 分隔的第 3 段解码（官方 importRuleByRuleText 同款）
+            String[] segs = t.substring(idx + "base64://".length()).split("@");
+            if (segs.length >= 3) {
+                String decoded = safeBase64Decode(segs[2].replaceAll("\\s+", ""));
+                if (decoded != null) return decoded;
+            }
+            return null;
+        }
+        return t;
+    }
+
+    /**
+     * 解析海阔明文口令：…￥home_rule￥{json} / ￥home_rule_v2￥{json}。
+     * 兼容裸 JSON（以 { 开头且含 col_type 和 find_rule，直接视为规则）。
+     * 成功返回规则 JSON，失败返回 null。
+     */
+    public static String unwrapHomeRuleCommand(String text) {
+        if (text == null) return null;
+        String t = text.trim();
+        // 裸 JSON：海阔 realCheckAutoText 同款判断
+        if (t.startsWith("{") && t.endsWith("}") && t.contains("col_type") && t.contains("find_rule")) {
+            return t;
+        }
+        // ￥type￥json 格式：按 ￥ 切分，至少 3 段，取第 3 段及之后拼回（json 内可能含 ￥）
+        if (!t.contains("\uFFE5")) return null;
+        String[] parts = t.split("\uFFE5", -1);
+        if (parts.length < 3) return null;
+        String type = parts[1].trim();
+        if (!"home_rule".equals(type) && !"home_rule_v2".equals(type)) return null;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 2; i < parts.length; i++) {
+            if (i > 2) sb.append("\uFFE5");
+            sb.append(parts[i]);
+        }
+        String json = sb.toString().trim();
+        if (json.startsWith("{") && json.contains("col_type")) return json;
+        return null;
+    }
+
+    /** 是否为海阔分享口令文本（明文口令或裸规则 JSON）。 */
+    public static boolean isShareCommandText(String text) {
+        return unwrapHomeRuleCommand(text) != null;
+    }
+
+    /**
+     * 生成海阔明文口令：海阔视界规则分享，当前分享的是：小程序￥home_rule￥{json}。
+     * 与 8.83 AutoImportHelper.getCommand("home_rule") 格式一致，可被海阔官方识别导入。
+     */
+    public static String buildShareCommand(String ruleJson) {
+        if (ruleJson == null) return null;
+        return "\u6D77\u9614\u89C6\u754C\u89C4\u5219\u5206\u4EAB\uFF0C\u5F53\u524D\u5206\u4EAB\u7684\u662F\uFF1A\u5C0F\u7A0B\u5E8F\uFFE5home_rule\uFFE5" + ruleJson.trim();
+    }
+
+    /** 兼容标准 / URL 安全两种 base64 的解码，失败返回 null。 */
+    private String safeBase64Decode(String b64) {
+        String decoded = decodeBase64Loose(b64);
+        if (decoded != null && decoded.contains("{") && decoded.contains("}")) return decoded;
+        return null;
+    }
+
+    /** base64 解码（宽松版）：只要求是合法 base64，不校验解码后是否为规则原文；原版 fromSafeBase64 用 URL_SAFE|NO_WRAP。 */
+    private String decodeBase64Loose(String b64) {
+        if (b64 == null) return null;
+        String s = b64.trim().replaceAll("\\s+", "");
+        // URL 安全字符集（-/_）先归一化为标准字符集（+/）：安卓 Base64.DEFAULT 是宽松解码，
+        // 遇到 -/_ 不抛异常而是静默跳过，会产出垃圾字符串且不再尝试 URL_SAFE（云2/apidb 的 seeduck 回包即此坑）。
+        // 归一化后标准/URL安全/混用三种都能吃，比原版更宽。
+        if (s.indexOf('-') >= 0 || s.indexOf('_') >= 0) {
+            s = s.replace('-', '+').replace('_', '/');
+        }
+        // 补齐 padding
+        int mod = s.length() % 4;
+        if (mod == 1) return null;
+        String padded = s + "====".substring(0, (4 - mod) % 4);
+        int[] flags = {Base64.DEFAULT, Base64.URL_SAFE, Base64.NO_WRAP};
+        for (int flag : flags) {
+            try {
+                byte[] bytes = Base64.decode(padded, flag);
+                return new String(bytes, StandardCharsets.UTF_8);
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 导出规则为云口令（textdb 通道）：rule.json → base64 → 上传 textdb.online
+     * → 返回 云2oooole/apidb/{key}（与官方 App 的云2分享格式一致，官方 App 可导入）。
+     *
+     * @return 生成的云口令
+     */
+    public String exportAsCloudCode(String title) throws Exception {
+        File f = new File(getDir(), safeFileName(title) + ".json");
+        if (!f.exists()) throw new IllegalArgumentException("规则不存在：" + title);
+        byte[] bytes = Files.readAllBytes(f.toPath());
+        String json = new String(bytes, StandardCharsets.UTF_8);
+        String b64 = Base64.encodeToString(json.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+        String key = "xc" + System.currentTimeMillis() / 1000 + "_" + Math.abs(title.hashCode());
+
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .build();
+        FormBody body = new FormBody.Builder()
+                .add("key", key)
+                .add("value", b64)
+                .build();
+        Request req = new Request.Builder().url(TEXTDB_API_UPDATE).post(body)
+                .header("User-Agent", "Mozilla/5.0").build();
+        try (Response resp = client.newCall(req).execute()) {
+            if (!resp.isSuccessful() || resp.body() == null)
+                throw new IllegalArgumentException("上传失败（HTTP " + resp.code() + "）");
+            String respText = resp.body().string();
+            try {
+                JsonObject obj = JsonParser.parseString(respText).getAsJsonObject();
+                if (obj.has("status") && obj.get("status").getAsInt() == 1) {
+                    return "云2oooole/apidb/" + key;
+                }
+            } catch (Exception ignored) {
+            }
+            throw new IllegalArgumentException("上传失败：服务器返回异常");
+        }
+    }
+
+    /**
+     * 导出规则为云5短口令（cmd.im 通道）：POST rule.json → 302 跳转取短 ID
+     * → 返回 云5oooole/{id}（短格式，与官方 App 的云5分享格式一致，官方 App 可导入）。
+     *
+     * @return 生成的云口令
+     */
+    public String exportAsCmdImCode(String title) throws Exception {
+        File f = new File(getDir(), safeFileName(title) + ".json");
+        if (!f.exists()) throw new IllegalArgumentException("规则不存在：" + title);
+        byte[] bytes = Files.readAllBytes(f.toPath());
+        String json = new String(bytes, StandardCharsets.UTF_8);
+
+        OkHttpClient client = new OkHttpClient.Builder()
+                .followRedirects(false)
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .build();
+        FormBody body = new FormBody.Builder().add("txt", json).build();
+        Request req = new Request.Builder().url(CMDIM_BASE + "/").post(body)
+                .header("Origin", CMDIM_BASE)
+                .header("Referer", CMDIM_BASE + "/")
+                .header("User-Agent", "Mozilla/5.0").build();
+        try (Response resp = client.newCall(req).execute()) {
+            String loc = resp.header("Location");
+            if (loc == null || loc.isEmpty())
+                throw new IllegalArgumentException("上传失败：未返回短链接（HTTP " + resp.code() + "）");
+            // Location 形如 /8xwm
+            String id = loc.substring(loc.lastIndexOf('/') + 1).split("[\\s?]")[0];
+            if (id.isEmpty()) throw new IllegalArgumentException("上传失败：短链接格式异常");
+            return "云5oooole/" + id;
+        }
+    }
+
+    /**
+     * 导出规则为文件：复制 rule.json 到指定目录（默认 Download）。
+     *
+     * @return 导出的文件
+     */
+    public File exportAsFile(String title, File destDir) throws Exception {
+        File src = new File(getDir(), safeFileName(title) + ".json");
+        if (!src.exists()) throw new IllegalArgumentException("规则不存在：" + title);
+        if (destDir != null && !destDir.exists()) destDir.mkdirs();
+        File dest = new File(destDir != null ? destDir : getDir(),
+                safeFileName(title) + ".hkrule.json");
+        byte[] bytes = Files.readAllBytes(src.toPath());
+        Files.write(dest.toPath(), bytes);
+        return dest;
+    }
+
+    /**
+     * 导出规则为 .hkzip 包：rule.json + require.json（若有）+ libs.zip（若有附带库）。
+     *
+     * @return 导出的文件
+     */
+    public File exportAsHkZip(String title, File destDir) throws Exception {
+        return exportRulePackage(title, destDir, ".hkzip");
+    }
+
+    /**
+     * 导出规则为 .zip 包：内容与 .hkzip 完全相同（rule.json + require.json + libs.zip），仅后缀为 .zip。
+     * 海阔里常见"xxx.zip"规则包（如"黄色仓库.zip"），与 .hkzip 互通，导入走同一套解析。
+     *
+     * @return 导出的文件
+     */
+    public File exportAsZip(String title, File destDir) throws Exception {
+        return exportRulePackage(title, destDir, ".zip");
+    }
+
+    /** 导出规则包的公共实现：ext 决定后缀（.hkzip / .zip），包内容一致。 */
+    private File exportRulePackage(String title, File destDir, String ext) throws Exception {
+        File src = new File(getDir(), safeFileName(title) + ".json");
+        if (!src.exists()) throw new IllegalArgumentException("规则不存在：" + title);
+        if (destDir != null && !destDir.exists()) destDir.mkdirs();
+        File dest = new File(destDir != null ? destDir : getDir(), safeFileName(title) + ext);
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(dest.toPath()))) {
+            writeZipEntry(zos, "rule.json", Files.readAllBytes(src.toPath()));
+            // 环13 对官导出（8.83 ShareRuleUtil）：登记簿非空时把登记簿根的
+            // require.json 原文件与各 RequireItem.file（全局 libs 内实文件）
+            // 打进包；旧形读内部 data/<title>/ 的副本，导入落点修回官根后恒空。
+            File require = new File(getRequireFilesDir(title), "require.json");
+            List<com.example.hikerview.ui.rules.model.RequireItem> reqItems =
+                    com.example.hikerview.ui.rules.service.require.RequireUtils.getRequireItems(title);
+            if (require.exists() && reqItems != null && !reqItems.isEmpty()) {
+                writeZipEntry(zos, "require.json", Files.readAllBytes(require.toPath()));
+                ByteArrayOutputStream libsZip = new ByteArrayOutputStream();
+                boolean anyLib = false;
+                try (ZipOutputStream lzos = new ZipOutputStream(libsZip)) {
+                    for (com.example.hikerview.ui.rules.model.RequireItem item : reqItems) {
+                        if (item == null || item.getFile() == null) continue;
+                        File f = new File(item.getFile());
+                        if (f.isFile()) {
+                            writeZipEntry(lzos, f.getName(), Files.readAllBytes(f.toPath()));
+                            anyLib = true;
+                        }
+                    }
+                }
+                if (anyLib) writeZipEntry(zos, "libs.zip", libsZip.toByteArray());
+            }
+        }
+        return dest;
+    }
+
+    private void writeZipEntry(ZipOutputStream zos, String name, byte[] bytes) throws Exception {
+        ZipEntry entry = new ZipEntry(name);
+        zos.putNextEntry(entry);
+        zos.write(bytes);
+        zos.closeEntry();
+    }
 
     /**
      * 从 JS 规则文本导入：内容以 "js:" 开头，后面是 JS 代码。
