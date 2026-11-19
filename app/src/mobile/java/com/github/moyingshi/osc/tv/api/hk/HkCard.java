@@ -83,6 +83,37 @@ public class HkCard {
     public String getRule() { return rule == null ? "" : rule; }
     public void setRule(String rule) { this.rule = rule; }
 
+    /**
+     * HkItem → HkCard 逐字段转换（5c：自 HkExecutor.toCards 逐字移入；HkExecutor
+     * 内的私有副本留待 5d 随 HkExecutor 一并删除）。
+     */
+    public static java.util.List<HkCard> fromItems(java.util.List<HkItem> items) {
+        java.util.List<HkCard> out = new java.util.ArrayList<>();
+        if (items == null) return out;
+        for (HkItem item : items) {
+            if (item == null) continue;
+            HkCard card = new HkCard(item.getTitle(), item.getUrl(), item.getPic(), item.getDesc());
+            card.setColType(item.getColType());
+            out.add(card);
+        }
+        return out;
+    }
+
+    /**
+     * SearchResult → HkCard 逐字段转换（5c：自 HkExecutor.searchResultsToCards
+     * 逐字移入；HkExecutor 内的私有副本留待 5d 随 HkExecutor 一并删除）。
+     */
+    public static java.util.List<HkCard> fromSearchResults(java.util.List<SearchResult> results) {
+        java.util.List<HkCard> out = new java.util.ArrayList<>();
+        if (results == null) return out;
+        for (SearchResult sr : results) {
+            if (sr == null) continue;
+            HkCard card = new HkCard(sr.getTitle(), sr.getUrl(), sr.getImg(), sr.getDesc());
+            out.add(card);
+        }
+        return out;
+    }
+
     /** 是否可用卡片：标题和链接都不为空（解析时双空的卡片直接丢掉）。 */
     public boolean usable() {
         return !TextUtils.isEmpty(title) && !TextUtils.isEmpty(url);

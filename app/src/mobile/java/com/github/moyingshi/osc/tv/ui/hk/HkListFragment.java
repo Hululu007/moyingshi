@@ -21,9 +21,11 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
 import com.github.moyingshi.osc.tv.api.hk.HkCache;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
-import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
+import com.github.moyingshi.osc.tv.api.hk.HkItem;
 import com.github.moyingshi.osc.tv.api.hk.HkListHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
+import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
 import com.github.moyingshi.osc.tv.bean.Class;
@@ -54,9 +56,10 @@ import java.util.Map;
  * {@link TypeAdapter} + {@link Class}）+ 下拉刷新 + 滑到底翻页
  *（{@link CustomScroller}）+ 加载/空/错三态（ProgressLayout）。
  * <p>
- * 取数走第 1 步的 {@link HkExecutor#home(HkRule, int, String)}（后台线程，
- * 同步网络 + Rhino），回来先 {@link HkListHelper#pickCards} 再转 Vod，
- * 直接复用首页同款 {@link VodAdapter} 渲染。点卡片进详情页（第 4 步，
+ * 取数走 5c 的 {@link HkRouter#home(int, String, String, String, String)}
+ *（新引擎门面，经 HkEngineManager 常驻运行时；后台线程），回来先
+ * {@link HkListHelper#pickCards} 再转 Vod，直接复用首页同款
+ * {@link VodAdapter} 渲染。点卡片进详情页（第 4 步，
  * {@link HkDetailActivity}）；首屏 0 条时显示命中诊断（区分真没内容还是
  * find_rule 未命中）。
  * <p>
@@ -82,6 +85,8 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private HkRule mRule;
     private String mClassId;
     private int mLoadSeq;
+    /** 新引擎路由（5c）：懒建，首次取数时在后台线程建（构造器跑常驻运行时接线）。 */
+    private HkRouter mRouter;
     /** refreshPage 事件驱动重载进行中（对齐第 3 项）：loadPage 开始置 true，onPageLoaded 清掉。 */
     private boolean mLoading;
     /** 加载进行中收到的 refreshPage：等本次加载完成后再重载一次（不重入、不丢）。 */
@@ -155,9 +160,25 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
 
     /** 规则已读到：建分类、定样式、取第 1 页。 */
     private void bindRuleLoaded() {
+        // 5c：记一面（HkEngineManager 常驻运行时按规则记面；归零时清该规则的 JS 定时器/任务）。
+        HkEngineManager.surfaceOpened(mRule);
         setClasses();
         setStyle(mRule.getColType());
         loadPage(1, false);
+    }
+
+    @Override
+    public void onDestroy() {
+        // 5c：路由 destroy 对常驻引擎是空操作（生命周期归 HkEngineManager 管）；销一面。
+        if (mRouter != null) {
+            try {
+                mRouter.destroy();
+            } catch (Throwable ignored) {
+            }
+            mRouter = null;
+        }
+        if (mRule != null) HkEngineManager.surfaceClosed(mRule);
+        super.onDestroy();
     }
 
     /** 内嵌模式重试：重读规则文件，读到了继续建分类取数，仍读不到继续显示错误态。 */
@@ -259,6 +280,14 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         mBinding.recycler.setLayoutManager(style.isList() ? new LinearLayoutManager(requireActivity()) : new GridLayoutManager(getContext(), span));
     }
 
+    /** 懒建路由（5c）：只在后台线程调；构造器抛异常时调用方按取数失败收口。 */
+    private synchronized HkRouter routerFor(HkRule rule) throws Exception {
+        // 规则对象换了（retryBindRule 重读）即重建路由，免得拿旧规则对象跑新文件。
+        if (mRouter != null && mRouter.getRule() != rule) mRouter = null;
+        if (mRouter == null) mRouter = new HkRouter(rule);
+        return mRouter;
+    }
+
     /** 取一页：第 1 页先清列表。后台线程跑，回来带序号防串位（切分类/下拉时旧结果丢掉）。 */
     private void loadPage(int page, boolean append) {
         loadPage(page, append, false);
@@ -303,16 +332,29 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
             String diag = "";
             String error = null;
             try {
-                HkExecutor.HomeOutcome outcome = HkExecutor.homeDetailed(rule, page, classId);
-                vods = HkListHelper.toVods(HkListHelper.pickCards(outcome.cards, rule), rule.getType());
-                diag = outcome.diag;
+                // 5c：取数源改走新引擎 HkRouter.home（门面 home，失败回空表不抛错；
+                // 空表时读引擎错误通道区分真空与失败，见 docs/miniapp-xingchen-5c-list-search-ui.md §3.3）。
+                HkRouter router = routerFor(rule);
+                List<HkItem> items = router.home(page, classId, "", "", "");
+                List<HkCard> cards = HkCard.fromItems(items);
+                vods = HkListHelper.toVods(HkListHelper.pickCards(cards, rule), rule.getType());
+                diag = "得到 " + cards.size() + " 张卡片";
+                if (cards.isEmpty()) {
+                    String engineError = router.getEngine() == null ? "" : router.getEngine().getError();
+                    if (engineError != null && !engineError.isEmpty()) {
+                        // 失败：走错误态分支（vods 置空 + error 文案），不显示“0 条内容”。
+                        vods = null;
+                        error = engineError;
+                        diag = "";
+                    }
+                }
                 if (vods != null && !vods.isEmpty()) {
                     // 成功且非空才进缓存（0 条不存，见 HkCache.put）；规则文件 mtime
                     // 随条目一起记，文件变了下次 get() 即失效。
                     HkCache.put(rule.getTitle(), classId, page, vods, HkStore.lastModified(rule.getTitle()));
                 }
             } catch (Exception e) {
-                // HkException（请求/解析失败）与解析器里的未预料异常都走同一条错误态。
+                // 路由构造失败等未预料异常走同一条错误态。
                 error = e.getMessage();
             }
             final List<Vod> result = vods;
