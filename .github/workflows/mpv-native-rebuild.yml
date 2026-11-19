@@ -1,0 +1,284 @@
+# P12: rebuild libplayer.so from the current JNI source (post-rename class name)
+# and build test APKs carrying the rebuilt binaries.
+#
+# The committed libplayer.so binaries still FindClass the pre-rename
+# com.fongmi.android.tv.player.iso.IsoSessionManager, so MPV fails on every
+# init. This workflow rebuilds both ABIs from the pinned lock inputs and
+# verifies the rebuilt binaries reference the renamed class before any APK
+# is built. It never creates a Release and never touches update-channel.
+# Binaries are committed separately, only after CI verification.
+name: MPV Native Rebuild (P12)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/mpv-jni-rebuild
+    paths:
+      - .github/workflows/mpv-native-rebuild.yml
+      - third_party/mpv-player-jni/**
+      - scripts/build_mpv_*.sh
+      - third_party/mpv-native-lock.json
+      - third_party/patches/**
+      - third_party/mpv-native-overrides/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mpv-native-rebuild
+  cancel-in-progress: true
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  native-rebuild:
+    name: Rebuild libplayer.so (both ABIs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The full MPV/FFmpeg native stack plus two ABIs needs far more disk
+      # than the default runner image leaves free.
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h / | tail -1
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake gperf git curl file pkg-config python3 python3-venv perl
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      # Run #1 failed here: the runner image preinstalls NDK 27 and exports
+      # ANDROID_NDK_HOME pointing at it, and the build scripts honor
+      # ANDROID_NDK_HOME first; a bare `sdkmanager "ndk;29.0.14206865"`
+      # also silently no-op'd (1s, no download). Download NDK r29
+      # directly, verify its revision, and point ANDROID_NDK_HOME at it
+      # so both build scripts resolve the pinned NDK.
+      - name: Install Android NDK r29
+        run: |
+          set -euo pipefail
+          NDK_DIR="$ANDROID_HOME/ndk/29.0.14206865"
+          if [ ! -f "$NDK_DIR/source.properties" ]; then
+            curl -fsSL -o /tmp/android-ndk-r29-linux.zip https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+            rm -rf /tmp/android-ndk-r29 "$NDK_DIR"
+            unzip -q /tmp/android-ndk-r29-linux.zip -d /tmp
+            mkdir -p "$ANDROID_HOME/ndk"
+            mv /tmp/android-ndk-r29 "$NDK_DIR"
+            rm -f /tmp/android-ndk-r29-linux.zip
+          fi
+          grep -q "Pkg.Revision = 29.0.14206865" "$NDK_DIR/source.properties"
+          test -x "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
+          echo "NDK r29 ready at $NDK_DIR"
+
+      - name: Build MPV native stack
+        run: |
+          set -o pipefail
+          bash scripts/build_mpv_native.sh --abi all 2>&1 | tee mpv-native-build.log
+
+      - name: Build libplayer.so JNI bridge
+        run: |
+          set -o pipefail
+          bash scripts/build_mpv_player_jni.sh --abi all 2>&1 | tee mpv-player-jni-build.log
+
+      # Decisive check for P12: the rebuilt binaries must reference the
+      # renamed class and must no longer contain the pre-rename name.
+      - name: Verify rebuilt libplayer.so class references
+        run: |
+          set -euo pipefail
+          OLD_CLASS="com/fongmi/android/tv/player/iso/IsoSessionManager"
+          NEW_CLASS="com/github/moyingshi/osc/tv/player/iso/IsoSessionManager"
+          for abi in arm64-v8a armeabi-v7a; do
+            so="build/mpv-native/output-jni/$abi/libplayer.so"
+            test -s "$so" || { echo "::error title=Missing libplayer.so::No staged binary at $so"; exit 1; }
+            if strings "$so" | grep -Fq "$OLD_CLASS"; then
+              echo "::error title=Stale class reference::$so still references the pre-rename class $OLD_CLASS"
+              exit 1
+            fi
+            if ! strings "$so" | grep -Fq "$NEW_CLASS"; then
+              echo "::error title=Missing class reference::$so does not reference $NEW_CLASS"
+              exit 1
+            fi
+            echo "OK $abi: pre-rename name absent, renamed class present"
+          done
+
+      - name: Stage native outputs
+        run: |
+          rm -rf native-out
+          mkdir -p native-out/arm64-v8a native-out/armeabi-v7a
+          cp build/mpv-native/output-jni/arm64-v8a/libplayer.so native-out/arm64-v8a/libplayer.so
+          cp build/mpv-native/output-jni/armeabi-v7a/libplayer.so native-out/armeabi-v7a/libplayer.so
+          cp mpv-native-build.log mpv-player-jni-build.log native-out/
+          {
+            echo "commit=$GITHUB_SHA"
+            echo "run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT"
+            echo "ndk=29.0.14206865"
+            sha256sum native-out/arm64-v8a/libplayer.so native-out/armeabi-v7a/libplayer.so
+            ls -lh native-out/arm64-v8a/libplayer.so native-out/armeabi-v7a/libplayer.so
+          } > native-out/manifest.txt
+          cat native-out/manifest.txt
+
+      - name: Upload rebuilt libplayer.so
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpv-libplayer-rebuilt
+          path: native-out
+          if-no-files-found: error
+          retention-days: 30
+
+  apk:
+    name: Build four release APKs with rebuilt libplayer.so
+    needs: native-rebuild
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Free disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h / | tail -1
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Download rebuilt libplayer.so
+        uses: actions/download-artifact@v4
+        with:
+          name: mpv-libplayer-rebuilt
+          path: native-out
+
+      - name: Install rebuilt libplayer.so into assets
+        run: |
+          cp native-out/arm64-v8a/libplayer.so app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so
+          cp native-out/armeabi-v7a/libplayer.so app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so
+          chmod 644 app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so
+          sha256sum app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so
+          ls -lh app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so
+
+      - name: Verify bundled MPV native assets
+        run: bash scripts/verify_mpv_native_assets.sh --require-elf
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android packages
+        run: |
+          # API 37 is not published in sdkmanager's stable channel; install the platform archive directly.
+          sdkmanager "platform-tools" "platforms;android-28" "build-tools;36.0.0"
+          curl -fsSL -o /tmp/platform-37.zip https://dl.google.com/android/repository/platform-37.0_r01.zip
+          rm -rf /tmp/platform-37 "$ANDROID_HOME/platforms/android-37"
+          mkdir -p /tmp/platform-37 "$ANDROID_HOME/platforms"
+          unzip -q /tmp/platform-37.zip -d /tmp/platform-37
+          platform_jar="$(find /tmp/platform-37 -name android.jar -print -quit)"
+          test -n "$platform_jar"
+          mv "$(dirname "$platform_jar")" "$ANDROID_HOME/platforms/android-37"
+
+      - name: Resolve mpvfix tag
+        id: meta
+        run: |
+          {
+            echo "tag=mpvfix-${{ github.run_number }}-$(git rev-parse --short=7 HEAD)"
+            echo "short_sha=$(git rev-parse --short=7 HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure release signing
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          KS_BASE64="${RELEASE_KEYSTORE_BASE64:-$KEYSTORE_BASE64}"
+          STORE_PASSWORD="${RELEASE_STORE_PASSWORD:-$KEY_PASSWORD}"
+          ALIAS="${RELEASE_KEY_ALIAS:-$KEY_ALIAS}"
+          KEY_PASS="${RELEASE_KEY_PASSWORD:-$STORE_PASSWORD}"
+          if [ -z "$KS_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$ALIAS" ]; then
+            echo "::error title=Release signing not configured::Configure RELEASE_KEYSTORE_BASE64, RELEASE_KEY_ALIAS and RELEASE_STORE_PASSWORD in repository secrets."
+            exit 1
+          fi
+          mkdir -p app/signing
+          printf '%s' "$KS_BASE64" | base64 --decode > app/signing/release.jks
+          {
+            echo "storeFile=$GITHUB_WORKSPACE/app/signing/release.jks"
+            echo "keyAlias=$ALIAS"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyPassword=$KEY_PASS"
+          } > local.properties
+          echo "Release signing configured"
+
+      - name: Build four release APKs
+        env:
+          WEBHTV_RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          WEBHTV_APK_SUFFIX: -mpvfix
+        run: |
+          chmod +x ./gradlew
+          rm -rf Release/apk
+          ./gradlew \
+            :app:assembleMobileArm64_v8aRelease \
+            :app:assembleMobileArmeabi_v7aRelease \
+            :app:assembleLeanbackArm64_v8aRelease \
+            :app:assembleLeanbackArmeabi_v7aRelease \
+            --no-daemon
+
+      - name: Collect artifacts
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp Release/apk/*.apk dist/
+          {
+            echo "commit=$GITHUB_SHA"
+            echo "run=${{ github.run_number }} tag=${{ steps.meta.outputs.tag }}"
+            echo "libplayer_manifest:"
+            cat native-out/manifest.txt
+            echo "apks:"
+            for apk in dist/*.apk; do
+              echo "$(basename "$apk") size=$(stat -c%s "$apk") sha256=$(sha256sum "$apk" | cut -d' ' -f1)"
+            done
+          } > dist/mpvfix-sizes.txt
+          ls -lh dist/
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpvfix-${{ github.run_number }}-${{ steps.meta.outputs.short_sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
