@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.api.hk;
-/** 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkRouter.java（1420 行）：除包名与 §3.1/§3.2 两处适配外与原文一致；详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
+/** 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkRouter.java（1420 行）：除包名与 §3.1/§3.2 两处适配、
+ * 以及 5d 新增的 computeLastChapter（见 docs/miniapp-xingchen-5d-detail-play.md §3）外与原文一致；
+ * 详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
 
 import android.text.TextUtils;
 
@@ -253,12 +255,15 @@ public class HkRouter {
             String rawUrl = u;
             String url = cleanDetailUrl(u);
             List<HkDetailItem> items;
+            // 5d：选择器分支已抓的页正文（供 lastChapter 复用，免得多抓一次）。
+            String pageText = null;
             if (HkSelector.isJsRule(ruleText)) {
                 // 官方 dealRule：点击条目的 extra 作为新规则的 params（MY_PARAMS）
                 if (item != null) engine.getJsRuntime().setDetailParams(item.getExtra());
                 items = fromJsDetail(ruleText, rawUrl, detailColType);
             } else {
                 String html = getMarked(url);
+                pageText = html;
                 items = engine.getSelector().parseDetail(html, ruleText, url);
                 // 选择器解析的条目若无 col_type，回退到本发取段的 col_type
                 //（搜索来路＝折叠后的 sdetail_col_type，官方 dealRule 语义）
@@ -274,6 +279,10 @@ public class HkRouter {
             // 8.83 原版：详情条目直接进通用列表渲染，不做线路/选集分类
             detail.setPageUrl(url);
             detail.setRawItems(items);
+            // 5d：最新章节（旧 HkExecutor.detailOutcome.lastChapter 同款；只对
+            // 小说/漫画类且 last_chapter_rule 非空时算；JS 分支无现成页正文时多抓
+            // 一次，失败回 ""，绝不炸详情页）。
+            detail.setLastChapter(computeLastChapter(rule, url, pageText));
         } catch (Throwable e) {
             // 取数/解析失败不许带着只有基础信息的 detail 冒充成功回：
             // 唯一调用方 VideoActivity 对 detail() 本就 try/catch 并走
@@ -284,6 +293,40 @@ public class HkRouter {
         classifyDetailItems(detail);
         captureScopeRule(detail);
         return detail;
+    }
+
+    /**
+     * 最新章节（5d：旧 {@code HkExecutor.lastChapter} 逐字复刻，调用方由
+     * {@code HkExecutor.detailOutcome} 换成 {@link #detail}）。对已抓的详情页正文求值，
+     * 不另发请求（pageText 为空时 JS 分支多抓一次）；JS 规则走 evalTextRule，
+     * 选择器规则走 {@code HkSelector.evalField}。任何失败都回 ""（装饰信息，不能炸详情页）。
+     */
+    private String computeLastChapter(HkRule rule, String detailUrl, String pageText) {
+        String field = rule == null ? "" : rule.getLastChapterRule();
+        if (!HkNonVideo.isReadRule(rule) || TextUtils.isEmpty(field)) return "";
+        String text = pageText;
+        if (TextUtils.isEmpty(text)) {
+            try {
+                text = getMarked(detailUrl);
+            } catch (Exception e) {
+                Logger.t(TAG).d("lastChapter fetch failed rule=%s: %s", rule.getTitle(), e.getMessage());
+                return "";
+            }
+        }
+        if (TextUtils.isEmpty(text)) return "";
+        try {
+            HkEngine engine = new HkEngine();
+            // 装饰性求值：不发 refreshPage 事件，防详情页多一次重载。
+            engine.setRefreshEventEnabled(false);
+            engine.prepare(rule, detailUrl, 1, "detail", text);
+            engine.evalPreRule();
+            if (HkSelector.isJsRule(field)) return engine.evalTextRule(field);
+            String out = engine.getSelector().evalField(text, field, detailUrl);
+            return out == null ? "" : out.trim();
+        } catch (Exception e) {
+            Logger.t(TAG).d("lastChapter eval failed rule=%s: %s", rule.getTitle(), e.getMessage());
+            return "";
+        }
     }
 
     /** 136b 分流线①：把 parseDetailRaw 发内抓到的当发 MY_RULE 全文挂上详情

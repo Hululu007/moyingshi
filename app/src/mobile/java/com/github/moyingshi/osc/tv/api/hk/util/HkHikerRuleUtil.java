@@ -1,12 +1,18 @@
 package com.github.moyingshi.osc.tv.api.hk.util;
-/** 移植自星辰 com/fongmi/android/tv/api/hk/util/HkHikerRuleUtil.java（331 行）：除包名外与原文一致；异步版与 historyJson 一族未搬，collection/history 两支先回空形。详见 docs/miniapp-xingchen-3e-facade.md。 */
+/** 移植自星辰 com/fongmi/android/tv/api/hk/util/HkHikerRuleUtil.java（331 行）：除包名外与原文一致；
+ * 异步版未搬，collection 支先回空形（阶段 7）。historyJson 一族已于 5d 搬回（见 §history）。
+ * 详见 docs/miniapp-xingchen-3e-facade.md。 */
 
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
+import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkRuleManager;
+import com.github.moyingshi.osc.tv.bean.History;
+import com.github.moyingshi.osc.tv.db.AppDatabase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -121,15 +127,145 @@ public final class HkHikerRuleUtil {
             return "[]";
         }
         if (p0.startsWith("history")) {
-            // 3e 空位：原文走 historyJson()（History 表 hk 条目逐字段映射，
-            // 见原文 historyJson/toViewHistoryRow/extractPageUrl/HkViewHistoryRow）；
-            // 它依赖 History.isHk → HkDetailBridge.isHkKey（阶段 5）与
-            // HkParserKit.getHomeUrl（阶段 4），且站 key 命名空间待定（星辰 hk_ 前缀，
-            // 我方 hk:// scheme），本步不硬编谓词，先回 "[]"（与 bookmark/download
-            // 两支“无库恒回空”同口径），阶段 5/7 把 historyJson 一族搬回后恢复原文行。
-            return "[]";
+            // 5d：history 支按星辰原文恢复（historyJson 一族，见本文件 §history）。
+            // 站 key 命名空间已定：HkDetailBridge.isHkKey 按我方 hk:// scheme 判定
+            //（星辰 hk_ 前缀，见 docs/miniapp-xingchen-5d-detail-play.md §2）。
+            return historyJson();
         }
         return "";
+    }
+
+    // ---- §history：historyJson 一族（5d 按星辰原文搬入） ----
+
+    /**
+     * 官 ViewHistory 的中间形（环 17-7）：只承载 shareFilter 序列化口径下
+     * 会出现的字段集——selected/selecting 在官实体上标 serialize=false、
+     * LitePal 基类内部位被 shareFilter 排除（环 17-1 键集同源），故不入本形。
+     * time 带可空（官 Date 字段可为 null），{@link #compareTo} 逐支转写官
+     * ViewHistory.compareTo（smali 78-127 亲验）：other==null→0；
+     * other.time==null→1；this.time==null→-1；余 other.time.compareTo(this.time)
+     * （时刻倒序、空时刻排最前）。
+     */
+    private static final class HkViewHistoryRow implements Comparable<HkViewHistoryRow> {
+        String extraData;
+        String group;
+        String lastClick;
+        String params;
+        String picUrl;
+        String ruleBaseUrl;
+        java.util.Date time;
+        String title;
+        String type;
+        String url;
+        String videoUrl;
+
+        @Override
+        public int compareTo(HkViewHistoryRow other) {
+            if (other == null) return 0;
+            if (other.time == null) return 1;
+            if (this.time == null) return -1;
+            return other.time.compareTo(this.time);
+        }
+    }
+
+    /**
+     * 环 17-7 history 支本体（同步版；异步版经既有 HEAVY_TASK 转发同步版，
+     * 两面同一实现）：History 表无窗全量中的 hk 条目逐条映射成官
+     * ViewHistory 字段名回形（官 findAll 无当前 cid、无时间窗；
+     * History.getHk 带当前 cid＋60 天窗、是海阔历史页的读取口径，
+     * 本支不借用、getHk 本体不动），
+     * 非空照官 Collections.sort（比较器即 {@link HkViewHistoryRow#compareTo}），
+     * 序列化与 collection 支同模式（LinkedHashMap 组装＋Gson；无值字段不出现，
+     * 对齐官 FastJSON 缺省不序列化 null 字段）。
+     * <p>
+     * 逐字段映射（官写入方 HeavyTaskUtil.saveHisSync／lambda$saveHistory$2/$3 语义）：
+     * title←vodName；picUrl←vodPic；url←历史键内 vodId（详情页/条目地址，
+     * 即当时浏览的页面地址）；videoUrl←episodeUrl（该记录实播的集地址，
+     * 无集时不出现）；ruleBaseUrl←官式 getHomeUrl(url)（官写入时即
+     * StringUtil.getHomeUrl(页面地址)，非规则地址）；type←"二级列表"
+     * （官规则页记录的恒定 type 值，咱 hk 条目全部由规则详情/播放页产生，
+     * 同类）；time←createTime 转 Date（0 视为无时刻、置 null 走官空时刻支），
+     * 序列化为毫秒数（官 FastJSON 对 Date 的缺省形，与 collection 支
+     * time 给毫秒数同形）。extraData/group/lastClick/params 四字段咱家
+     * History 表无源——不编造，恒不出现（记名）。selected/selecting 两
+     * 字段官实体带 @JSONField(serialize=false)、官回形恒不含，咱家省略
+     * 即精确对位（非无源记名，C4 复核订正）。
+     */
+    private static String historyJson() {
+        try {
+            java.util.List<HkViewHistoryRow> rows = new java.util.ArrayList<>();
+            for (History h : AppDatabase.get().getHistoryDao().findAll()) {
+                if (isHkHistory(h)) rows.add(toViewHistoryRow(h));
+            }
+            if (!rows.isEmpty()) java.util.Collections.sort(rows);
+            java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+            for (HkViewHistoryRow r : rows) {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                if (r.extraData != null) m.put("extraData", r.extraData);
+                if (r.group != null) m.put("group", r.group);
+                if (r.lastClick != null) m.put("lastClick", r.lastClick);
+                if (r.params != null) m.put("params", r.params);
+                if (r.picUrl != null) m.put("picUrl", r.picUrl);
+                if (r.ruleBaseUrl != null) m.put("ruleBaseUrl", r.ruleBaseUrl);
+                if (r.time != null) m.put("time", r.time.getTime());
+                if (r.title != null) m.put("title", r.title);
+                if (r.type != null) m.put("type", r.type);
+                if (r.url != null) m.put("url", r.url);
+                if (r.videoUrl != null) m.put("videoUrl", r.videoUrl);
+                out.add(m);
+            }
+            return new com.google.gson.Gson().toJson(out);
+        } catch (Throwable ignored) {
+            return "[]";
+        }
+    }
+
+    /**
+     * 是不是 hk 历史条目（星辰 {@code History.isHk} 同款：以 HkDetailBridge 的
+     * 命名空间开头；我方 History bean 无 isHk，内联判定。getSiteKey 在 key 为空时
+     * 会抛，单条异常只废该条、不许整表回空）。
+     */
+    private static boolean isHkHistory(History h) {
+        if (h == null) return false;
+        try {
+            return HkDetailBridge.isHkKey(h.getSiteKey());
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static HkViewHistoryRow toViewHistoryRow(History h) {
+        HkViewHistoryRow row = new HkViewHistoryRow();
+        row.title = h.getVodName();
+        row.picUrl = h.getVodPic();
+        String pageUrl = extractPageUrl(h);
+        row.url = TextUtils.isEmpty(pageUrl) ? null : pageUrl;
+        row.ruleBaseUrl = row.url == null ? null : HkParserKit.getHomeUrl(row.url);
+        String episodeUrl = h.getEpisodeUrl();
+        row.videoUrl = TextUtils.isEmpty(episodeUrl) ? null : episodeUrl;
+        row.type = "二级列表";
+        row.time = h.getCreateTime() > 0 ? new java.util.Date(h.getCreateTime()) : null;
+        return row;
+    }
+
+    /**
+     * 历史键 = 站点段@@@vodId@@@cid；vodId 本身可能含 @@@（如带 @lazyRule 的
+     * 地址），按首尾剥（与 HkHistoryActivity.extractVodId 同口径）。
+     */
+    private static String extractPageUrl(History h) {
+        String key = h.getKey() == null ? "" : h.getKey();
+        if (key.isEmpty()) return h.getVodId();
+        String siteKey;
+        try {
+            siteKey = h.getSiteKey();
+        } catch (Throwable ignored) {
+            return h.getVodId();
+        }
+        String sym = AppDatabase.SYMBOL;
+        if (siteKey == null || siteKey.isEmpty() || !key.startsWith(siteKey + sym)) return h.getVodId();
+        String rest = key.substring(siteKey.length() + sym.length());
+        int tail = rest.lastIndexOf(sym);
+        return tail >= 0 ? rest.substring(0, tail) : rest;
     }
 
     /** 全部已安装规则 JSON 数组（8.83 home 无标题：findAll + sort + 逐条 share 过滤序列化）。 */

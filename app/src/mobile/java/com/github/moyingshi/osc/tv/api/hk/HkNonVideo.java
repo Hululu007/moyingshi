@@ -8,7 +8,9 @@ import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.bean.Episode;
 import com.github.moyingshi.osc.tv.bean.Flag;
+import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.ui.activity.AudioActivity;
+import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.novel.NovelRouter;
 import com.github.moyingshi.osc.tv.utils.AudioUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
@@ -83,9 +85,14 @@ public final class HkNonVideo {
      * 非影视类点选集分流（详情页调用，替代 HkPlayer.play）。
      * 解析在后台线程跑，阅读器/音频页/提示都 post 回主线程进；解析抛异常时弹
      * 异常信息，不回落进播放器（回落会把同一失败在取流时再跑一次）。
+     * <p>
+     * 5d：懒播放改走 {@link HkRouter#play(String)}（{@link HkPlay}）；Vod 由调用方
+     * （详情页的 {@code HkDetailBridge.toVod} 结果）传入，阅读器与视频回落共用，
+     * 不再经已删除的 {@code HkPlayer.buildVod} 现拼。`sdetail` 仍调
+     * {@code HkExecutor.sdetail}（5e 随 HkExecutor 删除一并搬入，见 5d 文档 §6）。
      */
     public static void routeEpisode(Activity activity, HkRule rule, HkDetailHelper.Detail detail,
-                                    HkDetailHelper.Line line, HkCard episode, String detailUrl) {
+                                    HkDetailHelper.Line line, HkCard episode, String detailUrl, Vod vod) {
         if (activity == null || rule == null || detail == null || line == null || episode == null) return;
         final Activity act = activity;
         final HkRule r = rule;
@@ -93,48 +100,47 @@ public final class HkNonVideo {
         final HkDetailHelper.Line l = line;
         final HkCard ep = episode;
         final String durl = detailUrl;
+        final Vod v = vod;
         new Thread(() -> {
             try {
                 // 1. 小说/漫画：先跑 sdetail 二级详情取章节内容。
                 if (isReadRule(r)) {
                     Content content = sdetailContent(r, ep.getUrl(), ep.getTitle());
                     if (content != null) {
-                        postOpen(act, r, d, l, ep, durl, content);
+                        postOpen(act, r, d, l, ep, durl, v, content);
                         return;
                     }
                 }
-                // 2. 懒解析（与第 5 步同款；传 Activity 当 context，webRule:// 才能解析）。
-                HkExecutor.PlayOutcome outcome = HkExecutor.play(r, ep.getUrl(), act, null);
-                if (!TextUtils.isEmpty(outcome.pics)) {
-                    // 图集 payload：进图集阅读器（第 7 步“暂不支持”的提示不再出现）。
+                // 2. 懒解析（5d：改走新引擎 HkRouter.play）。
+                HkPlay play = new HkRouter(r).play(ep.getUrl());
+                // 图集 payload：HkPlay.pics 是图片列表，拼回 pics:// 原串进图集阅读器。
+                String pics = play.getPics().isEmpty() ? ""
+                        : "pics://" + TextUtils.join("&&", play.getPics());
+                if (!TextUtils.isEmpty(pics)) {
                     Content content = new Content();
                     content.kind = 2;
-                    content.payload = outcome.pics;
-                    postOpen(act, r, d, l, ep, durl, content);
+                    content.payload = pics;
+                    postOpen(act, r, d, l, ep, durl, v, content);
                     return;
                 }
-                String url = outcome.url == null ? "" : outcome.url.trim();
+                String url = play.getUrl() == null ? "" : play.getUrl().trim();
                 if (!TextUtils.isEmpty(url) && AudioUtil.isAudioUrl(url)) {
                     // 音频地址：走现有音频页，歌词用第 8 步的 lyric（.lrc 地址或内嵌文本）。
                     final String audioUrl = url;
-                    final HkExecutor.PlayOutcome out = outcome;
+                    final HkPlay out = play;
                     App.post(() -> AudioActivity.start(act, HkStore.siteOf(r).getKey(), audioUrl,
-                            d.info.title, ep.getTitle(), d.info.pic, out.headers, out.lyric));
+                            d.info.title, ep.getTitle(), d.info.pic, out.getHeaders(), out.getLyric()));
                     return;
                 }
-                if (!TextUtils.isEmpty(outcome.notice)) {
-                    // toast/copy/download 等动作结果：弹文案，不进播放器（与第 7 步老行为一致）。
-                    final String notice = outcome.notice;
-                    App.post(() -> Notify.show(notice));
-                    return;
-                }
-                if (!TextUtils.isEmpty(url) && !HkExecutor.isHttpUrl(url)) {
+                // 5d：动作地址（toast:// 等）新引擎在 play() 内直接抛错，外层 catch 弹文案，
+                // 与旧 PlayOutcome.notice 分支等价，此处不再单列。
+                if (!TextUtils.isEmpty(url) && !isHttpUrl(url)) {
                     // 非 URL 的解析结果：当章节正文（小说/漫画）；音乐/图片类不认，当回落处理。
                     if (isReadRule(r)) {
                         Content content = new Content();
                         content.kind = 1;
                         content.payload = novelPayload(ep.getTitle(), url);
-                        postOpen(act, r, d, l, ep, durl, content);
+                        postOpen(act, r, d, l, ep, durl, v, content);
                         return;
                     }
                 }
@@ -143,12 +149,12 @@ public final class HkNonVideo {
                     Content content = new Content();
                     content.kind = 2;
                     content.payload = "pics://" + url;
-                    postOpen(act, r, d, l, ep, durl, content);
+                    postOpen(act, r, d, l, ep, durl, v, content);
                     return;
                 }
                 if (isMusicRule(r)) {
                     // 音乐回落：URL 无音频后缀时靠视频播放器兜底（它也能播音频流）。
-                    App.post(() -> HkPlayer.play(act, r, d, l, ep, durl));
+                    App.post(() -> playVideo(act, r, d, l, ep, durl, v));
                     return;
                 }
                 if (isPictureRule(r)) {
@@ -158,22 +164,47 @@ public final class HkNonVideo {
                 }
                 if (isReadRule(r)) {
                     // 小说/漫画：懒结果只是章节页地址且 sdetail 已配置时，对它再跑一次 sdetail。
-                    if (HkExecutor.isHttpUrl(url) && !TextUtils.isEmpty(r.getSdetailFindRule())) {
+                    if (isHttpUrl(url) && !TextUtils.isEmpty(r.getSdetailFindRule())) {
                         Content content = sdetailContent(r, url, ep.getTitle());
                         if (content != null) {
-                            postOpen(act, r, d, l, ep, durl, content);
+                            postOpen(act, r, d, l, ep, durl, v, content);
                             return;
                         }
                     }
                     App.post(() -> Notify.show(R.string.hk_nonvideo_no_content));
                     return;
                 }
-                App.post(() -> HkPlayer.play(act, r, d, l, ep, durl));
+                App.post(() -> playVideo(act, r, d, l, ep, durl, v));
             } catch (Exception e) {
                 String msg = e.getMessage();
                 App.post(() -> Notify.show(TextUtils.isEmpty(msg) ? "解析失败" : msg));
             }
         }).start();
+    }
+
+    /** 视频回落：用详情页的 Vod（无则最小 Vod）进播放器，集址直传、播放器内再解析。 */
+    private static void playVideo(Activity act, HkRule r, HkDetailHelper.Detail d,
+                                  HkDetailHelper.Line l, HkCard ep, String durl, Vod vod) {
+        VideoActivity.startHk(act, vod != null ? vod : minimalVod(r, d, durl),
+                l.title, ep.getTitle(), ep.getUrl());
+    }
+
+    /** 无详情 Vod 时的最小 Vod（站 key hk://，id=详情地址；无 flags，播放器内只按集址解析）。 */
+    private static Vod minimalVod(HkRule rule, HkDetailHelper.Detail detail, String detailUrl) {
+        Vod vod = new Vod();
+        vod.setSite(HkStore.siteOf(rule));
+        vod.setId(detailUrl == null ? "" : detailUrl);
+        vod.setName(detail == null ? "" : detail.info.title);
+        vod.setPic(detail == null ? "" : detail.info.pic);
+        vod.setContent(detail == null ? "" : detail.info.desc);
+        return vod;
+    }
+
+    /** 是不是 http(s) 地址（旧 HkExecutor.isHttpUrl 同款判定，5d 起本地化）。 */
+    private static boolean isHttpUrl(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String u = url.trim().toLowerCase(Locale.ROOT);
+        return u.startsWith("http://") || u.startsWith("https://");
     }
 
     /**
@@ -243,7 +274,7 @@ public final class HkNonVideo {
 
     /** 在主线程打开阅读器（小说 kind=1 / 图集 kind=2，走现有 NovelRouter）。 */
     private static void postOpen(Activity activity, HkRule rule, HkDetailHelper.Detail detail,
-                                 HkDetailHelper.Line line, HkCard episode, String detailUrl, Content content) {
+                                 HkDetailHelper.Line line, HkCard episode, String detailUrl, Vod vod, Content content) {
         App.post(() -> {
             Flag flag = buildFlag(line);
             int index = line.episodes.indexOf(episode);
@@ -255,15 +286,16 @@ public final class HkNonVideo {
                 return;
             }
             String siteKey = HkStore.siteOf(rule).getKey();
+            Vod v = vod != null ? vod : minimalVod(rule, detail, detailUrl);
             if (content.kind == 2) {
-                NovelRouter.openPics(activity, siteKey, flag, HkPlayer.buildVod(rule, detail, detailUrl), ep, content.payload);
+                NovelRouter.openPics(activity, siteKey, flag, v, ep, content.payload);
             } else {
-                NovelRouter.openReader(activity, siteKey, flag, HkPlayer.buildVod(rule, detail, detailUrl), ep, content.payload);
+                NovelRouter.openReader(activity, siteKey, flag, v, ep, content.payload);
             }
         });
     }
 
-    /** 按当前线路拼阅读器章节表（Flag + Episode，与 HkPlayer 的 Vod 组装同源）。 */
+    /** 按当前线路拼阅读器章节表（Flag + Episode，与 toVod 的 Vod 组装同源）。 */
     private static Flag buildFlag(HkDetailHelper.Line line) {
         Flag flag = new Flag(line.title == null ? "" : line.title);
         for (HkCard card : line.episodes) {

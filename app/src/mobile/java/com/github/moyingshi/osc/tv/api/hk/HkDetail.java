@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.api.hk;
-/** 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkDetail.java（213 行）：除包名外与原文一致；详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
+/** 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkDetail.java（213 行）：
+ * 除包名与 5d 新增的 lastChapter 字段（见 docs/miniapp-xingchen-5d-detail-play.md §3）外与原文一致；
+ * 详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +36,21 @@ public class HkDetail {
      * 容器里即被点子规则，供 VideoActivity 详情就绪点做有效规则分类；
      * 非 JS 详情/未抓到为空串。 */
     private String scopeRuleJson = "";
+
+    /**
+     * 最新章节（5d 新增，非星辰原文）：小说/漫画类规则的 last_chapter_rule
+     * 求值结果，无则 ""。由 {@link HkRouter#detail} 在详情取数时写入，
+     * 调用方追加到简介末尾（旧 {@code HkExecutor.detailOutcome.lastChapter} 同款）。
+     */
+    private String lastChapter = "";
+
+    public String getLastChapter() {
+        return lastChapter;
+    }
+
+    public void setLastChapter(String lastChapter) {
+        this.lastChapter = lastChapter == null ? "" : lastChapter;
+    }
 
     public String getScopeRuleJson() {
         return scopeRuleJson;

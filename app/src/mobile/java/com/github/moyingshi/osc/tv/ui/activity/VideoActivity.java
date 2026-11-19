@@ -67,11 +67,11 @@ import com.github.moyingshi.osc.tv.api.DanmakuApi;
 import com.github.moyingshi.osc.tv.api.SiteApi;
 import com.github.moyingshi.osc.tv.api.config.AdBlockStatsStore;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
-import com.github.moyingshi.osc.tv.api.hk.HkEngine;
-import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
+import com.github.moyingshi.osc.tv.api.hk.HkPlay;
+import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
-import com.github.moyingshi.osc.tv.ui.hk.HkDialogs;
 import com.github.moyingshi.osc.tv.bean.AdDetectionRequest;
 import com.github.moyingshi.osc.tv.bean.AdDetectionResult;
 import com.github.moyingshi.osc.tv.bean.AiConfig;
@@ -3082,96 +3082,86 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
     }
 
     /**
-     * 海阔小程序取流（第 5 步）：后台线程跑懒加载解析，解析出地址后喂给 setPlayer；
-     * 空地址或失败时弹“小程序未解析出播放地址”，不进空白播放器。
+     * 海阔小程序取流（5d：改走新引擎 {@link HkRouter#play(String)}）：后台线程跑懒加载解析，
+     * 解析出地址后喂给 setPlayer；空地址或失败时弹解析方给出的明确错误文案（无文案时
+     * 弹“小程序未解析出播放地址”），不进空白播放器。
      * generation 快照防串位：切集/切线路后旧解析结果回来直接丢掉。
-     * 第 7 步之七：传当前 Activity 当 WebView 上下文（webRule:// 用）与弹框宿主
-     * （规则 JS 调 confirm/select 时用）；懒结果是 toast/pics/copy/download 时，
-     * 解析结果带 notice，弹 notice 文案而不是通用提示。
+     * 5d：新引擎不消费 {@code HkEngine.DialogHost}（JS 的 confirm 走 ConfirmHandler），
+     * 本方法的 DialogHost 构造随旧 {@code HkExecutor.play} 一并删除。
      */
     private void resolveHkPlayerContent(Episode episode, String playFlag) {
         String episodeUrl = episode.getUrl();
         String episodeName = episode.getName();
         String key = getKey();
         int generation = playerContentGeneration;
-        HkEngine.DialogHost dialogHost = new HkEngine.DialogHost() {
-            @Override
-            public boolean confirm(String title, String message) {
-                return HkDialogs.confirm(VideoActivity.this, title, message);
-            }
-
-            @Override
-            public String select(String title, List<String> options) {
-                return HkDialogs.select(VideoActivity.this, title, options);
-            }
-
-            @Override
-            public String input(String title, String hint, String preset) {
-                return HkDialogs.input(VideoActivity.this, title, hint, preset);
-            }
-        };
         // 新一次解析开始，旧的多线路 headers 暂存作废（成功回调里与新 Result 同步重写）。
         mHkLineHeaders = null;
         new Thread(() -> {
             Result resolved = null;
-            String notice = null;
             String error = null;
             try {
                 HkRule rule = HkStore.read(key.substring("hk://".length()));
-                HkExecutor.PlayOutcome outcome = rule == null ? null
-                        : HkExecutor.play(rule, episodeUrl, VideoActivity.this, dialogHost);
-                if (outcome != null && !outcome.isEmpty()) {
+                if (rule != null) {
+                    // MY_POSITION 槽：详情页点击时已放过一次（消费后清零）；自动连播等
+                    // 无点击的起播在这里补放（当前 Flag 内下标；取不到不放，不串位）。
+                    try {
+                        Flag flag = getFlag();
+                        int pos = flag == null || flag.getEpisodes() == null
+                                ? -1 : flag.getEpisodes().indexOf(episode);
+                        if (pos >= 0) HkDetailBridge.setClickPosition(pos, rule.getTitle(), episodeUrl);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                HkPlay play = rule == null ? null : new HkRouter(rule).play(episodeUrl);
+                // 漫画结果（pics）与只切换变量的结果（refreshOnly）误入视频路时不进播放器，
+                // 与旧 PlayOutcome.isEmpty() 收口一致。
+                if (play != null && !play.isEmpty() && !play.isRefreshOnly() && play.getPics().isEmpty()) {
                     resolved = new Result();
-                    if (!outcome.lines.isEmpty()) {
+                    if (!play.getUrls().isEmpty()) {
                         // 多线路（含单条）：Url 多值进画质切换器，names 即切换器选项名；
                         // 各线路 headers 记进 stash，切线路时按 Url position 换（见 applyHkLineHeaders）。
                         Url url = Url.create();
                         List<Map<String, String>> lineHeaders = new ArrayList<>();
-                        for (HkExecutor.PlayOutcome.PlayLine line : outcome.lines) {
-                            url.add(line.name, line.url);
-                            lineHeaders.add(line.headers);
+                        for (int i = 0; i < play.getUrls().size(); i++) {
+                            url.add(play.getName(i), play.getUrl(i));
+                            lineHeaders.add(play.getHeaders(i));
                         }
                         resolved.setUrl(url);
                         mHkLineHeaders = lineHeaders;
                     } else {
-                        resolved.setUrl(outcome.url);
+                        resolved.setUrl(play.getUrl());
                     }
-                    resolved.setHeader(outcome.headers);
+                    resolved.setHeader(play.getHeaders());
                     resolved.setFlag(playFlag);
                     resolved.setParse(0);
-                    if (!outcome.subtitles.isEmpty()) {
+                    if (!TextUtils.isEmpty(play.getSubtitle())) {
                         // 外挂字幕：Sub.from(地址) → Result.setSubs，进现有外挂字幕通道。
                         List<Sub> subs = new ArrayList<>();
-                        for (String subtitle : outcome.subtitles) subs.add(Sub.from(subtitle));
+                        subs.add(Sub.from(play.getSubtitle()));
                         resolved.setSubs(subs);
                     }
-                    if (!outcome.danmaku.isEmpty()) {
+                    if (!TextUtils.isEmpty(play.getDanmu())) {
                         // 弹幕：Danmaku → Result.setDanmaku，进现有弹幕通道（PlaySpec → setDanmakus）。
                         List<Danmaku> items = new ArrayList<>();
-                        for (String danmaku : outcome.danmaku) {
-                            Danmaku item = Danmaku.from(danmaku);
-                            item.setName(UrlUtil.path(danmaku));
-                            items.add(item);
-                        }
+                        Danmaku item = Danmaku.from(play.getDanmu());
+                        item.setName(UrlUtil.path(play.getDanmu()));
+                        items.add(item);
                         resolved.setDanmaku(items);
                     }
-                    if (!TextUtils.isEmpty(outcome.lyric)) {
+                    if (!TextUtils.isEmpty(play.getLyric())) {
                         // 歌词：后台线程取文本（URL 抓、内嵌原样），失败只丢歌词、不影响播放。
                         try {
-                            String text = LyricUtil.loadProvided(outcome.lyric);
+                            String text = LyricUtil.loadProvided(play.getLyric());
                             if (!TextUtils.isEmpty(text)) resolved.setLrc(text);
                         } catch (Exception e) {
                             SpiderDebug.log("hk", "lyric load failed: %s", e.getMessage());
                         }
                     }
-                } else if (outcome != null && !TextUtils.isEmpty(outcome.notice)) {
-                    notice = outcome.notice;
                 }
             } catch (Exception e) {
                 error = e.getMessage();
             }
             final Result result = resolved;
-            final String noticeText = notice;
             final String err = error;
             App.post(() -> {
                 if (isFinishing() || isDestroyed() || generation != playerContentGeneration) return;
@@ -3182,8 +3172,10 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                 SpiderDebug.log("video-flow", "hk play empty key=%s episode=%s error=%s", key, episodeName, err);
                 invalidatePlayerContent();
                 hideProgress();
-                if (noticeText != null) {
-                    Notify.show(noticeText);
+                // 5d：解析方给出了明确错误文案时显示它（如 Router.play 的 checkPlayExit 文案），
+                // 旧代码一律吞成通用提示；无文案时仍弹通用提示。
+                if (err != null && !err.isEmpty()) {
+                    Notify.show(err);
                 } else {
                     Notify.show(R.string.hk_play_no_url);
                 }

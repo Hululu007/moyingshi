@@ -85,7 +85,7 @@ public class HkCard {
 
     /**
      * HkItem → HkCard 逐字段转换（5c：自 HkExecutor.toCards 逐字移入；HkExecutor
-     * 内的私有副本留待 5d 随 HkExecutor 一并删除）。
+     * 内的私有副本留待 5e 随 HkExecutor 一并删除）。
      */
     public static java.util.List<HkCard> fromItems(java.util.List<HkItem> items) {
         java.util.List<HkCard> out = new java.util.ArrayList<>();
@@ -101,7 +101,7 @@ public class HkCard {
 
     /**
      * SearchResult → HkCard 逐字段转换（5c：自 HkExecutor.searchResultsToCards
-     * 逐字移入；HkExecutor 内的私有副本留待 5d 随 HkExecutor 一并删除）。
+     * 逐字移入；HkExecutor 内的私有副本留待 5e 随 HkExecutor 一并删除）。
      */
     public static java.util.List<HkCard> fromSearchResults(java.util.List<SearchResult> results) {
         java.util.List<HkCard> out = new java.util.ArrayList<>();
@@ -109,6 +109,22 @@ public class HkCard {
         for (SearchResult sr : results) {
             if (sr == null) continue;
             HkCard card = new HkCard(sr.getTitle(), sr.getUrl(), sr.getImg(), sr.getDesc());
+            out.add(card);
+        }
+        return out;
+    }
+
+    /**
+     * HkDetailItem → HkCard 逐字段转换（5d：自 HkExecutor.detailItemsToCards
+     * 逐字移入；1:1 保序，不筛不改，调用方按下标/同一性回找原条目）。
+     */
+    public static java.util.List<HkCard> fromDetailItems(java.util.List<HkDetailItem> items) {
+        java.util.List<HkCard> out = new java.util.ArrayList<>();
+        if (items == null) return out;
+        for (HkDetailItem item : items) {
+            if (item == null) continue;
+            HkCard card = new HkCard(item.getTitle(), item.getUrl(), item.getPic(), item.getDesc());
+            card.setColType(item.getColType());
             out.add(card);
         }
         return out;

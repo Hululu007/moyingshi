@@ -170,7 +170,8 @@ Router.detail 后统一核对）。
   DexClassLoader|SourceGate|GlobalProxy|XPopup|Clash` 在改动三文件内零命中。
 - **git diff --check** 通过（finish 前复核）。
 - **改动文件列表与行数**：HkListFragment +58、HkSearchFragment +54、
-  HkCard +31，本文件；合计 +143/−15（`git diff --stat`，不含本文档）。
+  HkCard +31，本文件；合计 +128/−15（`git diff --stat`，不含本文档；
+  5d 订正：此前误写 +143/−15，143 是改动行总数）。
 - **javac 坑复核**：本笔新增代码无 lambda 捕获重赋值变量（沿用旧 `finalVods`
   定值拷贝写法）；`HkCard.fromItems` 返回 `List` 不赋给 `JsonArray`（无 JSON
   涉入）；无匿名 LinkedHashMap、无 `JsonElement.isString()`。

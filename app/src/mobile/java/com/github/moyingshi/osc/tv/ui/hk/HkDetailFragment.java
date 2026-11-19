@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.viewbinding.ViewBinding;
@@ -17,17 +18,27 @@ import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.hk.HkActionHandler;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
+import com.github.moyingshi.osc.tv.api.hk.HkDetail;
+import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
-import com.github.moyingshi.osc.tv.api.hk.HkEngine;
-import com.github.moyingshi.osc.tv.api.hk.HkExecutor;
+import com.github.moyingshi.osc.tv.api.hk.HkDetailItem;
+import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
+import com.github.moyingshi.osc.tv.api.hk.HkItem;
 import com.github.moyingshi.osc.tv.api.hk.HkNonVideo;
 import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
-import com.github.moyingshi.osc.tv.api.hk.HkPlayer;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
+import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
+import com.github.moyingshi.osc.tv.bean.Episode;
+import com.github.moyingshi.osc.tv.bean.Flag;
+import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
+import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
+import com.github.moyingshi.osc.tv.ui.dialog.PhotoViewerDialog;
+import com.github.moyingshi.osc.tv.ui.novel.NovelRouter;
+import com.github.moyingshi.osc.tv.ui.web.CatWebActivity;
 import com.github.moyingshi.osc.tv.utils.Notify;
 
 import org.greenrobot.eventbus.EventBus;
@@ -35,16 +46,20 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
  * 海阔小程序详情 Fragment。
  * <p>
- * 后台线程调 {@link HkExecutor#detail(HkRule, String)} 取详情卡片，
- * {@link HkDetailHelper#split(List, String, String, String)} 切成信息头 +
- * 分线路选集，单 RecyclerView（GridLayoutManager + SpanSizeLookup）渲染：
- * 信息与线路头占满整行，选集占 1 列。点选集经 {@link HkPlayer} 进播放器
- * （第 5 步：懒加载解析出地址后复用 VideoActivity 播放入口）。
+ * 后台线程调 {@link HkRouter#detail(String, HkItem, boolean)} 取详情（新引擎门面，
+ * 经 HkEngineManager 常驻运行时），{@link HkDetailHelper#split(List, String, String, String)}
+ * 切成信息头 + 分线路选集，单 RecyclerView（GridLayoutManager + SpanSizeLookup）渲染：
+ * 信息与线路头占满整行，选集占 1 列。点选集拼 {@link HkDetailBridge#toVod} 的 Vod
+ * 经 {@link VideoActivity#startHk} 进播放器（懒加载解析在播放器内走
+ * {@link HkRouter#play(String)}）。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  * <p>
@@ -71,7 +86,11 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
     private HkDetailAdapter mAdapter;
     private HkRule mRule;
     private HkDetailHelper.Detail mDetail;
+    /** toVod 拼出的 Vod（与 mDetail 同源，供点选集与阅读器复用）。 */
+    private Vod mVod;
     private int mLoadSeq;
+    /** 新引擎路由（5d）：懒建，首次取数时在后台线程建（构造器跑常驻运行时接线）。 */
+    private HkRouter mRouter;
     /** refreshPage 事件驱动重载进行中（对齐第 3 项）：loadDetail 开始置 true，onDetailLoaded 清掉。 */
     private boolean mLoading;
     /** 加载进行中收到的 refreshPage：等本次加载完成后再重载一次（不重入、不丢）。 */
@@ -103,9 +122,33 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
             requireActivity().finish();
             return;
         }
+        // 5d：记一面（HkEngineManager 常驻运行时按规则记面；归零时清该规则的 JS 定时器/任务）。
+        HkEngineManager.surfaceOpened(mRule);
         mAdapter = new HkDetailAdapter(this);
         mBinding.recycler.setAdapter(mAdapter);
         loadDetail();
+    }
+
+    @Override
+    public void onDestroy() {
+        // 5d：路由 destroy 对常驻引擎是空操作（生命周期归 HkEngineManager 管）；销一面。
+        if (mRouter != null) {
+            try {
+                mRouter.destroy();
+            } catch (Throwable ignored) {
+            }
+            mRouter = null;
+        }
+        if (mRule != null) HkEngineManager.surfaceClosed(mRule);
+        super.onDestroy();
+    }
+
+    /** 懒建路由（5c 同款）：只在后台线程调；构造器抛异常时调用方按取数失败收口。 */
+    private synchronized HkRouter routerFor(HkRule rule) throws Exception {
+        // 规则对象换了即重建路由，免得拿旧规则对象跑新文件。
+        if (mRouter != null && mRouter.getRule() != rule) mRouter = null;
+        if (mRouter == null) mRouter = new HkRouter(rule);
+        return mRouter;
     }
 
     @Override
@@ -161,6 +204,20 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         reloadPage();
     }
 
+    /** 取数结果（后台线程产出，主线程消费）：正常路带 Detail + Vod + 列数；标记路只带标记字段。 */
+    private static final class LoadResult {
+        HkDetailHelper.Detail detail;
+        Vod vod;
+        int columns = 4;
+        String error;
+        boolean tabSwitch;
+        String directPlayUrl = "";
+        String dealKind = "";
+        String dealUrl = "";
+        String textResult = "";
+        HkCard actionCard;
+    }
+
     /** 后台线程跑详情解析，回来带序号防串位（下拉重载时旧结果丢掉）。 */
     private void loadDetail() {
         if (!mBinding.swipeLayout.isRefreshing()) mBinding.progressLayout.showProgress();
@@ -171,54 +228,132 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         final String fbName = arg("name");
         final String fbPic = arg("pic");
         final String fbDesc = arg("desc");
-        final Map<String, Object> vars = mVars;
-        final HkEngine.DialogHost dialogHost = HkActionHandler.dialogHostFor(this);
         new Thread(() -> {
-            HkDetailHelper.Detail detail = null;
-            int columns = 4;
-            String error = null;
+            LoadResult out = new LoadResult();
             try {
-                HkExecutor.DetailOutcome outcome = HkExecutor.detailOutcome(rule, url, vars, dialogHost);
-                detail = HkDetailHelper.split(outcome.cards, fbName, fbPic, fbDesc);
-                if (!TextUtils.isEmpty(outcome.lastChapter)) {
-                    // 第 7 步之九：小说/漫画规则的最新章节，追加到简介末尾。
-                    String line = App.get().getString(R.string.hk_detail_last_chapter, outcome.lastChapter);
-                    detail.info.desc = TextUtils.isEmpty(detail.info.desc) ? line : detail.info.desc + "\n" + line;
+                // 5d：取数源改走新引擎 HkRouter.detail（门面 detail；失败抛错、
+                // 标记路回 HkDetail 不抛错，见 docs/miniapp-xingchen-5d-detail-play.md §3）。
+                // fromSearch=false：与旧 HkExecutor.detailOutcome 同口径，不折叠搜索引擎。
+                HkRouter router = routerFor(rule);
+                HkItem item = new HkItem(fbName, url, fbPic, fbDesc);
+                HkDetail hd = router.detail(url, item, false);
+                if (hd.isLazyParseFailed()) {
+                    out.error = "详情解析失败";
+                } else if (hd.isTabSwitch()) {
+                    out.tabSwitch = true;
+                } else if (!TextUtils.isEmpty(hd.getDirectPlayUrl())) {
+                    out.directPlayUrl = hd.getDirectPlayUrl();
+                } else if (!TextUtils.isEmpty(hd.getDealKind())) {
+                    out.dealKind = hd.getDealKind();
+                    out.dealUrl = hd.getDealUrl();
+                } else if (!TextUtils.isEmpty(hd.getTextResult())) {
+                    out.textResult = hd.getTextResult();
+                } else if (!TextUtils.isEmpty(hd.getActionUrl())) {
+                    out.actionCard = new HkCard("", hd.getActionUrl(), "", "");
+                } else {
+                    List<HkDetailItem> rawItems = hd.getRawItems();
+                    List<HkCard> cards = HkCard.fromDetailItems(rawItems);
+                    HkDetailHelper.Detail detail = HkDetailHelper.split(cards, fbName, fbPic, fbDesc);
+                    if (!TextUtils.isEmpty(hd.getLastChapter())) {
+                        // 第 7 步之九：小说/漫画规则的最新章节，追加到简介末尾。
+                        String line = App.get().getString(R.string.hk_detail_last_chapter, hd.getLastChapter());
+                        detail.info.desc = TextUtils.isEmpty(detail.info.desc) ? line : detail.info.desc + "\n" + line;
+                    }
+                    stampLines(rawItems, cards, detail);
+                    out.vod = HkDetailBridge.toVod(rule, url, hd);
+                    out.detail = detail;
+                    out.columns = HkDetailHelper.columnsFor(rule.getDetailColType());
                 }
-                columns = HkDetailHelper.columnsFor(rule.getDetailColType());
             } catch (Exception e) {
-                // HkException（请求/解析失败）与解析器里的未预料异常都走同一条错误态。
-                error = e.getMessage();
+                // 取数/解析失败与解析器里的未预料异常都走同一条错误态。
+                out.error = e.getMessage();
             }
-            final HkDetailHelper.Detail result = detail;
-            final int cols = columns;
-            final String err = error;
+            final LoadResult result = out;
             App.post(() -> {
                 if (!isAdded()) { mLoading = false; return; }
                 if (seq != mLoadSeq) return;
-                onDetailLoaded(result, cols, err);
+                onDetailLoaded(result);
                 consumePendingRefresh();
             });
         }).start();
     }
 
-    private void onDetailLoaded(HkDetailHelper.Detail detail, int columns, String error) {
+    /**
+     * 把 split 的线路名写回原条目（toVod 按 {@code HkDetailItem.line} 分组；
+     * 选择器解析的条目 line 恒为空，不写回则 Vod 恒为单线路“默认”，与详情页的多线路
+     * 不一致，startHk 的 playFlag 也对不上）。fromDetailItems 是 1:1 保序转换
+     * （只跳 null），按同一顺序回找原条目。
+     */
+    private static void stampLines(List<HkDetailItem> rawItems, List<HkCard> cards,
+                                   HkDetailHelper.Detail detail) {
+        if (rawItems == null || cards == null || detail == null) return;
+        Map<HkCard, HkDetailItem> itemOf = new IdentityHashMap<>();
+        Iterator<HkDetailItem> it = rawItems.iterator();
+        for (HkCard card : cards) {
+            HkDetailItem di = null;
+            while (it.hasNext()) {
+                di = it.next();
+                if (di != null) break;
+            }
+            if (di != null) itemOf.put(card, di);
+        }
+        for (HkDetailHelper.Line line : detail.lines) {
+            if (line == null || line.episodes == null) continue;
+            for (HkCard ep : line.episodes) {
+                HkDetailItem di = itemOf.get(ep);
+                if (di != null) di.setLine(line.title == null ? "" : line.title);
+            }
+        }
+    }
+
+    private void onDetailLoaded(LoadResult r) {
         mLoading = false;
         mBinding.swipeLayout.setRefreshing(false);
+        if (r.error != null) {
+            // 取数失败：错误态 + 点重试重跑。
+            mBinding.progressLayout.showError(R.string.hk_detail_error, r.error, R.string.hk_detail_retry, v -> loadDetail());
+            return;
+        }
+        if (r.tabSwitch) {
+            // 分类切换：懒规则只改了变量、不进详情页；直接结束本页回列表
+            //（详情页重跑同一懒规则会循环触发；列表重刷靠 refreshPage 事件，见 5d 文档 §3）。
+            requireActivity().finish();
+            return;
+        }
+        if (!TextUtils.isEmpty(r.directPlayUrl)) {
+            playDirect(r.directPlayUrl);
+            return;
+        }
+        if (!TextUtils.isEmpty(r.dealKind)) {
+            handleDealKind(r.dealKind, r.dealUrl);
+            return;
+        }
+        if (!TextUtils.isEmpty(r.textResult)) {
+            showTextResult(r.textResult);
+            return;
+        }
+        if (r.actionCard != null) {
+            // 动作 URL：走 HkActionHandler 执行（5e 前仍由它执行），然后结束本页。
+            HkActionHandler.handle(this, r.actionCard);
+            requireActivity().finish();
+            return;
+        }
+        HkDetailHelper.Detail detail = r.detail;
         if (detail == null) {
             // 取数失败：错误态 + 点重试重跑。
-            mBinding.progressLayout.showError(R.string.hk_detail_error, error == null ? "" : error, R.string.hk_detail_retry, v -> loadDetail());
+            mBinding.progressLayout.showError(R.string.hk_detail_error, "", R.string.hk_detail_retry, v -> loadDetail());
             return;
         }
         mDetail = detail;
+        mVod = r.vod;
         if (detail.lines.isEmpty()) {
             // 有信息无选集也是成功态：补一行“暂无选集”，不显示空态。
             HkDetailHelper.Line empty = new HkDetailHelper.Line();
             empty.title = getString(R.string.hk_detail_no_episodes);
             detail.lines.add(empty);
         }
-        final int span = columns;
-        GridLayoutManager layout = new GridLayoutManager(requireContext(), columns);
+        final int span = r.columns;
+        GridLayoutManager layout = new GridLayoutManager(requireContext(), r.columns);
         layout.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
             @Override
             public int getSpanSize(int position) {
@@ -230,23 +365,108 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         mAdapter.setDetail(detail);
     }
 
+    /** 详情页本身就是可播条目（directPlayUrl / dealKind=video/magnet）：跳过详情页直接播放。 */
+    private void playDirect(String episodeUrl) {
+        if (mRule == null) {
+            requireActivity().finish();
+            return;
+        }
+        VideoActivity.startHk(requireActivity(), minimalVod(), "", arg("name"), episodeUrl);
+        requireActivity().finish();
+    }
+
+    /** 无详情 Vod 时的最小 Vod（directPlay / dealKind 分流用；站 key 与 toVod 同款 hk://）。 */
+    private Vod minimalVod() {
+        Vod vod = new Vod();
+        vod.setSite(HkStore.siteOf(mRule));
+        vod.setId(arg("url"));
+        vod.setName(arg("name"));
+        vod.setPic(arg("pic"));
+        vod.setContent(arg("desc"));
+        return vod;
+    }
+
+    /** dealKind 分流（HkDetail 的官方 dealWithUrl 口径，不进 V4）。 */
+    private void handleDealKind(String kind, String url) {
+        Activity activity = getActivity();
+        if (activity == null || activity.isFinishing()) return;
+        switch (kind) {
+            case "video":
+            case "magnet":
+                // video：直接播放；magnet：与旧链路同款直通（集址=磁力链，播放器侧原样接）。
+                playDirect(url);
+                return;
+            case "pics": {
+                List<String> pics = HkRouter.parsePics(url);
+                if (!HkRouter.hasLoadablePic(pics)) {
+                    Notify.show(R.string.hk_action_pics_unsupported);
+                    requireActivity().finish();
+                    return;
+                }
+                Flag flag = new Flag("图集");
+                Episode ep = Episode.create("图集", url);
+                flag.getEpisodes().add(ep);
+                NovelRouter.openPics(activity, HkStore.siteOf(mRule).getKey(), flag, minimalVod(),
+                        ep, "pics://" + TextUtils.join("&&", pics));
+                requireActivity().finish();
+                return;
+            }
+            case "x5":
+            case "web":
+                // 星辰无 X5 引擎，走系统 WebView 顶替（5c 已定）。
+                startActivity(CatWebActivity.intent(requireContext(), url));
+                requireActivity().finish();
+                return;
+            case "image":
+                PhotoViewerDialog.show(activity, java.util.Collections.singletonList(url), 0, null);
+                requireActivity().finish();
+                return;
+            default:
+                Notify.show(R.string.hk_action_no_result);
+                requireActivity().finish();
+                return;
+        }
+    }
+
+    /** 纯文本结果：弹窗显示文本，关闭时结束本页。 */
+    private void showTextResult(String text) {
+        Activity activity = getActivity();
+        if (activity == null || activity.isFinishing()) return;
+        final Activity act = activity;
+        new AlertDialog.Builder(act)
+                .setMessage(text)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    if (!act.isFinishing()) act.finish();
+                })
+                .setOnCancelListener(d -> {
+                    if (!act.isFinishing()) act.finish();
+                })
+                .show();
+    }
+
     @Override
     public void onRefresh() {
         loadDetail();
     }
 
     /**
-     * 点选集：影视类拼 Vod 进播放器（第 5 步）；非影视类（小说/漫画/音乐/图片）
-     * 走 HkNonVideo 分流（第 7 步之九：阅读器 / 音频页 / 图集 / 明确提示）。
+     * 点选集：影视类拼 Vod 进播放器（5d：toVod 的 Vod + startHk，懒加载解析在播放器内
+     * 走 HkRouter.play）；非影视类（小说/漫画/音乐/图片）走 HkNonVideo 分流
+     * （第 7 步之九：阅读器 / 音频页 / 图集 / 明确提示）。
      */
     @Override
     public void onEpisodeClick(HkDetailHelper.Line line, HkCard episode) {
-        if (mDetail == null) return;
+        if (mDetail == null || mRule == null) return;
+        // MY_POSITION 槽：行内下标 + 规则名 + 集址身份，供 Router.playRoute 消费
+        //（旧链路从未有人放值，恒为 -1；身份不合时消费方忽略，不串位）。
+        int position = line.episodes == null ? -1 : line.episodes.indexOf(episode);
+        if (position >= 0) HkDetailBridge.setClickPosition(position, mRule.getTitle(), episode.getUrl());
         if (HkNonVideo.isNonVideoRule(mRule)) {
-            HkNonVideo.routeEpisode(requireActivity(), mRule, mDetail, line, episode, arg("url"));
+            HkNonVideo.routeEpisode(requireActivity(), mRule, mDetail, line, episode, arg("url"), mVod);
             return;
         }
-        HkPlayer.play(requireActivity(), mRule, mDetail, line, episode, arg("url"));
+        if (mVod == null) return;
+        VideoActivity.startHk(requireActivity(), mVod, line.title, episode.getTitle(), episode.getUrl());
     }
 
     /** 点动作行：走 HkActionHandler 执行（第 7 步之七），不进详情页。 */

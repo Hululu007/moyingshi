@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.api.hk;
-/** 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkDetailBridge.java（276 行）：除包名外与原文一致；详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
+/** 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkDetailBridge.java（276 行）：
+ * 除包名与 KEY_PREFIX（星辰 {@code hk_}，我方 {@code hk://}，见
+ * docs/miniapp-xingchen-5d-detail-play.md §2）外与原文一致；详见 docs/miniapp-xingchen-5a-router-detail-play.md。 */
 
 import com.github.moyingshi.osc.tv.bean.Episode;
 import com.github.moyingshi.osc.tv.bean.Flag;
@@ -11,11 +13,13 @@ import java.util.List;
 
 /**
  * 海阔详情 → 星辰 VideoActivity 数据模型桥接（M3）。
- * siteKey 用 {@code hk_<规则名>} 命名空间，播放拦截（M4）据此识别。
+ * siteKey 用 {@code hk://<规则名>} 命名空间（我方 Site 键口径，与
+ * {@link HkStore#siteOf} 同款；星辰原文是 {@code hk_} 前缀，见
+ * docs/miniapp-xingchen-5d-detail-play.md §2），播放拦截（M4）据此识别。
  */
 public class HkDetailBridge {
 
-    public static final String KEY_PREFIX = "hk_";
+    public static final String KEY_PREFIX = "hk://";
 
     public static String siteKey(String ruleTitle) {
         return KEY_PREFIX + (ruleTitle == null ? "" : ruleTitle);
