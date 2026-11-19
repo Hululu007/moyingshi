@@ -307,29 +307,16 @@ public final class HkCodeUtil {
 
     // ---- 8.83 私有方法移植 ----
 
-    /** 8.83 dealFileByHiker：hiker://assets/ 走资源文件，其余 hiker:// 走规则查询。
-     * 墨影视适配：星辰调 HkHikerRuleUtil.getRulesByHiker(url, listener)（异步版，
-     * 星辰 HkHikerRuleUtil:267）；我方只搬了同步版 getRulesByHiker(String)
-     * （3e-1），异步版未搬。同步版与异步版同源（异步版只是把同步版包进
-     * HEAVY_TASK 回调），此处先直调同步版：hiker://empty/page 两支按星辰
-     * 异步版原样处理，home/bookmark/download/collection/history 走同步版；
-     * 调用方已在后台线程（HkHttpParser.get/post 经 HkLazyRuleParser 等异步
-     * 入口调用），同步文件 I/O 不占主线程。 */
+    /** 8.83 dealFileByHiker：hiker://assets/ 走资源文件，其余 hiker:// 走规则查询（异步版）。
+     * 星辰 HkCodeUtil.java:309-316 原文：非 assets 支直调异步版 getRulesByHiker(url, listener)，
+     * empty/page 两支由异步版内部分发（直回），home/bookmark/download/collection/history
+     * 五支投 HEAVY_TASK 后台线程回调。6c 前我方内联 empty/page 支、直调同步版，已按星辰改回。 */
     private static void dealFileByHiker(String url, OnCodeGetListener listener) {
         if (url.startsWith("hiker://assets/")) {
             listener.onSuccess(HkHikerRuleUtil.getAssetsFileByHiker(url));
             return;
         }
-        String p0 = url.replace("hiker://", "");
-        if (p0.startsWith("empty")) {
-            listener.onSuccess(HkParserKit.replaceOnce(p0, "empty", ""));
-            return;
-        }
-        if (p0.startsWith("page")) {
-            listener.onSuccess(p0);
-            return;
-        }
-        listener.onSuccess(HkHikerRuleUtil.getRulesByHiker(url));
+        HkHikerRuleUtil.getRulesByHiker(url, listener);
     }
 
     /** 8.83 dealFileByPath：file:// 去前缀读本地文件。 */

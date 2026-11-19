@@ -1,6 +1,6 @@
 package com.github.moyingshi.osc.tv.api.hk.util;
 /** 移植自星辰 com/fongmi/android/tv/api/hk/util/HkHikerRuleUtil.java（331 行）：除包名外与原文一致；
- * 异步版未搬，collection 支先回空形（阶段 7）。historyJson 一族已于 5d 搬回（见 §history）。
+ * 异步版已于 6c 搬回，collection 支先回空形（阶段 7）。historyJson 一族已于 5d 搬回（见 §history）。
  * 详见 docs/miniapp-xingchen-3e-facade.md。 */
 
 import android.text.TextUtils;
@@ -26,7 +26,7 @@ import java.io.InputStream;
  *      （home.js / beautify.js / crypto-java.js / wasm.js / translate/ / localmanager.txt），
  *       非 hiker://assets/ 或空返回 ""。</li>
  *   <li>{@code getRulesByHiker(url)}：{@code hiker://home@<标题>} → 按标题查规则库（LitePal）返回规则 JSON；
-     *       另有异步版本（listener 回调，3e 未搬：需 HkCodeUtil，见阶段 6/7）。星辰用 {@link HkRuleManager#loadRuleJson(String)} 同款语义。</li>
+     *       另有异步版本（listener 回调，6c 已搬回）。星辰用 {@link HkRuleManager#loadRuleJson(String)} 同款语义。</li>
  * </ul>
  */
 public final class HkHikerRuleUtil {
@@ -133,6 +133,55 @@ public final class HkHikerRuleUtil {
             return historyJson();
         }
         return "";
+    }
+
+
+    /** 环 17-8：官 HeavyTask 等价的后台执行器（异步版重活支投此再回调）。 */
+    private static final java.util.concurrent.ExecutorService HEAVY_TASK =
+            java.util.concurrent.Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "hk-hiker-rule-heavy");
+                t.setDaemon(true);
+                return t;
+            });
+
+    /**
+     * 8.83 HikerRuleUtil.getRulesByHiker(String, OnCodeGetListener) 异步版语义移植（smali 591-848）。
+     * 分支顺序与原文一致：empty → page → home → bookmark/download/collection/history → ""。
+     * 环 17-8（硬门审计 B＋复核订正，官 HU 本体与 lambda$0/$1 亲读同构）：home/bookmark/
+     * download/collection/history 五支在官是投 HeavyTask 后台线程执行、就在后台线程回调
+     * onSuccess（查库＋shareFilter 序列化都在后台）；empty/page 两支直回、尾支恒
+     * onSuccess("")、异步版无隐私支。失败形照官分界（复核订正）：官外层 try 只罩
+     * <b>同步分发段</b>（含 404 判定、empty/page 直回、HeavyTask 提交、findAllAsync 登记），
+     * 其 catch→onFailure(500,"获取数据失败："+msg) 只接分发段异常；取数支本体
+     * （lambda$0/$1）<b>无 try/catch</b>，支内抛错＝异常随执行器线程消散、回调永不达。
+     * 批2 首落在支内 try/catch 把 getRulesByHiker 异常转 onFailure(500)，与官正反，已摘：
+     * 支内不 catch；分发段（含 HEAVY_TASK.execute 提交本身失败）保留 onFailure(500) 形。
+     */
+    public static void getRulesByHiker(String url, HkCodeUtil.OnCodeGetListener listener) {
+        try {
+            if (TextUtils.isEmpty(url) || !url.startsWith("hiker://")) {
+                listener.onFailure(404, url + "格式有误");
+                return;
+            }
+            String p0 = url.replace("hiker://", "");
+            if (p0.startsWith("empty")) {
+                listener.onSuccess(HkParserKit.replaceOnce(p0, "empty", ""));
+                return;
+            }
+            if (p0.startsWith("page")) {
+                listener.onSuccess(p0);
+                return;
+            }
+            if (p0.startsWith("home") || p0.startsWith("bookmark") || p0.startsWith("download")
+                    || p0.startsWith("collection") || p0.startsWith("history")) {
+                // 取数支本体照官 lambda$0/$1 无 try/catch：支内异常不转回调。
+                HEAVY_TASK.execute(() -> listener.onSuccess(getRulesByHiker(url)));
+                return;
+            }
+            listener.onSuccess("");
+        } catch (Exception e) {
+            listener.onFailure(500, "获取数据失败：" + e.getMessage());
+        }
     }
 
     // ---- §history：historyJson 一族（5d 按星辰原文搬入） ----

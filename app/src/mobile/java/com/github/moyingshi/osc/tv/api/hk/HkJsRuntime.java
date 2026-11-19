@@ -5020,6 +5020,113 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
             }
             return null;
         });
+        // openAppIntent(p, a, param, ruleTitleKey)：8.83 JSEngine.openAppIntent
+        // （JE:20047 本体＋$16 确认＋$15 拼装，账 hk-fullchain-dig2 §3）。
+        // 门序照官 §3.2：先取 ruleTitle，空→直回 Boolean.FALSE（不验
+        // p/a、不走任何门，C4 复核订正补落）；其后定型；授权门已于 136b
+        // 照官改定（HkAuthManager.checkOpenAppIntent：canTouchUI 1000ms
+        // 频控＋$16 每回确认＋latch 1 分钟结果锁存、无持久授权），本调用点
+        // 传 pkg 填准确认文案括号段。其余照 $15 原文落：
+        // p/a 经 tryGetString 定型（非串抛「参数类型只能是字符串」穿桥成
+        // JS 异常、不回 false——官定型在 $16 确认弹窗之前，咱家定型在
+        // 标题空支之后、授权门之前，同位）；action 恒
+        // VIEW、flags 恒 0x10008000、组件＝包名＋类名；装机门在 param 消费
+        // 之前；param 仅 JSONObject 时逐键拼 extra；启动段异常 toast
+        // 「出错：」＋msg。回形：官 returnType＝BOOL——实现体回 Boolean 本体
+        // （直名路 Rhino 转真布尔；包装路 retStr+''=='true' 同果），旧形回
+        // "false" 字符串在直名路是真值串、已正。
+        putFunction("openAppIntent", args -> {
+            // 官门序第一步：先取标题，空直回 FALSE——不验 p/a、不走门。
+            String ruleTitle = rule != null ? rule.getTitle() : "";
+            if (ruleTitle.isEmpty()) return Boolean.FALSE;
+            final String pkg = hkTryGetString(args != null && args.length > 0 ? args[0] : null);
+            final String cls = hkTryGetString(args != null && args.length > 1 ? args[1] : null);
+            try {
+                final boolean[] result = {false};
+                boolean allowed = HkAuthManager.checkOpenAppIntent(ruleTitle, pkg, () -> {
+                            android.content.Intent intent = new android.content.Intent();
+                            intent.setAction(android.content.Intent.ACTION_VIEW);
+                            intent.addFlags(0x10008000);
+                            // $15 装机门（param 消费之前）：未装 toast 回假、
+                            // param 根本不读。
+                            if (!appInstalled(pkg)) {
+                                hkToast("找不到对应的软件，请确认已安装");
+                                return;
+                            }
+                            // $15 param 消费：adjust 后仅 Map（官 JSONObject）
+                            // 逐键迭代；非对象整表跳过、零 extra 零 data。
+                            Object adjParam = args != null && args.length > 2
+                                    ? argsNativeObjectAdjust(args[2]) : null;
+                            if (adjParam instanceof Map) {
+                                for (Map.Entry<?, ?> e : ((Map<?, ?>) adjParam).entrySet()) {
+                                    String k = String.valueOf(e.getKey());
+                                    Object v = e.getValue();
+                                    if ("intentData".equals(k)) {
+                                        intent.setData(android.net.Uri.parse(paramStringValue(v)));
+                                    } else if (v instanceof Integer) {
+                                        intent.putExtra(k, ((Integer) v).intValue());
+                                    } else if (v instanceof Double || v instanceof Boolean) {
+                                        intent.putExtra(k, (java.io.Serializable) v);
+                                    } else {
+                                        intent.putExtra(k, paramStringValue(v));
+                                    }
+                                }
+                            }
+                            // $15 组件与启动（try_start，catch Exception）：
+                            // 成功置真；异常 toast「出错：」＋msg、保持假。
+                            try {
+                                intent.setComponent(new android.content.ComponentName(pkg, cls));
+                                App.get().startActivity(intent);
+                                result[0] = true;
+                            } catch (Exception e) {
+                                Logger.t(TAG).d("openAppIntent failed: %s", e.getMessage());
+                                hkToast("出错：" + e.getMessage());
+                            }
+                        });
+                return allowed && result[0] ? Boolean.TRUE : Boolean.FALSE;
+            } catch (Throwable e) {
+                Logger.t(TAG).d("openAppIntent failed: %s", e.getMessage());
+                return Boolean.FALSE;
+            }
+        });
+        // publishRule(ruleJson, ruleTitleKey)：8.83 JSEngine.publishRule（JE:20781）——
+        // ruleTitle 空直返；余弹确认（标题「温馨提示」、正文「小程序『<标题>』想要提交上传
+        // 规则或口令到云仓库，确定允许提交？」）后走官云仓库上传。第九阶段：授权说明改官
+        // 口径「提交上传规则或口令到云仓库」、摘旧「规则发布功能开发中」假 toast；
+        // 上传落点是官生态后端、星辰无此服务，确认后动作记名未落（见回执）。
+        // 咱家授权弹窗本体（HkAuthManager/HkAuthDialog）为本仓既有形态，与官文案形不同，记名。
+        putFunction("publishRule", args -> {
+            try {
+                // 官标题来源（JE:21659、getRuleTitle JE:5274）：getRuleTitle(getString(
+                // 第二参 ruleTitleKey))——key 空回 ""、非空查票据表未中回 key 本身；
+                // 标题空直返（key 为空时官恒直返，不看当前规则）。咱家无票据表
+                // （G20 MY_TICKET 记名），非空取 key 本身；首落误用当前规则名已正。
+                String key = "";
+                if (args != null && args.length > 1 && args[1] != null
+                        && !(args[1] instanceof Undefined)) {
+                    Object a1 = argsNativeObjectAdjust(args[1]);
+                    if (a1 instanceof CharSequence) key = a1.toString();
+                }
+                if (TextUtils.isEmpty(key)) return null;
+                // 核查 136b P1 接通：确认后落点＝HkPublishHelper.publishRule
+                // （136b 簇1 已转写官 PublishHelper 全流程：publish_code 为空
+                // 走说明弹窗、余后台 parsePublishRule 求值用户 JS 自行提交，
+                // 官无写死后端）。规则对象经 argsNativeObjectAdjust 转 Java
+                // 值（与官 getMyRule(该对象) 的序列化口径对位）。
+                final Object ruleObj = args != null && args.length > 0
+                        && args[0] != null && !(args[0] instanceof Undefined)
+                        ? argsNativeObjectAdjust(args[0]) : null;
+                HkAuthManager.checkAuth(key, "publishRule",
+                        "提交上传规则或口令到云仓库", () -> {
+                            HkPublishHelper.publishRule(
+                                    App.activity(), ruleObj);
+                        });
+                return null;
+            } catch (Throwable e) {
+                Logger.t(TAG).e(e, "publishRule failed");
+                throw new RuntimeException("publishRule 失败：" + e.getMessage(), e);
+            }
+        });
         // registerDNS(options, ruleTitleKey)：8.83 JSEngine.registerDNS。
         // 敏感操作，需用户授权。options 为 JSON（含 dns/hosts 等）。
         putFunction("registerDNS", args -> {
