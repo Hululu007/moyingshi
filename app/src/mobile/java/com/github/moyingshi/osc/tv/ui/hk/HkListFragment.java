@@ -21,7 +21,7 @@ import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.hk.HkCache;
 import com.github.moyingshi.osc.tv.api.hk.HkCard;
 import com.github.moyingshi.osc.tv.api.hk.HkClickDispatcher;
-import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
+import com.github.moyingshi.osc.tv.ui.hk.HkEngineManager;
 import com.github.moyingshi.osc.tv.api.hk.HkErrorUtil;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;

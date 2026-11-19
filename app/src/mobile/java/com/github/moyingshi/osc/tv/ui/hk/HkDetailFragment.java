@@ -22,7 +22,7 @@ import com.github.moyingshi.osc.tv.api.hk.HkDetail;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailBridge;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailItem;
-import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
+import com.github.moyingshi.osc.tv.ui.hk.HkEngineManager;
 import com.github.moyingshi.osc.tv.api.hk.HkErrorUtil;
 import com.github.moyingshi.osc.tv.api.hk.HkHistoryRecorder;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
