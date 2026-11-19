@@ -18,6 +18,7 @@ import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.download.VideoDownloadManager;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
+import com.github.moyingshi.osc.tv.ui.activity.HkPageActivity;
 import com.github.moyingshi.osc.tv.ui.web.CatWebActivity;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.google.gson.JsonArray;
@@ -45,9 +46,13 @@ import java.util.function.Consumer;
  * <li>{@code Host} 缩水：{@code vars()}/{@code updateVars()} 删除（新运行时 vars 在进程级
  * {@code varMap} 共享，懒求值与详情重跑读同一张表，不再需要 Fragment 的 {@code mVars}
  * 快照中转）；新增 {@code router()} 与 {@code openSubpage(url, title)}。</li>
- * <li>新增两支：裸 {@code hiker://page/…} → {@code host.openSubpage}（开新列表页，不进详情；
- * 旧版返回 false → 详情页 → {@code Router.detail} 判 {@code lazyParseFailed} → 错误态）；
+ * <li>新增两支：裸 {@code hiker://page/…} → 7a 起先走 {@code HkPageActivity.openPage}
+ * （{@code getNextPage} 组子规则开新页），组页失败回落 {@code host.openSubpage}
+ * （5e 的 {@code HkSubpage.expand} 单页路；旧版返回 false → 详情页 →
+ * {@code Router.detail} 判 {@code lazyParseFailed} → 错误态）；
  * 裸 {@code x5://…} → 剥前缀后进 {@code CatWebActivity}（与详情页 {@code dealKind=x5} 支同款）。</li>
+ * <li>7a dealKind 短路：{@code pics/magnet/image} 三种不进详情页，直接走
+ * {@code HkPageActivity.handleDealUrl}；{@code video/web} 走详情页原路。</li>
  * <li>懒结果分发：{@code http(s)} 与子页面支拆开——{@code http(s)} → {@code openDetail}，
  * {@code hiker://page/} → {@code openSubpage}（旧版两者都进 {@code openDetail}，子页面会
  * 撞上 {@code Router.detail} 的 {@code lazyParseFailed}）。</li>
@@ -55,8 +60,8 @@ import java.util.function.Consumer;
  * {@code selectAsync}，含 {@code Once}/{@code onMain}/{@code usable}）逐字移入本类作私有静态
  * 方法，弹框行为一字不变；同步三法与 {@code awaitResult} latch 整段删除（唯一用途是旧
  * Rhino 桥的 {@code DialogHost}）。</li>
- * <li>{@code pics://} 支仍 toast {@code hk_action_pics_unsupported}（旧行为；直接进阅读器是
- * 阶段 7 {@code handleDealUrl} 的活，不在本笔提前搬）。</li>
+ * <li>{@code pics://} 支仍 toast {@code hk_action_pics_unsupported}（旧行为；7a 起
+ * 列表点击的 pics 卡由 {@code handleDealUrl} 直接进阅读器，本支只剩懒结果路）。</li>
  * </ul>
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
@@ -132,6 +137,14 @@ public final class HkClickDispatcher {
             return true;
         }
         if (lower.startsWith("hiker://page/")) {
+            // 7a：先走 HkPageActivity.openPage（getNextPage 组子规则开新页，真规则、
+            // 有分类有翻页）；组页失败回落 5e 的 openSubpage（HkSubpage.expand 单页路）。
+            Activity activity = host.activity();
+            if (activity != null && host.rule() != null
+                    && HkPageActivity.openPage(activity, host.rule(), url, card.getExtra(),
+                    cleanTitle(card.getTitle()))) {
+                return true;
+            }
             host.openSubpage(url, cleanTitle(card.getTitle()));
             return true;
         }
@@ -144,6 +157,20 @@ public final class HkClickDispatcher {
             // WebView 载不了 x5:// scheme：剥前缀再进站内 WebView（星辰 handleDealUrl 同款）。
             activity.startActivity(CatWebActivity.intent(activity, url.replaceFirst("(?i)^x5://", "")));
             return true;
+        }
+        // 7a dealKind 短路（星辰列表点击路 handleDealUrl 同款）：pics/magnet/image 三种
+        // 不进详情页，直接分流；video/web/"" 走详情页原路（与今日一致）。
+        String dealKind = HkRouter.dealKind(url);
+        if ("pics".equals(dealKind) || "magnet".equals(dealKind) || "image".equals(dealKind)) {
+            Activity activity = host.activity();
+            if (activity == null) {
+                Log.w(TAG, "dealKind action without activity, dropped");
+                return true;
+            }
+            if (HkPageActivity.handleDealUrl(activity, host.rule(), dealKind, url,
+                    cleanTitle(card.getTitle()), card.getPic(), null)) {
+                return true;
+            }
         }
         if (lower.startsWith("hiker://empty")) {
             // 占位地址，无动作。

@@ -38,9 +38,20 @@ import java.util.List;
  * 移植自星辰 app/src/main/java/com/fongmi/android/tv/api/hk/HkShareHelper.java（131 行），
  * 除包名与一处适配外与原文一致；详见 docs/miniapp-xingchen-6b-share-publish.md。
  * 适配：星辰 ToastUtil 我方无此工具类（5a HkErrorUtil 先例），改为 Toast.makeText().show()。
- * 合集支注释引用的 HkPageActivity.openCollectionBrowser 是阶段 7 的合集浏览面，本笔不建。
+ * 7a：合集浏览面已建（HkPageActivity.openCollectionBrowser）；合集包导入后待浏览的
+ * 解压目录经 {@link #consumePendingCollectionDir} 交管理页开浏览面（6b 的 added 计 0 小瑕随之修）。
  */
 public class HkShareHelper {
+
+    /** 合集包导入后待浏览的解压目录（7a）：importFromFile 的合集支解压成功后置值，管理页取走后清零。 */
+    private static volatile File pendingCollectionDir;
+
+    /** 取走待浏览合集目录（取后清零；无则回 null）。 */
+    public static File consumePendingCollectionDir() {
+        File dir = pendingCollectionDir;
+        pendingCollectionDir = null;
+        return dir;
+    }
 
     /** 从剪贴板检测海阔分享口令，返回规则 JSON，无则返回 null。 */
     public static String detectFromClipboard(Context context) {
@@ -93,8 +104,10 @@ public class HkShareHelper {
             // 小程序合集包（8.83 importPackageByZip，批C3 改官形）：只解压落盘到
             // _cache/<净名>.hk合集，本步零自动导入——条目由用户在合集浏览面逐个
             // 点选（HkPageActivity.openCollectionBrowser），故回空列表；
+            // 解压目录记一笔待浏览（7a，管理页 onImported(0) 时取走开浏览面）；
             // 判据含根 rule.json 内容验，名带「合集」的单个小程序包不误入（复核 M7）。
-            mgr.extractCollectionPackage(file);
+            File dir = mgr.extractCollectionPackage(file);
+            if (dir != null) pendingCollectionDir = dir;
         } else if (name.endsWith(".hkzip") || name.endsWith(".zip")) {
             // .zip 与 .hkzip 同一套解析（parseHkZip：多 rule.json + require.json/libs.zip 附带资源）
             result.addAll(mgr.importHkZip(file));

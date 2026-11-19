@@ -16,6 +16,7 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -296,6 +297,37 @@ public class HkRouter {
     }
 
     /**
+     * 非影视类规则类型谓词（7a：自 HkNonVideo 逐字移入；HkNonVideo 删除后由本类与
+     * HkPageActivity.routeEpisode 共用）。规则 type 是不是非影视类（read/cartoon/
+     * music/picture）；all/video/tool 等走原视频路。
+     */
+    public static boolean isNonVideoRule(HkRule rule) {
+        String t = typeOf(rule);
+        return "read".equals(t) || "cartoon".equals(t) || "music".equals(t) || "picture".equals(t);
+    }
+
+    /** 小说/漫画类（章节形态相同，共用 sdetail + 正文/图集两路出口）。 */
+    public static boolean isReadRule(HkRule rule) {
+        String t = typeOf(rule);
+        return "read".equals(t) || "cartoon".equals(t);
+    }
+
+    /** 音乐类。 */
+    public static boolean isMusicRule(HkRule rule) {
+        return "music".equals(typeOf(rule));
+    }
+
+    /** 图片类。 */
+    public static boolean isPictureRule(HkRule rule) {
+        return "picture".equals(typeOf(rule));
+    }
+
+    private static String typeOf(HkRule rule) {
+        if (rule == null) return "";
+        return rule.getType().trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
      * 最新章节（5d：旧 {@code HkExecutor.lastChapter} 逐字复刻，调用方由
      * {@code HkExecutor.detailOutcome} 换成 {@link #detail}）。对已抓的详情页正文求值，
      * 不另发请求（pageText 为空时 JS 分支多抓一次）；JS 规则走 evalTextRule，
@@ -303,7 +335,7 @@ public class HkRouter {
      */
     private String computeLastChapter(HkRule rule, String detailUrl, String pageText) {
         String field = rule == null ? "" : rule.getLastChapterRule();
-        if (!HkNonVideo.isReadRule(rule) || TextUtils.isEmpty(field)) return "";
+        if (!isReadRule(rule) || TextUtils.isEmpty(field)) return "";
         String text = pageText;
         if (TextUtils.isEmpty(text)) {
             try {

@@ -24,21 +24,16 @@ import com.github.moyingshi.osc.tv.api.hk.HkDetailHelper;
 import com.github.moyingshi.osc.tv.api.hk.HkDetailItem;
 import com.github.moyingshi.osc.tv.api.hk.HkEngineManager;
 import com.github.moyingshi.osc.tv.api.hk.HkItem;
-import com.github.moyingshi.osc.tv.api.hk.HkNonVideo;
 import com.github.moyingshi.osc.tv.api.hk.HkParserKit;
 import com.github.moyingshi.osc.tv.api.hk.HkRefreshPageEvent;
 import com.github.moyingshi.osc.tv.api.hk.HkRouter;
 import com.github.moyingshi.osc.tv.api.hk.HkRule;
 import com.github.moyingshi.osc.tv.api.hk.HkStore;
-import com.github.moyingshi.osc.tv.bean.Episode;
-import com.github.moyingshi.osc.tv.bean.Flag;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.databinding.FragmentHkDetailBinding;
+import com.github.moyingshi.osc.tv.ui.activity.HkPageActivity;
 import com.github.moyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
-import com.github.moyingshi.osc.tv.ui.dialog.PhotoViewerDialog;
-import com.github.moyingshi.osc.tv.ui.novel.NovelRouter;
-import com.github.moyingshi.osc.tv.ui.web.CatWebActivity;
 import com.github.moyingshi.osc.tv.utils.Notify;
 
 import org.greenrobot.eventbus.EventBus;
@@ -392,34 +387,13 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
                 // video：直接播放；magnet：与旧链路同款直通（集址=磁力链，播放器侧原样接）。
                 playDirect(url);
                 return;
-            case "pics": {
-                List<String> pics = HkRouter.parsePics(url);
-                if (!HkRouter.hasLoadablePic(pics)) {
-                    Notify.show(R.string.hk_action_pics_unsupported);
-                    requireActivity().finish();
-                    return;
-                }
-                Flag flag = new Flag("图集");
-                Episode ep = Episode.create("图集", url);
-                flag.getEpisodes().add(ep);
-                NovelRouter.openPics(activity, HkStore.siteOf(mRule).getKey(), flag, minimalVod(),
-                        ep, "pics://" + TextUtils.join("&&", pics));
-                requireActivity().finish();
-                return;
-            }
+            case "pics":
             case "x5":
-                // 星辰无 X5 引擎，走系统 WebView 顶替（5c 已定）；WebView 载不了 x5:// scheme，
-                // 先剥前缀（5e 顺手修：5d 支原样传 x5:// 进 WebView 会加载失败；星辰 handleDealUrl 同款）。
-                startActivity(CatWebActivity.intent(requireContext(), url.replaceFirst("(?i)^x5://", "")));
-                requireActivity().finish();
-                return;
             case "web":
-                // 星辰无 X5 引擎，走系统 WebView 顶替（5c 已定）。
-                startActivity(CatWebActivity.intent(requireContext(), url));
-                requireActivity().finish();
-                return;
             case "image":
-                PhotoViewerDialog.show(activity, java.util.Collections.singletonList(url), 0, null);
+                // 7a：四支委托 HkPageActivity.handleDealUrl（星辰 handleDealUrl 全套，
+                // 详情面与列表面共用一处实现）；消费后仍结束本页（5d 行为不变）。
+                HkPageActivity.handleDealUrl(activity, mRule, kind, url, arg("name"), arg("pic"), minimalVod());
                 requireActivity().finish();
                 return;
             default:
@@ -452,8 +426,8 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
 
     /**
      * 点选集：影视类拼 Vod 进播放器（5d：toVod 的 Vod + startHk，懒加载解析在播放器内
-     * 走 HkRouter.play）；非影视类（小说/漫画/音乐/图片）走 HkNonVideo 分流
-     * （第 7 步之九：阅读器 / 音频页 / 图集 / 明确提示）。
+     * 走 HkRouter.play）；非影视类（小说/漫画/音乐/图片）走 HkPageActivity.routeEpisode 分流
+     * （7a：自 HkNonVideo 搬家而来，阅读器 / 音频页 / 图集 / 明确提示）。
      */
     @Override
     public void onEpisodeClick(HkDetailHelper.Line line, HkCard episode) {
@@ -462,8 +436,8 @@ public class HkDetailFragment extends BaseFragment implements SwipeRefreshLayout
         //（旧链路从未有人放值，恒为 -1；身份不合时消费方忽略，不串位）。
         int position = line.episodes == null ? -1 : line.episodes.indexOf(episode);
         if (position >= 0) HkDetailBridge.setClickPosition(position, mRule.getTitle(), episode.getUrl());
-        if (HkNonVideo.isNonVideoRule(mRule)) {
-            HkNonVideo.routeEpisode(requireActivity(), mRule, mDetail, line, episode, arg("url"), mVod);
+        if (HkRouter.isNonVideoRule(mRule)) {
+            HkPageActivity.routeEpisode(requireActivity(), mRule, mDetail, line, episode, arg("url"), mVod);
             return;
         }
         if (mVod == null) return;

@@ -45,7 +45,9 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 海阔小程序列表 Fragment，对应魔影的 kv1（见逆向报告 §4：无源码，按
@@ -64,6 +66,14 @@ import java.util.List;
  * <p>
  * 5e 子页面模式：{@code hiker://page/…} 卡片经 {@link HkListActivity#openSubpage}
  * 开新列表页，单页由 {@link HkSubpage#expand} 渲染（不翻页、不缓存、不分类）。
+ * <p>
+ * 7a 规则 JSON 直供模式：{@code hiker://page/…} 卡片经
+ * {@link com.github.moyingshi.osc.tv.ui.activity.HkPageActivity#openPage} 组子规则
+ * （{@code HkPageParser.getNextPage}）后开新页，子规则 JSON 直供本 Fragment，
+ * 不走 {@code HkStore.read}（子规则未登记进站源）；分类/翻页正常，缓存跳过
+ * （子规则标题常与父规则同名，键会与父规则首页互串，见 5e 子页面模式同款理由）；
+ * 页地址 query 参数在 {@code router.home(...)} 求值前后挂/清 {@code $.importParam}
+ * （只包一次求值，见 {@link #loadPage} 内桥段）。
  * <p>
  * 只放 mobile 源集，TV/leanback 不可见。
  */
@@ -122,6 +132,56 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
         return fragment;
     }
 
+    /**
+     * 规则 JSON 直供模式（7a）：子规则由 HkPageActivity.openPage 经 getNextPage 组出，
+     * 未登记进站源，JSON 直供；importParamsJson 是页地址 query 参数的 JSON（供 $.importParam）。
+     */
+    public static HkListFragment newInstanceWithRuleJson(String ruleJson, String title, String importParamsJson) {
+        Bundle args = new Bundle();
+        args.putString("title", title);
+        args.putString("rule_json", ruleJson);
+        if (importParamsJson != null) args.putString("import_params", importParamsJson);
+        HkListFragment fragment = new HkListFragment();
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    private String getRuleJson() {
+        Bundle args = getArguments();
+        return args == null ? null : args.getString("rule_json", null);
+    }
+
+    private boolean isRuleJsonMode() {
+        return getRuleJson() != null;
+    }
+
+    private String getImportParamsJson() {
+        Bundle args = getArguments();
+        return args == null ? null : args.getString("import_params", null);
+    }
+
+    /** import_params JSON → Map（坏串回空表，不抛错；值只取字符串形，非字符串取 JSON 文本）。 */
+    private static Map<String, String> parseImportParams(String json) {
+        Map<String, String> out = new HashMap<>();
+        if (json == null || json.trim().isEmpty()) return out;
+        try {
+            com.google.gson.JsonElement root = com.google.gson.JsonParser.parseString(json);
+            if (root == null || !root.isJsonObject()) return out;
+            com.google.gson.JsonObject obj = root.getAsJsonObject();
+            for (Map.Entry<String, com.google.gson.JsonElement> e : obj.entrySet()) {
+                com.google.gson.JsonElement v = e.getValue();
+                if (v == null || v.isJsonNull()) out.put(e.getKey(), "");
+                else if (v.isJsonPrimitive() && v.getAsJsonPrimitive().isString()) out.put(e.getKey(), v.getAsString());
+                else out.put(e.getKey(), v.toString());
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    /** 规则 JSON 直供模式的 $.importParam（页地址 query 参数；只在 home() 求值前后挂/清）。 */
+    private Map<String, String> mImportParams;
+
     private String getSubpageUrl() {
         Bundle args = getArguments();
         return args == null ? null : args.getString("subpage_url", null);
@@ -162,7 +222,9 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     protected void initView() {
         mBinding.progressLayout.showProgress();
         mScroller = new CustomScroller(this);
-        mRule = HkStore.read(getTitle());
+        // 7a：规则 JSON 直供模式直接解析子规则 JSON（子规则未登记进站源，HkStore.read 读不到）。
+        mRule = isRuleJsonMode() ? HkRule.parse(getRuleJson()) : HkStore.read(getTitle());
+        if (isRuleJsonMode()) mImportParams = parseImportParams(getImportParamsJson());
         if (mRule == null) {
             // 规则文件被删但站源条目还在：列表页报一句就走，不进空白页。
             // 内嵌模式不能 finish() 掉 HomeActivity：先问宿主是否回落开列表页，
@@ -212,7 +274,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     /** 内嵌模式重试：重读规则文件，读到了继续建分类取数，仍读不到继续显示错误态。 */
     private void retryBindRule() {
         mBinding.progressLayout.showProgress();
-        mRule = HkStore.read(getTitle());
+        mRule = isRuleJsonMode() ? HkRule.parse(getRuleJson()) : HkStore.read(getTitle());
         if (mRule == null) {
             mBinding.progressLayout.showError(R.string.hk_list_error, getString(R.string.hk_list_rule_missing), R.string.hk_list_retry, v -> retryBindRule());
             return;
@@ -330,7 +392,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
     private void loadPage(int page, boolean append, boolean force) {
         final int seq = ++mLoadSeq;
         mLoading = true;
-        if (!force && !isSubpage()) {
+        if (!force && !isSubpage() && !isRuleJsonMode()) {
             List<Vod> cached = HkCache.get(getTitle(), mClassId, page);
             if (cached != null) {
                 // 命中缓存：不显示 loading、不发请求，直接走现成的 onPageLoaded 渲染；
@@ -370,7 +432,26 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
                 if (isSubpage()) {
                     cards = HkSubpage.expand(rule, getSubpageUrl());
                 } else {
-                    List<HkItem> items = router.home(page, classId, "", "", "");
+                    // 7a $.importParam 桥：子规则的 find_rule（如阅动漫 ClassTab 页规则
+                    // `var {...} = $.importParam`）在求值时要读页地址 query 参数；
+                    // $.importParam 只由 HkSubpage.expand 经 setImportParams 注入，
+                    // Router.home 路从不调它，故规则 JSON 模式在此处挂/清一次（只包
+                    // 本次 home() 求值；importParams 是共享桥上的 volatile 字段，
+                    // 窗口内并发求值的他规则理论上可读到它，与共享桥 varMap 同类局限，
+                    // 记名接受；MY_PARAMS 不走此桥，规则 params 字段既有路承接）。
+                    List<HkItem> items;
+                    if (isRuleJsonMode() && mImportParams != null && !mImportParams.isEmpty()) {
+                        boolean applied = false;
+                        try {
+                            router.getEngine().setImportParams(mImportParams);
+                            applied = true;
+                            items = router.home(page, classId, "", "", "");
+                        } finally {
+                            if (applied) router.getEngine().setImportParams(null);
+                        }
+                    } else {
+                        items = router.home(page, classId, "", "", "");
+                    }
                     cards = HkCard.fromItems(items);
                 }
                 vods = HkCard.toVods(HkCard.pickCards(cards, rule), rule.getType());
@@ -384,7 +465,7 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
                         diag = "";
                     }
                 }
-                if (!isSubpage() && vods != null && !vods.isEmpty()) {
+                if (!isSubpage() && !isRuleJsonMode() && vods != null && !vods.isEmpty()) {
                     // 成功且非空才进缓存（0 条不存，见 HkCache.put）；规则文件 mtime
                     // 随条目一起记，文件变了下次 get() 即失效。
                     HkCache.put(rule.getTitle(), classId, page, vods, HkStore.lastModified(rule.getTitle()));

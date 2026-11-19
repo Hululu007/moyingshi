@@ -14,6 +14,7 @@ import com.github.moyingshi.osc.tv.api.config.VodConfig
 import com.github.moyingshi.osc.tv.api.hk.HkCache
 import com.github.moyingshi.osc.tv.api.hk.HkImportPicker
 import com.github.moyingshi.osc.tv.api.hk.HkRuleManager
+import com.github.moyingshi.osc.tv.api.hk.HkShareHelper
 import com.github.moyingshi.osc.tv.api.hk.HkStore
 import com.github.moyingshi.osc.tv.api.hk.HkWarmup
 import com.github.moyingshi.osc.tv.bean.Config
@@ -22,6 +23,7 @@ import com.github.moyingshi.osc.tv.databinding.ActivityHkMiniappBinding
 import com.github.moyingshi.osc.tv.event.ConfigEvent
 import com.github.moyingshi.osc.tv.impl.Callback
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder
+import com.github.moyingshi.osc.tv.ui.activity.HkPageActivity
 import com.github.moyingshi.osc.tv.ui.adapter.LocalSourceAdapter
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity
 import com.github.moyingshi.osc.tv.utils.LocalSource
@@ -293,9 +295,17 @@ class HkMiniappActivity : BaseActivity(), LocalSourceAdapter.OnClickListener {
             reloadLocalConfig()
             HkWarmup.warmUpAfterImport()
         } else {
-            val error = HkStore.lastError().orEmpty()
-            if (error.isEmpty()) Notify.show(R.string.hk_miniapp_no_rule)
-            else Notify.show(getString(R.string.hk_miniapp_import_error, error))
+            // 7a：合集包导入 added 计 0 不是失败——只是解压落盘待点选（6b 小瑕）：
+            // 取走待浏览目录开合集浏览面，文案与“无规则”区分开。
+            val collectionDir = HkShareHelper.consumePendingCollectionDir()
+            if (collectionDir != null) {
+                Notify.show("已解压到合集目录，请点选要导入的规则")
+                HkPageActivity.openCollectionBrowser(this, collectionDir)
+            } else {
+                val error = HkStore.lastError().orEmpty()
+                if (error.isEmpty()) Notify.show(R.string.hk_miniapp_no_rule)
+                else Notify.show(getString(R.string.hk_miniapp_import_error, error))
+            }
         }
         refreshList()
     }
