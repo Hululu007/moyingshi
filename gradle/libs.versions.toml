@@ -47,6 +47,7 @@ androidxTestExtJunit = "1.2.1"
 juniversalchardet = "1.0.3"
 jgit = "6.10.0.202406032230-r"
 jsoup = "1.22.2"
+htmlcleaner = "2.29"
 logger = "2.2.0"
 lottie = "6.7.1"
 material = "1.14.0"
@@ -116,6 +117,7 @@ jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
 juniversalchardet = { group = "com.googlecode.juniversalchardet", name = "juniversalchardet", version.ref = "juniversalchardet" }
 jgit = { group = "org.eclipse.jgit", name = "org.eclipse.jgit", version.ref = "jgit" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+htmlcleaner = { group = "net.sourceforge.htmlcleaner", name = "htmlcleaner", version.ref = "htmlcleaner" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRules" }

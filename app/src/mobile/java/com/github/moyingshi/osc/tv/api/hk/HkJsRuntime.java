@@ -2574,6 +2574,16 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         return "";
     }
 
+    /** 选择器文本预处理：冲突字符解码（？？→?、＆＆→&、；；→;、，，→,）。 */
+    private String sel(Object o) {
+        return HkSelector.decodeConflict(String.valueOf(o));
+    }
+
+    private static org.w3c.dom.Document parseXmlDoc(String html) throws Exception {
+        org.htmlcleaner.TagNode node = new org.htmlcleaner.HtmlCleaner().clean(html);
+        return new org.htmlcleaner.DomSerializer(new org.htmlcleaner.CleanerProperties()).createDOM(node);
+    }
+
     /**
      * 照 8.83 JSEngine.refreshPage (smali:22071-22140)：只有真正的 Boolean false 才不回顶，
      * 缺参/null/undefined/非布尔一律回顶（原版 :cond_1 默认 0x1）。
@@ -7633,6 +7643,19 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
      * 咱家载体＝桶名规则的 kv 表内 "js@"+bucket 一行（写入走 setItemNow 三路）；
      * 官 BigTextDO 可建自由桶，咱 kv 只认已装规则名作桶（与 setItemNow 的规则
      * 存在门一致，记名见第八阶段回执）。 */
+    /** 桶 JSON 对象读取：kv 表内 "js@"+bucket 一行，非 JSON/缺行回 null。 */
+    private org.json.JSONObject bridgeKvObject(String bucket) {
+        Map<String, String> m = kvMapForTitle(bucket);
+        if (m == null) return null;
+        String raw = m.get("js@" + bucket);
+        if (raw == null || raw.isEmpty()) return null;
+        try {
+            return new org.json.JSONObject(raw);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     public String bridgeKvGet(String bucket, String field) {
         if (bucket == null || bucket.isEmpty() || field == null) return null;
         org.json.JSONObject obj = bridgeKvObject(bucket);
@@ -8025,6 +8048,18 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
             return false;
         }
     }
+
+    private static final List<String> COL_TYPES = java.util.Arrays.asList(
+            "text_1", "text_2", "text_3", "text_4", "text_5", "text_center_1", "movie_1",
+            "movie_2", "movie_3", "movie_1_left_pic", "movie_1_vertical_pic", "movie_1_vertical_pic_blur", "movie_3_marquee", "pic_1",
+            "pic_2", "pic_3", "pic_1_full", "pic_1_center", "pic_3_square", "pic_1_card", "pic_2_card",
+            "icon_1_search", "icon_2", "icon_2_round", "icon_3_round_fill", "icon_3_fill", "icon_small_3", "icon_4",
+            "icon_4_card", "icon_small_4", "icon_round_4", "icon_round_small_4", "icon_5", "icon_5_no_crop", "long_text",
+            "rich_text", "avatar", "text_icon", "x5_webview_single", "video", "header", "footer",
+            "line", "line_blank", "blank_block", "big_blank_block", "flex_button", "scroll_button", "card_pic_2",
+            "card_pic_3", "card_pic_3_center", "card_pic_1", "card_pic_2_2", "card_pic_2_2_left", "input", "big_big_blank_block",
+            "icon_1_left_pic"
+    );
 
     /**
      * getColTypes 的返回码集（G46，照官 ArticleColTypeEnum.getCodeArray 逐行）：
@@ -8620,6 +8655,11 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
         showFindError("---分类结果解析失败！请检查规则："
                 + (failure == null ? "" : String.valueOf(failure.getMessage())));
     }
+
+    private static final int PAYLOAD_NON_OBJECT = 0;
+    private static final int PAYLOAD_OBJECT_NO_DATA = 1;
+    private static final int PAYLOAD_NORMAL = 2;
+    private static final int PAYLOAD_OBJECT_DATA_STRING_ERR = 3;
 
     /**
      * 环23 载荷三形判别（官 callbackHomeResult 入口分界）：顶层数组＝正常形
