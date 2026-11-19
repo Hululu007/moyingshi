@@ -449,6 +449,19 @@ public class HkListFragment extends BaseFragment implements CustomScroller.Callb
                 if (isSubpage()) {
                     cards = HkSubpage.expand(rule, getSubpageUrl());
                 } else {
+                    // hkfix-1d：首发（第 1 页、非翻页）先跑规则 preRule——星辰
+                    // HkArticleListModel:198 + HkEngineBridge:258 同款：preRule 在
+                    // 首次 home/search 前执行（装依赖库、取 cookie、缺依赖提示）。
+                    // 移植时只在详情/子页面路接了 evalPreRule，列表路漏了，致使依
+                    // 赖 preRule 的规则首发即撞墙（瓜子靠 preRule 装 csdown 库、
+                    // 韩剧靠 preRule 提示装模板·Q）。单参形不抛（parsePreRule
+                    // (rule, false)）：preRule 内的 JS 错只进 setError/Toast，
+                    // find_rule 照常跑（星辰环11 对官语义）；拼装期异常才走外层
+                    // catch 中止本页。confirm handler 已在上面装好，preRule 里
+                    // 的 confirm() 能正常弹。
+                    if (page == 1 && !append && !rule.getPreRule().isEmpty()) {
+                        router.getEngine().getJsRuntime().parsePreRule(rule);
+                    }
                     // 7a $.importParam 桥：子规则的 find_rule（如阅动漫 ClassTab 页规则
                     // `var {...} = $.importParam`）在求值时要读页地址 query 参数；
                     // $.importParam 只由 HkSubpage.expand 经 setImportParams 注入，

@@ -258,6 +258,11 @@ public class HkSearchFragment extends BaseFragment implements CustomScroller.Cal
                 HkRouter router = routerFor(rule);
                 // 7c：JS confirm() 接管——router 建好后装 handler（共享桥上的 handler 永远是当前页的）。
                 HkClickDispatcher.installConfirmHandler(this);
+                // hkfix-1d：与列表页同款，首发先跑 preRule（星辰 HkSearchModel
+                // 同款：page==1 时先 parsePreRule 再搜；见 HkListFragment 注释）。
+                if (page == 1 && !append && !rule.getPreRule().isEmpty()) {
+                    router.getEngine().getJsRuntime().parsePreRule(rule);
+                }
                 List<SearchResult> results = router.search(keyword, page);
                 List<HkCard> cards = HkCard.fromSearchResults(results);
                 vods = HkCard.toVods(HkCard.pickCards(cards, rule), rule.getType());
