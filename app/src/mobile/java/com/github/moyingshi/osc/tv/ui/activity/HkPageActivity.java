@@ -47,7 +47,6 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -124,7 +123,7 @@ public class HkPageActivity extends BaseActivity {
             }
             context.startActivity(intent);
             return true;
-        } catch (ParseException e) {
+        } catch (HkPageParser.ParseException e) {
             String msg = e.getMessage();
             Notify.show(TextUtils.isEmpty(msg) ? "找不到对应的页面" : msg);
             return false;
