@@ -433,7 +433,9 @@ public class C1ScreenActivity extends AppCompatActivity {
         FragmentManager fragmentManager = getSupportFragmentManager();
         flutterFragment = (FlutterFragment) fragmentManager.findFragmentByTag(TAG_FLUTTER_FRAGMENT);
         if (flutterFragment == null) {
-            flutterFragment = FlutterFragment.withCachedEngine(ENGINE_ID).build();
+            flutterFragment = FlutterFragment.withCachedEngine(ENGINE_ID)
+                    .shouldAutomaticallyHandleOnBackPressed(true)
+                    .build();
             fragmentManager.beginTransaction()
                     .add(R.id.fragment_container, flutterFragment, TAG_FLUTTER_FRAGMENT)
                     .commit();
@@ -859,9 +861,10 @@ public class C1ScreenActivity extends AppCompatActivity {
     /**
      * B8 back stack: the one host root-back handler. Every Dart
      * root-back signal ({@code closeScreen} on both the C1 and B3
-     * contracts) and the {@link #onBackPressed()} fallback delegate
-     * here; Dart-internal back (inner-Navigator pops, folder-up,
-     * dialog dismiss) runs before this is ever consulted.
+     * contracts) reaches here; the fragment's automatic back handling
+     * forwards the press to Dart first, so Dart-internal back
+     * (inner-Navigator pops, folder-up, dialog dismiss) runs before
+     * this is ever consulted.
      *
      * <p>Order, mirroring the native {@code HomeActivity.onBackInvoked}
      * hierarchy: a screen stacked above another activity finishes to
@@ -1045,18 +1048,6 @@ public class C1ScreenActivity extends AppCompatActivity {
         assertRouteIfNeeded();
         if (flutterFragment != null) {
             flutterFragment.onNewIntent(intent);
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (flutterFragment != null) {
-            flutterFragment.onBackPressed();
-        } else {
-            // B8 back stack: no fragment, no Dart to consult — the
-            // host root-back handler owns the fallback (pop or
-            // background), never a bare finish.
-            handleRootBack();
         }
     }
 
