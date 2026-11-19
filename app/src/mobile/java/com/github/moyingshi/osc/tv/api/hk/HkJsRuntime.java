@@ -8235,6 +8235,18 @@ public class HkJsRuntime implements HkSelector.JsEvaluator, Parser.JsEvaluator {
     }
 
     /**
+     * 清掉上次求值残留的错误文本（hkfix-1b）。运行时是进程单例桥（HkEngineManager
+     * 一台桥供全部规则共用），error 字段不按规则隔离；此前只有 JS 求值入口清
+     * 它，非 js 分支（取数＋选择器）全程不碰——上一条规则的 JS 错会原样串进
+     * 下一条规则的空态展示（奇优实证：其自身 home() 全程无 JS 求值，屏上却挂
+     * 着韩剧的“SyntaxError: Empty JSON string (hk#26)”）。home()/search()
+     * 每发入口先调本法清账。
+     */
+    public void clearError() {
+        error = null;
+    }
+
+    /**
      * 8.83 对齐（JSEngine.parseHomeCallBack 失败回调语义）：预抓取数失败时把真因
      * 记进引擎错误通道，供调用方空态/错误展示；求值不会再跑，error 不会被次生错误覆盖。
      */

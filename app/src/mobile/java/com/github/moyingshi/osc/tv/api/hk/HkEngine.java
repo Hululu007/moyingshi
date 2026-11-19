@@ -102,6 +102,9 @@ public class HkEngine {
      */
     public List<HkItem> home(int page, String cls, String area, String year, String sort) {
         try {
+            // hkfix-1b：每发先清错误通道（见 HkJsRuntime.clearError 注释），
+            // 免得共享桥上上一条规则的旧错串进本规则的空态。
+            if (jsRuntime != null) jsRuntime.clearError();
             String verr = rule.validate();
             if (verr != null) throw new IllegalStateException(verr);
             // 分类名→URL 值（hkfix-1a）：调用方（列表页分类栏、预热）传的是 class_name
@@ -146,7 +149,16 @@ public class HkEngine {
                     jsRuntime.setEvalResCodeBody(null);
                 }
             }
-            String html = getMarked(url);
+            String html;
+            try {
+                html = getMarked(url);
+            } catch (java.io.IOException e) {
+                // hkfix-1b：非 js 分支此前取数失败不写 error，UI 只能读到共享桥上
+                // 别的规则残留的旧错；记下本次真因（与 js 分支预抓失败同款），
+                // 再按原有失败路径回空表。
+                if (jsRuntime != null) jsRuntime.noteFetchFailure(String.valueOf(e));
+                throw e;
+            }
             return selector.parseList(html, findRule, url);
         } catch (HkJsRuntime.ListEvalSupersededException cancelled) {
             // 被本面更新的加载顶替（取消语义）：不记 home failed——继任发自会
@@ -168,6 +180,8 @@ public class HkEngine {
      */
     public List<SearchResult> search(String keyword, int page) {
         try {
+            // hkfix-1b：与 home() 同款，每发先清错误通道，免得旧错串进搜索空态。
+            if (jsRuntime != null) jsRuntime.clearError();
             String verr = rule.validate();
             if (verr != null) throw new IllegalStateException(verr);
             if (!rule.hasSearch()) return new ArrayList<>();
@@ -199,7 +213,14 @@ public class HkEngine {
                     jsRuntime.setEvalResCodeBody(null);
                 }
             }
-            String html = getMarked(url);
+            String html;
+            try {
+                html = getMarked(url);
+            } catch (java.io.IOException e) {
+                // hkfix-1b：与 home() 非 js 分支同款，取数失败记本次真因。
+                if (jsRuntime != null) jsRuntime.noteFetchFailure(String.valueOf(e));
+                throw e;
+            }
             return selector.parseSearch(html, searchFind, url);
         } catch (Throwable e) {
             Logger.t(TAG).d("search failed: %s", e.getMessage());
