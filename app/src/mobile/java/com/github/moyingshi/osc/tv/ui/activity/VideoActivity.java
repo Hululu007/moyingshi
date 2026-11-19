@@ -2503,7 +2503,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
      * 播放服务还没连上时先只记会话内核（取址在工作线程上读它），引擎由 onServiceConnected 补齐。
      */
     private int applyHistoryPlayerKernel(boolean forcePrepare) {
-        int kernel = mHistory == null ? PlayerSetting.getPlayer() : mHistory.getPlaybackPlayerOrDefault();
+        int kernel = mHistory == null ? PlayerSetting.getPlayer() : mHistory.getPlaybackPlayerOrDefault(kernelFlag());
         PlayerSetting.putActivePlayer(kernel);
         if (service() == null) {
             mPendingPlayerKernel = kernel;
@@ -2521,6 +2521,12 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
 
     private int applyHistoryPlayerKernel() {
         return applyHistoryPlayerKernel(false);
+    }
+
+    /** 当前线路名：内核记忆按线路存，读写都必须带它。 */
+    private String kernelFlag() {
+        Flag flag = getFlag();
+        return flag == null ? "" : flag.getFlag();
     }
 
     /**
@@ -2545,9 +2551,9 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
      * 上一部剧的收尾存档会用别人的会话内核覆盖本剧记住的选择；
      * 而引擎类型还会被播放失败后的自动回退改掉，也不代表用户改了选择。
      */
-    private void rememberPlayerKernel(int type) {
+    private void rememberPlayerKernel(String flag, int type) {
         if (mHistory == null || !PlayerSetting.isPlayer(type)) return;
-        mHistory.setPlayer(type);
+        mHistory.setKernelForFlag(flag, type);
         syncHistory();
     }
 
@@ -5660,7 +5666,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
                     player().switchPlayerManually(which);
                     setPlayer();
                     setDecode();
-                    rememberPlayerKernel(which);
+                    rememberPlayerKernel(kernelFlag(), which);
                 }
             } else {
                 playerKernelSwitchRequestId++;
@@ -5728,7 +5734,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
             PlayerManager danmakuManager = player();
             String beforeTrace = danmakuManager.getPlaybackTraceId();
             player().switchPlayer(type, result, activePlaybackKey(), metadata, isUseParse(), position, speed, repeat);
-            rememberPlayerKernel(type);
+            rememberPlayerKernel(flag, type);
             searchAutoDanmaku(result, danmakuManager, beforeTrace);
         }
         setPlayerKernel();
