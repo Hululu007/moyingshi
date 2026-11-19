@@ -622,7 +622,14 @@ public class HkRouter {
                 && (lazyRuleText == null || !(lazyRuleText.startsWith(".js:") || lazyRuleText.startsWith("js:")))) {
             String target = u;
             for (int depth = 0; depth < 3; depth++) {
-                java.util.List<HkCard> cards = HkSubpage.expand(rule, target);
+                java.util.List<HkCard> cards;
+                try {
+                    cards = HkSubpage.expand(rule, target);
+                } catch (HkEngine.HkException e) {
+                    // expand 抛受检异常（子页面不存在/无可执行 rule），本方法沿用
+                    // IllegalStateException 口径报明确错，不改 play() 的签名。
+                    throw new IllegalStateException(e.getMessage(), e);
+                }
                 String playable = HkSubpage.findPlayableUrl(cards);
                 if (TextUtils.isEmpty(playable)) {
                     throw new IllegalStateException("子页面未解析出播放地址：" + HkSubpage.subpageName(target)
