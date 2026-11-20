@@ -45,6 +45,8 @@ import java.util.Set;
  * dice_mode 保留开关量，本引擎不使用；
  * dice_bg 0=跟随主题，其余为 DiceFragment 色板下标。
  * Vod 没有时长字段，所以时长档不过滤（无字段的片不因此被筛掉）。
+ * <p>修复 3（dice-fix-3）：空原因分开报（站源无内容 / 全被屏蔽 / 已摇完 / 通用），
+ * 站源池彻底没内容时用豆瓣池兜底并明确提示；进页与切池预取候选海报填进老虎机。
  */
 public class DiceEngine {
 
@@ -76,18 +78,24 @@ public class DiceEngine {
         /**
          * 成功摇出；fallback=true 表示豆瓣失败后自动降级到了收藏池；
          * moodFallback=true 表示心情/类型在本地池无任何匹配，已按整池摇出；
+         * siteFallback=true 表示站源池无内容，已用豆瓣池兜底摇出（须明确告诉用户）；
          * fillers 为本轮候选池（供老虎机滚动填充海报），可能为空。
          */
-        void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, List<Vod> fillers);
+        void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, List<Vod> fillers);
 
         void onError(String message);
+    }
+
+    /** 预取候选海报的回调：只在主线程回一次结果，全部失败返回空列表，不抛错。 */
+    public interface PrefetchCallback {
+        void onResult(List<Vod> candidates);
     }
 
     public static void roll(Callback callback) {
         new Thread(() -> {
             try {
                 RollResult result = rollSync();
-                App.post(() -> callback.onSuccess(result.items, result.fallback, result.moodFallback, result.fillers));
+                App.post(() -> callback.onSuccess(result.items, result.fallback, result.moodFallback, result.siteFallback, result.fillers));
             } catch (RollException e) {
                 String message = e.getMessage();
                 App.post(() -> callback.onError(message));
@@ -97,16 +105,56 @@ public class DiceEngine {
         }).start();
     }
 
+    public static void prefetch(PrefetchCallback callback) {
+        new Thread(() -> {
+            List<Vod> items = prefetchSync();
+            App.post(() -> callback.onResult(items));
+        }).start();
+    }
+
+    /**
+     * 预取：按当前池拉候选，走与摇片同款的 filterBase + filterMoodType 过滤
+     * （心情/类型无匹配时同样回落到整池，只为取海报）；
+     * 站源池无内容时用豆瓣热门海报兜底；任何一步失败都返回空列表，不抛错。
+     */
+    private static List<Vod> prefetchSync() {
+        String pool = DiceSetting.getPool();
+        try {
+            List<Vod> candidates;
+            if (POOL_DOUBAN.equals(pool)) {
+                candidates = fetchDouban();
+            } else if (POOL_SITE.equals(pool)) {
+                candidates = fetchSite();
+                if (candidates.isEmpty()) candidates = fetchDouban("热门");
+            } else if (POOL_KEEP.equals(pool)) {
+                candidates = fetchKeep();
+            } else if (POOL_WANT.equals(pool)) {
+                candidates = fetchWant();
+            } else {
+                candidates = fetchDouban();
+            }
+            List<Vod> base = filterBase(candidates);
+            if (base.isEmpty()) return Collections.emptyList();
+            List<Vod> filtered = filterMoodType(base);
+            if (filtered.isEmpty() && hasMoodOrType()) filtered = base;
+            return filtered;
+        } catch (Exception ignored) {
+            return Collections.emptyList();
+        }
+    }
+
     private static class RollResult {
         final List<Vod> items;
         final boolean fallback;
         final boolean moodFallback;
+        final boolean siteFallback;
         final List<Vod> fillers;
 
-        RollResult(List<Vod> items, boolean fallback, boolean moodFallback, List<Vod> fillers) {
+        RollResult(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, List<Vod> fillers) {
             this.items = items;
             this.fallback = fallback;
             this.moodFallback = moodFallback;
+            this.siteFallback = siteFallback;
             this.fillers = fillers;
         }
     }
@@ -121,6 +169,7 @@ public class DiceEngine {
         String pool = DiceSetting.getPool();
         List<Vod> candidates;
         boolean fallback = false;
+        boolean siteFallback = false;
         if (POOL_DOUBAN.equals(pool)) {
             try {
                 candidates = fetchDouban();
@@ -131,11 +180,20 @@ public class DiceEngine {
                 List<Vod> filtered = filterMoodType(base);
                 boolean moodFallback = filtered.isEmpty() && !base.isEmpty() && hasMoodOrType();
                 if (moodFallback) filtered = base;
-                if (!filtered.isEmpty()) return new RollResult(pick(filtered), true, moodFallback, filtered);
+                if (!filtered.isEmpty()) return new RollResult(pick(filtered), true, moodFallback, false, filtered);
                 throw new RollException(App.get().getString(R.string.dice_douban_failed));
             }
         } else if (POOL_SITE.equals(pool)) {
             candidates = fetchSite();
+            if (candidates.isEmpty()) {
+                // 站源彻底没内容：用豆瓣池兜底摇出，并明确告诉用户，不许静默换池。
+                try {
+                    candidates = fetchDouban();
+                    siteFallback = true;
+                } catch (Exception ignored) {
+                    throw new RollException(App.get().getString(R.string.dice_site_empty));
+                }
+            }
         } else if (POOL_KEEP.equals(pool)) {
             candidates = fetchKeep();
         } else if (POOL_WANT.equals(pool)) {
@@ -148,6 +206,12 @@ public class DiceEngine {
             if (DiceSetting.isNoRepeat() && !candidates.isEmpty() && allHistoryNames(candidates)) {
                 throw new RollException(App.get().getString(R.string.dice_exhausted));
             }
+            if (!candidates.isEmpty() && allBlocked(candidates)) {
+                throw new RollException(App.get().getString(R.string.dice_all_blocked));
+            }
+            if (POOL_SITE.equals(pool) && candidates.isEmpty() && !siteFallback) {
+                throw new RollException(App.get().getString(R.string.dice_site_empty));
+            }
             throw new RollException(App.get().getString(R.string.dice_no_result));
         }
         List<Vod> filtered = filterMoodType(base);
@@ -158,11 +222,33 @@ public class DiceEngine {
             moodFallback = true;
         }
         if (filtered.isEmpty()) throw new RollException(App.get().getString(R.string.dice_no_result));
-        return new RollResult(pick(filtered), fallback, moodFallback, filtered);
+        return new RollResult(pick(filtered), fallback, moodFallback, siteFallback, filtered);
     }
 
     private static boolean hasMoodOrType() {
         return !DiceSetting.getTypes().isEmpty() || !DiceSetting.getMoods().isEmpty();
+    }
+
+    /** 候选是否全被避雷片名 / 题材屏蔽滤掉（只重算这两层过滤，不含不重复抽取）。 */
+    private static boolean allBlocked(List<Vod> candidates) {
+        List<String> blockedNames = DiceSetting.isBlockFilm() ? DiceSetting.getBlockedNames() : Collections.emptyList();
+        List<String> blockedTags = DiceSetting.isBlockGenre() ? DiceSetting.getBlockedTags() : Collections.emptyList();
+        if (blockedNames.isEmpty() && blockedTags.isEmpty()) return false;
+        for (Vod item : candidates) {
+            String name = item.getName();
+            if (TextUtils.isEmpty(name)) return false;
+            if (blockedNames.contains(name)) continue;
+            String haystack = name + " " + item.getTypeName() + " " + item.getRemarks();
+            boolean blockedTag = false;
+            for (String tag : blockedTags) {
+                if (!TextUtils.isEmpty(tag) && haystack.contains(tag)) {
+                    blockedTag = true;
+                    break;
+                }
+            }
+            if (!blockedTag) return false;
+        }
+        return true;
     }
 
     /** 候选是否全是已摇过的片（不重复抽取把池子抽完时才报“已摇完”）。 */
@@ -254,7 +340,11 @@ public class DiceEngine {
     }
 
     private static List<Vod> fetchDouban() throws Exception {
-        String tag = pickTag();
+        return fetchDouban(pickTag());
+    }
+
+    /** 指定 tag 拉豆瓣列表（预取兜底用“热门”）。 */
+    private static List<Vod> fetchDouban(String tag) throws Exception {
         int pageStart = new Random().nextInt(4) * 20;
         String url = String.format(DOUBAN_URL, tag, pageStart);
         Map<String, String> headers = new HashMap<>();
@@ -310,6 +400,10 @@ public class DiceEngine {
         List<Vod> homeItems = result == null ? Collections.emptyList() : result.getList();
         List<Vod> fromCategory = fetchSiteByCategory(home, result);
         List<Vod> items = !fromCategory.isEmpty() ? fromCategory : homeItems;
+        if (items == null || items.isEmpty()) {
+            // 首页列表与心情映射分类都为空：再拉第一个分类第 1 页试一次。
+            items = fetchFirstCategory(home, result);
+        }
         if (items == null) return Collections.emptyList();
         List<Vod> output = new ArrayList<>();
         Set<String> seen = new HashSet<>();
@@ -319,6 +413,19 @@ public class DiceEngine {
             output.add(item);
         }
         return output;
+    }
+
+    /** 拉第一个分类第 1 页做候选；无分类或拉取失败返回空列表。 */
+    private static List<Vod> fetchFirstCategory(Site home, Result homeResult) {
+        if (homeResult == null || homeResult.getTypes() == null || homeResult.getTypes().isEmpty()) return Collections.emptyList();
+        com.github.moyingshi.osc.tv.bean.Class first = homeResult.getTypes().get(0);
+        if (first == null || TextUtils.isEmpty(first.getTypeId())) return Collections.emptyList();
+        try {
+            Result result = SiteApi.categoryContent(home.getKey(), first.getTypeId(), "1", false, new HashMap<>());
+            return result != null && result.getList() != null ? result.getList() : Collections.emptyList();
+        } catch (Exception ignored) {
+            return Collections.emptyList();
+        }
     }
 
     /** 按心情/类型关键词找站源分类并拉第 1 页；无匹配或拉取失败返回空列表。 */

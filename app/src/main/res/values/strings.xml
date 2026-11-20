@@ -3240,6 +3240,10 @@
     <string name="dice_add_want">已加入想看</string>
     <string name="dice_add_keep">已加入收藏</string>
     <string name="dice_exhausted">本池符合条件的片已摇完，关掉不重复抽取或换个标签再试</string>
+    <string name="dice_site_empty">当前站源没有返回内容，换个站源或检查网络再试试</string>
+    <string name="dice_site_empty_douban">当前站源没有内容，已用豆瓣池摇出</string>
+    <string name="dice_all_blocked">本池的片都被避雷或题材屏蔽滤掉了，清理后再试试</string>
+    <string name="dice_prefetch_empty">暂时拉不到候选海报，先用占位显示</string>
     <string name="dice_mood_title">心情</string>
     <string name="dice_settings_title">随机设置</string>
     <string name="dice_duration_title">时长</string>

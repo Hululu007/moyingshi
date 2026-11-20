@@ -89,6 +89,10 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
     private DiceResultAdapter mHistoryAdapter;
     private boolean mBuilding;
     private boolean mShaking;
+    /** 预取代次：摇片或更新的预取让进行中的旧预取作废，旧回调到时不再碰老虎机。 */
+    private int mPrefetchGen;
+    /** 预取失败提示一页只 toast 一次，不刷屏。 */
+    private boolean mPrefetchEmptyToastShown;
     /** 本轮摇出的片：onSuccess 存下，停转回调时展示并追加历史。 */
     private List<Vod> mPendingResults;
 
@@ -110,8 +114,9 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.historyList.setLayoutManager(new LinearLayoutManager(requireContext()));
         mBinding.historyList.setAdapter(mHistoryAdapter);
         mBinding.slotMachine.setOnStopListener(names -> onSlotStopped());
-        // 首次摇之前也不要“?”：三列先用中性素色占位填充。
+        // 首次摇之前也不要“?”：三列先用中性素色占位填充，再预取一波候选海报填进去。
         mBinding.slotMachine.setItems(Collections.<Vod>emptyList(), Collections.<Vod>emptyList());
+        prefetchPrefill();
         applyBg();
         rebuildPoolChips();
         rebuildMoodChips();
@@ -149,15 +154,18 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
 
     private void onShake() {
         if (mShaking || mBinding.slotMachine.isSpinning()) return;
+        // 进行中的预取作废：迟到的预填回调不许盖掉本轮摇出的结果。
+        mPrefetchGen++;
         mShaking = true;
         mBinding.shakeButton.setEnabled(false);
         mBinding.shakeButton.setText(R.string.dice_shaking);
         DiceEngine.roll(new DiceEngine.Callback() {
             @Override
-            public void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, List<Vod> fillers) {
+            public void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, List<Vod> fillers) {
                 if (!isAdded() || mBinding == null) return;
                 if (fallback) Notify.show(R.string.dice_douban_failed);
-                if (moodFallback) Notify.show(R.string.dice_mood_fallback);
+                if (siteFallback) Notify.show(R.string.dice_site_empty_douban);
+                else if (moodFallback) Notify.show(R.string.dice_mood_fallback);
                 mPendingResults = new ArrayList<>(items);
                 mBinding.slotMachine.setItems(items, fillers);
                 mBinding.slotMachine.spin();
@@ -184,6 +192,23 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mResultAdapter.setItems(results);
         appendHistory(results);
         refreshHistory();
+    }
+
+    /** 进页 / 切池后预拉一波候选海报填进老虎机；失败只留素色占位并提示一次。 */
+    private void prefetchPrefill() {
+        final int gen = ++mPrefetchGen;
+        DiceEngine.prefetch(candidates -> {
+            if (gen != mPrefetchGen || !isAdded() || mBinding == null) return;
+            if (mShaking || mBinding.slotMachine.isSpinning()) return;
+            if (candidates == null || candidates.isEmpty()) {
+                if (!mPrefetchEmptyToastShown) {
+                    mPrefetchEmptyToastShown = true;
+                    Notify.show(R.string.dice_prefetch_empty);
+                }
+                return;
+            }
+            mBinding.slotMachine.setItems(Collections.<Vod>emptyList(), candidates);
+        });
     }
 
     // ---------- 结果操作 ----------
@@ -255,18 +280,24 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.poolGroup.removeAllViews();
         String current = DiceSetting.getPool();
         addSingleChip(mBinding.poolGroup, getString(R.string.dice_pool_douban), DiceEngine.POOL_DOUBAN, DiceEngine.POOL_DOUBAN.equals(current), checked -> {
-            if (checked) DiceSetting.putPool(DiceEngine.POOL_DOUBAN);
+            if (checked) onPoolSelected(DiceEngine.POOL_DOUBAN);
         });
         addSingleChip(mBinding.poolGroup, getString(R.string.dice_pool_site), DiceEngine.POOL_SITE, DiceEngine.POOL_SITE.equals(current), checked -> {
-            if (checked) DiceSetting.putPool(DiceEngine.POOL_SITE);
+            if (checked) onPoolSelected(DiceEngine.POOL_SITE);
         });
         addSingleChip(mBinding.poolGroup, getString(R.string.dice_pool_keep), DiceEngine.POOL_KEEP, DiceEngine.POOL_KEEP.equals(current), checked -> {
-            if (checked) DiceSetting.putPool(DiceEngine.POOL_KEEP);
+            if (checked) onPoolSelected(DiceEngine.POOL_KEEP);
         });
         addSingleChip(mBinding.poolGroup, getString(R.string.dice_pool_want), DiceEngine.POOL_WANT, DiceEngine.POOL_WANT.equals(current), checked -> {
-            if (checked) DiceSetting.putPool(DiceEngine.POOL_WANT);
+            if (checked) onPoolSelected(DiceEngine.POOL_WANT);
         });
         mBuilding = false;
+    }
+
+    /** 切池：记下新池并重拉一波候选海报填进老虎机（重建 chips 时 mBuilding 拦住，不会误触）。 */
+    private void onPoolSelected(String pool) {
+        DiceSetting.putPool(pool);
+        prefetchPrefill();
     }
 
     private void rebuildDurationChips() {
@@ -538,6 +569,7 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.switchNoRepeat.setChecked(preset.noRepeat);
         mBinding.switchBlockFilm.setChecked(preset.blockFilm);
         mBinding.switchBlockGenre.setChecked(preset.blockGenre);
+        prefetchPrefill();
     }
 
     private void deletePreset(DicePreset preset) {

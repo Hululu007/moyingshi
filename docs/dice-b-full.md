@@ -4,9 +4,19 @@
 - 目标：墨影视新增 Rove 同款“喜好选片”（老虎机摇片），B 全套：老虎机动画 + 4 片池（豆瓣/想看/收藏/当前站源）+ 心情/类型/时长筛选 + 不重复/避雷/题材屏蔽 + 历史/预设/背景换色。
 - 用户批准：2026-11-20 10:19 定做 B 全套版；10:21 发截图定入口在首页搜索条内右侧、历史图标左侧放骰子按钮；增强设置“特色功能”开关（默认开）控制其显隐。
 - 分析报告：~/workspace/rove-like/ANALYSIS.md（290 行权威版）。Rove APK 仅作原理参考，**不搬对方美术资源与代码原文，全部自画自写**。
-- 分支/HEAD：main @ f4f73fa3（B 全套版已发布 v5.6.0-beta-202611201035）+ 本次修复一次原子提交（dice-fix-2）。
-- 阶段：① 数据层已完成 ② UI 与 ③ 池与逻辑已完成并发布 ④ 修复 2（dice-fix-2）：选中态 + 站源池心情生效 + 老虎机改海报滚动，已做完，待推 origin 编测试版。
-- 当前状态：dice-fix-2 已完成并提交，待核对后推 origin 编测试版。约定：dice_duration ""=不限、"long"=长片、"short"=短片；dice_bg 0=跟随主题（默认深色底），1–4 为色板下标；dice_mode 保留未用；摇片历史存 Vod 数组 JSON；豆瓣 Vod 无站源，点详情走站内搜索片名，不硬编站源字段。
+- 分支/HEAD：main @ 0df4c7ae（dice-fix-2 已提交，待推 origin 编测试版）+ 本次修复一次原子提交（dice-fix-3）。
+- 阶段：① 数据层已完成 ② UI 与 ③ 池与逻辑已完成并发布 ④ 修复 2（dice-fix-2）：选中态 + 站源池心情生效 + 老虎机改海报滚动，已做完，待推 origin 编测试版。⑤ 修复 3（dice-fix-3）：空原因分开报 + 站源空时豆瓣兜底并明示 + 进页/切池预取海报 + 占位加亮描边，已做完，待推 origin 编测试版。
+- 当前状态：dice-fix-3 已完成并提交，待核对后推 origin 编测试版。约定：dice_duration ""=不限、"long"=长片、"short"=短片；dice_bg 0=跟随主题（默认深色底），1–4 为色板下标；dice_mode 保留未用；摇片历史存 Vod 数组 JSON；豆瓣 Vod 无站源，点详情走站内搜索片名，不硬编站源字段。
+
+## 修复 3（dice-fix-3，2026-11-20 15:10 用户截图，装 v5.6.0-beta-202611201341）
+- ① 空原因分开报，不再一句 dice_no_result 盖住所有情况：无站源仍 dice_no_site；站源首页无内容新增 dice_site_empty（“当前站源没有返回内容，换个站源或检查网络再试试”）；历史抽完仍 dice_exhausted（分支保留 candidates 非空守卫，空候选不误判）；全被避雷/题材屏蔽滤掉新增 dice_all_blocked（candidates 非空、base 为空、非全历史时逐项重算 blockedNames/blockedTags，全是才报）；其余仍 dice_no_result。
+- ① 站源首页无内容多努力一次：fetchSite() 里首页列表与心情映射分类都为空时，再拉第一个分类第 1 页（fetchFirstCategory，只拉第一个）；仍为空才走“站源无内容”分支。心情映射分类优先于首页列表的 fix-2 顺序不动（站源有内容+心情→分类生效）。
+- ① 站源池彻底为空给一条出路：rollSync 里 pool==site 且候选为空（已试过首分类）时调 fetchDouban() 兜底，成功则 onSuccess 带 siteFallback=true 返回，页面 toast dice_site_empty_douban（“当前站源没有内容，已用豆瓣池摇出”），不许静默换池；豆瓣也失败再报 dice_site_empty。豆瓣池原有失败降级收藏池逻辑不动。Callback.onSuccess 新增 siteFallback 参数（第 4 位），唯一实现 DiceFragment 已同步改。
+- ② 老虎机进页就显示：新增 DiceEngine.prefetch()（后台线程取数、App.post 回主线程，小回调接口 PrefetchCallback；按当前池走 fetch + filterBase + filterMoodType 同款过滤，心情无匹配同样回落整池；站源池无内容用豆瓣热门 tag“热门”海报兜底；全部失败返回空列表，不抛错）。DiceFragment.initView() 进页调一次，拿到候选就 slotMachine.setItems(empty, candidates) 预填三列；切池（onPoolSelected，含预设切换）也重新预填。预取用代次 mPrefetchGen 作废：摇片时 +1，迟到回调不盖本轮结果；摇动中回调直接丢弃；Fragment 已 detach 时不碰 binding。
+- ② 占位必须看得见：SlotMachineView.placeholder() 由纯色 #FF1E293B 改成 GradientDrawable 填充 #FF2A3648 + 1dp 描边 #FF3D4E66 + 12dp 圆角，与机身底 #FF141A26 明显拉开；列间仍 2dp 间隙。代码里无“?”占位。
+- ② 预填失败也有东西显示：素色占位 + toast dice_prefetch_empty（“暂时拉不到候选海报，先用占位显示”），一页只 toast 一次。
+- ④ 心情多选核实（只看代码）：moodGroup 布局无 singleSelection（默认多选），点一个心情只切换该 chip，addMultiChip 监听调 saveMultiSelection 存整组选中态，mBuilding 守卫拦住重建时的写入；截图四心情全选是之前点选攒下的持久化多选，无 bug，未动心情逻辑。
+- Recovery tag：由 task_guard finish 创建 recovery/dice-fix-3/&lt;timestamp&gt;。
 
 ## 修复 2（dice-fix-2，2026-11-20 13:36 用户两张截图）
 - ① 选中态：全部可选 chip（池/心情/类型/时长）共用 styleSelectableChip——选中实心主色 #0B57D0 + 白字 + 对勾，未选中深灰底 #232D3D + 浅字；预设 chip 深灰底白字。

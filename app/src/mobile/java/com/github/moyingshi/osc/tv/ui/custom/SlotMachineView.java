@@ -5,7 +5,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
@@ -94,8 +93,13 @@ public class SlotMachineView extends LinearLayout {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    private static Drawable placeholder() {
-        return new ColorDrawable(Color.parseColor("#FF1E293B"));
+    /** 素色占位：填充与机身底色明显拉开（#FF2A3648 对 #FF141A26），再加 1dp 描边与圆角，任何时候都不许一整块死黑。 */
+    private Drawable placeholder() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Color.parseColor("#FF2A3648"));
+        drawable.setStroke(dp(1), Color.parseColor("#FF3D4E66"));
+        drawable.setCornerRadius(dp(12));
+        return drawable;
     }
 
     public void setOnStopListener(OnStopListener listener) {
