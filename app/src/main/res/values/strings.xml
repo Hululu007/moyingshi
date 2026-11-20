@@ -3230,6 +3230,7 @@
     <string name="dice_pool_keep">收藏</string>
     <string name="dice_pool_want">想看</string>
     <string name="dice_no_result">本池没有符合条件的片，换个标签或池子再试试</string>
+    <string name="dice_mood_fallback">心情在当前站源没有匹配，已按全部片摇出</string>
     <string name="dice_douban_failed">豆瓣拉取失败，请稍后重试，或切换到想看 / 收藏池</string>
     <string name="dice_no_site">请先回首页选择站源</string>
     <string name="dice_history_title">骰子历史记录</string>

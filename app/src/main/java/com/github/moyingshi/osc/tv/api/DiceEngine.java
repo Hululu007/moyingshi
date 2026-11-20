@@ -18,6 +18,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +33,12 @@ import java.util.Set;
  * <p>四个池：豆瓣（公开 web 接口，无 key，随时可能变/限流，绝不当唯一池）、
  * 当前站源（走现有蜘蛛取数）、收藏（Keep 表）、想看（Want 表）。
  * 所有联网都在后台线程做，结果回主线程回调。
+ *
+ * <p>心情在本地池的生效方式（dice-fix-2）：先把心情映射到站源自有分类名，
+ * 站源池直接拉对应分类的列表；收藏/想看池没有分类字段，用映射后的类型词
+ * 在片名/类型/备注里包含匹配；两种都无任何一部匹配时，回落到不过滤的整池
+ * 摇出（moodFallback=true，页面提示一句），绝不只剩一个 toast + 空格子。
+ * 豆瓣池行为不动（心情当 tag 拉取）。
  *
  * <p>约定（与 DiceSetting 的 14 个键对齐）：
  * dice_duration ""=不限、"long"=长片、"short"=短片；
@@ -51,9 +58,27 @@ public class DiceEngine {
     private static final String DOUBAN_URL = "https://movie.douban.com/j/search_subjects?type=movie&tag=%s&sort=rank&page_limit=20&page_start=%d";
     private static final String DOUBAN_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 
+    /** 心情 → 站源分类/类型名。站源分类名各异，匹配时用包含比对（见 findCategory）。 */
+    private static final Map<String, List<String>> MOOD_TO_TYPES = new HashMap<>();
+
+    static {
+        MOOD_TO_TYPES.put("开心", Arrays.asList("喜剧", "爱情"));
+        MOOD_TO_TYPES.put("治愈", Arrays.asList("剧情", "爱情"));
+        MOOD_TO_TYPES.put("热血", Arrays.asList("动作", "武侠"));
+        MOOD_TO_TYPES.put("悬疑", Arrays.asList("悬疑"));
+        MOOD_TO_TYPES.put("浪漫", Arrays.asList("爱情"));
+        MOOD_TO_TYPES.put("搞笑", Arrays.asList("喜剧"));
+        MOOD_TO_TYPES.put("烧脑", Arrays.asList("悬疑", "科幻"));
+        MOOD_TO_TYPES.put("轻松", Arrays.asList("喜剧", "剧情"));
+    }
+
     public interface Callback {
-        /** 成功摇出；fallback=true 表示豆瓣失败后自动降级到了收藏池。 */
-        void onSuccess(List<Vod> items, boolean fallback);
+        /**
+         * 成功摇出；fallback=true 表示豆瓣失败后自动降级到了收藏池；
+         * moodFallback=true 表示心情/类型在本地池无任何匹配，已按整池摇出；
+         * fillers 为本轮候选池（供老虎机滚动填充海报），可能为空。
+         */
+        void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, List<Vod> fillers);
 
         void onError(String message);
     }
@@ -62,7 +87,7 @@ public class DiceEngine {
         new Thread(() -> {
             try {
                 RollResult result = rollSync();
-                App.post(() -> callback.onSuccess(result.items, result.fallback));
+                App.post(() -> callback.onSuccess(result.items, result.fallback, result.moodFallback, result.fillers));
             } catch (RollException e) {
                 String message = e.getMessage();
                 App.post(() -> callback.onError(message));
@@ -75,10 +100,14 @@ public class DiceEngine {
     private static class RollResult {
         final List<Vod> items;
         final boolean fallback;
+        final boolean moodFallback;
+        final List<Vod> fillers;
 
-        RollResult(List<Vod> items, boolean fallback) {
+        RollResult(List<Vod> items, boolean fallback, boolean moodFallback, List<Vod> fillers) {
             this.items = items;
             this.fallback = fallback;
+            this.moodFallback = moodFallback;
+            this.fillers = fillers;
         }
     }
 
@@ -98,8 +127,11 @@ public class DiceEngine {
             } catch (Exception e) {
                 // 豆瓣失败：提示离线池可用，并自动降级到收藏池再试一次。
                 candidates = fetchKeep();
-                candidates = filter(candidates);
-                if (!candidates.isEmpty()) return new RollResult(pick(candidates), true);
+                List<Vod> base = filterBase(candidates);
+                List<Vod> filtered = filterMoodType(base);
+                boolean moodFallback = filtered.isEmpty() && !base.isEmpty() && hasMoodOrType();
+                if (moodFallback) filtered = base;
+                if (!filtered.isEmpty()) return new RollResult(pick(filtered), true, moodFallback, filtered);
                 throw new RollException(App.get().getString(R.string.dice_douban_failed));
             }
         } else if (POOL_SITE.equals(pool)) {
@@ -111,14 +143,26 @@ public class DiceEngine {
         } else {
             candidates = fetchDouban();
         }
-        List<Vod> filtered = filter(candidates);
-        if (filtered.isEmpty()) {
+        List<Vod> base = filterBase(candidates);
+        if (base.isEmpty()) {
             if (DiceSetting.isNoRepeat() && !candidates.isEmpty() && allHistoryNames(candidates)) {
                 throw new RollException(App.get().getString(R.string.dice_exhausted));
             }
             throw new RollException(App.get().getString(R.string.dice_no_result));
         }
-        return new RollResult(pick(filtered), fallback);
+        List<Vod> filtered = filterMoodType(base);
+        boolean moodFallback = false;
+        if (filtered.isEmpty() && hasMoodOrType()) {
+            // 本地池里心情/类型一个都匹配不上：回落到整池摇出，不许空手而归。
+            filtered = base;
+            moodFallback = true;
+        }
+        if (filtered.isEmpty()) throw new RollException(App.get().getString(R.string.dice_no_result));
+        return new RollResult(pick(filtered), fallback, moodFallback, filtered);
+    }
+
+    private static boolean hasMoodOrType() {
+        return !DiceSetting.getTypes().isEmpty() || !DiceSetting.getMoods().isEmpty();
     }
 
     /** 候选是否全是已摇过的片（不重复抽取把池子抽完时才报“已摇完”）。 */
@@ -137,12 +181,10 @@ public class DiceEngine {
         return new ArrayList<>(shuffled.subList(0, Math.min(ROLL_COUNT, shuffled.size())));
     }
 
-    /** 过滤：避雷片名、题材屏蔽、类型/心情关键词、不重复抽取。时长档无字段可筛，不过滤。 */
-    private static List<Vod> filter(List<Vod> items) {
+    /** 第一层过滤：避雷片名、题材屏蔽、不重复抽取。时长档无字段可筛，不过滤。 */
+    private static List<Vod> filterBase(List<Vod> items) {
         List<String> blockedNames = DiceSetting.isBlockFilm() ? DiceSetting.getBlockedNames() : Collections.emptyList();
         List<String> blockedTags = DiceSetting.isBlockGenre() ? DiceSetting.getBlockedTags() : Collections.emptyList();
-        List<String> types = DiceSetting.getTypes();
-        List<String> moods = DiceSetting.getMoods();
         Set<String> historyNames = DiceSetting.isNoRepeat() ? historyNames() : Collections.emptySet();
         List<Vod> result = new ArrayList<>();
         for (Vod item : items) {
@@ -159,29 +201,49 @@ public class DiceEngine {
                 }
             }
             if (blockedTag) continue;
-            if (!types.isEmpty() || !moods.isEmpty()) {
-                boolean matched = false;
-                for (String keyword : types) {
-                    if (!TextUtils.isEmpty(keyword) && haystack.contains(keyword)) {
-                        matched = true;
-                        break;
-                    }
-                }
-                if (!matched) {
-                    for (String keyword : moods) {
-                        if (!TextUtils.isEmpty(keyword) && haystack.contains(keyword)) {
-                            matched = true;
-                            break;
-                        }
-                    }
-                }
-                // 本地池用片名/类型包含匹配；豆瓣池已按 tag 拉取，关键词不中时也不硬筛——
-                // 只有当用户明确选了类型/心情且本地池完全不匹配时才过滤，豆瓣池不过滤。
-                if (!matched && !POOL_DOUBAN.equals(DiceSetting.getPool())) continue;
-            }
             result.add(item);
         }
         return result;
+    }
+
+    /**
+     * 第二层过滤：类型/心情关键词。心情先展开成映射的类型词（开心→喜剧/爱情…），
+     * 再加心情词本身；类型直接用分类名。豆瓣池已按 tag 拉取，不过滤。
+     */
+    private static List<Vod> filterMoodType(List<Vod> items) {
+        if (POOL_DOUBAN.equals(DiceSetting.getPool())) return new ArrayList<>(items);
+        List<String> keywords = expandKeywords(DiceSetting.getTypes(), DiceSetting.getMoods());
+        if (keywords.isEmpty()) return new ArrayList<>(items);
+        List<Vod> result = new ArrayList<>();
+        for (Vod item : items) {
+            String haystack = item.getName() + " " + item.getTypeName() + " " + item.getRemarks();
+            for (String keyword : keywords) {
+                if (!TextUtils.isEmpty(keyword) && haystack.contains(keyword)) {
+                    result.add(item);
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    /** 类型原样 + 心情展开成映射类型词 + 心情词本身（自定义心情无映射时只用原词）。 */
+    private static List<String> expandKeywords(List<String> types, List<String> moods) {
+        List<String> keywords = new ArrayList<>();
+        for (String type : types) {
+            if (!TextUtils.isEmpty(type) && !keywords.contains(type)) keywords.add(type);
+        }
+        for (String mood : moods) {
+            if (TextUtils.isEmpty(mood)) continue;
+            List<String> mapped = MOOD_TO_TYPES.get(mood);
+            if (mapped != null) {
+                for (String word : mapped) {
+                    if (!keywords.contains(word)) keywords.add(word);
+                }
+            }
+            if (!keywords.contains(mood)) keywords.add(mood);
+        }
+        return keywords;
     }
 
     /** 摇片历史里记过的片名集合（DiceSetting history 存 Vod 数组 JSON）。 */
@@ -234,18 +296,64 @@ public class DiceEngine {
         return element != null && element.isJsonPrimitive() ? element.getAsString() : "";
     }
 
+    /**
+     * 当前站源池：先拿首页取分类；选了心情/类型时，把关键词映射到站源自有分类名，
+     * 直接拉对应分类第 1 页做候选（心情真正按分类生效）；没有分类能对上、
+     * 或分类拉取失败/为空时，回落到首页列表。
+     */
     private static List<Vod> fetchSite() throws Exception {
         Site home = VodConfig.get().getHome();
         if (home == null || TextUtils.isEmpty(home.getKey())) {
             throw new RollException(App.get().getString(R.string.dice_no_site));
         }
         Result result = SiteApi.homeContent(home);
-        List<Vod> items = result == null ? Collections.emptyList() : result.getList();
+        List<Vod> homeItems = result == null ? Collections.emptyList() : result.getList();
+        List<Vod> fromCategory = fetchSiteByCategory(home, result);
+        List<Vod> items = !fromCategory.isEmpty() ? fromCategory : homeItems;
         if (items == null) return Collections.emptyList();
+        List<Vod> output = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (Vod item : items) {
+            if (item == null || TextUtils.isEmpty(item.getName()) || !seen.add(item.getName())) continue;
             if (item.getSite() == null) item.setSite(home);
+            output.add(item);
         }
-        return new ArrayList<>(items);
+        return output;
+    }
+
+    /** 按心情/类型关键词找站源分类并拉第 1 页；无匹配或拉取失败返回空列表。 */
+    private static List<Vod> fetchSiteByCategory(Site home, Result homeResult) {
+        List<String> keywords = expandKeywords(DiceSetting.getTypes(), DiceSetting.getMoods());
+        if (keywords.isEmpty() || homeResult == null || homeResult.getTypes() == null) return Collections.emptyList();
+        List<com.github.moyingshi.osc.tv.bean.Class> types = homeResult.getTypes();
+        List<String> tids = new ArrayList<>();
+        for (String keyword : keywords) {
+            com.github.moyingshi.osc.tv.bean.Class matched = findCategory(types, keyword);
+            if (matched != null && !TextUtils.isEmpty(matched.getTypeId()) && !tids.contains(matched.getTypeId())) {
+                tids.add(matched.getTypeId());
+                if (tids.size() >= 3) break;
+            }
+        }
+        List<Vod> items = new ArrayList<>();
+        for (String tid : tids) {
+            try {
+                Result result = SiteApi.categoryContent(home.getKey(), tid, "1", false, new HashMap<>());
+                if (result != null && result.getList() != null) items.addAll(result.getList());
+            } catch (Exception ignored) {
+                // 单个分类拉取失败不影响其他分类，继续。
+            }
+        }
+        return items;
+    }
+
+    /** 分类名包含比对：站源分类名含关键词，或关键词含分类名（如“电视剧”含“剧”不算，只认整词方向）。 */
+    private static com.github.moyingshi.osc.tv.bean.Class findCategory(List<com.github.moyingshi.osc.tv.bean.Class> types, String keyword) {
+        for (com.github.moyingshi.osc.tv.bean.Class type : types) {
+            String name = type.getTypeName();
+            if (TextUtils.isEmpty(name)) continue;
+            if (name.contains(keyword) || keyword.contains(name)) return type;
+        }
+        return null;
     }
 
     private static List<Vod> fetchKeep() {

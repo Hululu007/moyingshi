@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.ui.fragment;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -55,6 +57,9 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
     private static final String[] BUILTIN_TYPES = {"喜剧", "爱情", "动作", "科幻", "悬疑", "剧情", "动画", "恐怖"};
     private static final int[] BG_COLORS = {0xFF0B0F16, 0xFF101826, 0xFF1A1025, 0xFF0F1F16, 0xFF241016};
     private static final int HISTORY_LIMIT = 30;
+    /** chip 选中态：实心主色填充 + 白字 + 对勾，深色底上一眼可见；未选中为深灰底 + 浅字。 */
+    private static final int CHIP_CHECKED_BG = 0xFF0B57D0;
+    private static final int CHIP_UNCHECKED_BG = 0xFF232D3D;
 
     private static final Type VOD_LIST_TYPE = TypeToken.getParameterized(List.class, Vod.class).getType();
     private static final Type PRESET_LIST_TYPE = TypeToken.getParameterized(List.class, DicePreset.class).getType();
@@ -105,6 +110,8 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.historyList.setLayoutManager(new LinearLayoutManager(requireContext()));
         mBinding.historyList.setAdapter(mHistoryAdapter);
         mBinding.slotMachine.setOnStopListener(names -> onSlotStopped());
+        // 首次摇之前也不要“?”：三列先用中性素色占位填充。
+        mBinding.slotMachine.setItems(Collections.<Vod>emptyList(), Collections.<Vod>emptyList());
         applyBg();
         rebuildPoolChips();
         rebuildMoodChips();
@@ -147,13 +154,12 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.shakeButton.setText(R.string.dice_shaking);
         DiceEngine.roll(new DiceEngine.Callback() {
             @Override
-            public void onSuccess(List<Vod> items, boolean fallback) {
+            public void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, List<Vod> fillers) {
                 if (!isAdded() || mBinding == null) return;
                 if (fallback) Notify.show(R.string.dice_douban_failed);
-                List<String> names = new ArrayList<>();
-                for (Vod item : items) names.add(item.getName());
+                if (moodFallback) Notify.show(R.string.dice_mood_fallback);
                 mPendingResults = new ArrayList<>(items);
-                mBinding.slotMachine.setItems(names);
+                mBinding.slotMachine.setItems(items, fillers);
                 mBinding.slotMachine.spin();
             }
 
@@ -313,6 +319,7 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         chip.setTag(tag);
         chip.setCheckable(true);
         chip.setChecked(checked);
+        styleSelectableChip(chip);
         final ChipCheckedListener finalListener = listener;
         chip.setOnCheckedChangeListener((button, isChecked) -> {
             if (mBuilding) return;
@@ -326,6 +333,7 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         chip.setText(text);
         chip.setCheckable(true);
         chip.setChecked(checked);
+        styleSelectableChip(chip);
         chip.setTag(custom ? "custom" : "builtin");
         final String label = text;
         final boolean isCustom = custom;
@@ -340,6 +348,20 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
             });
         }
         group.addView(chip);
+    }
+
+    /** 全部可选 chip 共用：选中实心主色 + 白字 + 对勾，未选中深灰底 + 浅字。 */
+    private void styleSelectableChip(Chip chip) {
+        chip.setChipBackgroundColor(new ColorStateList(
+                new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{CHIP_CHECKED_BG, CHIP_UNCHECKED_BG}));
+        chip.setTextColor(new ColorStateList(
+                new int[][]{{android.R.attr.state_checked}, {}},
+                new int[]{Color.WHITE, 0xFFE6EAF2}));
+        chip.setCheckedIconVisible(true);
+        chip.setCheckedIconTint(ColorStateList.valueOf(Color.WHITE));
+        chip.setChipStrokeColor(ColorStateList.valueOf(0x55FFFFFF));
+        chip.setChipStrokeWidth(requireContext().getResources().getDisplayMetrics().density);
     }
 
     private void saveMultiSelection(ChipGroup group, boolean mood) {
@@ -460,6 +482,8 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
             Chip chip = new Chip(requireContext());
             chip.setText(preset.name);
             chip.setCheckable(false);
+            chip.setChipBackgroundColor(ColorStateList.valueOf(CHIP_UNCHECKED_BG));
+            chip.setTextColor(Color.WHITE);
             final DicePreset finalPreset = preset;
             chip.setOnClickListener(v -> applyPreset(finalPreset));
             chip.setOnLongClickListener(v -> {
