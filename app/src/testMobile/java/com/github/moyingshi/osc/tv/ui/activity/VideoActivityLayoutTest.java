@@ -906,7 +906,7 @@ public class VideoActivityLayoutTest {
                 history.contains("legacyKernelForFlag"));
         assertFalse("a playback-failure kernel fallback must never write the kernel memory; PlayerManager "
                         + "can only do that by holding a History reference, so it must hold none",
-                player.contains("com.fongmi.android.tv.bean.History"));
+                player.contains("com.github.moyingshi.osc.tv.bean.History"));
 
         for (String source : new String[]{leanback, mobile}) {
             assertTrue("playback must restore the show's remembered kernel before resolving the play url",

@@ -1,6 +1,6 @@
 package com.github.moyingshi.osc.tv.bean;
 
-import com.fongmi.android.tv.setting.PlayerSetting;
+import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.google.gson.Gson;
 
 import org.junit.Test;
