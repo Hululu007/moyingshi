@@ -772,6 +772,15 @@ public class Setting {
         Prefers.put("lab_nav", value);
     }
 
+    /** 喜好选片入口开关：默认开；关则首页搜索条里的骰子按钮隐藏。 */
+    public static boolean isDiceEntry() {
+        return Prefers.getBoolean("dice_entry", true);
+    }
+
+    public static void putDiceEntry(boolean value) {
+        Prefers.put("dice_entry", value);
+    }
+
     public static void logDebugEnvironment(String reason) {
         boolean hardwareAccelerated = (App.get().getApplicationInfo().flags & ApplicationInfo.FLAG_HARDWARE_ACCELERATED) != 0;
         DebugLogStore.event(new com.github.catvod.crawler.diagnostics.DiagnosticEvent("env.device", "none", "process", 0, 0)

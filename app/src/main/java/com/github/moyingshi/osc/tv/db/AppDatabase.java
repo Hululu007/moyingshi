@@ -20,6 +20,7 @@ import com.github.moyingshi.osc.tv.bean.PlaybackDeleteTombstone;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.Track;
 import com.github.moyingshi.osc.tv.bean.TmdbSeasonProgress;
+import com.github.moyingshi.osc.tv.bean.Want;
 import com.github.moyingshi.osc.tv.db.dao.ConfigDao;
 import com.github.moyingshi.osc.tv.db.dao.DeviceDao;
 import com.github.moyingshi.osc.tv.db.dao.HistoryDao;
@@ -29,6 +30,7 @@ import com.github.moyingshi.osc.tv.db.dao.PlaybackDeleteTombstoneDao;
 import com.github.moyingshi.osc.tv.db.dao.SiteDao;
 import com.github.moyingshi.osc.tv.db.dao.TrackDao;
 import com.github.moyingshi.osc.tv.db.dao.TmdbSeasonProgressDao;
+import com.github.moyingshi.osc.tv.db.dao.WantDao;
 import com.github.moyingshi.osc.tv.utils.AppBackup;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.Task;
@@ -44,12 +46,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Database(entities = {Keep.class, Site.class, Live.class, Track.class, Config.class, Device.class, History.class, PlaybackDeleteTombstone.class, TmdbSeasonProgress.class}, version = AppDatabase.VERSION, exportSchema = true)
+@Database(entities = {Keep.class, Site.class, Live.class, Track.class, Config.class, Device.class, History.class, PlaybackDeleteTombstone.class, TmdbSeasonProgress.class, Want.class}, version = AppDatabase.VERSION, exportSchema = true)
 public abstract class AppDatabase extends RoomDatabase {
 
     // VERSION = 47 was the pre-identity-alias schema; 48 adds migration clues;
-    // 49 remembers the playback kernel per line instead of once per show.
-    public static final int VERSION = 49;
+    // 49 remembers the playback kernel per line instead of once per show;
+    // 50 adds the Want table for the dice "want to watch" list.
+    public static final int VERSION = 50;
     public static final String NAME = "tv";
     public static final String SYMBOL = "@@@";
     private static final int BACKUP_KEEP_COUNT = 7;
@@ -202,6 +205,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 .addMigrations(Migrations.MIGRATION_46_47)
                 .addMigrations(Migrations.MIGRATION_47_48)
                 .addMigrations(Migrations.MIGRATION_48_49)
+                .addMigrations(Migrations.MIGRATION_49_50)
                 .openHelperFactory(new IntegrityRecoveringOpenHelperFactory(new FrameworkSQLiteOpenHelperFactory()))
                 .fallbackToDestructiveMigration(true)
                 .allowMainThreadQueries().build();
@@ -360,4 +364,6 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract PlaybackDeleteTombstoneDao getPlaybackDeleteTombstoneDao();
 
     public abstract TmdbSeasonProgressDao getTmdbSeasonProgressDao();
+
+    public abstract WantDao getWantDao();
 }

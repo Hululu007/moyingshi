@@ -260,6 +260,18 @@ public class Migrations {
         }
     };
 
+    /**
+     * 喜好“想看”清单：只新建 Want 表，不动旧表。
+     * 列声明与 Want 实体一致（key 非空主键，其余 String 可空，createTime/cid 非空），
+     * 与 Room 导出的 50.json 期望表一致。
+     */
+    public static final Migration MIGRATION_49_50 = new Migration(49, 50) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS `Want` (`key` TEXT NOT NULL, `siteName` TEXT, `vodName` TEXT, `vodPic` TEXT, `createTime` INTEGER NOT NULL, `cid` INTEGER NOT NULL, PRIMARY KEY(`key`))");
+        }
+    };
+
     private static void addColumnIfMissing(
             SupportSQLiteDatabase database,
             String table,

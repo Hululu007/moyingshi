@@ -3221,4 +3221,21 @@
     <string name="setting_search_hint">Search settings</string>
     <string name="setting_search_empty">No matching settings</string>
     <string name="crash_action_failed">Action failed. Please try again.</string>
+    <string name="dice_title">喜好选片</string>
+    <string name="dice_hint">摇一下老虎机，选三部今晚的片</string>
+    <string name="dice_shake">摇一摇</string>
+    <string name="dice_reshake">再摇一次</string>
+    <string name="dice_pool_douban">豆瓣</string>
+    <string name="dice_pool_site">当前站源</string>
+    <string name="dice_pool_keep">收藏</string>
+    <string name="dice_pool_want">想看</string>
+    <string name="dice_no_result">本池没有符合条件的片，换个标签或池子再试试</string>
+    <string name="dice_douban_failed">豆瓣拉取失败，请稍后重试，或切换到想看 / 收藏池</string>
+    <string name="dice_no_site">请先回首页选择站源</string>
+    <string name="dice_history_title">骰子历史记录</string>
+    <string name="dice_history_empty">还没有摇过的片</string>
+    <string name="dice_preset_title">我的预设</string>
+    <string name="dice_blocked_toast">已加入避雷，以后不再摇到它</string>
+    <string name="dice_add_want">已加入想看</string>
+    <string name="dice_add_keep">已加入收藏</string>
 </resources>
