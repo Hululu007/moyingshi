@@ -45,8 +45,11 @@ import java.util.Set;
  * dice_mode 保留开关量，本引擎不使用；
  * dice_bg 0=跟随主题，其余为 DiceFragment 色板下标。
  * Vod 没有时长字段，所以时长档不过滤（无字段的片不因此被筛掉）。
- * <p>修复 3（dice-fix-3）：空原因分开报（站源无内容 / 全被屏蔽 / 已摇完 / 通用），
- * 站源池彻底没内容时用豆瓣池兜底并明确提示；进页与切池预取候选海报填进老虎机。
+ * <p>第 5 轮（dice-round-5）：类别三档 dice_category（all/movie/tv，默认 all）。
+ * 豆瓣池按档拉取（type 参数化，all 档 movie+tv 各拉一页合并打乱）；站源池用片名+
+ * 类型名+备注含关键词过滤（电影“电影”，电视剧“电视剧/连续剧/剧集”），筛不到回落
+ * 整池并提示（categoryFallback），绝不摇空；收藏/想看池不筛类别。
+ * Callback.onSuccess 新增 categoryFallback 参数（第 5 位），唯一实现 DiceFragment 已同步。
  */
 public class DiceEngine {
 
@@ -57,7 +60,7 @@ public class DiceEngine {
 
     public static final int ROLL_COUNT = 3;
 
-    private static final String DOUBAN_URL = "https://movie.douban.com/j/search_subjects?type=movie&tag=%s&sort=rank&page_limit=20&page_start=%d";
+    private static final String DOUBAN_URL = "https://movie.douban.com/j/search_subjects?type=%s&tag=%s&sort=rank&page_limit=20&page_start=%d";
     private static final String DOUBAN_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 
     /** 心情 → 站源分类/类型名。站源分类名各异，匹配时用包含比对（见 findCategory）。 */
@@ -79,9 +82,10 @@ public class DiceEngine {
          * 成功摇出；fallback=true 表示豆瓣失败后自动降级到了收藏池；
          * moodFallback=true 表示心情/类型在本地池无任何匹配，已按整池摇出；
          * siteFallback=true 表示站源池无内容，已用豆瓣池兜底摇出（须明确告诉用户）；
+         * categoryFallback=true 表示当前类别在站源池无任何匹配，已按全部类别摇出；
          * fillers 为本轮候选池（供老虎机滚动填充海报），可能为空。
          */
-        void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, List<Vod> fillers);
+        void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, boolean categoryFallback, List<Vod> fillers);
 
         void onError(String message);
     }
@@ -95,7 +99,7 @@ public class DiceEngine {
         new Thread(() -> {
             try {
                 RollResult result = rollSync();
-                App.post(() -> callback.onSuccess(result.items, result.fallback, result.moodFallback, result.siteFallback, result.fillers));
+                App.post(() -> callback.onSuccess(result.items, result.fallback, result.moodFallback, result.siteFallback, result.categoryFallback, result.fillers));
             } catch (RollException e) {
                 String message = e.getMessage();
                 App.post(() -> callback.onError(message));
@@ -135,8 +139,10 @@ public class DiceEngine {
             }
             List<Vod> base = filterBase(candidates);
             if (base.isEmpty()) return Collections.emptyList();
-            List<Vod> filtered = filterMoodType(base);
-            if (filtered.isEmpty() && hasMoodOrType()) filtered = base;
+            List<Vod> categoryFiltered = filterCategory(base);
+            if (categoryFiltered.isEmpty()) categoryFiltered = base;
+            List<Vod> filtered = filterMoodType(categoryFiltered);
+            if (filtered.isEmpty() && hasMoodOrType()) filtered = categoryFiltered;
             return filtered;
         } catch (Exception ignored) {
             return Collections.emptyList();
@@ -148,13 +154,15 @@ public class DiceEngine {
         final boolean fallback;
         final boolean moodFallback;
         final boolean siteFallback;
+        final boolean categoryFallback;
         final List<Vod> fillers;
 
-        RollResult(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, List<Vod> fillers) {
+        RollResult(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, boolean categoryFallback, List<Vod> fillers) {
             this.items = items;
             this.fallback = fallback;
             this.moodFallback = moodFallback;
             this.siteFallback = siteFallback;
+            this.categoryFallback = categoryFallback;
             this.fillers = fillers;
         }
     }
@@ -180,7 +188,7 @@ public class DiceEngine {
                 List<Vod> filtered = filterMoodType(base);
                 boolean moodFallback = filtered.isEmpty() && !base.isEmpty() && hasMoodOrType();
                 if (moodFallback) filtered = base;
-                if (!filtered.isEmpty()) return new RollResult(pick(filtered), true, moodFallback, false, filtered);
+                if (!filtered.isEmpty()) return new RollResult(pick(filtered), true, moodFallback, false, false, filtered);
                 throw new RollException(App.get().getString(R.string.dice_douban_failed));
             }
         } else if (POOL_SITE.equals(pool)) {
@@ -214,15 +222,23 @@ public class DiceEngine {
             }
             throw new RollException(App.get().getString(R.string.dice_no_result));
         }
-        List<Vod> filtered = filterMoodType(base);
+        // 类别过滤只对站源池生效；站源空走豆瓣兜底时豆瓣已按 type 拉取，不再筛。
+        // 筛不到回落到不过滤的整池并提示，绝不摇空。
+        List<Vod> categoryFiltered = siteFallback ? base : filterCategory(base);
+        boolean categoryFallback = false;
+        if (categoryFiltered.isEmpty()) {
+            categoryFiltered = base;
+            categoryFallback = true;
+        }
+        List<Vod> filtered = filterMoodType(categoryFiltered);
         boolean moodFallback = false;
         if (filtered.isEmpty() && hasMoodOrType()) {
             // 本地池里心情/类型一个都匹配不上：回落到整池摇出，不许空手而归。
-            filtered = base;
+            filtered = categoryFiltered;
             moodFallback = true;
         }
         if (filtered.isEmpty()) throw new RollException(App.get().getString(R.string.dice_no_result));
-        return new RollResult(pick(filtered), fallback, moodFallback, siteFallback, filtered);
+        return new RollResult(pick(filtered), fallback, moodFallback, siteFallback, categoryFallback, filtered);
     }
 
     private static boolean hasMoodOrType() {
@@ -313,6 +329,32 @@ public class DiceEngine {
         return result;
     }
 
+    /**
+     * 类别过滤（只对站源池生效；收藏/想看池本身是什么类别就摇什么，不筛；
+     * 豆瓣池已按 type 拉取，不再筛）。Vod 没有 typeId 字段，用片名 + 类型名 +
+     * 备注含关键词判断：电影档只认“电影”，电视剧档认“电视剧/连续剧/剧集”
+     *（不用单字“剧”，会误中“剧情”）。
+     */
+    private static List<Vod> filterCategory(List<Vod> items) {
+        if (!POOL_SITE.equals(DiceSetting.getPool())) return new ArrayList<>(items);
+        String category = DiceSetting.getCategory();
+        List<String> keywords;
+        if (DiceSetting.CATEGORY_MOVIE.equals(category)) keywords = Arrays.asList("电影");
+        else if (DiceSetting.CATEGORY_TV.equals(category)) keywords = Arrays.asList("电视剧", "连续剧", "剧集");
+        else return new ArrayList<>(items);
+        List<Vod> result = new ArrayList<>();
+        for (Vod item : items) {
+            String haystack = item.getName() + " " + item.getTypeName() + " " + item.getRemarks();
+            for (String keyword : keywords) {
+                if (haystack.contains(keyword)) {
+                    result.add(item);
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
     /** 类型原样 + 心情展开成映射类型词 + 心情词本身（自定义心情无映射时只用原词）。 */
     private static List<String> expandKeywords(List<String> types, List<String> moods) {
         List<String> keywords = new ArrayList<>();
@@ -343,10 +385,36 @@ public class DiceEngine {
         return fetchDouban(pickTag());
     }
 
-    /** 指定 tag 拉豆瓣列表（预取兜底用“热门”）。 */
+    /**
+     * 指定 tag 拉豆瓣列表（预取兜底用“热门”）。类别按 dice_category 走：
+     * movie 档只拉 type=movie，tv 档只拉 type=tv，all 档 movie 和 tv 各拉一页
+     * 合并后打乱；all 档两路都失败才抛错，单路成功就用单路结果。
+     */
     private static List<Vod> fetchDouban(String tag) throws Exception {
+        String category = DiceSetting.getCategory();
+        if (DiceSetting.CATEGORY_MOVIE.equals(category)) return fetchDoubanPage("movie", tag);
+        if (DiceSetting.CATEGORY_TV.equals(category)) return fetchDoubanPage("tv", tag);
+        List<Vod> items = new ArrayList<>();
+        Exception lastError = null;
+        try {
+            items.addAll(fetchDoubanPage("movie", tag));
+        } catch (Exception e) {
+            lastError = e;
+        }
+        try {
+            items.addAll(fetchDoubanPage("tv", tag));
+        } catch (Exception e) {
+            lastError = e;
+        }
+        if (items.isEmpty()) throw lastError != null ? lastError : new IllegalStateException("no douban subjects");
+        Collections.shuffle(items, new Random());
+        return items;
+    }
+
+    /** 单路拉豆瓣一页：type=movie/tv，tag 为心情/类型首选或“热门”。 */
+    private static List<Vod> fetchDoubanPage(String type, String tag) throws Exception {
         int pageStart = new Random().nextInt(4) * 20;
-        String url = String.format(DOUBAN_URL, tag, pageStart);
+        String url = String.format(DOUBAN_URL, type, tag, pageStart);
         Map<String, String> headers = new HashMap<>();
         headers.put("User-Agent", DOUBAN_UA);
         headers.put("Referer", "https://movie.douban.com/");

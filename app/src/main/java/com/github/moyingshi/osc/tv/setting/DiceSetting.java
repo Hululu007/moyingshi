@@ -26,6 +26,20 @@ public class DiceSetting {
         Prefers.put("dice_pool", pool == null ? "douban" : pool);
     }
 
+    /** 类别三档：all 全部（默认）/ movie 电影 / tv 电视剧。 */
+    public static final String CATEGORY_ALL = "all";
+    public static final String CATEGORY_MOVIE = "movie";
+    public static final String CATEGORY_TV = "tv";
+
+    public static String getCategory() {
+        String category = Prefers.getString("dice_category", CATEGORY_ALL);
+        return CATEGORY_MOVIE.equals(category) || CATEGORY_TV.equals(category) ? category : CATEGORY_ALL;
+    }
+
+    public static void putCategory(String category) {
+        Prefers.put("dice_category", CATEGORY_MOVIE.equals(category) || CATEGORY_TV.equals(category) ? category : CATEGORY_ALL);
+    }
+
     public static List<String> getMoods() {
         return getStringList("dice_moods");
     }

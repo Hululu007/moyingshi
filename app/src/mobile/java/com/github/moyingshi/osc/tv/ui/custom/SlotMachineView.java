@@ -44,6 +44,11 @@ public class SlotMachineView extends LinearLayout {
         void onStop(List<String> names);
     }
 
+    /** 点列上海报：回调该列正中可见格的 Vod（停下后是结果片，进页未摇时是预取候选片）。 */
+    public interface OnPosterClickListener {
+        void onPosterClick(Vod vod);
+    }
+
     private static final int COLUMN_COUNT = 3;
     private static final int STRIP_SIZE = 12;
     /** 机身固定高（fragment_dice.xml 里 220dp）：格高先按它建带，布局后再按实测高纠正。 */
@@ -60,6 +65,7 @@ public class SlotMachineView extends LinearLayout {
     private final List<Vod> mFillers = new ArrayList<>();
 
     private OnStopListener mListener;
+    private OnPosterClickListener mPosterClickListener;
     private boolean mSpinning;
     /** cancel 触发的 onAnimationEnd 不算正常停转，拦住它误发 onStop。 */
     private boolean mCancelled;
@@ -96,6 +102,8 @@ public class SlotMachineView extends LinearLayout {
             columnParams.setMargins(i == 0 ? 0 : gap, 0, i == COLUMN_COUNT - 1 ? 0 : gap, 0);
             column.setLayoutParams(columnParams);
             column.setClipChildren(true);
+            final int columnIndex = i;
+            column.setOnClickListener(v -> onColumnClick(columnIndex));
             LinearLayout strip = new LinearLayout(getContext());
             strip.setOrientation(LinearLayout.VERTICAL);
             strip.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT));
@@ -124,6 +132,10 @@ public class SlotMachineView extends LinearLayout {
 
     public void setOnStopListener(OnStopListener listener) {
         mListener = listener;
+    }
+
+    public void setOnPosterClickListener(OnPosterClickListener listener) {
+        mPosterClickListener = listener;
     }
 
     public boolean isSpinning() {
@@ -263,6 +275,17 @@ public class SlotMachineView extends LinearLayout {
         List<String> names = new ArrayList<>();
         for (Vod vod : mResults) names.add(vod == null || TextUtils.isEmpty(vod.getName()) ? "" : vod.getName());
         return names;
+    }
+
+    /** 点列上海报：正在滚动直接忽略；否则按当前竖带位移算正中可见格下标，回调该格的 Vod。 */
+    private void onColumnClick(int column) {
+        if (mSpinning || mPosterClickListener == null || mItemHeight <= 0) return;
+        int index = Math.round(-mStrips[column].getTranslationY() / (float) mItemHeight);
+        if (index < 0) index = 0;
+        if (index >= STRIP_SIZE) index = STRIP_SIZE - 1;
+        List<Vod> strip = mStripLists.get(column);
+        Vod vod = index < strip.size() ? strip.get(index) : null;
+        if (vod != null && !TextUtils.isEmpty(vod.getName())) mPosterClickListener.onPosterClick(vod);
     }
 
     private void cancelAnimators() {

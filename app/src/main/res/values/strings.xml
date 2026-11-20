@@ -3229,6 +3229,11 @@
     <string name="dice_pool_site">当前站源</string>
     <string name="dice_pool_keep">收藏</string>
     <string name="dice_pool_want">想看</string>
+    <string name="dice_category_all">全部</string>
+    <string name="dice_category_movie">电影</string>
+    <string name="dice_category_tv">电视剧</string>
+    <string name="dice_category_fallback">当前类别在站源里没有片，已按全部类别摇出</string>
+    <string name="dice_direct_not_found">站内没搜到这部片，已打开搜索页</string>
     <string name="dice_no_result">本池没有符合条件的片，换个标签或池子再试试</string>
     <string name="dice_mood_fallback">心情在当前站源没有匹配，已按全部片摇出</string>
     <string name="dice_douban_failed">豆瓣拉取失败，请稍后重试，或切换到想看 / 收藏池</string>

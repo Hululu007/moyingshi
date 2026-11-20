@@ -58,6 +58,14 @@
             android:layout_marginTop="12dp"
             app:singleSelection="true" />
 
+        <!-- 类别三档：全部 / 电影 / 电视剧（默认全部），在池子 chips 下方 -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/categoryGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:singleSelection="true" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/shakeButton"
             android:layout_width="match_parent"

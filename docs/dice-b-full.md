@@ -5,8 +5,8 @@
 - 用户批准：2026-11-20 10:19 定做 B 全套版；10:21 发截图定入口在首页搜索条内右侧、历史图标左侧放骰子按钮；增强设置“特色功能”开关（默认开）控制其显隐。
 - 分析报告：~/workspace/rove-like/ANALYSIS.md（290 行权威版）。Rove APK 仅作原理参考，**不搬对方美术资源与代码原文，全部自画自写**。
 - 分支/HEAD：main @ 92279395（dice-fix-3 已推并发 v5.6.0-beta-202611201517）+ 本次修复一次原子提交（dice-fix-4）。
-- 阶段：① 数据层已完成 ② UI 与 ③ 池与逻辑已完成并发布 ④ 修复 2（dice-fix-2）：选中态 + 站源池心情生效 + 老虎机改海报滚动，已发 v5.6.0-beta-202611201341。⑤ 修复 3（dice-fix-3）：空原因分开报 + 站源空时豆瓣兜底并明示 + 进页/切池预取海报 + 占位加亮描边，已发 v5.6.0-beta-202611201517。⑥ 修复 4（dice-fix-4）：老虎机三状态全程空白，建带时序重构，正在做。
-- 当前状态：dice-fix-4 进行中（只动 SlotMachineView.java + 本文档）。约定：dice_duration ""=不限、"long"=长片、"short"=短片；dice_bg 0=跟随主题（默认深色底），1–4 为色板下标；dice_mode 保留未用；摇片历史存 Vod 数组 JSON；豆瓣 Vod 无站源，点详情走站内搜索片名，不硬编站源字段。
+- 阶段：① 数据层已完成 ② UI 与 ③ 池与逻辑已完成并发布 ④ 修复 2（dice-fix-2）：选中态 + 站源池心情生效 + 老虎机改海报滚动，已发 v5.6.0-beta-202611201341。⑤ 修复 3（dice-fix-3）：空原因分开报 + 站源空时豆瓣兜底并明示 + 进页/切池预取海报 + 占位加亮描边，已发 v5.6.0-beta-202611201517。⑥ 修复 4（dice-fix-4）：老虎机三状态全程空白，建带时序重构，已发 v5.6.0-beta-202611202049，用户 22:23 截图确认三列海报已出。⑦ 第 5 轮（dice-round-5）：点老虎机海报直接播 + 类别三档（电影/电视剧/全部），正在做。
+- 当前状态：dice-round-5（第 5 轮）进行中。约定：dice_duration ""=不限、"long"=长片、"short"=短片；dice_bg 0=跟随主题（默认深色底），1–4 为色板下标；dice_mode 保留未用；摇片历史存 Vod 数组 JSON；豆瓣 Vod 无站源，点详情走站内搜索片名，不硬编站源字段，点老虎机海报则后台搜名解析后直接播。
 
 ## 修复 3（dice-fix-3，2026-11-20 15:10 用户截图，装 v5.6.0-beta-202611201341）
 - ① 空原因分开报，不再一句 dice_no_result 盖住所有情况：无站源仍 dice_no_site；站源首页无内容新增 dice_site_empty（“当前站源没有返回内容，换个站源或检查网络再试试”）；历史抽完仍 dice_exhausted（分支保留 candidates 非空守卫，空候选不误判）；全被避雷/题材屏蔽滤掉新增 dice_all_blocked（candidates 非空、base 为空、非全历史时逐项重算 blockedNames/blockedTags，全是才报）；其余仍 dice_no_result。
@@ -25,6 +25,13 @@
 - 验证：本机 git diff --check 通过；逐行核对（进页占位、摇动滚动可见、停下是结果海报、占位可见、无悬空引用、无旧包名回流、底栏仍 6 项）；无 JDK/SDK 不本地编译，编译检查走 GitHub Actions；真机三状态验证待用户装新测试版确认。
 - 顺手清理：核查“修复 3”一节全文无 U+FFFD 乱码字符，“心情无匹配同样回落整池”一句已是正确文字，无需改；Recovery anchor 两行旧状态文案（fix-2/fix-3“待推 origin 编测试版”）已按实际更新：fix-2 已发 v5.6.0-beta-202611201341，fix-3 已发 v5.6.0-beta-202611201517。
 - Recovery tag：由 task_guard finish 创建 recovery/dice-fix-4/&lt;timestamp&gt;。
+
+## 第 5 轮（dice-round-5，2026-11-20 22:23 用户截图确认第 4 轮修好，三列海报已出，同时提两点新要求）
+- 需求 1：点老虎机任意一列海报直接开始播那部片（真的开始播放，不停在详情页）。SlotMachineView 新增 OnPosterClickListener：每列 FrameLayout 加点击监听，滚动中（mSpinning）直接忽略；否则按当前竖带位移算正中格下标（Math.round(-strip.getTranslationY() / mItemHeight)，夹在 0..11），取 mStripLists[column] 里那格的 Vod 回调给 DiceFragment。停下后点到的是结果片，进页未摇时点到的是预取候选片，都能播。DiceFragment.playDirect(Vod)：有站源（siteKey + id）直接调现成的 VideoActivity.startDirect(activity, key, id, name, pic, remarks)，无选集参数即从头播第一集，不造播放器、不改 VideoActivity；豆瓣片无站源时后台线程用 SiteApi.searchContent（当前站，SearchActivity 用的同一条路）按片名搜一次，取第一个有 siteKey + id 的结果调 startDirect，搜不到回落 SearchActivity.start(name) 并 toast dice_direct_not_found（“站内没搜到这部片，已打开搜索页”），不静默失败。
+- 需求 2：类别三档（全部 / 电影 / 电视剧，默认全部）。DiceSetting 新增 dice_category（"all" 默认 / "movie" / "tv"）+ getCategory()/putCategory()（非法值回落 all）；fragment_dice.xml 在 poolGroup 下方加单选 ChipGroup categoryGroup，复用 DiceFragment.addSingleChip + styleSelectableChip，选中存 DiceSetting 并 prefetchPrefill()（与切池同款行为），切池/切类别各记各的键，不互相串。DiceEngine：DOUBAN_URL 的 type 参数化，movie 档 type=movie，tv 档 type=tv，all 档 movie 和 tv 各拉一页合并后打乱（单路成功就用，两路都失败才按现有降级逻辑走）；站源池新增 filterCategory（只对站源池生效，收藏/想看池不筛，豆瓣池已按 type 拉取不再筛），Vod 无 typeId，用片名 + 类型名 + 备注含关键词判断——电影档 ["电影"]，电视剧档 ["电视剧", "连续剧", "剧集"]（不用单字“剧”，会误中“剧情”）；筛不到回落到不过滤的整池并 toast dice_category_fallback（“当前类别在站源里没有片，已按全部类别摇出”），绝不摇空；摇片（rollSync）和预取（prefetchSync）两条路都过这一层，预取失败/回落不 toast。Callback.onSuccess 新增 categoryFallback 布尔参数（第 5 位，与 fallback/moodFallback/siteFallback 同款），唯一实现 DiceFragment 已同步改；预取回调不用加。预设：DicePreset 新增 category 字段，保存/应用与 pool/moods/types/duration 同款，否则切了预设会丢类别。
+- 字符串：dice_category_all/movie/tv、dice_category_fallback、dice_direct_not_found（strings.xml dice 串区）。
+- 验证：本机 git diff --check 通过；逐行核对（点三列海报播的都是点的那部、豆瓣片搜不到回落搜索页、三档各摇一次、切池/切类别不串、预设带类别、无悬空引用、无旧包名回流、底栏仍 6 项）；无 JDK/SDK 不本地编译，编译检查走 GitHub Actions；真机验证待用户装新测试版确认。
+- Recovery tag：由 task_guard finish 创建 recovery/dice-round-5/&lt;timestamp&gt;。
 
 ## 修复 2（dice-fix-2，2026-11-20 13:36 用户两张截图）
 - ① 选中态：全部可选 chip（池/心情/类型/时长）共用 styleSelectableChip——选中实心主色 #0B57D0 + 白字 + 对勾，未选中深灰底 #232D3D + 浅字；预设 chip 深灰底白字。

@@ -17,8 +17,10 @@ import androidx.viewbinding.ViewBinding;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.api.DiceEngine;
+import com.github.moyingshi.osc.tv.api.SiteApi;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.bean.Keep;
+import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Site;
 import com.github.moyingshi.osc.tv.bean.Vod;
 import com.github.moyingshi.osc.tv.bean.Want;
@@ -70,6 +72,8 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         String name;
         @SerializedName("pool")
         String pool;
+        @SerializedName("category")
+        String category;
         @SerializedName("moods")
         List<String> moods;
         @SerializedName("types")
@@ -114,11 +118,13 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.historyList.setLayoutManager(new LinearLayoutManager(requireContext()));
         mBinding.historyList.setAdapter(mHistoryAdapter);
         mBinding.slotMachine.setOnStopListener(names -> onSlotStopped());
+        mBinding.slotMachine.setOnPosterClickListener(this::playDirect);
         // 首次摇之前也不要“?”：三列先用中性素色占位填充，再预取一波候选海报填进去。
         mBinding.slotMachine.setItems(Collections.<Vod>emptyList(), Collections.<Vod>emptyList());
         prefetchPrefill();
         applyBg();
         rebuildPoolChips();
+        rebuildCategoryChips();
         rebuildMoodChips();
         rebuildDurationChips();
         rebuildTypeChips();
@@ -161,10 +167,11 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         mBinding.shakeButton.setText(R.string.dice_shaking);
         DiceEngine.roll(new DiceEngine.Callback() {
             @Override
-            public void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, List<Vod> fillers) {
+            public void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, boolean categoryFallback, List<Vod> fillers) {
                 if (!isAdded() || mBinding == null) return;
                 if (fallback) Notify.show(R.string.dice_douban_failed);
                 if (siteFallback) Notify.show(R.string.dice_site_empty_douban);
+                else if (categoryFallback) Notify.show(R.string.dice_category_fallback);
                 else if (moodFallback) Notify.show(R.string.dice_mood_fallback);
                 mPendingResults = new ArrayList<>(items);
                 mBinding.slotMachine.setItems(items, fillers);
@@ -216,6 +223,45 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
     @Override
     public void onItemClick(Vod item) {
         openDetail(item);
+    }
+
+    /** 点老虎机海报直接播那部片：有站源调 startDirect 从头播第一集；豆瓣片无站源时后台按片名搜一次，取第一个有站源的结果直接播，搜不到回落搜索页并提示。 */
+    private void playDirect(Vod item) {
+        if (item == null || !isAdded()) return;
+        String siteKey = item.getSiteKey();
+        if (!TextUtils.isEmpty(siteKey) && !TextUtils.isEmpty(item.getId())) {
+            VideoActivity.startDirect(requireActivity(), siteKey, item.getId(), item.getName(), item.getPic(), item.getRemarks());
+            return;
+        }
+        final String name = item.getName();
+        new Thread(() -> {
+            Vod found = searchFirstByName(name);
+            App.post(() -> {
+                if (!isAdded()) return;
+                if (found != null) {
+                    VideoActivity.startDirect(requireActivity(), found.getSiteKey(), found.getId(), found.getName(), found.getPic(), found.getRemarks());
+                } else {
+                    Notify.show(R.string.dice_direct_not_found);
+                    SearchActivity.start(requireActivity(), name);
+                }
+            });
+        }).start();
+    }
+
+    /** 后台按片名在当前站搜一次（SearchActivity 用的同一条 SiteApi.searchContent），取第一个有 siteKey + id 的结果；无站源或搜不到返回 null。 */
+    private Vod searchFirstByName(String name) {
+        try {
+            Site home = VodConfig.get().getHome();
+            if (home == null || TextUtils.isEmpty(home.getKey()) || TextUtils.isEmpty(name)) return null;
+            Result result = SiteApi.searchContent(home, name, false, "1");
+            if (result == null || result.getList() == null) return null;
+            for (Vod vod : result.getList()) {
+                if (vod != null && !TextUtils.isEmpty(vod.getSiteKey()) && !TextUtils.isEmpty(vod.getId())) return vod;
+            }
+        } catch (Exception ignored) {
+            // 搜不到/搜失败都走回落搜索页，不抛错。
+        }
+        return null;
     }
 
     /** 点片进详情：有站源走详情页；豆瓣 Vod 无站源，走站内搜索片名，不硬编站源字段。 */
@@ -297,6 +343,28 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
     /** 切池：记下新池并重拉一波候选海报填进老虎机（重建 chips 时 mBuilding 拦住，不会误触）。 */
     private void onPoolSelected(String pool) {
         DiceSetting.putPool(pool);
+        prefetchPrefill();
+    }
+
+    private void rebuildCategoryChips() {
+        mBuilding = true;
+        mBinding.categoryGroup.removeAllViews();
+        String current = DiceSetting.getCategory();
+        addSingleChip(mBinding.categoryGroup, getString(R.string.dice_category_all), DiceSetting.CATEGORY_ALL, DiceSetting.CATEGORY_ALL.equals(current), checked -> {
+            if (checked) onCategorySelected(DiceSetting.CATEGORY_ALL);
+        });
+        addSingleChip(mBinding.categoryGroup, getString(R.string.dice_category_movie), DiceSetting.CATEGORY_MOVIE, DiceSetting.CATEGORY_MOVIE.equals(current), checked -> {
+            if (checked) onCategorySelected(DiceSetting.CATEGORY_MOVIE);
+        });
+        addSingleChip(mBinding.categoryGroup, getString(R.string.dice_category_tv), DiceSetting.CATEGORY_TV, DiceSetting.CATEGORY_TV.equals(current), checked -> {
+            if (checked) onCategorySelected(DiceSetting.CATEGORY_TV);
+        });
+        mBuilding = false;
+    }
+
+    /** 切类别：记下新档并重拉一波候选海报填进老虎机；与切池各记各的键，不互相串。 */
+    private void onCategorySelected(String category) {
+        DiceSetting.putCategory(category);
         prefetchPrefill();
     }
 
@@ -540,6 +608,7 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
                     DicePreset preset = new DicePreset();
                     preset.name = name;
                     preset.pool = DiceSetting.getPool();
+                    preset.category = DiceSetting.getCategory();
                     preset.moods = new ArrayList<>(DiceSetting.getMoods());
                     preset.types = new ArrayList<>(DiceSetting.getTypes());
                     preset.duration = DiceSetting.getDuration();
@@ -556,6 +625,7 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
     private void applyPreset(DicePreset preset) {
         if (preset == null) return;
         DiceSetting.putPool(preset.pool == null ? DiceEngine.POOL_DOUBAN : preset.pool);
+        DiceSetting.putCategory(preset.category == null ? DiceSetting.CATEGORY_ALL : preset.category);
         DiceSetting.putMoods(preset.moods == null ? Collections.emptyList() : preset.moods);
         DiceSetting.putTypes(preset.types == null ? Collections.emptyList() : preset.types);
         DiceSetting.putDuration(preset.duration == null ? "" : preset.duration);
@@ -563,6 +633,7 @@ public class DiceFragment extends BaseFragment implements DiceResultAdapter.OnAc
         DiceSetting.putBlockFilm(preset.blockFilm);
         DiceSetting.putBlockGenre(preset.blockGenre);
         rebuildPoolChips();
+        rebuildCategoryChips();
         rebuildMoodChips();
         rebuildDurationChips();
         rebuildTypeChips();
