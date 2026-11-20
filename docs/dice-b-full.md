@@ -81,4 +81,5 @@
 - 删掉的旧东西（本轮不再用）：DiceResultAdapter.java + adapter_dice_result.xml（纵向结果/历史行），纵向“摇出的片”列表与结果区随之去掉——摇出的片由老虎机三列海报 + 片名展示。dice_hint / dice_result_title 两个字符串暂留（未删串，只是不再引用）。其余逻辑（四池、类别三档、海报点播、预取、兜底 toast、预设保存/应用带类别、不重复/避雷/题材屏蔽、背景换色、清空历史）全部保留，只换皮不动逻辑。
 - 字符串：新增 dice_category_title（类别）、dice_preset_save_chip（+ 保存）、dice_history_reshake（再摇一次）、dice_history_keep（加入收藏）、dice_history_block（永久避雷）；dice_duration_title 由“时长”改成“时长筛选”（贴图）。
 - 验证：本机 git diff --check 通过；逐行核对（进页版式与参考图一致；三列海报/片名/点播正常；四池 + 摇一摇 pill 正常；预设应用正常；心情多选正常；类型 chips 跟着站源换、无筛选时有回落；三个开关正常；历史横卡三个按钮正常；长按海报加想看能用；无悬空引用、无旧包名回流、底栏仍 6 项）；无 JDK/SDK 不本地编译，编译检查走 GitHub Actions；真机验证待用户装新测试版确认。
+- 构建修复：首版 4 处 HorizontalScrollView 用了不存在的 XML 属性 android:horizontalScrollBarEnabled（只有 View 方法，没有同名 XML 属性），手机两个构建与测试 job 全在 process*Resources 资源链接失败；改成 android:scrollbars="none"，重编。
 - Recovery tag：由 task_guard finish 创建 recovery/dice-round-6/&lt;timestamp&gt;。
