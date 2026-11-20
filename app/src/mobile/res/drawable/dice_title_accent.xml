@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 喜好页标题左侧黄色竖条 accent（贴参考图） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFC107" />
+    <corners android:radius="2dp" />
+</shape>

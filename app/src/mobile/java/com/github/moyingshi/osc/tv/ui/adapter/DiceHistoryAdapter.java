@@ -7,29 +7,34 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.moyingshi.osc.tv.bean.Vod;
-import com.github.moyingshi.osc.tv.databinding.AdapterDiceResultBinding;
+import com.github.moyingshi.osc.tv.databinding.AdapterDiceHistoryCardBinding;
 import com.github.moyingshi.osc.tv.utils.ImgUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** 喜好页结果 / 历史行：海报 + 片名 + 收藏 / 想看 / 避雷三个操作，点行进详情。 */
-public class DiceResultAdapter extends RecyclerView.Adapter<DiceResultAdapter.Holder> {
+/**
+ * 骰子历史记录横向卡片（第 6 轮，贴参考图）：海报 + 片名 + 再摇一次 / 加入收藏 / 永久避雷。
+ * 点卡片进详情；长按海报加入想看（想看入口挪到这里，原结果行按钮随纵向结果列表一起去掉）。
+ */
+public class DiceHistoryAdapter extends RecyclerView.Adapter<DiceHistoryAdapter.Holder> {
 
-    public interface OnActionListener {
+    public interface OnHistoryActionListener {
         void onItemClick(Vod item);
 
         void onKeep(Vod item);
 
-        void onWant(Vod item);
-
         void onBlock(Vod item);
+
+        void onReshake(Vod item);
+
+        void onWant(Vod item);
     }
 
-    private final OnActionListener mListener;
+    private final OnHistoryActionListener mListener;
     private final List<Vod> mItems = new ArrayList<>();
 
-    public DiceResultAdapter(OnActionListener listener) {
+    public DiceHistoryAdapter(OnHistoryActionListener listener) {
         mListener = listener;
     }
 
@@ -49,7 +54,7 @@ public class DiceResultAdapter extends RecyclerView.Adapter<DiceResultAdapter.Ho
     @NonNull
     @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return new Holder(AdapterDiceResultBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        return new Holder(AdapterDiceHistoryCardBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
     }
 
     @Override
@@ -64,9 +69,9 @@ public class DiceResultAdapter extends RecyclerView.Adapter<DiceResultAdapter.Ho
 
     class Holder extends RecyclerView.ViewHolder {
 
-        private final AdapterDiceResultBinding mBinding;
+        private final AdapterDiceHistoryCardBinding mBinding;
 
-        Holder(AdapterDiceResultBinding binding) {
+        Holder(AdapterDiceHistoryCardBinding binding) {
             super(binding.getRoot());
             mBinding = binding;
         }
@@ -74,16 +79,14 @@ public class DiceResultAdapter extends RecyclerView.Adapter<DiceResultAdapter.Ho
         void bind(Vod item) {
             ImgUtil.load(item.getName(), item.getPic(), mBinding.pic);
             mBinding.name.setText(item.getName());
-            String info = item.getTypeName();
-            if (item.getSite() != null && !item.getSite().getDisplayName().isEmpty()) {
-                info = item.getSite().getDisplayName() + (info.isEmpty() ? "" : " · " + info);
-            }
-            mBinding.info.setText(info);
-            mBinding.info.setVisibility(info.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE);
             final Vod vod = item;
             mBinding.getRoot().setOnClickListener(v -> mListener.onItemClick(vod));
+            mBinding.pic.setOnLongClickListener(v -> {
+                mListener.onWant(vod);
+                return true;
+            });
+            mBinding.reshakeButton.setOnClickListener(v -> mListener.onReshake(vod));
             mBinding.keepButton.setOnClickListener(v -> mListener.onKeep(vod));
-            mBinding.wantButton.setOnClickListener(v -> mListener.onWant(vod));
             mBinding.blockButton.setOnClickListener(v -> mListener.onBlock(vod));
         }
     }

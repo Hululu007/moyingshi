@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 老虎机每列上下紫色圆角帽檐（贴参考图） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FF8A5CF6" />
+    <corners android:radius="10dp" />
+</shape>

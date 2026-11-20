@@ -69,3 +69,16 @@
 ## 回滚
 - 各阶段独立 guard 会话 + 独立 recovery tag；出问题按 tag 回退该阶段提交；数据库 v50 迁移只加表，不改旧表，降级安装会清库是 Room 默认行为，接受（测试版）。
 - 未确认点（报告 §7：Keep type 映射、x0 分支、收藏同步云端目标、站源池取数细节）不写死，按墨影视现有实现走，不把推断说成定论。
+
+## 第 6 轮（dice-round-6，2026-11-21 用户发参考界面截图，要求照着 1:1 复刻）
+- 版式来源：用户发的参考图 `~/workspace/user/files/1000305733_0_h1p2.jpg`，从上到下 7 个分区一一对应：① 顶栏（标题左侧黄色竖条 accent + 右上角彩色圆点图标）② 老虎机（三列、每列上下紫色圆角帽檐、中间海报、下方每列对应片名白字截断省略号）③ 池子行（药丸 chips 横向滚动）④ 预设行（描边药丸 chips）⑤ 心情（标题 + 两行横向滚动 chips）⑥ 随机设置（可折叠，默认展开：时长筛选 + 影片类型 + 类别 + 三个 iOS 风格开关）⑦ 骰子历史记录（横向滚动卡片：海报 + 片名 + 再摇一次 / 加入收藏 / 永久避雷）。整页底色保持现有深色 #0B0F16 一系。
+- 版式改动（fragment_dice.xml 全面重排）：标题行加 4dp 黄色竖条（新 drawable dice_title_accent.xml）+ 右上角背景按钮改成彩色圆点图标（新 vector drawable ic_dice_bg.xml，圆圈描边 + 黄/绿/蓝/粉四色圆点，点它仍是切换背景色）；老虎机上下各加一排三条紫色圆角帽檐（新 drawable dice_slot_brim.xml，#FF8A5CF6，10dp 圆角，与三列同宽、2dp 间隙对齐）；老虎机下方新增三列片名行（slotName0/1/2，白字 13sp，maxLines=1 截断省略号）；池子行改成 HorizontalScrollView（4 个池药丸 + 摇一摇药丸，旧大宽摇片按钮、类别旧位置、提示语、纵向“摇出的片”列表全部去掉）；预设行挪到池子行下方（横向滚动描边药丸，行末“+ 保存”小 chip，点预设应用、长按删除、保存入口都在行内）；心情改成两行横向滚动（moodGroupRow1/Row2，内置 + 自定义心情按序交错分两行）；类别三档挪进随机设置折叠区（影片类型下面单独一行，带“类别”小标题）；三个开关顺序按图改成不重复抽取 / 题材屏蔽 / 避雷影片，并换成 iOS 风格（新 res/color/dice_switch_track.xml 开=浅蓝 #FF8AB4F8、关=深灰，dice_switch_thumb.xml 白圆点）；随机设置折叠箭头按图改成展开“∧”/折叠“∨”；历史改成横向 RecyclerView（新 DiceHistoryAdapter + adapter_dice_history_card.xml，卡片 120dp 宽：海报 120x160 + 片名 + 再摇一次 / 加入收藏 / 永久避雷三个蓝色小字按钮）。
+- 选中态配色（贴图）：池子选中粉紫实心 #FFAC6F9C、心情选中鼠尾草绿实心 #FF7F9E7F、时长/类型/类别选中紫色实心 #FF8A7CC8；未选中一律透明底 + 灰描边 #FF5A6B80 + 浅字；可选 chip 统一 40dp 高、18dp 圆角、14sp 字；池子药丸与摇一摇药丸最小宽 96dp。
+- 老虎机（SlotMachineView.java，只加一个方法，建带修法原封不动）：新增 visibleNames()，按当前竖带位移算每列正中可见格的片名；DiceFragment 在预取填入后与停转回调里调 updateSlotNames() 刷新下方三列片名（停下后是结果片，进页未摇时是预取候选片）。点海报直接播（第 5 轮 playDirect）、预取、兜底 toast 全部保留。
+- 摇一摇药丸就是摇片按钮：点它摇片，摇动中显示“摇片中…”并禁用，摇完恢复“再摇一次”；历史卡片“再摇一次”同样调 onShake() 按当前设置重新摇一次；“加入收藏”进 Keep 表（原 onKeep），“永久避雷”进屏蔽名单并从历史记录里删掉这部片（原 onBlock + 删历史 JSON）。
+- 想看入口：长按历史卡片海报加入想看（Want 表，原 onWant，toast 不变）。原结果行想看按钮随纵向结果列表一起去掉，收藏/避雷已在历史卡片上有。
+- 影片类型取自站源筛选数据（用户明确要求，不写死）：DiceFragment.loadSiteTypes() 后台调 SiteApi.homeContent(当前站源)，从返回 Result 的各 Class.getFilters() 里取表“类型/题材”的那一组——判定是 key == "class"（忽略大小写）或 name 含“类型/分类/题材”，值取 Filter.Value.getN()（空则 getV()），去重、去掉“全部/全部类型”后展示；这份数据就是 SiteApi.setTypes 按 typeId 把 Result.getFilters() 挂到各 type 上之后的那份，首页筛选弹窗 TypeFilterDialog 用的同一份（TypeFilterDialog.FilterProvider 取 Class.getFilters()）。切站后跟着换（onResume 发现 home key 变了才重取，代次 mTypeGen 拦住迟到回调）；某站源没有这类筛选数据（无站源、拉取失败、filters 为空）时回落到现有写死列表（喜剧/爱情/动作/科幻/悬疑/剧情/动画/恐怖），绝不出现空行；已选但不在新列表里的类型值追加在末尾，选中态不悄悄丢。类型 chips 仍存 DiceSetting dice_types，进 DiceEngine.filterMoodType 那条筛选路，逻辑与之前一致。
+- 删掉的旧东西（本轮不再用）：DiceResultAdapter.java + adapter_dice_result.xml（纵向结果/历史行），纵向“摇出的片”列表与结果区随之去掉——摇出的片由老虎机三列海报 + 片名展示。dice_hint / dice_result_title 两个字符串暂留（未删串，只是不再引用）。其余逻辑（四池、类别三档、海报点播、预取、兜底 toast、预设保存/应用带类别、不重复/避雷/题材屏蔽、背景换色、清空历史）全部保留，只换皮不动逻辑。
+- 字符串：新增 dice_category_title（类别）、dice_preset_save_chip（+ 保存）、dice_history_reshake（再摇一次）、dice_history_keep（加入收藏）、dice_history_block（永久避雷）；dice_duration_title 由“时长”改成“时长筛选”（贴图）。
+- 验证：本机 git diff --check 通过；逐行核对（进页版式与参考图一致；三列海报/片名/点播正常；四池 + 摇一摇 pill 正常；预设应用正常；心情多选正常；类型 chips 跟着站源换、无筛选时有回落；三个开关正常；历史横卡三个按钮正常；长按海报加想看能用；无悬空引用、无旧包名回流、底栏仍 6 项）；无 JDK/SDK 不本地编译，编译检查走 GitHub Actions；真机验证待用户装新测试版确认。
+- Recovery tag：由 task_guard finish 创建 recovery/dice-round-6/&lt;timestamp&gt;。

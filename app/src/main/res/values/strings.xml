@@ -3251,7 +3251,7 @@
     <string name="dice_prefetch_empty">暂时拉不到候选海报，先用占位显示</string>
     <string name="dice_mood_title">心情</string>
     <string name="dice_settings_title">随机设置</string>
-    <string name="dice_duration_title">时长</string>
+    <string name="dice_duration_title">时长筛选</string>
     <string name="dice_duration_any">不限</string>
     <string name="dice_duration_long">长片</string>
     <string name="dice_duration_short">短片</string>
@@ -3268,4 +3268,9 @@
     <string name="dice_shaking">摇片中…</string>
     <string name="dice_result_title">摇出的片</string>
     <string name="dice_block">避雷</string>
+    <string name="dice_category_title">类别</string>
+    <string name="dice_preset_save_chip">+ 保存</string>
+    <string name="dice_history_reshake">再摇一次</string>
+    <string name="dice_history_keep">加入收藏</string>
+    <string name="dice_history_block">永久避雷</string>
 </resources>

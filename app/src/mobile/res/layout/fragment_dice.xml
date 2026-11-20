@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 喜好选片页（第 6 轮，贴参考图 1:1）：标题 accent + 老虎机紫色帽檐 + 池子/摇一摇药丸行
+     + 预设行 + 心情两行 + 随机设置折叠区 + 骰子历史横向卡片；整页深色底 -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/diceRoot"
@@ -16,12 +18,18 @@
         android:paddingTop="12dp"
         android:paddingBottom="24dp">
 
-        <!-- 标题行：喜好选片 + 右侧背景按钮 -->
+        <!-- 标题行：黄色竖条 accent + 喜好选片 + 右上角彩色圆点背景按钮 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <View
+                android:layout_width="4dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/dice_title_accent" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:layout_width="0dp"
@@ -32,14 +40,42 @@
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
-            <com.google.android.material.button.MaterialButton
+            <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/bgButton"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:minWidth="0dp"
-                android:text="@string/dice_bg_title"
-                android:textColor="@android:color/white" />
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/dice_bg_title"
+                android:src="@drawable/ic_dice_bg" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 老虎机上帽檐：每列一条紫色圆角帽檐 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/dice_slot_brim" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:layout_weight="1"
+                android:background="@drawable/dice_slot_brim" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/dice_slot_brim" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -48,56 +84,138 @@
             android:id="@+id/slotMachine"
             android:layout_width="match_parent"
             android:layout_height="220dp"
-            android:layout_marginTop="12dp" />
+            android:layout_marginTop="2dp" />
 
-        <!-- 胶囊行：池切换 + 摇一摇 -->
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/poolGroup"
+        <!-- 老虎机下帽檐 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/dice_slot_brim" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
+                android:layout_weight="1"
+                android:background="@drawable/dice_slot_brim" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/dice_slot_brim" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 老虎机每列下方片名（白字、超长截断加省略号） -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/slotName0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@android:color/white"
+                android:textSize="13sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/slotName1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@android:color/white"
+                android:textSize="13sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/slotName2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@android:color/white"
+                android:textSize="13sp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 池子行：4 个池药丸 + 摇一摇药丸（摇片按钮），整行横向滚动 -->
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:singleSelection="true" />
+            android:horizontalScrollBarEnabled="false">
 
-        <!-- 类别三档：全部 / 电影 / 电视剧（默认全部），在池子 chips 下方 -->
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/categoryGroup"
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/poolGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleLine="true"
+                    app:singleSelection="true" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/shakeChip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:checkable="false"
+                    android:text="@string/dice_shake" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+        </HorizontalScrollView>
+
+        <!-- 预设行：描边药丸 chips 横向滚动，行末 + 保存 -->
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            app:singleSelection="true" />
+            android:horizontalScrollBarEnabled="false">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/shakeButton"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="8dp"
-            android:text="@string/dice_shake" />
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/hintText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="@string/dice_hint"
-            android:textColor="#B3FFFFFF"
-            android:textSize="13sp" />
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/presetGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleLine="true" />
 
-        <!-- 摇出的 3 部 -->
-        <com.google.android.material.textview.MaterialTextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/dice_result_title"
-            android:textColor="@android:color/white"
-            android:textSize="17sp"
-            android:textStyle="bold" />
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/savePresetChip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:checkable="false"
+                    android:text="@string/dice_preset_save_chip" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/resultList"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+        </HorizontalScrollView>
 
         <!-- 心情 -->
         <com.google.android.material.textview.MaterialTextView
@@ -109,11 +227,33 @@
             android:textSize="17sp"
             android:textStyle="bold" />
 
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/moodGroup"
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
+            android:layout_marginTop="8dp"
+            android:horizontalScrollBarEnabled="false">
+
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/moodGroupRow1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleLine="true" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/moodGroupRow2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:singleLine="true" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+        </HorizontalScrollView>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/addMoodButton"
@@ -123,26 +263,23 @@
             android:text="@string/dice_add_mood"
             android:textColor="@android:color/white" />
 
-        <!-- 随机设置（可折叠） -->
+        <!-- 随机设置（可折叠，默认展开） -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/settingsHeader"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
-            android:background="@drawable/shape_setting_row_card"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp">
+            android:orientation="horizontal">
 
             <com.google.android.material.textview.MaterialTextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/dice_settings_title"
-                android:textColor="@color/setting_card_title"
+                android:textColor="@android:color/white"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -150,8 +287,8 @@
                 android:id="@+id/settingsArrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="▾"
-                android:textColor="@color/setting_card_value"
+                android:text="∧"
+                android:textColor="@android:color/white"
                 android:textSize="18sp" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
@@ -167,7 +304,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/dice_duration_title"
-                android:textColor="@android:color/white"
+                android:textColor="#B3FFFFFF"
                 android:textSize="15sp" />
 
             <com.google.android.material.chip.ChipGroup
@@ -180,41 +317,84 @@
             <com.google.android.material.textview.MaterialTextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
                 android:text="@string/dice_type_title"
-                android:textColor="@android:color/white"
+                android:textColor="#B3FFFFFF"
+                android:textSize="15sp" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:horizontalScrollBarEnabled="false">
+
+                <androidx.appcompat.widget.LinearLayoutCompat
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/typeGroupRow1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:singleLine="true" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/typeGroupRow2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:singleLine="true" />
+
+                </androidx.appcompat.widget.LinearLayoutCompat>
+
+            </HorizontalScrollView>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/dice_category_title"
+                android:textColor="#B3FFFFFF"
                 android:textSize="15sp" />
 
             <com.google.android.material.chip.ChipGroup
-                android:id="@+id/typeGroup"
+                android:id="@+id/categoryGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" />
+                android:layout_marginTop="4dp"
+                app:singleSelection="true" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchNoRepeat"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:text="@string/dice_no_repeat"
-                android:textColor="@android:color/white" />
-
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/switchBlockFilm"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="@string/dice_block_film"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                app:thumbTint="@color/dice_switch_thumb"
+                app:trackTint="@color/dice_switch_track" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchBlockGenre"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:text="@string/dice_block_genre"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                app:thumbTint="@color/dice_switch_thumb"
+                app:trackTint="@color/dice_switch_track" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchBlockFilm"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="@string/dice_block_film"
+                android:textColor="@android:color/white"
+                app:thumbTint="@color/dice_switch_thumb"
+                app:trackTint="@color/dice_switch_track" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
-        <!-- 骰子历史记录 -->
+        <!-- 骰子历史记录：横向滚动卡片 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -255,32 +435,8 @@
             android:id="@+id/historyList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:nestedScrollingEnabled="false" />
-
-        <!-- 我的预设 -->
-        <com.google.android.material.textview.MaterialTextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/dice_preset_title"
-            android:textColor="@android:color/white"
-            android:textSize="17sp"
-            android:textStyle="bold" />
-
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/presetGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/savePresetButton"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginTop="4dp"
-            android:text="@string/dice_preset_save"
-            android:textColor="@android:color/white" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 

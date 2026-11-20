@@ -271,6 +271,23 @@ public class SlotMachineView extends LinearLayout {
         }
     }
 
+    /** 当前每列正中可见格的片名（第 6 轮：老虎机下方每列片名行用它展示；停下后是结果片，进页未摇时是预取候选片）。 */
+    public List<String> visibleNames() {
+        List<String> names = new ArrayList<>();
+        for (int column = 0; column < COLUMN_COUNT; column++) {
+            int index = 0;
+            if (mItemHeight > 0) {
+                index = Math.round(-mStrips[column].getTranslationY() / (float) mItemHeight);
+                if (index < 0) index = 0;
+                if (index >= STRIP_SIZE) index = STRIP_SIZE - 1;
+            }
+            List<Vod> strip = mStripLists.get(column);
+            Vod vod = index < strip.size() ? strip.get(index) : null;
+            names.add(vod == null || TextUtils.isEmpty(vod.getName()) ? "" : vod.getName());
+        }
+        return names;
+    }
+
     private List<String> resultNames() {
         List<String> names = new ArrayList<>();
         for (Vod vod : mResults) names.add(vod == null || TextUtils.isEmpty(vod.getName()) ? "" : vod.getName());
