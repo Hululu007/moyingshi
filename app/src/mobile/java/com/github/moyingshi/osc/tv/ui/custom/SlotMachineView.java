@@ -29,6 +29,14 @@ import java.util.Random;
  * 每列是一条海报竖带，点摇后减速、依次停下（900/1400/1900ms 错峰），
  * 每列停在摇出的那部片海报正中；海报缺失/加载失败用素色占位，绝不画“?”。
  * 首次摇之前三列也是中性素色占位。
+ *
+ * <p>建带策略（dice-fix-4）：机身高固定 220dp（见 fragment_dice.xml），格高
+ * 已知，不等 measure/onSizeChanged——init() 里先按 220dp 建好 36 格占位，
+ * 子 View 在第一次 measure 之前就存在；竖带用精确高度（12 格 × 格高）
+ * 而不用 WRAP_CONTENT，子 View 永远落在带子自身边界内，不靠事后重测；
+ * onLayout() 再按实测高纠正（高度变了或数据代次变了才重建）。
+ * 旧写法只在 onSizeChanged（layout 阶段、measure 已过）里建带，实测
+ * 三状态全程一片底色：带子 measure 时还是空的，子 View 从没进可见区。
  */
 public class SlotMachineView extends LinearLayout {
 
@@ -38,6 +46,8 @@ public class SlotMachineView extends LinearLayout {
 
     private static final int COLUMN_COUNT = 3;
     private static final int STRIP_SIZE = 12;
+    /** 机身固定高（fragment_dice.xml 里 220dp）：格高先按它建带，布局后再按实测高纠正。 */
+    private static final int MACHINE_HEIGHT_DP = 220;
 
     private final FrameLayout[] mColumns = new FrameLayout[COLUMN_COUNT];
     private final LinearLayout[] mStrips = new LinearLayout[COLUMN_COUNT];
@@ -54,6 +64,11 @@ public class SlotMachineView extends LinearLayout {
     /** cancel 触发的 onAnimationEnd 不算正常停转，拦住它误发 onStop。 */
     private boolean mCancelled;
     private int mItemHeight;
+    /** 带子是否已建成；上次建带用的格高与数据代次（onLayout 只在变了时重建）。 */
+    private boolean mStripsBuilt;
+    private int mBuiltItemHeight;
+    private int mDataGen;
+    private int mBuiltDataGen = -1;
 
     public SlotMachineView(Context context) {
         super(context);
@@ -67,6 +82,8 @@ public class SlotMachineView extends LinearLayout {
 
     private void init() {
         setOrientation(HORIZONTAL);
+        // 格高先按已知的固定机身高取，带子在构造时就能建，不等第一次布局。
+        mItemHeight = dp(MACHINE_HEIGHT_DP);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.parseColor("#FF141A26"));
         bg.setCornerRadius(24f);
@@ -87,6 +104,9 @@ public class SlotMachineView extends LinearLayout {
             mStrips[i] = strip;
             addView(column);
         }
+        // 进页第一帧就有东西：先按空数据建 12 格占位，预取/摇片回来再换海报。
+        buildStripLists();
+        buildStrips();
     }
 
     private int dp(int value) {
@@ -119,7 +139,9 @@ public class SlotMachineView extends LinearLayout {
         mFillers.clear();
         if (fillers != null) mFillers.addAll(fillers);
         buildStripLists();
+        mDataGen++;
         if (mItemHeight > 0) buildStrips();
+        else post(this::ensureStrips);
     }
 
     /** 兼容旧调用：只有片名、无海报时整列用素色占位。 */
@@ -142,17 +164,22 @@ public class SlotMachineView extends LinearLayout {
             for (int i = 0; i < STRIP_SIZE - 1; i++) {
                 strip.add(shuffled.isEmpty() ? null : shuffled.get((column * 5 + i) % shuffled.size()));
             }
-            strip.add(mResults.get(column));
+            strip.add(column < mResults.size() ? mResults.get(column) : null);
             mStripLists.set(column, strip);
         }
     }
 
     private void buildStrips() {
+        if (mItemHeight <= 0) return;
         clearImages();
         for (int column = 0; column < COLUMN_COUNT; column++) {
             LinearLayout strip = mStrips[column];
             strip.removeAllViews();
             strip.setTranslationY(0f);
+            // 带子定高 12 格 × 格高（精确值，不用 WRAP_CONTENT）：12 格永远落在
+            // 带子自身边界内，measure 不再依赖建带时序；列框只裁出正中一格。
+            strip.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, STRIP_SIZE * mItemHeight));
             for (Vod vod : mStripLists.get(column)) {
                 ImageView image = new ImageView(getContext());
                 image.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, mItemHeight));
@@ -166,6 +193,16 @@ public class SlotMachineView extends LinearLayout {
                 strip.addView(image);
             }
         }
+        mStripsBuilt = true;
+        mBuiltItemHeight = mItemHeight;
+        mBuiltDataGen = mDataGen;
+        requestLayout();
+    }
+
+    /** 高度已知且带子未建（或高度/数据变了）时建带；onLayout/onAttachedToWindow 的兜底入口。 */
+    private void ensureStrips() {
+        if (mItemHeight <= 0) return;
+        if (!mStripsBuilt || mBuiltItemHeight != mItemHeight || mBuiltDataGen != mDataGen) buildStrips();
     }
 
     private void clearImages() {
@@ -235,13 +272,19 @@ public class SlotMachineView extends LinearLayout {
     }
 
     @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        post(this::ensureStrips);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        int h = bottom - top;
         if (h <= 0) return;
-        if (mItemHeight != h) {
-            mItemHeight = h;
-            buildStrips();
-        }
+        // 实测高与先取的 220dp 不一致时按实测重建；高度/数据没变时 ensureStrips 是空操作。
+        if (mItemHeight != h) mItemHeight = h;
+        ensureStrips();
     }
 
     @Override
@@ -249,6 +292,8 @@ public class SlotMachineView extends LinearLayout {
         cancelAnimators();
         clearImages();
         mSpinning = false;
+        // Glide clear 会把已加载海报的 drawable 置空：重挂时按 ensureStrips 重建带子补回占位/海报。
+        mStripsBuilt = false;
         super.onDetachedFromWindow();
     }
 }

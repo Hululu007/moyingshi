@@ -4,9 +4,9 @@
 - 目标：墨影视新增 Rove 同款“喜好选片”（老虎机摇片），B 全套：老虎机动画 + 4 片池（豆瓣/想看/收藏/当前站源）+ 心情/类型/时长筛选 + 不重复/避雷/题材屏蔽 + 历史/预设/背景换色。
 - 用户批准：2026-11-20 10:19 定做 B 全套版；10:21 发截图定入口在首页搜索条内右侧、历史图标左侧放骰子按钮；增强设置“特色功能”开关（默认开）控制其显隐。
 - 分析报告：~/workspace/rove-like/ANALYSIS.md（290 行权威版）。Rove APK 仅作原理参考，**不搬对方美术资源与代码原文，全部自画自写**。
-- 分支/HEAD：main @ 0df4c7ae（dice-fix-2 已提交，待推 origin 编测试版）+ 本次修复一次原子提交（dice-fix-3）。
-- 阶段：① 数据层已完成 ② UI 与 ③ 池与逻辑已完成并发布 ④ 修复 2（dice-fix-2）：选中态 + 站源池心情生效 + 老虎机改海报滚动，已做完，待推 origin 编测试版。⑤ 修复 3（dice-fix-3）：空原因分开报 + 站源空时豆瓣兜底并明示 + 进页/切池预取海报 + 占位加亮描边，已做完，待推 origin 编测试版。
-- 当前状态：dice-fix-3 已完成并提交，待核对后推 origin 编测试版。约定：dice_duration ""=不限、"long"=长片、"short"=短片；dice_bg 0=跟随主题（默认深色底），1–4 为色板下标；dice_mode 保留未用；摇片历史存 Vod 数组 JSON；豆瓣 Vod 无站源，点详情走站内搜索片名，不硬编站源字段。
+- 分支/HEAD：main @ 92279395（dice-fix-3 已推并发 v5.6.0-beta-202611201517）+ 本次修复一次原子提交（dice-fix-4）。
+- 阶段：① 数据层已完成 ② UI 与 ③ 池与逻辑已完成并发布 ④ 修复 2（dice-fix-2）：选中态 + 站源池心情生效 + 老虎机改海报滚动，已发 v5.6.0-beta-202611201341。⑤ 修复 3（dice-fix-3）：空原因分开报 + 站源空时豆瓣兜底并明示 + 进页/切池预取海报 + 占位加亮描边，已发 v5.6.0-beta-202611201517。⑥ 修复 4（dice-fix-4）：老虎机三状态全程空白，建带时序重构，正在做。
+- 当前状态：dice-fix-4 进行中（只动 SlotMachineView.java + 本文档）。约定：dice_duration ""=不限、"long"=长片、"short"=短片；dice_bg 0=跟随主题（默认深色底），1–4 为色板下标；dice_mode 保留未用；摇片历史存 Vod 数组 JSON；豆瓣 Vod 无站源，点详情走站内搜索片名，不硬编站源字段。
 
 ## 修复 3（dice-fix-3，2026-11-20 15:10 用户截图，装 v5.6.0-beta-202611201341）
 - ① 空原因分开报，不再一句 dice_no_result 盖住所有情况：无站源仍 dice_no_site；站源首页无内容新增 dice_site_empty（“当前站源没有返回内容，换个站源或检查网络再试试”）；历史抽完仍 dice_exhausted（分支保留 candidates 非空守卫，空候选不误判）；全被避雷/题材屏蔽滤掉新增 dice_all_blocked（candidates 非空、base 为空、非全历史时逐项重算 blockedNames/blockedTags，全是才报）；其余仍 dice_no_result。
@@ -17,6 +17,14 @@
 - ② 预填失败也有东西显示：素色占位 + toast dice_prefetch_empty（“暂时拉不到候选海报，先用占位显示”），一页只 toast 一次。
 - ④ 心情多选核实（只看代码）：moodGroup 布局无 singleSelection（默认多选），点一个心情只切换该 chip，addMultiChip 监听调 saveMultiSelection 存整组选中态，mBuilding 守卫拦住重建时的写入；截图四心情全选是之前点选攒下的持久化多选，无 bug，未动心情逻辑。
 - Recovery tag：由 task_guard finish 创建 recovery/dice-fix-3/&lt;timestamp&gt;。
+
+## 修复 4（dice-fix-4，2026-11-20 20:33 用户截图 + 20:34 6.7 秒录屏，装 v5.6.0-beta-202611201517）
+- 现象：摇片能出结果（结果区海报正常），但老虎机进页、摇动中、停下后三个状态全程空白。录屏抽帧（f_001 摇之前、f_003 摇片中、f_007 第二摇摇片中）像素核查：机器区 y≈250–570 全是均匀 (20,27,37) 即 view 自身背景 #141A26；占位色 #2A3648、描边 #3D4E66、列分隔、海报一概没有，占位色像素全在 y≥600（下方 chips），机器里一个子 View 都没画出来。
+- 根因：建带只发生在两条路——initView 的 setItems（当时 mItemHeight==0，只建了数据表，没建子 View）和 onSizeChanged（layout 阶段、measure 已过）；竖带是 WRAP_CONTENT 高、每格又占满整机高，measure 时带子还是空的（高 0），之后没有任何一次重测把 12 格铺进可见区。摇片流程本身在跑（onSuccess→setItems→spin→onStop→结果区出片，f_007 结果已换新），spin 跑起来说明当时 mItemHeight>0、setItems 也调过 buildStrips，但子 View 始终没画出来——丢在“建带时序 + WRAP_CONTENT 带子”这一环，不是某一行写错，也不是网络/Glide（结果区同一批海报正常加载）。两版占位 Drawable（fix-2 纯色 #1E293B、fix-3 渐变描边）都空白，佐证与 Drawable 无关。
+- 改了什么（只动 SlotMachineView.java 一个文件，spin 减速/停转回调、占位色、DiceFragment/DiceEngine/布局均未动）：① init() 先按已知的固定机身高 220dp（fragment_dice.xml 定值）建带，36 格占位在第一次 measure 之前就存在，进页第一帧就有东西；② 竖带改精确高度 12 格 × 格高，不用 WRAP_CONTENT，12 格永远落在带子自身边界内，不再靠事后重测；③ onSizeChanged 换成 onLayout() + onAttachedToWindow() 的 ensureStrips 兜底（高度或数据代次变了才重建，高度/数据没变是空操作，摇动中不打断平移）；④ setItems 记数据代次 mDataGen，高度未知时 post 补建；⑤ buildStripLists 取末格结果加越界守卫（init 时 mResults 为空，直接 get 会越界）；⑥ onDetachedFromWindow 置 mStripsBuilt=false，重挂时重建（Glide clear 会置空已加载海报的 drawable）。
+- 验证：本机 git diff --check 通过；逐行核对（进页占位、摇动滚动可见、停下是结果海报、占位可见、无悬空引用、无旧包名回流、底栏仍 6 项）；无 JDK/SDK 不本地编译，编译检查走 GitHub Actions；真机三状态验证待用户装新测试版确认。
+- 顺手清理：核查“修复 3”一节全文无 U+FFFD 乱码字符，“心情无匹配同样回落整池”一句已是正确文字，无需改；Recovery anchor 两行旧状态文案（fix-2/fix-3“待推 origin 编测试版”）已按实际更新：fix-2 已发 v5.6.0-beta-202611201341，fix-3 已发 v5.6.0-beta-202611201517。
+- Recovery tag：由 task_guard finish 创建 recovery/dice-fix-4/&lt;timestamp&gt;。
 
 ## 修复 2（dice-fix-2，2026-11-20 13:36 用户两张截图）
 - ① 选中态：全部可选 chip（池/心情/类型/时长）共用 styleSelectableChip——选中实心主色 #0B57D0 + 白字 + 对勾，未选中深灰底 #232D3D + 浅字；预设 chip 深灰底白字。
