@@ -52,6 +52,7 @@ import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.AppBranding;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
+import com.github.moyingshi.osc.tv.ui.activity.DiceActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
 import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
@@ -197,6 +198,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             return true;
         });
         mBinding.searchHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
+        mBinding.searchDice.setOnClickListener(v -> DiceActivity.start(requireActivity()));
+        mBinding.searchDice.setVisibility(Setting.isDiceEntry() ? View.VISIBLE : View.GONE);
         mBinding.searchMore.setOnClickListener(this::onSearchMore);
         mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
         mBinding.toolbar.post(this::setSearchLongClick);
@@ -851,6 +854,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         super.onResume();
         if (mWeb != null) mWeb.onResume();
         if (mBinding == null) return;
+        mBinding.searchDice.setVisibility(Setting.isDiceEntry() ? View.VISIBLE : View.GONE);
         refreshContinue();
         refreshWidgets();
         if (mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();

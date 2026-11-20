@@ -3238,4 +3238,24 @@
     <string name="dice_blocked_toast">已加入避雷，以后不再摇到它</string>
     <string name="dice_add_want">已加入想看</string>
     <string name="dice_add_keep">已加入收藏</string>
+    <string name="dice_exhausted">本池符合条件的片已摇完，关掉不重复抽取或换个标签再试</string>
+    <string name="dice_mood_title">心情</string>
+    <string name="dice_settings_title">随机设置</string>
+    <string name="dice_duration_title">时长</string>
+    <string name="dice_duration_any">不限</string>
+    <string name="dice_duration_long">长片</string>
+    <string name="dice_duration_short">短片</string>
+    <string name="dice_type_title">影片类型</string>
+    <string name="dice_no_repeat">不重复抽取</string>
+    <string name="dice_block_film">避雷影片</string>
+    <string name="dice_block_genre">题材屏蔽</string>
+    <string name="dice_bg_title">背景</string>
+    <string name="dice_preset_save">保存当前筛选</string>
+    <string name="dice_preset_hint">给这个预设起个名字</string>
+    <string name="dice_clear_history">清空</string>
+    <string name="dice_add_mood">+ 自定义心情</string>
+    <string name="dice_mood_hint">输入心情标签，如：治愈</string>
+    <string name="dice_shaking">摇片中…</string>
+    <string name="dice_result_title">摇出的片</string>
+    <string name="dice_block">避雷</string>
 </resources>
