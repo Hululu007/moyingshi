@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首页筛选面板专用背景：跟随壁纸。
+     旧版用 shape_dialog_control_glass_panel（填充 80–90% 不透明），把壁纸盖得死死的，
+     面板看起来就是一块实色深蓝紫底。
+     本文件只降填充不透明度到约 60%（色相/角度/22dp 顶圆角/1dp 白描边与旧版一致），
+     其余玻璃效果复用现有机制，不另造：
+     - 窗口背景模糊：BaseBottomSheetDialog 已调 ThemeController.bindDialog()，
+       液态玻璃开 + API 31+ 时按「模糊效果」设置（默认 10dp）模糊弹窗后的内容（壁纸+首页），
+       模糊后的底色透过这层半透明填充就是磨砂玻璃；
+     - 兜底：玻璃关或低版本没有窗口模糊时，这层约 60% 深色填充本身就是遮罩，
+       白字/chips（自带半透明底）压在上面仍看得清；壁纸再浅也有这层深色托底。
+     只供 dialog_type_filter.xml 使用；其他弹窗仍用 shape_dialog_control_glass_panel，别动它。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="315"
+        android:centerColor="#9A282955"
+        android:endColor="#93303463"
+        android:startColor="#A62F315E" />
+
+    <corners
+        android:topLeftRadius="22dp"
+        android:topRightRadius="22dp" />
+
+    <stroke
+        android:width="1dp"
+        android:color="#66FFFFFF" />
+</shape>

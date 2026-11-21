@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 首页浏览面板（全部分类 + 筛选合成一个）：上半是分类 chips（与旧 TypeDialog 同款），
      中间分隔线 + “筛选”标题，下半是筛选组列表（与旧 FilterDialog 同款）。
-     无筛选条件时分隔线/标题/筛选列表全部隐藏，不留空白。 -->
+     无筛选条件时分隔线/标题/筛选列表全部隐藏，不留空白。
+     背景用 shape_dialog_type_filter_wallpaper（半透明深色渐变，约 60% 不透明）：
+     弹窗后的壁纸经窗口背景模糊（ThemeController.bindDialog，液态玻璃开 + API 31+，
+     半径跟「模糊效果」设置）透出来，面板跟随壁纸；玻璃关/低版本无模糊时这层填充
+     本身就是遮罩，白字与 chips 仍看得清。别换回实色底的 shape_dialog_control_glass_panel。 -->
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/shape_dialog_control_glass_panel"
+    android:background="@drawable/shape_dialog_type_filter_wallpaper"
     android:clipChildren="false"
     android:clipToPadding="false"
     android:orientation="vertical"
