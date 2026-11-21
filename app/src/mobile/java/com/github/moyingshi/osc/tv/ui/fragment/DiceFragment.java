@@ -2,6 +2,7 @@ package com.github.moyingshi.osc.tv.ui.fragment;
 
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -50,12 +51,11 @@ import java.util.List;
  * 喜好选片页：老虎机摇片 + 4 个池 + 心情 / 类型 / 时长筛选 + 不重复 / 避雷 / 题材屏蔽
  * + 摇片历史 + 我的预设 + 背景换色。状态读写全部走 DiceSetting，想看走 Want 表。
  *
- * <p>第 6 轮版式（贴用户参考图 1:1）：标题黄色竖条 accent + 右上角彩色圆点背景按钮；
- * 老虎机每列上下紫色圆角帽檐，下方每列对应片名；池子行是 4 个池药丸 + 摇一摇药丸
- * （横向滚动，摇一摇即摇片按钮，不再留大宽按钮）；预设行在池子行下方（描边药丸，
- * 行末 + 保存）；心情两行横向滚动；随机设置可折叠，内含时长筛选、影片类型、类别
- * 三档与三个 iOS 风格开关；骰子历史记录是横向滚动卡片（海报 + 片名 + 再摇一次 /
- * 加入收藏 / 永久避雷）；摇出的片不再另列纵向列表，由老虎机三列海报 + 片名展示。
+ * <p>第 7 轮版式：老虎机机身 150dp（第 6 轮 220dp）；池子行只剩 4 个池药丸
+ * （横向滚动），摇一摇挪到池子行下方做通栏圆角按钮（帽檐紫实心，摇动中显示
+ * “摇片中…”并禁用，摇完恢复“再摇一次”）；全页 chips 未选中态改深色半透明底
+ * + 白字 + 浅色描边（旧透明底会被 ChipDrawable 与主题浅色 surface 合成浅灰底，
+ * 白字压上去看不清）。其余版式与第 6 轮一致。
  * 想看入口：长按历史卡片海报加入想看（原结果行想看按钮随纵向结果列表一起去掉）。
  *
  * <p>影片类型 chips 取自当前站源的筛选数据（见 loadSiteTypes）：SiteApi.homeContent
@@ -77,11 +77,16 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
     private static final String[] BUILTIN_TYPES = {"喜剧", "爱情", "动作", "科幻", "悬疑", "剧情", "动画", "恐怖"};
     private static final int[] BG_COLORS = {0xFF0B0F16, 0xFF101826, 0xFF1A1025, 0xFF0F1F16, 0xFF241016};
     private static final int HISTORY_LIMIT = 30;
-    /** 选中态配色（贴参考图）：池子粉紫实心、心情鼠尾草绿实心、时长/类型/类别紫色实心；未选中描边透明底。 */
+    /** 选中态配色（贴参考图）：池子粉紫实心、心情鼠尾草绿实心、时长/类型/类别紫色实心；未选中深色半透明底 + 白字 + 浅色描边（第 7 轮：旧透明底会被 ChipDrawable 与主题浅色 surface 合成浅灰底，浅字压上去几乎看不见，见 styleSelectableChip）。 */
     private static final int CHIP_POOL_CHECKED_BG = 0xFFAC6F9C;
     private static final int CHIP_MOOD_CHECKED_BG = 0xFF7F9E7F;
     private static final int CHIP_PURPLE_CHECKED_BG = 0xFF8A7CC8;
-    private static final int CHIP_UNCHECKED_STROKE = 0xFF5A6B80;
+    /** 未选中底：深 slate、90% 不透明——盖住 Chip 默认的浅色 surface，任何背景色下都是深底白字；描边 50% 白。 */
+    private static final int CHIP_UNCHECKED_BG = 0xE61E2430;
+    private static final int CHIP_UNCHECKED_STROKE = 0x80FFFFFF;
+    /** 摇一摇通栏按钮：启用态帽檐紫实心，禁用态（摇片中）暗紫实心，文字始终白字（禁用态 70% 白）。 */
+    private static final int SHAKE_BG = 0xFF8A5CF6;
+    private static final int SHAKE_BG_DISABLED = 0xFF4E4368;
 
     private static final Type VOD_LIST_TYPE = TypeToken.getParameterized(List.class, Vod.class).getType();
     private static final Type PRESET_LIST_TYPE = TypeToken.getParameterized(List.class, DicePreset.class).getType();
@@ -146,7 +151,7 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         updateSlotNames();
         prefetchPrefill();
         applyBg();
-        styleShakeChip();
+        styleShakeButton();
         styleSavePresetChip();
         rebuildPoolChips();
         rebuildCategoryChips();
@@ -163,7 +168,7 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
 
     @Override
     protected void initEvent() {
-        mBinding.shakeChip.setOnClickListener(v -> onShake());
+        mBinding.shakeButton.setOnClickListener(v -> onShake());
         mBinding.bgButton.setOnClickListener(v -> cycleBg());
         mBinding.addMoodButton.setOnClickListener(v -> showAddMoodDialog());
         mBinding.settingsHeader.setOnClickListener(v -> toggleSettings());
@@ -193,8 +198,8 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         // 进行中的预取作废：迟到的预填回调不许盖掉本轮摇出的结果。
         mPrefetchGen++;
         mShaking = true;
-        mBinding.shakeChip.setEnabled(false);
-        mBinding.shakeChip.setText(R.string.dice_shaking);
+        mBinding.shakeButton.setEnabled(false);
+        mBinding.shakeButton.setText(R.string.dice_shaking);
         DiceEngine.roll(new DiceEngine.Callback() {
             @Override
             public void onSuccess(List<Vod> items, boolean fallback, boolean moodFallback, boolean siteFallback, boolean categoryFallback, List<Vod> fillers) {
@@ -212,8 +217,8 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
             public void onError(String message) {
                 if (!isAdded() || mBinding == null) return;
                 mShaking = false;
-                mBinding.shakeChip.setEnabled(true);
-                mBinding.shakeChip.setText(R.string.dice_reshake);
+                mBinding.shakeButton.setEnabled(true);
+                mBinding.shakeButton.setText(R.string.dice_reshake);
                 Notify.show(message);
             }
         });
@@ -223,8 +228,8 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
     private void onSlotStopped() {
         if (!isAdded() || mBinding == null) return;
         mShaking = false;
-        mBinding.shakeChip.setEnabled(true);
-        mBinding.shakeChip.setText(R.string.dice_reshake);
+        mBinding.shakeButton.setEnabled(true);
+        mBinding.shakeButton.setText(R.string.dice_reshake);
         updateSlotNames();
         List<Vod> results = mPendingResults == null ? Collections.emptyList() : new ArrayList<>(mPendingResults);
         appendHistory(results);
@@ -588,14 +593,14 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         group.addView(chip);
     }
 
-    /** 可选 chip 共用：选中实心彩色 + 白字 + 对勾，未选中透明底 + 灰描边 + 浅字（贴参考图药丸样式）。 */
+    /** 可选 chip 共用：选中实心彩色 + 白字 + 对勾，未选中深色半透明底 + 纯白字 + 浅色描边（贴参考图药丸样式）。未选中底不用 TRANSPARENT：ChipDrawable 会把透明底与主题默认的浅色 surface 合成，实测整片变浅灰底、浅字压上去看不清（第 7 轮用户截图）。 */
     private void styleSelectableChip(Chip chip, int checkedBg) {
         chip.setChipBackgroundColor(new ColorStateList(
                 new int[][]{{android.R.attr.state_checked}, {}},
-                new int[]{checkedBg, Color.TRANSPARENT}));
+                new int[]{checkedBg, CHIP_UNCHECKED_BG}));
         chip.setTextColor(new ColorStateList(
                 new int[][]{{android.R.attr.state_checked}, {}},
-                new int[]{Color.WHITE, 0xFFE6EAF2}));
+                new int[]{Color.WHITE, Color.WHITE}));
         chip.setCheckedIconVisible(true);
         chip.setCheckedIconTint(ColorStateList.valueOf(Color.WHITE));
         chip.setChipStrokeColor(new ColorStateList(
@@ -608,10 +613,10 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
     }
 
-    /** 不可选中药丸（摇一摇 / + 保存 / 预设）：透明底 + 灰描边 + 浅字。 */
+    /** 不可选中药丸（+ 保存 / 预设）：深色半透明底 + 白字 + 浅色描边，与可选 chip 的未选中态同款（同款透明底变浅灰问题见 styleSelectableChip）。 */
     private void styleOutlineChip(Chip chip) {
-        chip.setChipBackgroundColor(ColorStateList.valueOf(Color.TRANSPARENT));
-        chip.setTextColor(ColorStateList.valueOf(0xFFE6EAF2));
+        chip.setChipBackgroundColor(ColorStateList.valueOf(CHIP_UNCHECKED_BG));
+        chip.setTextColor(ColorStateList.valueOf(Color.WHITE));
         chip.setCheckedIconVisible(false);
         chip.setChipStrokeColor(ColorStateList.valueOf(CHIP_UNCHECKED_STROKE));
         chip.setChipStrokeWidth(requireContext().getResources().getDisplayMetrics().density);
@@ -621,9 +626,16 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
     }
 
-    private void styleShakeChip() {
-        styleOutlineChip(mBinding.shakeChip);
-        mBinding.shakeChip.setMinWidth(dp(96));
+    /** 摇一摇通栏按钮（第 7 轮，旧池子行药丸已删）：帽檐紫实心 + 白字，禁用态（摇片中）暗紫实心 + 70% 白字，摇动中也看得清；圆角 24dp 与 48dp 高配成药丸形。 */
+    private void styleShakeButton() {
+        mBinding.shakeButton.setBackgroundTintList(new ColorStateList(
+                new int[][]{{-android.R.attr.state_enabled}, {}},
+                new int[]{SHAKE_BG_DISABLED, SHAKE_BG}));
+        mBinding.shakeButton.setTextColor(new ColorStateList(
+                new int[][]{{-android.R.attr.state_enabled}, {}},
+                new int[]{0xB3FFFFFF, Color.WHITE}));
+        mBinding.shakeButton.setCornerRadius(dp(24));
+        mBinding.shakeButton.setTypeface(null, Typeface.BOLD);
     }
 
     private void styleSavePresetChip() {

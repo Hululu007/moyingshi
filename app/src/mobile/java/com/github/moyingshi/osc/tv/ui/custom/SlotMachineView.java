@@ -30,8 +30,8 @@ import java.util.Random;
  * 每列停在摇出的那部片海报正中；海报缺失/加载失败用素色占位，绝不画“?”。
  * 首次摇之前三列也是中性素色占位。
  *
- * <p>建带策略（dice-fix-4）：机身高固定 220dp（见 fragment_dice.xml），格高
- * 已知，不等 measure/onSizeChanged——init() 里先按 220dp 建好 36 格占位，
+ * <p>建带策略（dice-fix-4）：机身高固定 150dp（见 fragment_dice.xml），格高
+ * 已知，不等 measure/onSizeChanged——init() 里先按 150dp 建好 36 格占位，
  * 子 View 在第一次 measure 之前就存在；竖带用精确高度（12 格 × 格高）
  * 而不用 WRAP_CONTENT，子 View 永远落在带子自身边界内，不靠事后重测；
  * onLayout() 再按实测高纠正（高度变了或数据代次变了才重建）。
@@ -51,8 +51,8 @@ public class SlotMachineView extends LinearLayout {
 
     private static final int COLUMN_COUNT = 3;
     private static final int STRIP_SIZE = 12;
-    /** 机身固定高（fragment_dice.xml 里 220dp）：格高先按它建带，布局后再按实测高纠正。 */
-    private static final int MACHINE_HEIGHT_DP = 220;
+    /** 机身固定高（fragment_dice.xml 里 150dp）：格高先按它建带，布局后再按实测高纠正。 */
+    private static final int MACHINE_HEIGHT_DP = 150;
 
     private final FrameLayout[] mColumns = new FrameLayout[COLUMN_COUNT];
     private final LinearLayout[] mStrips = new LinearLayout[COLUMN_COUNT];
@@ -322,7 +322,7 @@ public class SlotMachineView extends LinearLayout {
         super.onLayout(changed, left, top, right, bottom);
         int h = bottom - top;
         if (h <= 0) return;
-        // 实测高与先取的 220dp 不一致时按实测重建；高度/数据没变时 ensureStrips 是空操作。
+        // 实测高与先取的 150dp 不一致时按实测重建；高度/数据没变时 ensureStrips 是空操作。
         if (mItemHeight != h) mItemHeight = h;
         ensureStrips();
     }

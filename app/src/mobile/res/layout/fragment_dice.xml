@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 喜好选片页（第 6 轮，贴参考图 1:1）：标题 accent + 老虎机紫色帽檐 + 池子/摇一摇药丸行
-     + 预设行 + 心情两行 + 随机设置折叠区 + 骰子历史横向卡片；整页深色底 -->
+<!-- 喜好选片页（第 7 轮）：标题 accent + 老虎机紫色帽檐（机身 150dp）+ 池子行
+     + 通栏摇一摇按钮 + 预设行 + 心情两行 + 随机设置折叠区 + 骰子历史横向卡片；整页深色底 -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/diceRoot"
@@ -83,7 +83,7 @@
         <com.github.moyingshi.osc.tv.ui.custom.SlotMachineView
             android:id="@+id/slotMachine"
             android:layout_width="match_parent"
-            android:layout_height="220dp"
+            android:layout_height="150dp"
             android:layout_marginTop="2dp" />
 
         <!-- 老虎机下帽檐 -->
@@ -156,36 +156,31 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
-        <!-- 池子行：4 个池药丸 + 摇一摇药丸（摇片按钮），整行横向滚动 -->
+        <!-- 池子行：4 个池药丸，整行横向滚动（摇一摇已挪到下方通栏按钮） -->
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:scrollbars="none">
 
-            <androidx.appcompat.widget.LinearLayoutCompat
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/poolGroup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/poolGroup"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true"
-                    app:singleSelection="true" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/shakeChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:checkable="false"
-                    android:text="@string/dice_shake" />
-
-            </androidx.appcompat.widget.LinearLayoutCompat>
+                app:singleLine="true"
+                app:singleSelection="true" />
 
         </HorizontalScrollView>
+
+        <!-- 摇一摇：通栏圆角按钮（第 7 轮，旧池子行药丸已删），点它摇片 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/shakeButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/dice_shake"
+            android:textSize="15sp"
+            app:cornerRadius="24dp" />
 
         <!-- 预设行：描边药丸 chips 横向滚动，行末 + 保存 -->
         <HorizontalScrollView
