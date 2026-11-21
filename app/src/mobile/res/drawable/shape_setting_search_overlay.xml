@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings search overlay background: LOCKED at 20% transparent (80% opaque).
+     The search page root used to be fully transparent, so the settings page and
+     wallpaper behind it bled through and the result rows ghosted over the settings
+     rows (see the 2026-11-21 screenshot). This fill is deliberately NOT tied to
+     the liquid-glass / blur / dialogOpacity settings: it must stay at 80% opaque
+     on any wallpaper so the result text is always legible.
+     Do NOT change the alpha here, and do NOT reuse this for the type-filter
+     bottom sheet (that one is intentionally more transparent, ~60%, so the
+     wallpaper shows through). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#CC141A26" />
+</shape>
