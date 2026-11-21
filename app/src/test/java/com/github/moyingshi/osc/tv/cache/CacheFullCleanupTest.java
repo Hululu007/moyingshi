@@ -79,7 +79,7 @@ public class CacheFullCleanupTest {
                 CacheCleanupManager.clearTemporaryFiles(cache, 0L, 0L, true, true, NOW);
 
         assertTrue(outcome.success());
-        assertTrue("the running updater keeps its download", apk.exists());
+        assertTrue("a running transfer keeps its download", apk.exists());
         assertTrue("the running push keeps its archive", pushed.exists());
     }
 
@@ -164,7 +164,7 @@ public class CacheFullCleanupTest {
 
         assertTrue("a deferred playback cache keeps its tree", new File(playback, "segment.bin").exists());
         assertTrue("the mpv recovery file is never swept", recovery.exists());
-        assertTrue("the running updater keeps its download", apk.exists());
+        assertTrue("a running transfer keeps its download", apk.exists());
         assertFalse(leftover.exists());
         assertFalse("the skipped files must be reported: " + warnings, warnings.isEmpty());
     }
@@ -180,7 +180,7 @@ public class CacheFullCleanupTest {
      * plain click back into a tiered run. That is how both defects shipped.
      *
      * <p>The call sites can not be reached from a JVM test (they resolve
-     * {@code App.get().getCacheDir()}, {@code Updater.isDownloading()} and the player state), so
+     * {@code App.get().getCacheDir()}, the in-flight download flag and the player state), so
      * they are locked the way this repository locks its other Android-only call sites: by reading
      * the production source and asserting the decision is made by the shared rule instead of being
      * written at the call site.</p>

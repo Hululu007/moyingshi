@@ -52,7 +52,7 @@ public final class AboutDialog {
     private AboutDialog() {
     }
 
-    public static void show(FragmentActivity activity, Runnable updateAction) {
+    public static void show(FragmentActivity activity) {
         DialogAboutBinding binding = DialogAboutBinding.inflate(LayoutInflater.from(activity));
         binding.version.setText(activity.getString(R.string.about_version, AppVersion.fullName(), BuildConfig.FLAVOR_mode, BuildConfig.FLAVOR_abi));
         binding.version.setOnClickListener(v -> onVersionClick());
@@ -61,14 +61,6 @@ public final class AboutDialog {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(binding.getRoot());
         binding.confirm.setOnClickListener(v -> dialog.dismiss());
-        binding.updateSettings.setOnClickListener(v -> {
-            dialog.dismiss();
-            UpdateSettingsDialog.show(activity);
-        });
-        binding.checkUpdate.setOnClickListener(v -> {
-            dialog.dismiss();
-            if (updateAction != null) updateAction.run();
-        });
         binding.githubProxy.setOnClickListener(v -> showGithubProxy(activity));
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();

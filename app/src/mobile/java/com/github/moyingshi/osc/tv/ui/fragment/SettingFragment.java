@@ -12,7 +12,6 @@ import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.Updater;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.api.config.WallConfig;
@@ -595,7 +594,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     }
 
     private void onVersion() {
-        AboutDialog.show(requireActivity(), () -> Updater.create().force().start(requireActivity()));
+        AboutDialog.show(requireActivity());
     }
 
     private void setWallDefault() {

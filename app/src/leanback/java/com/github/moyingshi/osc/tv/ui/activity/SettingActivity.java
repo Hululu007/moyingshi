@@ -9,7 +9,6 @@ import android.view.View;
 import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.Updater;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
 import com.github.moyingshi.osc.tv.api.config.WallConfig;
@@ -276,7 +275,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     private void onVersion(View view) {
-        AboutDialog.show(this, () -> Updater.create().force().start(this));
+        AboutDialog.show(this);
     }
 
     private void setWallDefault(View view) {

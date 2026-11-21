@@ -4,7 +4,6 @@ import androidx.media3.mpvplayer.MpvHlsCacheCoordinator;
 
 import com.bumptech.glide.Glide;
 import com.github.moyingshi.osc.tv.App;
-import com.github.moyingshi.osc.tv.Updater;
 import com.github.moyingshi.osc.tv.api.loader.BaseLoader;
 import com.github.moyingshi.osc.tv.api.parser.EpgParser;
 import com.github.moyingshi.osc.tv.player.exo.MediaSourceFactory;
@@ -212,7 +211,7 @@ public final class CacheCleanupManager {
                         CacheModuleId.UNCLASSIFIED, completed, total, 0, 0)));
             }
             preserved.addAll(activePluginScripts(cache));
-            sweepResidual(cache, preserved, Updater.isDownloading(), ApkUrlPush.isActive(), warnings);
+            sweepResidual(cache, preserved, false, ApkUrlPush.isActive(), warnings);
         }
         CacheUsage after = measureCache(cache);
         CacheCleanupStatus status = cancelled ? CacheCleanupStatus.CANCELLED
@@ -370,7 +369,7 @@ public final class CacheCleanupManager {
             case PLUGIN_SCRIPTS -> clearPluginCache(explicitRetention(mode, retention),
                     Set.copyOf(BaseLoader.get().activePluginKeys()));
             case TEMP_FILES -> clearTemporaryFiles(cache, explicitRetention(mode, TEMP_RETENTION_MS), limit,
-                    Updater.isDownloading(), ApkUrlPush.isActive(), System.currentTimeMillis());
+                    false, ApkUrlPush.isActive(), System.currentTimeMillis());
             case DIAGNOSTIC_LOGS -> outcome(clearDiagnosticLogs());
             case PLUGIN_AUDIT -> outcome(clearPluginAudit());
             case PLUGIN_HTTP_CACHE -> clearTree(new File(cache, PluginHttpCache.DIRECTORY));

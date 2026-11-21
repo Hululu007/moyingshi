@@ -23,7 +23,6 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
-import com.github.moyingshi.osc.tv.Updater;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.server.process.ApkUrlPush;
 import com.github.moyingshi.osc.tv.setting.Setting;
@@ -81,7 +80,7 @@ public abstract class BaseActivity extends AppCompatActivity {
      * {@code 900..1080} 整条是窗口背景黑。
      *
      * <p>电视端本来就全屏沉浸（{@link Util#hideSystemUI}），且各弹层自己留了 overscan 安全边距
-     * （见 AboutDialog / UpdateDialog 的注释），所以这里在 DecorView 上装一个"只消费、不加内边距"
+     * （见 AboutDialog 的注释），所以这里在 DecorView 上装一个"只消费、不加内边距"
      * 的监听器，inset 不再下发给任何一层，内容铺满窗口。没有 inset 的电视/盒子上这条路径
      * 与改动前完全一致（insets 为 0 时各层本来就不会加内边距）。
      *
@@ -221,7 +220,6 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         TouchOptimizationHelper.sync(getWindow().getDecorView());
-        Updater.create().resume(this);
         ApkUrlPush.get().resume(this);
     }
 

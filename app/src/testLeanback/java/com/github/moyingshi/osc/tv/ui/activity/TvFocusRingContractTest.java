@@ -49,7 +49,6 @@ public class TvFocusRingContractTest {
     private static final String COLORS = "app/src/main/res/values/colors.xml";
     private static final String DIMENS = "app/src/main/res/values/webhtv_dimens.xml";
     private static final String ABOUT_LAYOUT = "app/src/main/res/layout/dialog_about.xml";
-    private static final String ABOUT_ICON = "app/src/main/res/drawable/about_primary_icon_button.xml";
     private static final String FOLLOWING_ITEM = "app/src/main/res/layout/item_following.xml";
     private static final String FOLLOWING_LEANBACK = "app/src/leanback/res/layout/activity_following.xml";
 
@@ -60,7 +59,6 @@ public class TvFocusRingContractTest {
 
     private static final String PRIMARY_BG = "app/src/main/res/color/dialog_primary_button_bg.xml";
     private static final String PRIMARY_TEXT = "app/src/main/res/color/dialog_primary_button_text.xml";
-    private static final String VERSION_ITEM = "app/src/main/res/drawable/selector_update_version_item.xml";
 
     private static final String WIDTH = "@dimen/webhtv_focus_ring_width";
 
@@ -69,9 +67,6 @@ public class TvFocusRingContractTest {
 
     private static final String LEANBACK_DRAWABLE = "app/src/leanback/res/drawable/";
 
-    private static final String UPDATE_LEANBACK = "app/src/leanback/res/layout/dialog_update.xml";
-    private static final String UPDATE_MOBILE = "app/src/mobile/res/layout/dialog_update.xml";
-    private static final String ABOUT_ICON_TINT = "app/src/main/res/color/about_primary_icon_tint.xml";
 
     // ------------------------------------------------------------ R3 主题控制
 
@@ -980,21 +975,17 @@ public class TvFocusRingContractTest {
             }
             assertTrue(layout + " 至少应有一个带环控件", ringed > 0);
         }
-        // 齿轮图标是普通 drawable，描边宽度同样只能引用 token。
-        String gear = values(read(ABOUT_ICON));
-        assertTrue("齿轮必须引用统一焦点环宽度 token", gear.contains(WIDTH));
-        assertFalse("齿轮不允许写死描边宽度", gear.contains("android:width=\"3dp\""));
     }
 
     // ------------------------------------------------------------ R1 边框环真的加上去了
 
     @Test
-    public void aboutDialogButtonsAndGearShowABorderRingWhenFocused() throws Exception {
+    public void aboutDialogButtonsShowABorderRingWhenFocused() throws Exception {
         String layout = values(read(ABOUT_LAYOUT));
 
-        // 三个按钮都必须有描边通道。它们此前只有 app:backgroundTint，填充即主题色，
+        // 两个按钮都必须有描边通道。它们此前只有 app:backgroundTint，填充即主题色，
         // 焦点态没有任何额外视觉线索。
-        for (String id : new String[]{"checkUpdate", "githubProxy", "confirm"}) {
+        for (String id : new String[]{"githubProxy", "confirm"}) {
             int start = layout.indexOf("android:id=\"@+id/" + id + "\"");
             assertTrue(id + " 必须存在于关于弹窗布局", start >= 0);
             int end = layout.indexOf("/>", start);
@@ -1004,17 +995,6 @@ public class TvFocusRingContractTest {
             assertTrue(id + " 的环色必须取聚焦填充（primary container）的配对 on-色",
                     button.contains("app:strokeColor=\"@color/focus_ring_primary_container\""));
         }
-
-        // 齿轮图标按钮：焦点态 = primary container 填充 + 配对 on-色环，不再写死 #0B57D0。
-        String gear = values(read(ABOUT_ICON));
-        assertTrue("齿轮焦点态必须画主题色填充", gear.contains("android:color=\"?attr/colorPrimaryContainer\""));
-        assertTrue("齿轮焦点态必须画配对 on-色边框环",
-                gear.contains("android:color=\"?attr/colorOnPrimaryContainer\""));
-        assertTrue("齿轮描边必须使用统一宽度 token", gear.contains(WIDTH));
-        assertFalse("齿轮不允许再写死 #0B57D0", gear.contains("#0B57D0"));
-        // 擦除态保留同宽透明描边，避免焦点切换改变尺寸。
-        assertTrue("齿轮非聚焦态必须保留同宽透明描边",
-                gear.contains("android:color=\"@color/transparent\""));
     }
 
     @Test
@@ -1084,34 +1064,6 @@ public class TvFocusRingContractTest {
         }
     }
 
-    // ------------------------------------------- 版本更新弹窗（用户实拍第二张照片）
-
-    /**
-     * R1 回归：版本更新弹窗的三个主按钮此前只有 app:backgroundTint，而
-     * dialog_primary_button_bg 的 focused 与 default 解析结果字节相同（都是
-     * webhtv_color_primary），所以焦点位置完全看不见。用户实拍照片里"更新测试版"
-     * 就是这个缺陷。两个 flavor 都必须补上描边环。
-     */
-    @Test
-    public void updateDialogPrimaryButtonsShowABorderRingWhenFocused() throws Exception {
-        for (String layout : new String[]{UPDATE_LEANBACK, UPDATE_MOBILE}) {
-            String body = values(read(layout));
-            for (String id : new String[]{"stableConfirm", "betaConfirm", "cancel"}) {
-                int start = body.indexOf("android:id=\"@+id/" + id + "\"");
-                assertTrue(layout + " 必须包含 " + id, start >= 0);
-                int end = body.indexOf("/>", start);
-                String button = body.substring(start, end);
-                assertTrue(layout + " 的 " + id + " 必须带描边色通道", button.contains("app:strokeColor="));
-                assertTrue(layout + " 的 " + id + " 必须带统一宽度的描边",
-                        button.contains("app:strokeWidth=\"" + WIDTH + "\""));
-                assertTrue(layout + " 的 " + id + " 环色必须取聚焦填充的配对 on-色",
-                        button.contains("app:strokeColor=\"@color/focus_ring_primary_container\""));
-                assertTrue(layout + " 的 " + id + " 必须仍然声明填充",
-                        button.contains("app:backgroundTint="));
-            }
-        }
-    }
-
     /**
      * 不变量：凡是消费 dialog_primary_button_bg 的按钮都必须自带描边环、并把文字色接成状态表。
      * 该填充状态表在聚焦时翻成深色 primary_container，因此缺环会让焦点少一个线索，
@@ -1145,7 +1097,7 @@ public class TvFocusRingContractTest {
                 cursor += 1;
             }
         }
-        assertTrue("全仓库应至少有几十个消费该填充的主按钮，实际 " + sites, sites >= 40);
+        assertTrue("全仓库应至少有几十个消费该填充的主按钮，实际 " + sites, sites >= 30);
         assertTrue("以下主按钮站点违反契约：\n  " + String.join("\n  ", failures), failures.isEmpty());
     }
 
@@ -1170,48 +1122,6 @@ public class TvFocusRingContractTest {
             }
         }
         return out;
-    }
-
-    // ------------------------------------------- 关于弹窗齿轮图标（用户实拍第一张照片）
-
-    /**
-     * R1 回归：齿轮图标未聚焦时背景全透明，直接贴在 colorSurfaceContainerHigh 面板上，
-     * 而 dialog_about.xml 此前硬写 app:tint="?attr/colorOnPrimary"（深蓝），
-     * 夜间 #062E6F / #2A2F34 = 1.05:1、浅色 #FFFFFF / #E7E8EF = 1.22:1 —— 两种主题
-     * 下图标都等于看不见。着色必须分状态，且常态取面板上的前景色。
-     */
-    @Test
-    public void aboutGearIconTintPairsWithTheBackgroundItActuallySitsOn() throws Exception {
-        String layout = values(read(ABOUT_LAYOUT));
-        int start = layout.indexOf("android:id=\"@+id/updateSettings\"");
-        assertTrue("关于弹窗必须有齿轮按钮", start >= 0);
-        String gear = layout.substring(start, layout.indexOf("/>", start));
-        assertTrue("齿轮必须引用状态化着色表", gear.contains("app:tint=\"@color/about_primary_icon_tint\""));
-        assertFalse("齿轮不得再硬写单一 on-primary 着色", gear.contains("app:tint=\"?attr/colorOnPrimary\""));
-
-        String tint = values(read(ABOUT_ICON_TINT));
-        // 聚焦态：背景被换成 colorPrimaryContainer，图标取配对 on-色。
-        assertTrue("齿轮聚焦态必须取配对 on-色",
-                tint.contains("android:color=\"?attr/colorOnPrimaryContainer\""));
-        assertFalse("齿轮聚焦态不得再用 on-primary 配 primary-container 填充（深色压深色）",
-                tint.contains("android:color=\"?attr/colorOnPrimary\""));
-        // 常态：背景透明，图标落在面板上，必须取面板上的前景色。
-        assertTrue("齿轮常态必须取面板上的前景色（on-surface-variant）",
-                tint.contains("android:color=\"?attr/colorOnSurfaceVariant\""));
-        assertFalse("齿轮着色不得写死颜色", tint.matches("(?s).*#[0-9A-Fa-f]{6}.*"));
-
-        // 对比度回归：两个分支各自与它实际所处的背景配对。
-        for (String tokens : new String[]{TOKENS_LIGHT, TOKENS_NIGHT}) {
-            String body = read(tokens);
-            String panel = tokenHex(body, "webhtv_color_surface_container_high");
-            String pContainer = tokenHex(body, "webhtv_color_primary_container");
-            String onPContainer = tokenHex(body, "webhtv_color_on_primary_container");
-            String onSurfaceVariant = tokenHex(body, "webhtv_color_on_surface_variant");
-            assertTrue(tokens + "：聚焦态齿轮图标必须与 primary container 填充 ≥3:1",
-                    contrast(onPContainer, pContainer) >= 3.0);
-            assertTrue(tokens + "：常态齿轮图标必须与弹窗面板 ≥3:1",
-                    contrast(onSurfaceVariant, panel) >= 3.0);
-        }
     }
 
     /**
@@ -1267,185 +1177,6 @@ public class TvFocusRingContractTest {
         }
         assertTrue("状态表里找不到分支：" + (statePredicate.isEmpty() ? "默认" : statePredicate), fallback != null);
         return fallback;
-    }
-
-    /**
-     * 不变量：版本卡的「已选中」必须与「未选中」可分辨。
-     *
-     * <p>用户报告的「几乎无法判断是否选中」在版本卡上还有第二个来源：旧方案的
-     * selected 填充 surfaceContainerHigh 与 default 填充 surfaceContainerHighest
-     * 只有 1.16:1，selected 描边对自身填充只有 1.45:1 —— 选中在视觉上等于没选中。
-     *
-     * <p>修法是让 focused / selected / default 三态互为反相：focused 是浅填充 +
-     * 深环，selected 是深填充 + 浅环（两者填充与环色恰好互换），default 是中性
-     * 表面色。本测试固定这个关系。
-     */
-    @Test
-    public void versionCardSelectedStateIsDistinguishableFromDefault() throws Exception {
-        String item = values(read(VERSION_ITEM));
-        // 三态都必须声明，且 focused 必须排在 selected 之前（否则选中态会吃掉焦点态）。
-        int focusedAt = item.indexOf("android:state_focused=\"true\"");
-        int selectedAt = item.indexOf("android:state_selected=\"true\"");
-        assertTrue("版本卡必须声明 focused 态", focusedAt >= 0);
-        assertTrue("版本卡必须声明 selected 态", selectedAt >= 0);
-        assertTrue("focused 必须排在 selected 之前，否则聚焦时看不到焦点环", focusedAt < selectedAt);
-        // 焦点环宽度必须走唯一 token，不得再写死。
-        assertFalse("版本卡不得写死环宽 2dp", item.contains("android:width=\"2dp\""));
-        assertTrue("版本卡三态都必须使用统一环宽 token",
-                countOf(item, "android:width=\"@dimen/webhtv_focus_ring_width\"") >= 2);
-
-        for (String tokens : new String[]{TOKENS_LIGHT, TOKENS_NIGHT}) {
-            String body = read(tokens);
-            String focusedFill = tokenHex(body, "webhtv_color_primary");
-            String focusedRing = tokenHex(body, "webhtv_color_on_primary");
-            String selectedFill = tokenHex(body, "webhtv_color_primary_container");
-            String selectedRing = tokenHex(body, "webhtv_color_primary");
-            String defaultFill = tokenHex(body, "webhtv_color_surface_container_highest");
-            String defaultStroke = tokenHex(body, "webhtv_color_outline_variant");
-
-            // 选中态必须自证：环对自身填充 ≥3:1（旧方案只有 1.45:1）。
-            assertTrue(tokens + "：版本卡选中环 " + selectedRing + " 对选中填充 " + selectedFill
-                            + " 只有 " + String.format("%.2f", contrast(selectedRing, selectedFill))
-                            + ":1，低于 3:1，看不出选中",
-                    contrast(selectedRing, selectedFill) >= 3.0);
-            // 真正的辨识线索是描边：选中态是浅色环，默认态是近乎隐形的静态轮廓。
-            // 旧方案两者都是 outlineVariant，所以"选中"与"没选中"看起来一样。
-            assertTrue(tokens + "：版本卡选中环 " + selectedRing + " 与默认轮廓 " + defaultStroke
-                            + " 只有 " + String.format("%.2f", contrast(selectedRing, defaultStroke))
-                            + ":1，低于 3:1，选中与未选中分不出来",
-                    contrast(selectedRing, defaultStroke) >= 3.0);
-            // focused 与 selected 的填充必须不同，否则两个线索退化成同一个。
-            assertTrue(tokens + "：版本卡 focused 填充与 selected 填充不得相同",
-                    contrast(focusedFill, selectedFill) >= 3.0);
-            // 默认态是静态轮廓，允许低对比（它不是焦点线索），但不能是零。
-            assertTrue(tokens + "：版本卡默认轮廓不得与默认填充完全同色",
-                    !defaultStroke.equalsIgnoreCase(defaultFill));
-        }
-    }
-
-    /**
-     * 回归（{@code 49b28bd91f9}）：版本卡一聚焦，卡内四类文字全部不可读。
-     *
-     * <p>{@code selector_update_version_item} 的 {@code state_focused} 分支用
-     * {@code ?attr/colorPrimary} 填充（夜间 {@code #A8C7FA} / 浅色 {@code #0B57D0}），
-     * 而卡片里的文字色是静态的。{@code UpdateDialog.onStart()} 会自动
-     * {@code stableItem.requestFocus()}，所以弹窗一打开就命中这个状态：
-     * Name/Desc 的 {@code colorOnSurface} 只有 1.33:1（夜间）/ 2.68:1（浅色），
-     * Version 的 {@code colorOnSurfaceVariant} 更低，Expand 的 {@code colorPrimary}
-     * 更是 1.00:1（两个主题都是）——完全看不见。三态填充与环色本身是对的，不动；
-     * 修法是让卡片文字跟随卡片焦点状态翻成填充的配对 on-色。
-     *
-     * <p>本测试同时钉死两件事：聚焦填充上的文字对比度，以及
-     * {@code android:duplicateParentState="true"} 确实把卡片焦点状态传到了文字上
-     * ——后者缺失时修复会静默失效（文字色看着改了，实际永远走默认分支）。
-     */
-    @Test
-    public void focusedVersionCardKeepsItsTextReadable() throws Exception {
-        // 1) 聚焦填充上的文字对比度（修复后夜间 7.50:1 / 浅色 6.39:1）。
-        for (String tokens : new String[]{TOKENS_LIGHT, TOKENS_NIGHT}) {
-            String body = read(tokens);
-            String fill = tokenHex(body, "webhtv_color_primary");
-            String text = tokenHex(body, "webhtv_color_on_primary");
-            double ratio = contrast(text, fill);
-            assertTrue(tokens + "：聚焦版本卡上的文字 " + text + " 压在填充 colorPrimary " + fill
-                            + " 上只有 " + String.format("%.2f", ratio) + ":1，低于 4.5:1，不可读",
-                    ratio >= 4.5);
-        }
-
-        // 2) 三个文字色状态表：聚焦/按下取填充的配对 on-色，默认态回到非聚焦原色。
-        String[][] stateLists = {
-                {"app/src/main/res/color/update_version_item_title.xml", "@color/webhtv_color_on_surface"},
-                {"app/src/main/res/color/update_version_item_meta.xml", "@color/webhtv_color_on_surface_variant"},
-                {"app/src/main/res/color/update_version_item_accent.xml", "@color/webhtv_color_primary"},
-        };
-        for (String[] entry : stateLists) {
-            String path = entry[0];
-            assertTrue(path + " 必须存在，否则卡片文字会退回静态色（49b28bd91f9 的回归）",
-                    Files.exists(Path.of(path)) || Files.exists(Path.of("..").resolve(path)));
-            String selector = values(read(path));
-            for (String state : new String[]{"android:state_focused=\"true\"", "android:state_pressed=\"true\""}) {
-                assertEquals(path + " 的 " + state + " 分支必须取填充的配对 on-色"
-                                + "（聚焦填充是 colorPrimary），否则文字会与填充同色",
-                        "@color/webhtv_color_on_primary", branchColor(selector, state));
-            }
-            assertEquals(path + " 的默认分支必须回到非聚焦态的原色",
-                    entry[1], branchColor(selector, ""));
-        }
-
-        // 3) 两布局必须真的**绑定**这三个表，并让状态传到文字上。
-        //    只断言状态表文件自身是不够的：把 8 处 textColor 换回静态 ?attr/colorOnSurface
-        //    就整体撤销了修复，而孤立的状态表文件仍然存在——那正是本仓库踩过的
-        //    「只测辅助函数未测调用点」陷阱。所以这里逐节点钉死绑定的字面量。
-        String[][] bindings = {
-                {"stableName", "@color/update_version_item_title"},
-                {"betaName", "@color/update_version_item_title"},
-                {"stableDesc", "@color/update_version_item_title"},
-                {"betaDesc", "@color/update_version_item_title"},
-                {"stableVersion", "@color/update_version_item_meta"},
-                {"betaVersion", "@color/update_version_item_meta"},
-                {"stableExpand", "@color/update_version_item_accent"},
-                {"betaExpand", "@color/update_version_item_accent"},
-        };
-        for (String layout : new String[]{UPDATE_LEANBACK, UPDATE_MOBILE}) {
-            String body = read(layout);
-            for (String[] binding : bindings) {
-                String id = binding[0];
-                String node = nodeOf(body, id);
-                assertTrue(layout + " 的 " + id + " 必须声明 android:duplicateParentState=\"true\"，"
-                                + "否则版本卡聚焦时它仍留在静态色上（49b28bd91f9 的回归）",
-                        node.contains("android:duplicateParentState=\"true\""));
-                assertTrue(layout + " 的 " + id + " 必须把 android:textColor 绑到 " + binding[1]
-                                + "，否则卡片聚焦时文字不会跟着翻色（49b28bd91f9 的回归）；实际是 "
-                                + textColourOrNone(node),
-                        node.contains("android:textColor=\"" + binding[1] + "\""));
-            }
-            for (String id : new String[]{"stableContent", "betaContent"}) {
-                assertTrue(layout + " 的 " + id + " 必须声明 android:duplicateParentState=\"true\"，"
-                                + "否则版本卡聚焦时它仍留在静态色上（49b28bd91f9 的回归）",
-                        nodeOf(body, id).contains("android:duplicateParentState=\"true\""));
-            }
-            // 卡片里那个无 id 的 header 容器装着 Name/Status/Expand，同样必须透传状态。
-            // 行尾必须容忍 CRLF：`read()` 读的是工作区文件，而 Windows 上 core.autocrlf=true
-            // 会把签出的 XML 还原成 CRLF，只锚 `\n` 的写法在那种检出下永远匹配不到，
-            // 于是 headerCount 恒为 0 —— 本契约会以「找不到容器」而不是「容器缺状态」失败。
-            java.util.regex.Matcher headers = java.util.regex.Pattern
-                    .compile("                <androidx\\.appcompat\\.widget\\.LinearLayoutCompat\r?\n(.*?)>",
-                            java.util.regex.Pattern.DOTALL)
-                    .matcher(body);
-            int headerCount = 0;
-            while (headers.find()) {
-                String header = headers.group(1);
-                if (!header.contains("android:orientation=\"horizontal\"")) continue;
-                headerCount++;
-                assertTrue(layout + " 的版本卡 header 容器必须声明 android:duplicateParentState=\"true\"，"
-                                + "否则 Name/Expand 的文字色拿不到卡片焦点状态",
-                        header.contains("android:duplicateParentState=\"true\""));
-            }
-            assertEquals(layout + " 必须有 stable/beta 两个版本卡 header 容器", 2, headerCount);
-        }
-    }
-
-    /** 取节点体内声明的 {@code android:textColor}；未声明时返回「未声明」。 */
-    private static String textColourOrNone(String node) {
-        java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("android:textColor=\"([^\"]+)\"").matcher(node);
-        return m.find() ? m.group(1) : "未声明";
-    }
-
-    /** 取 {@code @+id/xxx} 节点的标签体（到该标签自己的 {@code />} 或 {@code >} 为止）。 */
-    private static String nodeOf(String layout, String id) {
-        java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("@\\+id/" + java.util.regex.Pattern.quote(id) + "\"(.*?)(?:/>|</)",
-                        java.util.regex.Pattern.DOTALL)
-                .matcher(layout);
-        assertTrue("布局里必须能找到 @+id/" + id, matcher.find());
-        return matcher.group(1);
-    }
-
-    private static int countOf(String haystack, String needle) {
-        int n = 0, at = 0;
-        while ((at = haystack.indexOf(needle, at)) >= 0) { n++; at += needle.length(); }
-        return n;
     }
 
     // ------------------------------------------------------------ helpers

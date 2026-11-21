@@ -54,7 +54,7 @@ public class DialogSafeAreaTest {
                 "MultiThreadProxyDialog", "PanNetworkDiagnosticDialog", "PlaybackPerformanceDialog",
                 "PlaybackPerformanceModal", "PlaybackRemoteSyncDialog", "PlaybackWebhookDialog",
                 "PlayerButtonConfigDialog", "RemoteTrustDialog", "ShellProxyDialog", "SiteHealthDialog",
-                "SiteHealthReportDialog", "UpdateSettingsDialog", "ViewingRecordSyncDialog",
+                "SiteHealthReportDialog", "ViewingRecordSyncDialog",
                 "WebHomeExtensionDebugDialog", "WebHomeExtensionDialog",
         };
         for (String dialog : dialogs) {

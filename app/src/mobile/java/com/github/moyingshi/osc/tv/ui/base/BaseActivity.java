@@ -17,7 +17,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
-import com.github.moyingshi.osc.tv.Updater;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.ThemeController;
@@ -152,7 +151,6 @@ public abstract class BaseActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (audioMiniPlayer != null) audioMiniPlayer.onResume();
-        Updater.create().resume(this);
     }
 
     @Override

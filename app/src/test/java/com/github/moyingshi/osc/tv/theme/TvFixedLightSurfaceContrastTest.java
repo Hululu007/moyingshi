@@ -475,8 +475,6 @@ public class TvFixedLightSurfaceContrastTest {
                 {"src/mobile/res/layout/adapter_github_proxy.xml", "@drawable/selector_custom_csp_item", "@color/fixed_light_focus_text"},
                 {"src/leanback/res/layout/adapter_ad_rule.xml", "@drawable/selector_dialog_switch", "@color/fixed_light_focus_icon"},
                 {"src/main/res/layout/adapter_custom_csp.xml", "@drawable/selector_dialog_switch", "@color/fixed_light_focus_icon"},
-                {"src/main/res/layout/dialog_update_settings.xml", "@drawable/selector_dialog_step_button", "@color/fixed_light_focus_icon"},
-                {"src/leanback/res/layout/dialog_update.xml", "@drawable/selector_dialog_step_button", "@color/fixed_light_focus_icon"},
                 {"src/mobile/res/layout/adapter_github_proxy.xml", "@drawable/selector_dialog_switch", "@color/fixed_light_error"},
         };
         for (String[] expectation : expectations) {

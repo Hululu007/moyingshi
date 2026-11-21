@@ -112,7 +112,6 @@ public class ThemeBinderFocusRingBehaviorTest {
             "selector_tmdb_cast_focus",
             "shape_episode_photo_focused",
             // 焦点态本就没有描边的控件（改了就凭空多出一圈环）。
-            "about_primary_icon_button",
             "selector_ad_rule",
             "selector_dialog_step_button",
             // 「colorPrimary 填充 + colorOnPrimary 环」的成对语义：环色必须跟随填充的 on-色，

@@ -25,10 +25,7 @@ import com.github.moyingshi.osc.tv.bean.ShortDramaConfig;
 import com.github.moyingshi.osc.tv.bean.TmdbConfig;
 import com.github.moyingshi.osc.tv.bean.TmdbMatchCache;
 import com.github.moyingshi.osc.tv.bean.TmdbSeasonMatchCache;
-import com.github.moyingshi.osc.tv.bean.Update;
 import com.github.moyingshi.osc.tv.utils.AppCache;
-import com.github.moyingshi.osc.tv.update.OciMirror;
-import com.github.moyingshi.osc.tv.update.UpdateSource;
 import com.github.moyingshi.osc.tv.utils.GithubProxy;
 import com.github.moyingshi.osc.tv.utils.WebViewUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
@@ -858,38 +855,6 @@ public class Setting {
     public static void putShellProxyHosts(String hosts) {
         Prefers.put("shell_proxy_hosts", hosts);
         ProxySetting.apply();
-    }
-
-    public static boolean getUpdate() {
-        return Prefers.getBoolean("update", true);
-    }
-
-    public static void putUpdate(boolean update) {
-        Prefers.put("update", update);
-    }
-
-    public static String getUpdateSource() {
-        return UpdateSource.normalize(Prefers.getString("update_source", UpdateSource.OCI));
-    }
-
-    public static void putUpdateSource(String source) {
-        Prefers.put("update_source", UpdateSource.normalize(source));
-    }
-
-    public static String getUpdateOciMirror() {
-        return OciMirror.find(Prefers.getString("update_oci_mirror", OciMirror.DEFAULT)).id;
-    }
-
-    public static void putUpdateOciMirror(String mirror) {
-        Prefers.put("update_oci_mirror", OciMirror.find(mirror).id);
-    }
-
-    public static String getUpdateOciMirrorUrl() {
-        return Prefers.getString("update_oci_mirror_url");
-    }
-
-    public static void putUpdateOciMirrorUrl(String url) {
-        Prefers.put("update_oci_mirror_url", url == null ? "" : url.trim());
     }
 
     public static String getGithubProxy() {
