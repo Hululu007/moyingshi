@@ -34,6 +34,9 @@ final class WebHomeChromeController {
 
         boolean isGlassBottomBarActive();
 
+        /** 底栏是否逻辑上显示（滚动折叠收起时为 false，见 HomeActivity）。 */
+        boolean isBottomBarShown();
+
         void onWebHomeChromeChanged(String mode);
 
         void onWebHomeViewportChanged(WebHomeViewport viewport);
@@ -179,7 +182,8 @@ final class WebHomeChromeController {
     private void applyLayout() {
         boolean active = isActive();
         boolean normal = !active || WebHomeChrome.NORMAL.equals(mode);
-        binding.navigation.setVisibility(normal && !host.isGlassBottomBarActive() ? View.VISIBLE : View.GONE);
+        // 滚动折叠收起时普通底栏保持 GONE：不加这一项，insets 变化会把它强行拉回 VISIBLE。
+        binding.navigation.setVisibility(normal && !host.isGlassBottomBarActive() && host.isBottomBarShown() ? View.VISIBLE : View.GONE);
         WebHomeViewport current = buildViewport();
         int top = normal ? current.getSafeTop() : 0;
         int bottom = normal ? current.getSafeBottom() : 0;

@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
@@ -66,6 +68,7 @@ import com.github.moyingshi.osc.tv.utils.MobileWindow;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
 import com.github.moyingshi.osc.tv.utils.PreviousProcessCrashRecovery;
+import com.github.moyingshi.osc.tv.utils.ResUtil;
 import com.github.moyingshi.osc.tv.utils.UrlUtil;
 import com.github.moyingshi.osc.tv.utils.Util;
 import com.github.moyingshi.osc.tv.web.WebHomeChrome;
@@ -97,6 +100,16 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private GlassNavState glassState;
     private GlassBackdropCapture glassCapture;
     private boolean navShown = true;
+    /** 底栏滚动折叠态：首页内容上滑累计超阈值时收起底栏（与 navShown 并联进 applyBottomBar）。 */
+    private boolean navScrollHidden;
+    /** 折叠防抖累计（px）：同一方向滚动才累加，换向清零；上滑 24dp 收起、下滑 12dp 出现。 */
+    private int navScrollAccumPx;
+    /** applyBottomBar 上次算出的 show 逻辑态（动画进行中也已更新，实际可见性在动画结束时才落定）。 */
+    private boolean navBarShown = true;
+    /** applyBottomBar 上次的玻璃形态；形态切换时立即切视图，不做滑动。 */
+    private boolean navBarGlass;
+    /** 首页悬浮按钮（navHomeFab）的逻辑态：只在底栏被滚动收起且实际已 GONE 时才出现。 */
+    private boolean navHomeFabShown;
     /** 上次刷新底栏时底栏实验室开关的值，回首页时变了就重刷底栏。 */
     private boolean lastLabNav = true;
 
@@ -127,6 +140,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         mChrome = new WebHomeChromeController(this, mBinding, this, savedInstanceState, WebHomeChromeStartup.restore(mStartupConfig));
         mBinding.getRoot().addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> checkWindowShape(right - left, bottom - top));
         mBinding.navigation.setOnItemSelectedListener(this);
+        mBinding.navHomeFab.setOnClickListener(v -> change(0));
         setNavigation();
         setupGlassNav();
         PermissionUtil.requestFile(this, allGranted -> PermissionUtil.requestNotify(this));
@@ -315,6 +329,48 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
 
     public void setNavigationVisible(boolean visible) {
         navShown = visible;
+        if (visible) {
+            // 切 tab / 点 tab / 回首页：清掉滚动折叠态（悬浮按钮由 applyBottomBar 同步收起）。
+            navScrollHidden = false;
+            navScrollAccumPx = 0;
+        }
+        applyBottomBar();
+    }
+
+    /** 底栏是否逻辑上显示（供 WebHomeChromeController.applyLayout 判断：滚动收起时它不得把普通底栏强行拉回 VISIBLE）。 */
+    @Override
+    public boolean isBottomBarShown() {
+        return navShown && !navScrollHidden;
+    }
+
+    /**
+     * 首页内容竖向滚动回调（滚动源见 VodFragment/TypeFragment：当前可见页的列表与 WebView）。
+     * 上滑累计超 24dp 收起底栏，下滑累计超 12dp 或回到顶部时恢复；小幅抖动不来回闪。
+     */
+    public void onContentScrolled(int dy, boolean atTop) {
+        if (mBinding == null || !navShown) return;
+        if (atTop) {
+            navScrollAccumPx = 0;
+            if (navScrollHidden) setNavScrollHidden(false);
+            return;
+        }
+        if (dy > 0) {
+            if (navScrollAccumPx < 0) navScrollAccumPx = 0;
+            if (navScrollHidden) return;
+            navScrollAccumPx += dy;
+            if (navScrollAccumPx >= ResUtil.dp2px(24)) setNavScrollHidden(true);
+        } else if (dy < 0) {
+            if (navScrollAccumPx > 0) navScrollAccumPx = 0;
+            if (!navScrollHidden) return;
+            navScrollAccumPx += dy;
+            if (navScrollAccumPx <= -ResUtil.dp2px(12)) setNavScrollHidden(false);
+        }
+    }
+
+    private void setNavScrollHidden(boolean hidden) {
+        if (navScrollHidden == hidden) return;
+        navScrollHidden = hidden;
+        navScrollAccumPx = 0;
         applyBottomBar();
     }
 
@@ -357,26 +413,140 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         if (mBinding == null) return;
         boolean glass = Setting.isLiquidGlass();
         boolean chromeHides = glass && isWebHomeChromeActive() && !WebHomeChrome.NORMAL.equals(getWebHomeChromeMode());
-        boolean show = navShown && !chromeHides;
+        boolean show = navShown && !navScrollHidden && !chromeHides;
+        View active = glass ? mBinding.glassNav : mBinding.navigation;
+        View inactive = glass ? mBinding.navigation : mBinding.glassNav;
         RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) mBinding.container.getLayoutParams();
-        if (glass) {
-            mBinding.navigation.setVisibility(View.GONE);
-            mBinding.glassNav.setVisibility(show ? View.VISIBLE : View.GONE);
-            params.removeRule(RelativeLayout.ABOVE);
-        } else if (show) {
-            mBinding.glassNav.setVisibility(View.GONE);
-            params.addRule(RelativeLayout.ABOVE, R.id.navigation);
-            mBinding.navigation.setVisibility(View.VISIBLE);
-        } else {
-            mBinding.glassNav.setVisibility(View.GONE);
-            params.removeRule(RelativeLayout.ABOVE);
-            mBinding.navigation.setVisibility(View.GONE);
+        if (glass != navBarGlass) {
+            // 玻璃开/关切换：立即切视图，不做滑动（形态变了，滑的参照也没了）。
+            cancelNavBarAnimations();
+            navBarGlass = glass;
+            navBarShown = show;
+            inactive.setVisibility(View.GONE);
+            inactive.setTranslationY(0);
+            active.setTranslationY(0);
+            active.setVisibility(show ? View.VISIBLE : View.GONE);
+            applyContainerAbove(params, show, glass);
+            finishApplyBottomBar(params);
+            return;
         }
+        if (show == navBarShown) {
+            // 逻辑态未变：保证实际可见性与逻辑一致（如动画中途被打断、或初次布局）。
+            inactive.setVisibility(View.GONE);
+            if (active.getVisibility() != (show ? View.VISIBLE : View.GONE) || active.getTranslationY() != 0) {
+                cancelNavBarAnimations();
+                active.setTranslationY(0);
+                active.setVisibility(show ? View.VISIBLE : View.GONE);
+            }
+            applyContainerAbove(params, show, glass);
+            finishApplyBottomBar(params);
+            return;
+        }
+        navBarShown = show;
+        inactive.setVisibility(View.GONE);
+        inactive.setTranslationY(0);
+        if (show) {
+            // 出现：先恢复 VISIBLE + ABOVE 规则，再从位移滑回 0。
+            cancelNavBarAnimations();
+            applyContainerAbove(params, true, glass);
+            mBinding.container.setLayoutParams(params);
+            active.setVisibility(View.VISIBLE);
+            active.setTranslationY(getNavBarHeight(active, glass));
+            active.animate().translationY(0).setDuration(220).setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> active.setTranslationY(0)).start();
+            finishApplyBottomBar(params);
+        } else {
+            // 收起：220ms 滑到底后再置 GONE 并去掉 ABOVE 规则（内容随即占满）。
+            // 注意：动画落定前不触发 insets pass——WebHomeChromeController.applyLayout()
+            // 会按逻辑态把普通底栏直接置 GONE，动画会被拦腰截断；落定后再补一次。
+            cancelNavBarAnimations();
+            active.animate().translationY(getNavBarHeight(active, glass)).setDuration(220).setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(() -> {
+                        if (navBarShown || mBinding == null) return;
+                        active.setVisibility(View.GONE);
+                        active.setTranslationY(0);
+                        RelativeLayout.LayoutParams p = (RelativeLayout.LayoutParams) mBinding.container.getLayoutParams();
+                        applyContainerAbove(p, false, glass);
+                        mBinding.container.setLayoutParams(p);
+                        updateNavHomeFab();
+                        mBinding.getRoot().requestApplyInsets();
+                    }).start();
+            // ABOVE 规则在动画结束时才去掉，这里只同步悬浮按钮（底栏还没 GONE，它不会出现）。
+            updateNavHomeFab();
+            syncGlassState();
+        }
+    }
+
+    /** 玻璃形态下 container 永远不挂 ABOVE（玻璃栏浮在内容上）；普通形态只在底栏显示时挂。 */
+    private void applyContainerAbove(RelativeLayout.LayoutParams params, boolean show, boolean glass) {
+        if (glass || !show) params.removeRule(RelativeLayout.ABOVE);
+        else params.addRule(RelativeLayout.ABOVE, R.id.navigation);
+    }
+
+    private void finishApplyBottomBar(RelativeLayout.LayoutParams params) {
         mBinding.container.setLayoutParams(params);
         // Container bottom padding for the floating glass bar is owned by
         // WebHomeChromeController.applyLayout(); just trigger an insets pass.
         mBinding.getRoot().requestApplyInsets();
         syncGlassState();
+        updateNavHomeFab();
+    }
+
+    private void cancelNavBarAnimations() {
+        mBinding.navigation.animate().cancel();
+        mBinding.glassNav.animate().cancel();
+    }
+
+    private int getNavBarHeight(View bar, boolean glass) {
+        int height = bar.getHeight();
+        return height > 0 ? height : ResUtil.dp2px(glass ? 88 : 56);
+    }
+
+    /**
+     * 首页悬浮按钮（navHomeFab）：只在底栏被滚动收起、且底栏实际已 GONE 时才出现；
+     * 底栏一出现它就淡出。出现时带淡入 + 缩放（200ms），与底栏滑动同步。
+     * 位置错开首页 fragment 里的 FAB（top/browse/link，56dp + 16dp 间距）：
+     * 普通底栏时底边距 88dp；玻璃底栏时 container 有 88dp 底边距，fragment FAB 被顶到
+     * 104dp 高处，底边距取 176dp，始终比它们高一格。
+     */
+    private void updateNavHomeFab() {
+        if (mBinding == null) return;
+        boolean glass = Setting.isLiquidGlass();
+        boolean chromeHides = glass && isWebHomeChromeActive() && !WebHomeChrome.NORMAL.equals(getWebHomeChromeMode());
+        View active = glass ? mBinding.glassNav : mBinding.navigation;
+        boolean show = navScrollHidden && navShown && !chromeHides && active.getVisibility() == View.GONE;
+        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) mBinding.navHomeFab.getLayoutParams();
+        int margin = ResUtil.dp2px(glass ? 176 : 88);
+        if (params.bottomMargin != margin) {
+            params.bottomMargin = margin;
+            mBinding.navHomeFab.setLayoutParams(params);
+        }
+        if (show == navHomeFabShown) return;
+        navHomeFabShown = show;
+        View fab = mBinding.navHomeFab;
+        fab.animate().cancel();
+        if (show) {
+            fab.setVisibility(View.VISIBLE);
+            fab.setAlpha(0f);
+            fab.setScaleX(0.8f);
+            fab.setScaleY(0.8f);
+            fab.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> {
+                        fab.setAlpha(1f);
+                        fab.setScaleX(1f);
+                        fab.setScaleY(1f);
+                    }).start();
+        } else {
+            fab.animate().alpha(0f).scaleX(0.8f).scaleY(0.8f).setDuration(180).setInterpolator(new AccelerateInterpolator())
+                    .withEndAction(() -> {
+                        if (!navHomeFabShown) {
+                            fab.setVisibility(View.GONE);
+                            fab.setAlpha(1f);
+                            fab.setScaleX(1f);
+                            fab.setScaleY(1f);
+                        }
+                    }).start();
+        }
     }
 
     private void syncGlassState() {

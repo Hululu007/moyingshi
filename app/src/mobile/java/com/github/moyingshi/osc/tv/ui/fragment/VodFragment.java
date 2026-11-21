@@ -141,6 +141,23 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         return (FolderFragment) mBinding.pager.getAdapter().instantiateItem(mBinding.pager, mBinding.pager.getCurrentItem());
     }
 
+    /** 底栏滚动折叠：只有当前 pager 页的 FolderFragment 才允许上报滚动（切页后旧页的回调失效）。 */
+    public boolean isCurrentFolder(FolderFragment folder) {
+        if (mBinding == null || folder == null || mBinding.pager.getAdapter() == null) return false;
+        if (mAdapter == null || mAdapter.getItemCount() == 0) return false;
+        return getFragment() == folder;
+    }
+
+    /**
+     * 首页内容竖向滚动：转发给 HomeActivity 折叠底栏。
+     * 网页首页模式时竖滚走 homeWeb 的监听，不走列表（TypeFragment 那路也被这道关拦住）。
+     */
+    public void onContentScrolled(int dy, boolean atTop) {
+        if (!isVisible() || getActivity() == null) return;
+        if (mWeb != null && mWeb.isVisible()) return;
+        if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).onContentScrolled(dy, atTop);
+    }
+
     private Site getHome() {
         return VodConfig.get().getHome();
     }
@@ -416,6 +433,12 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void setWebView() {
         mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
+        // 网页首页模式的竖向滚动源：WebView（minSdk 24，setOnScrollChangeListener 需 API 23+）。
+        // HomeWebController 没占这个监听，直接挂；只有网页首页可见时才上报。
+        mBinding.homeWeb.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (mWeb == null || !mWeb.isVisible()) return;
+            if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).onContentScrolled(scrollY - oldScrollY, scrollY == 0);
+        });
         syncWebHomeChrome();
     }
 

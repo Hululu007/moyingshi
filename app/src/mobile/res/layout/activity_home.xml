@@ -28,4 +28,23 @@
         android:layout_alignParentBottom="true"
         android:visibility="gone" />
 
+    <!-- 底栏上滑折叠时的首页悬浮按钮（48dp 圆，复用导航首页图标）：只在底栏被滚动收起时出现，
+         点它回首页 tab 并恢复底栏。位置错开首页 fragment 里的 FAB（top/browse/link，56dp）：
+         底边距按底栏形态在代码里调（普通 88dp、玻璃 176dp，见 HomeActivity.updateNavHomeFab），
+         始终比 fragment FAB 高一格，不重叠。 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/navHomeFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="88dp"
+        android:contentDescription="@string/nav_vod"
+        android:visibility="gone"
+        app:backgroundTint="?attr/colorSecondaryContainer"
+        app:fabCustomSize="48dp"
+        app:srcCompat="@drawable/ic_nav_vod"
+        app:tint="?attr/colorOnSecondaryContainer" />
+
 </RelativeLayout>

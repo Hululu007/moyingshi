@@ -131,7 +131,24 @@ public class TypeFragment extends BaseFragment implements CustomScroller.Callbac
     protected void initEvent() {
         mBinding.swipeLayout.setOnRefreshListener(this);
         mBinding.recycler.addOnScrollListener(mScroller);
+        mBinding.recycler.addOnScrollListener(mNavCollapseListener);
     }
+
+    /**
+     * 底栏上滑折叠的滚动源：CustomScroller 只管底部加载更多、不暴露 dy/方向，这里另挂一个轻量监听。
+     * 只上报当前可见页（isVisible 拦住文件夹里被 hide 的旧页、VodFragment.isCurrentFolder 拦住
+     * pager 切页后的旧页；VodFragment 不可见时它那头的 onContentScrolled 也会再拦一道）。
+     */
+    private final androidx.recyclerview.widget.RecyclerView.OnScrollListener mNavCollapseListener = new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+        @Override
+        public void onScrolled(@NonNull androidx.recyclerview.widget.RecyclerView view, int dx, int dy) {
+            if (dy == 0 || !isVisible()) return;
+            FolderFragment folder = getParent();
+            VodFragment vod = folder == null ? null : (VodFragment) folder.getParentFragment();
+            if (vod == null || !vod.isCurrentFolder(folder)) return;
+            vod.onContentScrolled(dy, !view.canScrollVertically(-1));
+        }
+    };
 
     private void setRecyclerView() {
         mBinding.recycler.setTranslationY(-ResUtil.dp2px(getY()));
