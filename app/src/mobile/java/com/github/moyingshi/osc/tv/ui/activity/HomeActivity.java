@@ -108,8 +108,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private boolean navBarShown = true;
     /** applyBottomBar 上次的玻璃形态；形态切换时立即切视图，不做滑动。 */
     private boolean navBarGlass;
-    /** 首页悬浮按钮（navHomeFab）的逻辑态：只在底栏被滚动收起且实际已 GONE 时才出现。 */
-    private boolean navHomeFabShown;
     /** 上次刷新底栏时底栏实验室开关的值，回首页时变了就重刷底栏。 */
     private boolean lastLabNav = true;
 
@@ -140,7 +138,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         mChrome = new WebHomeChromeController(this, mBinding, this, savedInstanceState, WebHomeChromeStartup.restore(mStartupConfig));
         mBinding.getRoot().addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> checkWindowShape(right - left, bottom - top));
         mBinding.navigation.setOnItemSelectedListener(this);
-        mBinding.navHomeFab.setOnClickListener(v -> change(0));
         setNavigation();
         setupGlassNav();
         PermissionUtil.requestFile(this, allGranted -> PermissionUtil.requestNotify(this));
@@ -468,11 +465,8 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
                         RelativeLayout.LayoutParams p = (RelativeLayout.LayoutParams) mBinding.container.getLayoutParams();
                         applyContainerAbove(p, false, glass);
                         mBinding.container.setLayoutParams(p);
-                        updateNavHomeFab();
                         mBinding.getRoot().requestApplyInsets();
                     }).start();
-            // ABOVE 规则在动画结束时才去掉，这里只同步悬浮按钮（底栏还没 GONE，它不会出现）。
-            updateNavHomeFab();
             syncGlassState();
         }
     }
@@ -489,7 +483,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         // WebHomeChromeController.applyLayout(); just trigger an insets pass.
         mBinding.getRoot().requestApplyInsets();
         syncGlassState();
-        updateNavHomeFab();
     }
 
     private void cancelNavBarAnimations() {
@@ -500,53 +493,6 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
     private int getNavBarHeight(View bar, boolean glass) {
         int height = bar.getHeight();
         return height > 0 ? height : ResUtil.dp2px(glass ? 88 : 56);
-    }
-
-    /**
-     * 首页悬浮按钮（navHomeFab）：只在底栏被滚动收起、且底栏实际已 GONE 时才出现；
-     * 底栏一出现它就淡出。出现时带淡入 + 缩放（200ms），与底栏滑动同步。
-     * 位置错开首页 fragment 里的 FAB（top/browse/link，56dp + 16dp 间距）：
-     * 普通底栏时底边距 88dp；玻璃底栏时 container 有 88dp 底边距，fragment FAB 被顶到
-     * 104dp 高处，底边距取 176dp，始终比它们高一格。
-     */
-    private void updateNavHomeFab() {
-        if (mBinding == null) return;
-        boolean glass = Setting.isLiquidGlass();
-        boolean chromeHides = glass && isWebHomeChromeActive() && !WebHomeChrome.NORMAL.equals(getWebHomeChromeMode());
-        View active = glass ? mBinding.glassNav : mBinding.navigation;
-        boolean show = navScrollHidden && navShown && !chromeHides && active.getVisibility() == View.GONE;
-        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) mBinding.navHomeFab.getLayoutParams();
-        int margin = ResUtil.dp2px(glass ? 176 : 88);
-        if (params.bottomMargin != margin) {
-            params.bottomMargin = margin;
-            mBinding.navHomeFab.setLayoutParams(params);
-        }
-        if (show == navHomeFabShown) return;
-        navHomeFabShown = show;
-        View fab = mBinding.navHomeFab;
-        fab.animate().cancel();
-        if (show) {
-            fab.setVisibility(View.VISIBLE);
-            fab.setAlpha(0f);
-            fab.setScaleX(0.8f);
-            fab.setScaleY(0.8f);
-            fab.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(new DecelerateInterpolator())
-                    .withEndAction(() -> {
-                        fab.setAlpha(1f);
-                        fab.setScaleX(1f);
-                        fab.setScaleY(1f);
-                    }).start();
-        } else {
-            fab.animate().alpha(0f).scaleX(0.8f).scaleY(0.8f).setDuration(180).setInterpolator(new AccelerateInterpolator())
-                    .withEndAction(() -> {
-                        if (!navHomeFabShown) {
-                            fab.setVisibility(View.GONE);
-                            fab.setAlpha(1f);
-                            fab.setScaleX(1f);
-                            fab.setScaleY(1f);
-                        }
-                    }).start();
-        }
     }
 
     private void syncGlassState() {
