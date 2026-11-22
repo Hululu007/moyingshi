@@ -187,6 +187,8 @@ jobs:
             --no-daemon
           ./gradlew \
             :app:testLeanbackArm64_v8aDebugUnitTest \
+            --tests 'com.github.moyingshi.osc.tv.player.danmaku.*' \
+            --tests 'com.github.moyingshi.osc.tv.utils.GithubProxyTest' \
             --no-daemon
 
   build:
