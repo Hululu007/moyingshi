@@ -191,7 +191,11 @@ final class WebHomeChromeController {
         // container's bottom by the bar slot height so the last rows of
         // scrollable pages can clear it. This is the single place that sets
         // container padding; HomeActivity must not fight it.
-        int glassBottom = normal && host.isGlassBottomBarActive() ? Math.round(88 * binding.getRoot().getResources().getDisplayMetrics().density) : 0;
+        // Reserve the slot only while the bar is actually shown: when it is
+        // folded away by scrolling, the padding must go to 0 so the content
+        // fills the screen instead of leaving a transparent band where the
+        // bar was.
+        int glassBottom = normal && host.isGlassBottomBarActive() && host.isBottomBarShown() ? Math.round(88 * binding.getRoot().getResources().getDisplayMetrics().density) : 0;
         binding.container.setPadding(0, top, 0, glassBottom);
         binding.navigation.setPadding(0, 0, 0, bottom);
         ViewGroup.LayoutParams params = binding.navigation.getLayoutParams();
