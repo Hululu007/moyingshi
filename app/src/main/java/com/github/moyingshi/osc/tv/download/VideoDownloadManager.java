@@ -228,8 +228,9 @@ public final class VideoDownloadManager {
             if (oldDir != null && !oldDir.equals(dramaDir)) {
                 ok = DownloadPathUtil.deleteRecursively(oldDir) && ok;
             }
+            boolean result = ok;
             App.post(() -> {
-                if (callback != null) callback.accept(ok);
+                if (callback != null) callback.accept(result);
                 notifyChanged(true);
             });
         });
