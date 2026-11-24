@@ -50,7 +50,7 @@
         android:layout_weight="1"
         android:scrollbars="none">
 
-        <androidx.appcompat.widget.LinearLayoutCompat
+        <LinearLayout
             android:id="@+id/cardContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
