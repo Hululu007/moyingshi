@@ -98,6 +98,9 @@
     <color name="following_text_secondary">@color/webhtv_color_on_surface_variant</color>
     <color name="following_accent">@color/webhtv_color_primary</color>
     <color name="following_accent_focus">@color/webhtv_color_primary</color>
+    <color name="following_agenda_day_bg">@color/webhtv_color_surface_container_high</color>
+    <color name="following_agenda_day_selected_bg">@color/webhtv_color_primary</color>
+    <color name="following_agenda_day_selected_text">@color/webhtv_color_on_primary</color>
     <color name="following_button_focus">@color/webhtv_color_focus</color>
     <color name="following_button_focus_pressed">@color/webhtv_color_primary</color>
     <color name="following_button_secondary">@color/webhtv_color_surface_container</color>

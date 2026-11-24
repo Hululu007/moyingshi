@@ -103,6 +103,58 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
+        <!-- 手机端专属的日期 Tab 与日期条：TV 上永不显示，只为让共用的 FollowingActivity 在双 flavor 下都能编译过同名 R.id。 -->
+        <LinearLayout
+            android:id="@+id/agendaTabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tabToday"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="@string/following_agenda_today" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tabTomorrow"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="@string/following_agenda_tomorrow" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tabWeek"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="@string/following_agenda_week" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tabAll"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="@string/following_agenda_all" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/agendaDates"
+                android:layout_width="match_parent"
+                android:layout_height="64dp" />
+        </LinearLayout>
+
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

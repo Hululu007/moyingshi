@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 追更页时间轴的日期分组头：今天 / 明天 / 某月某日 · 星期X / 待定 + 该组部数。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="10dp"
+    android:paddingBottom="6dp">
+
+    <View
+        android:layout_width="3dp"
+        android:layout_height="16dp"
+        android:background="?attr/colorPrimary" />
+
+    <TextView
+        android:id="@+id/headerLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:textColor="@color/following_text_primary"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/headerCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/following_text_secondary"
+        android:textSize="12sp" />
+</LinearLayout>

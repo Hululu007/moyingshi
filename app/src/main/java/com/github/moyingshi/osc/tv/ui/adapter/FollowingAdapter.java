@@ -9,7 +9,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.databinding.ItemFollowingBinding;
+import com.github.moyingshi.osc.tv.databinding.ItemFollowingDateHeaderBinding;
 import com.github.moyingshi.osc.tv.following.Following;
+import com.github.moyingshi.osc.tv.following.FollowingAgenda;
 import com.github.moyingshi.osc.tv.following.FollowingSource;
 import com.github.moyingshi.osc.tv.following.FollowingUpdateCoordinator;
 import com.github.moyingshi.osc.tv.following.FollowingUpdatePolicy;
@@ -19,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class FollowingAdapter extends RecyclerView.Adapter<FollowingAdapter.Holder> {
+public class FollowingAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public interface Listener {
         void onOpenDetail(Following item, FollowingSource source);
@@ -49,15 +51,32 @@ public class FollowingAdapter extends RecyclerView.Adapter<FollowingAdapter.Hold
         }
     }
 
+    /** 时间轴日期分组头：dayStart 为当天 0 点毫秒值，0 表示“待定”组。 */
+    public static final class Header {
+        public final long dayStart;
+        public final String label;
+        public final int count;
+
+        public Header(long dayStart, String label, int count) {
+            this.dayStart = dayStart;
+            this.label = label;
+            this.count = count;
+        }
+    }
+
+    private static final int TYPE_ROW = 0;
+    private static final int TYPE_HEADER = 1;
+
     private final Listener listener;
-    private final List<Row> items = new ArrayList<>();
+    /** Row 与 Header 混排：TV 布局没有日期 Tab，传进来的就是纯 Row 列表，老行为不变。 */
+    private final List<Object> items = new ArrayList<>();
 
     public FollowingAdapter(Listener listener) {
         this.listener = listener;
         setHasStableIds(true);
     }
 
-    public void setItems(List<Row> rows) {
+    public void setItems(List<Object> rows) {
         items.clear();
         if (rows != null) items.addAll(rows);
         notifyDataSetChanged();
@@ -65,29 +84,54 @@ public class FollowingAdapter extends RecyclerView.Adapter<FollowingAdapter.Hold
 
     public int indexOf(String identityKey) {
         for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).following.identityKey.equals(identityKey)) return i;
+            Object entry = items.get(i);
+            if (entry instanceof Row && ((Row) entry).following.identityKey.equals(identityKey)) return i;
         }
         return -1;
     }
 
     @Override
     public long getItemId(int position) {
-        return items.get(position).following.identityKey.hashCode();
+        Object entry = items.get(position);
+        if (entry instanceof Header) return -((Header) entry).dayStart - 1;
+        return ((Row) entry).following.identityKey.hashCode();
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return items.get(position) instanceof Header ? TYPE_HEADER : TYPE_ROW;
     }
 
     @NonNull
     @Override
-    public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == TYPE_HEADER) {
+            return new HeaderHolder(ItemFollowingDateHeaderBinding.inflate(
+                    LayoutInflater.from(parent.getContext()), parent, false));
+        }
         return new Holder(ItemFollowingBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
     }
 
     @Override
-    public void onBindViewHolder(@NonNull Holder holder, int position) {
-        Row row = items.get(position);
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        Object entry = items.get(position);
+        if (entry instanceof Header) {
+            Header header = (Header) entry;
+            HeaderHolder headerHolder = (HeaderHolder) holder;
+            headerHolder.binding.headerLabel.setText(header.label);
+            headerHolder.binding.headerCount.setText(headerHolder.itemView.getContext()
+                    .getString(R.string.following_agenda_header_count, header.count));
+            return;
+        }
+        bindRow((Holder) holder, (Row) entry);
+    }
+
+    private void bindRow(@NonNull Holder holder, Row row) {
         Following item = row.following;
         FollowingSource source = row.source;
         holder.binding.title.setText(item.vodName);
         ImgUtil.load(item.vodName, item.vodPic, holder.binding.image);
+        bindAirLine(holder, item);
         int released = FollowingUpdatePolicy.releasedEpisode(item);
         if (released > 0) holder.binding.official.setText(holder.itemView.getContext().getString(R.string.following_official, released));
         else holder.binding.official.setText(R.string.following_official_unknown);
@@ -134,6 +178,22 @@ public class FollowingAdapter extends RecyclerView.Adapter<FollowingAdapter.Hold
         holder.binding.delete.setOnClickListener(view -> listener.onDelete(item));
     }
 
+    /**
+     * 播出时间线 + 完结标识：完结的剧只亮“已完结”徽章；有下一集播出时间的显示
+     * “今天 20:00 · 第 2 季第 5 集”；没播出信息的这一行直接隐藏，不刷“待定”噪音。
+     */
+    private void bindAirLine(Holder holder, Following item) {
+        boolean ended = FollowingAgenda.isEnded(item);
+        holder.binding.ended.setVisibility(ended ? View.VISIBLE : View.GONE);
+        String text = FollowingAgenda.airLineText(holder.itemView.getContext(), item);
+        if (text == null) {
+            holder.binding.airLine.setVisibility(View.GONE);
+            return;
+        }
+        holder.binding.airLine.setText(text);
+        holder.binding.airLine.setVisibility(View.VISIBLE);
+    }
+
     private void bindMetadata(Holder holder, Following item) {
         List<String> parts = new ArrayList<>();
         if (item.seasonTotalEpisodes > 0) {
@@ -158,18 +218,31 @@ public class FollowingAdapter extends RecyclerView.Adapter<FollowingAdapter.Hold
         return items.size();
     }
 
+    /** 不含分组头的剧集行数，汇总行（“追更 X 部”）用这个，别用 getItemCount()。 */
+    public int getRowCount() {
+        int count = 0;
+        for (Object entry : items) if (entry instanceof Row) count++;
+        return count;
+    }
+
     public Row rowAt(int position) {
-        return position >= 0 && position < items.size() ? items.get(position) : null;
+        if (position < 0 || position >= items.size()) return null;
+        Object entry = items.get(position);
+        return entry instanceof Row ? (Row) entry : null;
     }
 
     public List<Row> getItems() {
-        return new ArrayList<>(items);
+        List<Row> rows = new ArrayList<>();
+        for (Object entry : items) if (entry instanceof Row) rows.add((Row) entry);
+        return rows;
     }
 
     public void markReadLocally(Collection<String> identityKeys) {
         if (identityKeys == null || identityKeys.isEmpty()) return;
         for (int i = 0; i < items.size(); i++) {
-            Following item = items.get(i).following;
+            Object entry = items.get(i);
+            if (!(entry instanceof Row)) continue;
+            Following item = ((Row) entry).following;
             if (!identityKeys.contains(item.identityKey) || !item.hasUpdate) continue;
             FollowingUpdatePolicy.markRead(item, 0);
             notifyItemChanged(i);
@@ -180,6 +253,15 @@ public class FollowingAdapter extends RecyclerView.Adapter<FollowingAdapter.Hold
         final ItemFollowingBinding binding;
 
         Holder(ItemFollowingBinding binding) {
+            super(binding.getRoot());
+            this.binding = binding;
+        }
+    }
+
+    static final class HeaderHolder extends RecyclerView.ViewHolder {
+        final ItemFollowingDateHeaderBinding binding;
+
+        HeaderHolder(ItemFollowingDateHeaderBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
         }

@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -20,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
@@ -28,6 +30,7 @@ import com.github.moyingshi.osc.tv.bean.TmdbItem;
 import com.github.moyingshi.osc.tv.databinding.ActivityFollowingBinding;
 import com.github.moyingshi.osc.tv.following.AlistSubscriptionImporter;
 import com.github.moyingshi.osc.tv.following.Following;
+import com.github.moyingshi.osc.tv.following.FollowingAgenda;
 import com.github.moyingshi.osc.tv.following.FollowingNotifier;
 import com.github.moyingshi.osc.tv.following.FollowingPlaybackBridge;
 import com.github.moyingshi.osc.tv.following.FollowingIdentity;
@@ -41,6 +44,7 @@ import com.github.moyingshi.osc.tv.following.FollowingUpdatePolicy;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.ThemeController;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
+import com.github.moyingshi.osc.tv.ui.adapter.AgendaDateAdapter;
 import com.github.moyingshi.osc.tv.ui.adapter.FollowingAdapter;
 import com.github.moyingshi.osc.tv.ui.custom.CustomWallView;
 import com.github.moyingshi.osc.tv.ui.custom.SpaceItemDecoration;
@@ -48,10 +52,14 @@ import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
 import com.github.moyingshi.osc.tv.utils.Task;
 import com.github.moyingshi.osc.tv.utils.Util;
+import com.google.android.material.button.MaterialButton;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FollowingActivity extends AppCompatActivity implements FollowingAdapter.Listener {
 
@@ -68,11 +76,32 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             .thenComparing(Comparator.comparingLong((Following item) -> item.updatedAt).reversed())
             .thenComparing(Comparator.comparingLong((Following item) -> item.metadataUpdatedAt).reversed())
             .thenComparing(Comparator.comparingLong((Following item) -> item.createdAt).reversed());
+    /** 时间轴排序：播出日升序（待定排最后），同日沿用 LIST_ORDER。 */
+    private static final Comparator<FollowingAdapter.Row> AGENDA_ORDER = Comparator
+            .comparingLong((FollowingAdapter.Row row) -> {
+                long day = FollowingAgenda.airDayStart(row.following);
+                return day == 0 ? Long.MAX_VALUE : day;
+            })
+            .thenComparing((FollowingAdapter.Row left, FollowingAdapter.Row right)
+                    -> LIST_ORDER.compare(left.following, right.following));
+    private static final int AGENDA_ALL = 0;
+    private static final int AGENDA_TODAY = 1;
+    private static final int AGENDA_TOMORROW = 2;
+    private static final int AGENDA_WEEK = 3;
     private ActivityFollowingBinding binding;
     private FollowingAdapter adapter;
     private String focusIdentity;
     private String pendingNotifyIdentity;
     private int filterIndex = FILTER_ALL;
+    private int agendaTab = AGENDA_ALL;
+    private LocalDate agendaDay;
+    /** 日期 Tab 与日期条只在手机端布局里有；TV 布局没有，走老列表行为。 */
+    private boolean agendaEnabled;
+    private AgendaDateAdapter dateAdapter;
+    private MaterialButton tabToday;
+    private MaterialButton tabTomorrow;
+    private MaterialButton tabWeek;
+    private MaterialButton tabAll;
     private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
                 if (pendingNotifyIdentity == null) return;
@@ -148,6 +177,37 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             load();
         });
         binding.alistImport.setOnClickListener(view -> showServerImportDialog());
+        // 日期 Tab 与日期条只在手机端布局里可见：TV 布局里是 gone 的同名占位，findViewById 能拿到但不启用。
+        View agendaTabs = findViewById(R.id.agendaTabs);
+        agendaEnabled = agendaTabs != null && agendaTabs.getVisibility() == View.VISIBLE;
+        if (agendaEnabled) {
+            tabToday = findViewById(R.id.tabToday);
+            tabTomorrow = findViewById(R.id.tabTomorrow);
+            tabWeek = findViewById(R.id.tabWeek);
+            tabAll = findViewById(R.id.tabAll);
+            tabToday.setOnClickListener(view -> selectTab(AGENDA_TODAY));
+            tabTomorrow.setOnClickListener(view -> selectTab(AGENDA_TOMORROW));
+            tabWeek.setOnClickListener(view -> selectTab(AGENDA_WEEK));
+            tabAll.setOnClickListener(view -> selectTab(AGENDA_ALL));
+            RecyclerView dates = findViewById(R.id.agendaDates);
+            dates.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+            dateAdapter = new AgendaDateAdapter(day -> {
+                if (day.equals(agendaDay)) {
+                    agendaDay = null;
+                    agendaTab = AGENDA_ALL;
+                } else {
+                    agendaDay = day;
+                }
+                load();
+            });
+            dates.setAdapter(dateAdapter);
+        }
+        load();
+    }
+
+    private void selectTab(int tab) {
+        agendaTab = tab;
+        agendaDay = null;
         load();
     }
 
@@ -172,21 +232,31 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 if (!matchesFilter(item)) continue;
                 rows.add(new FollowingAdapter.Row(item, FollowingStore.preferredSource(item.identityKey)));
             }
-            rows.sort((left, right) -> LIST_ORDER.compare(left.following, right.following));
+            // 日期条的部数按 5 档筛选后的全量算，不受日期 Tab/单日选择影响。
+            List<AgendaDateAdapter.Day> days = agendaEnabled ? buildStripDays(rows) : null;
+            if (agendaEnabled) {
+                rows.removeIf(row -> !matchesAgenda(row.following));
+                rows.sort(AGENDA_ORDER);
+            } else {
+                rows.sort((left, right) -> LIST_ORDER.compare(left.following, right.following));
+            }
             int unread = FollowingStore.unreadCount();
-            App.post(() -> render(rows, unread));
+            App.post(() -> render(rows, unread, days));
         });
     }
 
-    private void render(List<FollowingAdapter.Row> rows, int unread) {
+    private void render(List<FollowingAdapter.Row> rows, int unread, List<AgendaDateAdapter.Day> days) {
         if (isFinishing() || binding == null) return;
         binding.loading.setVisibility(View.GONE);
+        boolean agendaFiltered = agendaEnabled && (agendaDay != null || agendaTab != AGENDA_ALL);
         binding.empty.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
         binding.filter.setText(filterLabel());
-        binding.emptyText.setText(filterIndex == FILTER_ALL ? R.string.following_empty : R.string.following_filter_empty);
+        binding.emptyText.setText(agendaFiltered ? R.string.following_agenda_empty
+                : filterIndex == FILTER_ALL ? R.string.following_empty : R.string.following_filter_empty);
         binding.recycler.setVisibility(rows.isEmpty() ? View.GONE : View.VISIBLE);
         binding.summary.setText(getString(R.string.following_summary, rows.size(), unread));
-        adapter.setItems(rows);
+        adapter.setItems(agendaEnabled ? withHeaders(rows) : new ArrayList<Object>(rows));
+        updateAgendaTabs(days);
         int index = TextUtils.isEmpty(focusIdentity) ? -1 : adapter.indexOf(focusIdentity);
         if (index >= 0) {
             binding.recycler.post(() -> {
@@ -194,6 +264,98 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 focusIdentity = null;
             });
         }
+    }
+
+    /** 日期 Tab / 单日选择过滤；TV（agendaEnabled=false）不走这里。 */
+    private boolean matchesAgenda(Following item) {
+        if (agendaDay != null) {
+            return FollowingAgenda.airDayStart(item) == FollowingAgenda.dayStartMillis(agendaDay);
+        }
+        FollowingAgenda.Bucket bucket = FollowingAgenda.bucketFor(item);
+        return switch (agendaTab) {
+            case AGENDA_TODAY -> bucket == FollowingAgenda.Bucket.TODAY;
+            case AGENDA_TOMORROW -> bucket == FollowingAgenda.Bucket.TOMORROW;
+            case AGENDA_WEEK -> bucket == FollowingAgenda.Bucket.TODAY
+                    || bucket == FollowingAgenda.Bucket.TOMORROW
+                    || bucket == FollowingAgenda.Bucket.WEEK;
+            default -> true;
+        };
+    }
+
+    private List<AgendaDateAdapter.Day> buildStripDays(List<FollowingAdapter.Row> rows) {
+        Map<Long, Integer> counts = new HashMap<>();
+        for (FollowingAdapter.Row row : rows) {
+            long day = FollowingAgenda.airDayStart(row.following);
+            if (day <= 0) continue;
+            counts.put(day, counts.getOrDefault(day, 0) + 1);
+        }
+        List<AgendaDateAdapter.Day> days = new ArrayList<>();
+        LocalDate today = FollowingAgenda.today();
+        for (int i = 0; i < FollowingAgenda.STRIP_DAYS; i++) {
+            LocalDate date = today.plusDays(i);
+            days.add(new AgendaDateAdapter.Day(date,
+                    counts.getOrDefault(FollowingAgenda.dayStartMillis(date), 0)));
+        }
+        return days;
+    }
+
+    /** 按播出日分组插时间轴头；待定组（无播出日）排最后。 */
+    private List<Object> withHeaders(List<FollowingAdapter.Row> rows) {
+        List<Object> display = new ArrayList<>();
+        Long currentDay = null;
+        List<FollowingAdapter.Row> group = new ArrayList<>();
+        for (FollowingAdapter.Row row : rows) {
+            long day = FollowingAgenda.airDayStart(row.following);
+            if (currentDay == null || day != currentDay) {
+                flushHeader(display, group, currentDay);
+                currentDay = day;
+                group = new ArrayList<>();
+            }
+            group.add(row);
+        }
+        flushHeader(display, group, currentDay);
+        return display;
+    }
+
+    private void flushHeader(List<Object> display, List<FollowingAdapter.Row> group, Long day) {
+        if (group.isEmpty() || day == null) return;
+        display.add(new FollowingAdapter.Header(day, headerLabel(day), group.size()));
+        display.addAll(group);
+        group.clear();
+    }
+
+    private String headerLabel(long dayStart) {
+        if (dayStart <= 0) return getString(R.string.following_agenda_header_unscheduled);
+        String date = FollowingAgenda.shortDate(dayStart);
+        LocalDate today = FollowingAgenda.today();
+        if (dayStart == FollowingAgenda.dayStartMillis(today)) {
+            return getString(R.string.following_agenda_header_today, date);
+        }
+        if (dayStart == FollowingAgenda.dayStartMillis(today.plusDays(1))) {
+            return getString(R.string.following_agenda_header_tomorrow, date);
+        }
+        String[] weekdays = getResources().getStringArray(R.array.following_weekdays);
+        int weekday = FollowingAgenda.weekdayOf(dayStart);
+        String week = weekday >= 1 && weekday <= weekdays.length ? weekdays[weekday - 1] : "";
+        return getString(R.string.following_agenda_header_date, date, week);
+    }
+
+    private void updateAgendaTabs(List<AgendaDateAdapter.Day> days) {
+        if (!agendaEnabled) return;
+        boolean dayPicked = agendaDay != null;
+        tintTab(tabToday, !dayPicked && agendaTab == AGENDA_TODAY);
+        tintTab(tabTomorrow, !dayPicked && agendaTab == AGENDA_TOMORROW);
+        tintTab(tabWeek, !dayPicked && agendaTab == AGENDA_WEEK);
+        tintTab(tabAll, !dayPicked && agendaTab == AGENDA_ALL);
+        if (dateAdapter != null && days != null) dateAdapter.setDays(days, agendaDay);
+    }
+
+    private void tintTab(MaterialButton tab, boolean selected) {
+        if (tab == null) return;
+        tab.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this,
+                selected ? R.color.following_button_primary_bg : R.color.following_button_secondary_bg)));
+        tab.setTextColor(ContextCompat.getColor(this,
+                selected ? R.color.following_button_primary_text : R.color.following_button_secondary_text));
     }
 
     private void markAllRead() {
@@ -216,7 +378,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
     private void refreshUnreadSummary() {
         FollowingPlaybackBridge.refreshUnreadCountAsync(unread -> {
             if (binding == null || isFinishing() || isDestroyed()) return;
-            binding.summary.setText(getString(R.string.following_summary, adapter.getItemCount(), unread));
+            binding.summary.setText(getString(R.string.following_summary, adapter.getRowCount(), unread));
         });
     }
 
@@ -369,6 +531,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         StringBuilder message = new StringBuilder();
         int released = FollowingUpdatePolicy.releasedEpisode(item);
         message.append(released > 0 ? getString(R.string.following_official, released) : getString(R.string.following_official_unknown));
+        String airLine = FollowingAgenda.airLineText(this, item);
+        if (airLine != null) message.append('\n').append(airLine);
         message.append('\n');
         message.append(source != null && source.playableEpisode > 0
                 ? getString(R.string.following_source, source.playableEpisode)

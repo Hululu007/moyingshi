@@ -3072,6 +3072,24 @@
     <string name="following_filter_failed">检查失败</string>
     <string name="setting_following">追更更新</string>
     <string name="following_next_season">追新季 S%1$d</string>
+    <string name="following_agenda_today">今天</string>
+    <string name="following_agenda_tomorrow">明天</string>
+    <string name="following_agenda_week">本周</string>
+    <string name="following_agenda_all">全部</string>
+    <string name="following_agenda_today_short">今</string>
+    <string name="following_agenda_weekday">周%1$s</string>
+    <string name="following_agenda_day_count">%1$d 部</string>
+    <string name="following_agenda_air_today">今天 %1$s · 第 %2$d 季第 %3$d 集</string>
+    <string name="following_agenda_air_tomorrow">明天 %1$s · 第 %2$d 季第 %3$d 集</string>
+    <string name="following_agenda_air_date">%1$s %2$s · 第 %3$d 季第 %4$d 集</string>
+    <string name="following_agenda_air_unknown">播出时间待定</string>
+    <string name="following_agenda_ended">已完结</string>
+    <string name="following_agenda_header_today">今天 · %1$s</string>
+    <string name="following_agenda_header_tomorrow">明天 · %1$s</string>
+    <string name="following_agenda_header_date">%1$s 星期%2$s</string>
+    <string name="following_agenda_header_unscheduled">待定</string>
+    <string name="following_agenda_header_count">%1$d 部</string>
+    <string name="following_agenda_empty">这天没有播出的剧。</string>
     <string-array name="following_weekdays">
         <item>日</item>
         <item>一</item>
