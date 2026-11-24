@@ -3029,8 +3029,15 @@
     <string name="following_added">Following</string>
     <string name="following_channel_name">Following updates</string>
     <string name="following_channel_description">New episode updates for followed shows</string>
+    <string name="following_reminder_channel_name">Following airing reminders</string>
+    <string name="following_reminder_channel_description">Reminders before a followed show airs</string>
     <string name="following_notification_title">%1$s has a new episode</string>
     <string name="following_notification_text">Official release: episode %1$d; current source: episode %2$d</string>
+    <string name="following_reminder_title">%1$s is about to air</string>
+    <string name="setting_following_reminder">Airing reminder</string>
+    <string name="setting_following_reminder_sub">Remind before airing, 15/30/60 min early</string>
+    <string name="setting_following_reminder_off">Off</string>
+    <string name="setting_following_reminder_value">%1$d min early</string>
     <string name="following_check_all">Check updates</string>
     <string name="following_check">Check</string>
     <string name="following_checking">Checking…</string>

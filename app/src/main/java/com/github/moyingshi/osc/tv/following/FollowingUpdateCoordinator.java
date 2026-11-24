@@ -103,6 +103,8 @@ public class FollowingUpdateCoordinator {
             if (source != null) FollowingStore.updateSource(source);
             if (FollowingNotifier.notifyUpdate(item, source)) FollowingStore.update(item);
             FollowingScheduler.scheduleNext(App.get(), item);
+            // 每次检查刷新播出日后，提醒也按新播出日重排（播出日没变时是空操作）。
+            FollowingReminderScheduler.schedule(App.get(), item);
             return true;
         } catch (Throwable error) {
             FollowingUpdatePolicy.markFailure(item, error, now);

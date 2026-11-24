@@ -3021,8 +3021,15 @@
     <string name="following_added">已追更</string>
     <string name="following_channel_name">追更更新</string>
     <string name="following_channel_description">已追剧集的新集更新提醒</string>
+    <string name="following_reminder_channel_name">追更播出提醒</string>
+    <string name="following_reminder_channel_description">追更剧集播出前的提醒</string>
     <string name="following_notification_title">《%1$s》有新集</string>
     <string name="following_notification_text">官方已更新至第 %1$d 集，当前源可播至第 %2$d 集</string>
+    <string name="following_reminder_title">《%1$s》即将播出</string>
+    <string name="setting_following_reminder">播出提醒</string>
+    <string name="setting_following_reminder_sub">播出前提醒，提前 15/30/60 分钟</string>
+    <string name="setting_following_reminder_off">关闭</string>
+    <string name="setting_following_reminder_value">提前 %1$d 分钟</string>
     <string name="following_check_all">检查更新</string>
     <string name="following_check">检查</string>
     <string name="following_checking">正在检查…</string>

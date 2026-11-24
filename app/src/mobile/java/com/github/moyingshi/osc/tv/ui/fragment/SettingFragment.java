@@ -36,6 +36,8 @@ import com.github.moyingshi.osc.tv.download.DownloadTask;
 import com.github.moyingshi.osc.tv.download.VideoDownloadManager;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
+import com.github.moyingshi.osc.tv.following.FollowingReminderScheduler;
+import com.github.moyingshi.osc.tv.following.FollowingSettings;
 import com.github.moyingshi.osc.tv.gitcloud.GitCloudAccountStore;
 import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.impl.ConfigListener;
@@ -111,6 +113,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_ONEKEY = "onekey";
     public static final String ROW_DRIVE = "drive";
     public static final String ROW_SITE_HEALTH = "site_health";
+    public static final String ROW_FOLLOWING_REMINDER = "following_reminder";
     public static final String ROW_CACHE = "cache";
     public static final String ROW_BACKUP = "backup";
     public static final String ROW_RESTORE = "restore";
@@ -266,6 +269,9 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         View siteHealthRow = addRow(feature, inflater, R.drawable.ic_setting_health, R.drawable.shape_setting_circle_green,
                 R.string.setting_site_health, R.string.setting_site_health_sub, ROW_SITE_HEALTH, this::onSiteHealth);
         siteHealthRow.setOnLongClickListener(v -> clearSiteHealth());
+        addDivider(feature);
+        addRow(feature, inflater, R.drawable.ic_home_following, R.drawable.shape_setting_circle_blue,
+                R.string.setting_following_reminder, R.string.setting_following_reminder_sub, ROW_FOLLOWING_REMINDER, this::onFollowingReminder);
 
         // 数据与存储：缓存 / 备份 / 恢复 / DoH / 无痕模式
         ViewGroup storage = addGroup(container, inflater, R.string.setting_group_storage, false);
@@ -395,6 +401,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_GITCLOUD, getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         setValue(ROW_DRIVE, getSwitch(Setting.isDriveCheck()));
         setValue(ROW_SITE_HEALTH, getSiteHealthText());
+        setValue(ROW_FOLLOWING_REMINDER, reminderValueText());
         setValue(ROW_DOH, getDohList()[getDohIndex()]);
         setValue(ROW_INCOGNITO, getSwitch(Setting.isIncognito()));
         setValue(ROW_DOWNLOAD, getSwitch(Setting.isDownloadEnabled()));
@@ -710,6 +717,29 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
                     VideoDownloadManager.get().refreshConcurrency();
                     refreshDownloadSettings();
                 });
+    }
+
+    /** 点播出提醒行：关闭 / 提前 15 / 30 / 60 分钟；改了之后全部在追剧集的提醒重排。 */
+    private void onFollowingReminder() {
+        CharSequence[] items = new CharSequence[]{
+                getString(R.string.setting_following_reminder_off),
+                getString(R.string.setting_following_reminder_value, 15),
+                getString(R.string.setting_following_reminder_value, 30),
+                getString(R.string.setting_following_reminder_value, 60)};
+        int lead = FollowingSettings.getReminderLeadMinutes();
+        int checked = lead == 0 ? 0 : lead == 15 ? 1 : lead == 60 ? 3 : 2;
+        ChoiceDialog.showSingle(this, R.string.setting_following_reminder, items, checked, which -> {
+            int minutes = which == 0 ? 0 : which == 1 ? 15 : which == 3 ? 60 : 30;
+            FollowingSettings.setReminderLeadMinutes(minutes);
+            setValue(ROW_FOLLOWING_REMINDER, reminderValueText());
+            FollowingReminderScheduler.scheduleAll();
+        });
+    }
+
+    private String reminderValueText() {
+        int lead = FollowingSettings.getReminderLeadMinutes();
+        return lead == 0 ? getString(R.string.setting_following_reminder_off)
+                : getString(R.string.setting_following_reminder_value, lead);
     }
 
     /** 隐藏开关变化后回到前台时重建分组（只在状态变了时重建，不丢滚动位置）。 */

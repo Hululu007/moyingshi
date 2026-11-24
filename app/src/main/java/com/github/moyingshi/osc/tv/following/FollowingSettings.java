@@ -8,6 +8,10 @@ public final class FollowingSettings {
     public static final String NOTIFICATIONS = "following_notifications";
     public static final String SOURCE_PROBE = "following_source_probe";
     public static final String SERVER_IMPORT = "following_server_import";
+    /** 播出提醒提前分钟数：0 = 关闭；只存 15 / 30 / 60 三档。 */
+    public static final String REMINDER_LEAD = "following_reminder_lead";
+    public static final int REMINDER_OFF = 0;
+    public static final int REMINDER_DEFAULT_MINUTES = 30;
     public static final String SOURCE_PROBE_WHEN_UPDATE = "when_update";
     public static final String SOURCE_PROBE_MANUAL = "manual";
     public static final String SOURCE_PROBE_NEVER = "never";
@@ -47,6 +51,25 @@ public final class FollowingSettings {
 
     public static void setServerImportEnabled(boolean enabled) {
         Prefers.put(SERVER_IMPORT, enabled);
+    }
+
+    /** 播出提醒提前分钟数；非法值回落到默认 30 分钟，0 表示关闭。 */
+    public static int getReminderLeadMinutes() {
+        int minutes = Prefers.getInt(REMINDER_LEAD, REMINDER_DEFAULT_MINUTES);
+        if (minutes == REMINDER_OFF) return REMINDER_OFF;
+        if (minutes != 15 && minutes != 30 && minutes != 60) return REMINDER_DEFAULT_MINUTES;
+        return minutes;
+    }
+
+    public static void setReminderLeadMinutes(int minutes) {
+        if (minutes != REMINDER_OFF && minutes != 15 && minutes != 30 && minutes != 60) {
+            minutes = REMINDER_DEFAULT_MINUTES;
+        }
+        Prefers.put(REMINDER_LEAD, minutes);
+    }
+
+    public static boolean isReminderEnabled() {
+        return getReminderLeadMinutes() != REMINDER_OFF;
     }
 
     public static boolean shouldProbe(boolean manual, boolean metadataChanged, FollowingSource source) {

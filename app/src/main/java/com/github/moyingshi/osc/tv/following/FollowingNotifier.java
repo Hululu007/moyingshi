@@ -18,6 +18,7 @@ import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
 public final class FollowingNotifier {
 
     public static final String CHANNEL_ID = "webhtv.following.updates";
+    public static final String REMINDER_CHANNEL_ID = "webhtv.following.reminders";
 
     private FollowingNotifier() {
     }
@@ -28,6 +29,39 @@ public final class FollowingNotifier {
                 .setName(App.get().getString(R.string.following_channel_name))
                 .setDescription(App.get().getString(R.string.following_channel_description))
                 .build());
+    }
+
+    public static void createReminderChannel() {
+        NotificationManagerCompat manager = NotificationManagerCompat.from(App.get());
+        manager.createNotificationChannel(new NotificationChannelCompat.Builder(REMINDER_CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
+                .setName(App.get().getString(R.string.following_reminder_channel_name))
+                .setDescription(App.get().getString(R.string.following_reminder_channel_description))
+                .build());
+    }
+
+    /** 播出前提醒：标题是剧名，正文复用追更页的播出时间线；点开进追更页。 */
+    public static boolean notifyReminder(Following item) {
+        // 用户正看着 App 时不打扰，追更页上已经能看到播出时间。
+        if (App.activity() != null) return false;
+        if (item == null || !item.enabled || !item.notifyEnabled || !canNotify()) return false;
+        String airLine = FollowingAgenda.airLineText(App.get(), item);
+        if (airLine == null) return false;
+        createReminderChannel();
+        Intent intent = FollowingActivity.intent(App.get(), item.identityKey);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pending = PendingIntent.getActivity(App.get(), item.identityKey.hashCode(), intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(App.get(), REMINDER_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_home_following)
+                .setContentTitle(App.get().getString(R.string.following_reminder_title, item.vodName))
+                .setContentText(airLine)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(airLine))
+                .setAutoCancel(true)
+                .setContentIntent(pending)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+        // 通知 ID 与更新通知分开，提醒不会顶掉新集通知。
+        NotificationManagerCompat.from(App.get()).notify(("reminder:" + item.identityKey).hashCode(), builder.build());
+        return true;
     }
 
     public static boolean canNotify() {

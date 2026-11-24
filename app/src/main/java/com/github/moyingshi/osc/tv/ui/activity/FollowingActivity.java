@@ -33,6 +33,7 @@ import com.github.moyingshi.osc.tv.following.Following;
 import com.github.moyingshi.osc.tv.following.FollowingAgenda;
 import com.github.moyingshi.osc.tv.following.FollowingNotifier;
 import com.github.moyingshi.osc.tv.following.FollowingPlaybackBridge;
+import com.github.moyingshi.osc.tv.following.FollowingReminderScheduler;
 import com.github.moyingshi.osc.tv.following.FollowingIdentity;
 import com.github.moyingshi.osc.tv.following.FollowingMetadataSnapshot;
 import com.github.moyingshi.osc.tv.following.FollowingScheduler;
@@ -108,7 +109,15 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 if (granted) {
                     FollowingSettings.setNotificationsEnabled(true);
                     String identityKey = pendingNotifyIdentity;
-                    FollowingPlaybackBridge.setNotifyEnabledAsync(identityKey, true, error -> load());
+                    FollowingPlaybackBridge.setNotifyEnabledAsync(identityKey, true, error -> {
+                        if (error == null) {
+                            Task.execute(() -> {
+                                Following item = FollowingStore.find(identityKey);
+                                if (item != null) FollowingReminderScheduler.schedule(this, item);
+                            });
+                        }
+                        load();
+                    });
                     pendingNotifyIdentity = null;
                     return;
                 }
@@ -149,6 +158,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
         addWallpaper();
         focusIdentity = getIntent().getStringExtra(EXTRA_IDENTITY_KEY);
         FollowingNotifier.createChannel();
+        FollowingNotifier.createReminderChannel();
         FollowingScheduler.ensurePeriodic(this);
         initView();
         ThemeController.bindTheme(binding.getRoot());
@@ -685,7 +695,14 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             return;
         }
         if (enabled) FollowingSettings.setNotificationsEnabled(true);
-        FollowingPlaybackBridge.setNotifyEnabledAsync(item.identityKey, enabled, error -> load());
+        FollowingPlaybackBridge.setNotifyEnabledAsync(item.identityKey, enabled, error -> {
+            if (error == null) {
+                // 内存里的开关先翻过来再排提醒，调度器读到的是新值。
+                item.notifyEnabled = enabled;
+                FollowingReminderScheduler.schedule(this, item);
+            }
+            load();
+        });
     }
 
     @Override
@@ -706,6 +723,7 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 .setNegativeButton(R.string.dialog_negative, null)
                 .setPositiveButton(R.string.following_cancel, (dialog, which) -> {
                     FollowingScheduler.cancelNext(this, item.identityKey);
+                    FollowingReminderScheduler.cancel(this, item.identityKey);
                     FollowingPlaybackBridge.deleteAsync(item.identityKey, error -> load());
                 })
                 .show();
