@@ -7,6 +7,7 @@ import com.github.moyingshi.osc.tv.Constant;
 import com.github.moyingshi.osc.tv.api.config.WallConfig;
 import com.github.moyingshi.osc.tv.api.config.LiveConfig;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.api.config.VodSiteCatalog;
 import com.github.moyingshi.osc.tv.bean.Backup;
 import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.db.AppDatabase;
@@ -27,8 +28,7 @@ import com.github.moyingshi.osc.tv.utils.LoginStateSync;
 import com.github.moyingshi.osc.tv.utils.MpvConfigSync;
 import com.github.moyingshi.osc.tv.utils.ProgressRequestBody;
 import com.github.moyingshi.osc.tv.utils.ScanTask;
-import com.github.moyingshi.osc.tv.utils.SyncFiles;
-import com.github.catvod.crawler.SpiderDebug;
+import com.github.moyingshi.osc.tv.utils.SyncFiles;import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Path;
 import com.google.gson.JsonArray;
@@ -398,6 +398,9 @@ public class Manage implements Process {
             JsonObject object = new JsonObject();
             object.addProperty("code", 0);
             object.add("data", ConfigImport.data(result, currentConfig(parsed.getType())));
+            // 固定地址下内容会变：登记成功后立刻丢掉这项的解析缓存，避免重新导入后
+            // 仍按旧 JSON 服务最多 60 秒（只清目标标识，不动其它配置）。
+            VodSiteCatalog.invalidate(result.getConfig().getInterfaceKey());
             return json(object);
         } catch (IllegalStateException e) {
             return Nano.error(Status.INTERNAL_ERROR, e.getMessage());
