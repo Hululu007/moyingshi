@@ -38,6 +38,8 @@
   - 验收：日历/时间轴/剧卡显示对、待定组不丢剧、旧功能全在。
 - **P2 播出提醒**（2026-11-25 04:50 代码写完，提交待编）：不走 AlarmManager——Manifest 没有 SCHEDULE_EXACT_ALARM，Android 16 上精确闹钟要用户去设置里另开，改走现有 WorkManager 一次性延迟任务（FollowingScheduler.scheduleNext 同款机制），无新权限、重启后 WorkManager 自己恢复（定时可能差几分钟，追剧提醒可接受）。模型：全局提前分钟数放 FollowingSettings（15/30/60，默认 30；0=关闭），单部开关复用现有 notifyEnabled（提醒开 = 更新通知 + 播出提醒都开）；新 FollowingReminderScheduler（每部剧唯一任务名，延迟 = nextAirAt - 提前分钟 - now），在元数据检查刷新 nextAirAt 后、开关/提前分钟改动后重排，删剧时取消；新 FollowingReminderWorker 到点核对（仍在追、开关开、集数仍是下一集、播出时间未过、该集没提醒过）再推；通知走 FollowingNotifier 新开的提醒渠道（内容复用 FollowingAgenda.airLineText，如“今晚 20:00 · 第 2 季第 5 集”）；设置入口在主设置页特色功能分组“播出提醒”行（关闭/提前 15/30/60 分钟）。验收：设了提醒的剧到点收到通知、重启后还在、完结剧不推。
 - **P3 我的页**：新建我的仪表盘（Activity/Fragment，手机端）+ 10 卡片 + 布局编辑器（排序/隐藏/持久化）+ 首页搜索条人物图标入口；卡片点进对应页（追更/历史/收藏/继续观看）。验收：10 卡全有数、排序隐藏重启后还在、入口进得去。
+  - 2026-11-25 04:50 预查锚点：入口在 VodFragment 首页搜索条（fragment_vod.xml：searchDice 第 87 行、searchHistory 第 99 行，VodFragment.java:217-219 接法同款，显隐走 Setting 开关）；数据源现成：AppDatabase.get().getKeepDao().findAll()（收藏）、getHistoryDao().findAll()（历史）、FollowingStore.list()（追更）；新页形态参照手机端 DiceActivity/DiceFragment。
+  - 2026-11-25 05:10 代码写完，提交待编：ProfileCard（10 卡枚举）+ ProfileLayout（顺序/隐藏存 Prefers）+ ProfileStats（一次后台取数：追更/收藏/历史展示口径/在看/本月/题材/Trend1 本周最常看/Trend2 最近 7 天）+ ProfileActivity/ProfileFragment（仿 DiceActivity，纵向卡片列，每卡无数据也显示说明）+ ProfileEditorDialog（上移/下移/隐藏，关闭即保存）+ 首页搜索条人物图标入口（骰子左侧）；卡片点进追更/历史/收藏页，海报点开走 HistoryResumeCoordinator / KeepActivity 同一路。TV 端不动。
 - **P4 联调发版**：三阶段合起来走一遍，编测试版给用户测，版本记录补一笔。
 
 ## 未决小项（P1 动手前定）

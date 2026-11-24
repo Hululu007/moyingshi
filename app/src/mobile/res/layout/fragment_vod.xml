@@ -84,6 +84,18 @@
                 android:background="@color/setting_card_divider" />
 
             <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/searchProfile"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/profile_title"
+                android:focusable="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_setting_personal"
+                android:tint="?attr/colorOnSurfaceVariant" />
+
+            <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/searchDice"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
