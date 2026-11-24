@@ -1,5 +1,7 @@
 package com.github.moyingshi.osc.tv.ui.fragment;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -7,6 +9,8 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
@@ -59,6 +63,7 @@ import com.github.moyingshi.osc.tv.ui.dialog.RestoreDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.SiteDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.SiteHealthDialog;
 import com.github.moyingshi.osc.tv.utils.AppVersion;
+import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.FileUtil;
 import com.github.moyingshi.osc.tv.utils.Notify;
 import com.github.moyingshi.osc.tv.utils.PermissionUtil;
@@ -113,6 +118,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_INCOGNITO = "incognito";
     public static final String ROW_ABOUT = "about";
     public static final String ROW_DOWNLOAD = "download";
+    public static final String ROW_DOWNLOAD_PATH = "download_path";
+    public static final String ROW_DOWNLOAD_CONCURRENT = "download_concurrent";
 
     /** Row requested by settings search; consumed (posted) when this page becomes visible. */
     private static String sPendingRow;
@@ -128,6 +135,15 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     private boolean mHiddenEnabled;
     /** 隐藏分组里下载开关下方的下载列表容器（隐藏分组未建时为 null）。 */
     private LinearLayout mDownloadListContainer;
+    private View mDownloadPathRow;
+    private View mDownloadConcurrentRow;
+
+    private final ActivityResultLauncher<Intent> mDownloadDirLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) return;
+        List<String> paths = FileChooser.getPathsFromIntent(result.getData());
+        if (paths.isEmpty()) return;
+        setDownloadPath(paths.get(0));
+    });
     /** 下载任务变化时只重建下载列表，不动整个设置页。 */
     private final VideoDownloadManager.Listener mDownloadListener = this::refreshDownloadList;
     /** 用户手动展开的下载剧名组：进度刷新重建列表时保持展开，不自动收起。 */
@@ -279,6 +295,10 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             ViewGroup hidden = addGroup(container, inflater, R.string.setting_group_hidden, false);
             addRow(hidden, inflater, R.drawable.ic_setting_download, R.drawable.shape_setting_circle_blue,
                     R.string.setting_download, R.string.setting_download_sub, ROW_DOWNLOAD, this::setDownloadEnabled);
+            mDownloadPathRow = addRow(hidden, inflater, R.drawable.ic_setting_folder, R.drawable.shape_setting_circle_blue,
+                    R.string.setting_download_path, R.string.setting_download_path_sub, ROW_DOWNLOAD_PATH, this::onDownloadPath);
+            mDownloadConcurrentRow = addRow(hidden, inflater, R.drawable.ic_setting_download, R.drawable.shape_setting_circle_blue,
+                    R.string.setting_download_concurrent, R.string.setting_download_concurrent_sub, ROW_DOWNLOAD_CONCURRENT, this::onDownloadConcurrent);
             mDownloadListContainer = new LinearLayout(requireContext());
             mDownloadListContainer.setOrientation(LinearLayout.VERTICAL);
             mDownloadListContainer.setLayoutParams(new LinearLayout.LayoutParams(
@@ -287,6 +307,8 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             refreshDownloadList();
         } else {
             mDownloadListContainer = null;
+            mDownloadPathRow = null;
+            mDownloadConcurrentRow = null;
         }
     }
 
@@ -376,6 +398,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         setValue(ROW_DOH, getDohList()[getDohIndex()]);
         setValue(ROW_INCOGNITO, getSwitch(Setting.isIncognito()));
         setValue(ROW_DOWNLOAD, getSwitch(Setting.isDownloadEnabled()));
+        refreshDownloadSettings();
         setValue(ROW_ABOUT, AppVersion.fullName());
         setCacheText();
     }
@@ -629,7 +652,64 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             return;
         }
         setValue(ROW_DOWNLOAD, getSwitch(Setting.isDownloadEnabled()));
+        refreshDownloadSettings();
         refreshDownloadList();
+    }
+
+    /** 路径/同时下载数两行只在下载开关开着时显示，并刷上当前值。 */
+    private void refreshDownloadSettings() {
+        boolean enabled = Setting.isDownloadEnabled();
+        if (mDownloadPathRow != null) mDownloadPathRow.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        if (mDownloadConcurrentRow != null) mDownloadConcurrentRow.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        if (!enabled) return;
+        setValue(ROW_DOWNLOAD_PATH, getDownloadPathText());
+        setValue(ROW_DOWNLOAD_CONCURRENT, getString(R.string.setting_download_concurrent_value, Setting.getDownloadConcurrent()));
+    }
+
+    private String getDownloadPathText() {
+        String custom = Setting.getDownloadPath();
+        if (TextUtils.isEmpty(custom)) return getString(R.string.setting_download_path_default);
+        return custom;
+    }
+
+    /** 点下载路径行：恢复默认，或打开文件夹选择器改路径。 */
+    private void onDownloadPath() {
+        CharSequence[] items = new CharSequence[]{
+                getString(R.string.setting_download_path_default),
+                getString(R.string.setting_download_path_pick)};
+        ChoiceDialog.showSingle(this, R.string.setting_download_path, items,
+                TextUtils.isEmpty(Setting.getDownloadPath()) ? 0 : 1, which -> {
+                    if (which == 0) setDownloadPath("");
+                    else FileChooser.from(mDownloadDirLauncher).showDirectory();
+                });
+    }
+
+    /** 新路径必须是能建目录、可写的文件夹，否则不改、仍用原来的。 */
+    private void setDownloadPath(String path) {
+        if (!TextUtils.isEmpty(path)) {
+            File dir = new File(path);
+            boolean usable = dir.isDirectory() || dir.mkdirs();
+            if (usable) usable = dir.canWrite();
+            if (!usable) {
+                Notify.show(R.string.setting_download_path_invalid);
+                return;
+            }
+        }
+        Setting.putDownloadPath(path);
+        refreshDownloadSettings();
+        Notify.show(R.string.setting_download_path_changed);
+    }
+
+    /** 点同时下载数行：1–5 选一个，正在跑的任务不受影响，跑完按新上限补位。 */
+    private void onDownloadConcurrent() {
+        CharSequence[] items = new CharSequence[5];
+        for (int i = 0; i < 5; i++) items[i] = getString(R.string.setting_download_concurrent_value, i + 1);
+        ChoiceDialog.showSingle(this, R.string.setting_download_concurrent, items,
+                Setting.getDownloadConcurrent() - 1, which -> {
+                    Setting.putDownloadConcurrent(which + 1);
+                    VideoDownloadManager.get().refreshConcurrency();
+                    refreshDownloadSettings();
+                });
     }
 
     /** 隐藏开关变化后回到前台时重建分组（只在状态变了时重建，不丢滚动位置）。 */

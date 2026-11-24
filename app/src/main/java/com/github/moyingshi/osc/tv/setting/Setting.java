@@ -417,6 +417,24 @@ public class Setting {
         Prefers.put("download_enabled", enabled);
     }
 
+    /** 自定义下载根目录（绝对路径）；空表示默认公共 Download 文件夹。 */
+    public static String getDownloadPath() {
+        return Prefers.getString("download_path", "");
+    }
+
+    public static void putDownloadPath(String path) {
+        Prefers.put("download_path", path == null ? "" : path);
+    }
+
+    /** 同时下载任务数，1–5，默认 1。 */
+    public static int getDownloadConcurrent() {
+        return Math.max(1, Math.min(5, Prefers.getInt("download_concurrent", 1)));
+    }
+
+    public static void putDownloadConcurrent(int count) {
+        Prefers.put("download_concurrent", Math.max(1, Math.min(5, count)));
+    }
+
     public static boolean isLiquidGlass() {
         return Prefers.getBoolean("liquid_glass", true);
     }

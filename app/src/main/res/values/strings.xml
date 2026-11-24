@@ -3155,6 +3155,15 @@
     <string name="setting_group_hidden">Hidden</string>
     <string name="setting_download">Downloads</string>
     <string name="setting_download_sub">Download videos to this phone</string>
+    <string name="setting_download_path">Download folder</string>
+    <string name="setting_download_path_sub">Where downloaded videos are saved</string>
+    <string name="setting_download_path_default">Default (Download folder)</string>
+    <string name="setting_download_path_pick">Choose another folder…</string>
+    <string name="setting_download_path_changed">Download folder changed</string>
+    <string name="setting_download_path_invalid">That folder is not usable, keeping the old one</string>
+    <string name="setting_download_concurrent">Simultaneous downloads</string>
+    <string name="setting_download_concurrent_sub">How many episodes download at once</string>
+    <string name="setting_download_concurrent_value">%1$d at a time</string>
     <string name="hidden_settings_enabled">Hidden settings enabled</string>
     <string name="hidden_settings_disabled">Hidden settings disabled</string>
     <string name="setting_download_list_empty">No downloads yet</string>

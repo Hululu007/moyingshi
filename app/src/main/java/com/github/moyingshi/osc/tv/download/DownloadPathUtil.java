@@ -1,6 +1,9 @@
 package com.github.moyingshi.osc.tv.download;
 
 import android.os.Environment;
+import android.text.TextUtils;
+
+import com.github.moyingshi.osc.tv.setting.Setting;
 
 import java.io.File;
 
@@ -19,9 +22,14 @@ public final class DownloadPathUtil {
     private DownloadPathUtil() {
     }
 
-    /** 内置存储公共 Download 文件夹。 */
+    /** 下载根目录：用户在下载设置里改过路径就用改过的，否则用内置存储公共 Download 文件夹。 */
     @SuppressWarnings("deprecation")
     public static File getDownloadRoot() {
+        String custom = Setting.getDownloadPath();
+        if (!TextUtils.isEmpty(custom)) {
+            File dir = new File(custom);
+            if (dir.isDirectory() || dir.mkdirs()) return dir;
+        }
         return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
     }
 
@@ -60,6 +68,19 @@ public final class DownloadPathUtil {
     /** m3u8 本地播放列表：Download/&lt;剧名&gt;/&lt;剧名&gt; &lt;集名&gt;/index.m3u8 */
     public static File getHlsIndex(String dramaName, String episodeName) {
         return new File(getHlsDir(dramaName, episodeName), "index.m3u8");
+    }
+
+    /**
+     * 从已存 filePath 反推剧文件夹：直链文件就在剧文件夹下；m3u8 的 index.m3u8
+     * 在“剧名 集名”子文件夹下，剧文件夹是上一级。改路径后删旧剧的旧文件用这个定位。
+     */
+    public static File getDramaDirFromFilePath(String filePath) {
+        if (filePath == null || filePath.isEmpty()) return null;
+        File file = new File(filePath);
+        File parent = file.getParentFile();
+        if (parent == null) return null;
+        if ("index.m3u8".equals(file.getName())) return parent.getParentFile();
+        return parent;
     }
 
     /** 递归删除文件或文件夹；不存在返回 true。 */

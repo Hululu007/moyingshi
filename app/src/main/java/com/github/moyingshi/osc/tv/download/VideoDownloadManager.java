@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -41,13 +42,13 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 /**
- * 视频下载管理器（单例，单线程队列逐集下载）。
+ * 视频下载管理器（单例；同时下载数 1–5，下载设置里改，默认 1）。
  *
  * 流程：入队 → 后台调 SiteApi.playerContentIsolated 解析出播放地址
  * （与播放同一条解析链）→ 直链文件 Range 断点续传；m3u8 下载分段后
  * 写本地 index.m3u8；DASH（.mpd）等类型暂不支持。
  *
- * 文件落到内置存储 Download/&lt;剧名&gt;/（见 DownloadPathUtil）。
+ * 文件落到下载根目录/&lt;剧名&gt;/（默认内置存储 Download，见 DownloadPathUtil）。
  * 任务记录持久化到内部存储 download_tasks.json。
  */
 public final class VideoDownloadManager {
@@ -93,9 +94,12 @@ public final class VideoDownloadManager {
     private final Set<Listener> listeners = Collections.synchronizedSet(new HashSet<>());
     private final Set<String> cancelledIds = Collections.synchronizedSet(new HashSet<>());
     private final Set<String> pausedIds = Collections.synchronizedSet(new HashSet<>());
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    /** 池子按上限 5 建，同时跑几路用 activeCount 对照设置里的同时下载数来卡。 */
+    private static final int MAX_CONCURRENT = 5;
+    private final ExecutorService executor = Executors.newFixedThreadPool(MAX_CONCURRENT);
     private final AtomicLong lastNotifyMs = new AtomicLong(0);
-    private boolean workerActive;
+    /** 正在跑的任务数（解析中 + 下载中）。 */
+    private final AtomicInteger activeCount = new AtomicInteger(0);
 
     private VideoDownloadManager() {
         tasks.addAll(DownloadStore.load());
@@ -196,16 +200,21 @@ public final class VideoDownloadManager {
 
     /**
      * 删除一部剧的全部下载：删任务记录 + 递归删掉 Download/&lt;剧名&gt;/ 文件夹本身。
-     * 正在下载的同一集会被中断。结果回调在主线程执行。
+     * 正在下载的同一集会被中断。改过下载路径的，旧路径下的旧文件也一起删。
+     * 结果回调在主线程执行。
      */
     public void deleteDrama(String dramaName, Consumer<Boolean> callback) {
         File dramaDir = DownloadPathUtil.getDramaDir(dramaName);
+        File legacyDir = null;
         synchronized (this) {
             List<DownloadTask> doomed = new ArrayList<>();
             for (DownloadTask task : tasks) {
                 if (TextUtils.equals(task.dramaName, dramaName)) doomed.add(task);
             }
             for (DownloadTask task : doomed) {
+                if (legacyDir == null && task.filePath != null) {
+                    legacyDir = DownloadPathUtil.getDramaDirFromFilePath(task.filePath);
+                }
                 cancelledIds.add(task.id);
                 pausedIds.remove(task.id);
                 tasks.remove(task);
@@ -213,13 +222,22 @@ public final class VideoDownloadManager {
             persist();
         }
         notifyChanged(true);
+        File oldDir = legacyDir;
         executor.execute(() -> {
             boolean ok = DownloadPathUtil.deleteRecursively(dramaDir);
+            if (oldDir != null && !oldDir.equals(dramaDir)) {
+                ok = DownloadPathUtil.deleteRecursively(oldDir) && ok;
+            }
             App.post(() -> {
                 if (callback != null) callback.accept(ok);
                 notifyChanged(true);
             });
         });
+    }
+
+    /** 同时下载数改了之后补一次调度（正在跑的任务不受影响，跑完按新上限补位）。 */
+    public void refreshConcurrency() {
+        kickWorker();
     }
 
     // ------------------------------------------------------------------ 队列
@@ -244,28 +262,33 @@ public final class VideoDownloadManager {
         });
     }
 
+    /**
+     * 调度：正在跑的没到同时下载数上限时，从队头按顺序补位。
+     * 派出去的任务先标解析中，防止同一集被两次调度；跑完在 finally 里减数再补位。
+     */
     private synchronized void kickWorker() {
-        if (workerActive) return;
-        DownloadTask next = null;
-        for (DownloadTask task : tasks) {
-            if (task.status == DownloadTask.Status.QUEUED) {
-                next = task;
-                break;
-            }
-        }
-        if (next == null) return;
-        workerActive = true;
-        DownloadTask task = next;
-        executor.execute(() -> {
-            try {
-                processTask(task);
-            } finally {
-                synchronized (VideoDownloadManager.this) {
-                    workerActive = false;
+        int max = Setting.getDownloadConcurrent();
+        while (activeCount.get() < max) {
+            DownloadTask next = null;
+            for (DownloadTask task : tasks) {
+                if (task.status == DownloadTask.Status.QUEUED) {
+                    next = task;
+                    break;
                 }
-                kickWorker();
             }
-        });
+            if (next == null) return;
+            next.status = DownloadTask.Status.RESOLVING;
+            activeCount.incrementAndGet();
+            DownloadTask task = next;
+            executor.execute(() -> {
+                try {
+                    processTask(task);
+                } finally {
+                    activeCount.decrementAndGet();
+                    kickWorker();
+                }
+            });
+        }
     }
 
     private boolean isCancelled(DownloadTask task) {
