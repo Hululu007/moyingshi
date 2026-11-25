@@ -1645,6 +1645,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
                 showProgress();
                 break;
             case Player.STATE_READY:
+                hideError();
                 hideProgress();
                 checkControl();
                 player().reset();
