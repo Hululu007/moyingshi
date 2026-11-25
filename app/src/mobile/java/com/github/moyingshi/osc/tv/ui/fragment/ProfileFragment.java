@@ -224,8 +224,9 @@ public class ProfileFragment extends BaseFragment {
         return row;
     }
 
+    /** tile 行里两个 tile 等高：高用 MATCH_PARENT，横向 LinearLayout 会把矮的拉伸到行高（行高=最高的 tile），底边对齐。 */
     private LinearLayout.LayoutParams tileLayoutParams(boolean hasStartMargin) {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
         if (hasStartMargin) lp.setMarginStart(dp(12));
         return lp;
     }
