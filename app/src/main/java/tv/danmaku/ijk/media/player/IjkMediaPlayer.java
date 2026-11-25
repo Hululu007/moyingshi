@@ -14,6 +14,12 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+
+import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
+
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.ref.WeakReference;
@@ -140,6 +146,18 @@ public final class IjkMediaPlayer extends AbstractMediaPlayer {
 
         @Override // tv.danmaku.ijk.media.player.IjkLibLoader
         public void loadLibrary(String str) {
+            // ijk 的 .so 随模块走：优先从模块私有目录 System.load 绝对路径；
+            // 找不到（模块未安装）时回退 System.loadLibrary——过渡期包内仍有 .so 时走老路，
+            // 模块化完成后这里抛 UnsatisfiedLinkError，由 IjkLibLoader.isAvailable() 接住判不可用。
+            App app = App.get();
+            if (app != null) {
+                File file = ModuleManager.getInstance(app)
+                        .moduleFile(ModuleDefinition.IJK.id, System.mapLibraryName(str));
+                if (file.isFile()) {
+                    System.load(file.getAbsolutePath());
+                    return;
+                }
+            }
             System.loadLibrary(str);
         }
     }

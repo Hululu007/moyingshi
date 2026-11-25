@@ -9,6 +9,8 @@ import android.provider.DocumentsContract.Document;
 import android.text.TextUtils;
 
 import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
 import com.github.moyingshi.osc.tv.utils.Task;
 import com.github.catvod.utils.Prefers;
 
@@ -145,9 +147,31 @@ public class LutStore {
     private static List<LutPreset> scanPresets() {
         List<LutPreset> items = new ArrayList<>();
         scanAssets(ASSET_DIR, items);
+        scanModule(items);
         scanTree(items);
         sortPresets(items);
         return items;
+    }
+
+    /**
+     * LUT 模块目录扫描：13 个 .cube 中的 12 个随模块走（乌托邦.cube 留在 assets 内），
+     * 模块装好后这里补齐；未安装时只有 assets 里的 1 个默认可用。
+     * 预设 id 用 module: 前缀，与 asset:/file:/uri: 不撞键；asset=false、path 为绝对路径，
+     * LutEffectFactory.open 直接走 FileInputStream。
+     */
+    private static void scanModule(List<LutPreset> items) {
+        ModuleManager modules = ModuleManager.getInstance(App.get());
+        if (!modules.isInstalled(ModuleDefinition.LUT.id)) return;
+        File dir = modules.moduleDir(ModuleDefinition.LUT.id);
+        File[] files = dir == null ? null : dir.listFiles(
+                file -> file.isFile() && LutPreset.formatOf(file.getName()) != null);
+        if (files == null) return;
+        for (File file : files) {
+            LutPreset.Format format = LutPreset.formatOf(file.getName());
+            if (format == null) continue;
+            items.add(new LutPreset("module:" + file.getName(), displayName(file.getName()),
+                    file.getAbsolutePath(), format, false));
+        }
     }
 
     private static void sortPresets(List<LutPreset> items) {

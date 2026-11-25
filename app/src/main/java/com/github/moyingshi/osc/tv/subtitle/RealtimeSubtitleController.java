@@ -15,6 +15,8 @@ import androidx.media3.ui.PlayerView;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.bean.AiConfig;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
 import com.github.moyingshi.osc.tv.player.PlayerManager;
 import com.github.moyingshi.osc.tv.player.audio.PlaybackMediaAudioProcessor;
 import com.github.moyingshi.osc.tv.player.audio.PlaybackMediaClock;
@@ -270,6 +272,11 @@ public final class RealtimeSubtitleController {
         RealtimeSubtitleRecognizer previousRecognizer = replacing ? recognizer : null;
         RealtimeSubtitleTranslator previousTranslator = replacing ? translator : null;
         try {
+            // Sherpa 原生库随模块走：先验模块，未安装时直接失败（走现有 catch → failRecognizer →
+            // 状态 ERROR + 提示），不要先下载模型文件。模块装好后下一次开启重新尝试。
+            if (!ModuleManager.getInstance(App.get()).ensureLoaded(ModuleDefinition.SHERPA)) {
+                throw new IllegalStateException("实时字幕模块未安装，请到模块里面下载实时字幕");
+            }
             if (replacing) resetRecognizer(previousRecognizer, previousTranslator);
             ensureModel(spec, (percent, fileName) -> notifyState(request, State.PREPARING, String.valueOf(percent)), () -> request != generation);
             if (request != generation) return;

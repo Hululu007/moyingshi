@@ -5,6 +5,10 @@ import android.view.Surface;
 
 import androidx.annotation.Nullable;
 
+import com.github.moyingshi.osc.tv.App;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
+
 /** JNI boundary for the independent Exo DV5 renderer. */
 final class ExoDv5Native {
 
@@ -23,17 +27,32 @@ final class ExoDv5Native {
             | CAPABILITY_LIBPLACEBO_375
             | CAPABILITY_LIBDOVI;
 
-    private static final LoadResult LOAD_RESULT = loadLibrary();
+    // 懒加载：类加载时不再一次定死（旧代码 static final LOAD_RESULT）。
+    // 模块后装上时 probe()/create() 再次尝试即成功；已加载成功后走快路径不再重试。
+    private static volatile LoadResult loadResult;
 
     private ExoDv5Native() {
+    }
+
+    private static LoadResult ensureLoaded() {
+        LoadResult result = loadResult;
+        if (result != null && result.loaded()) return result;
+        synchronized (ExoDv5Native.class) {
+            result = loadResult;
+            if (result != null && result.loaded()) return result;
+            result = loadLibrary();
+            loadResult = result;
+            return result;
+        }
     }
 
     static Probe probe() {
         if (Build.VERSION.SDK_INT < ExoDv5GpuMappingPolicy.MIN_GPU_MAPPING_API) {
             return new Probe(false, 0, "api-below-26");
         }
-        if (!LOAD_RESULT.loaded()) {
-            return new Probe(false, 0, LOAD_RESULT.reason());
+        LoadResult result = ensureLoaded();
+        if (!result.loaded()) {
+            return new Probe(false, 0, result.reason());
         }
         try {
             int capabilities = nativeProbeCapabilities();
@@ -50,7 +69,7 @@ final class ExoDv5Native {
     }
 
     static NativeRenderer create(int width, int height) {
-        if (!LOAD_RESULT.loaded() || width <= 0 || height <= 0) {
+        if (!ensureLoaded().loaded() || width <= 0 || height <= 0) {
             throw new IllegalStateException("DV5 native renderer unavailable");
         }
         long handle = nativeCreate(width, height);
@@ -68,6 +87,14 @@ final class ExoDv5Native {
             return new LoadResult(false, "api-below-26");
         }
         try {
+            // DV 渲染器随模块走：先预载模块目录的 libdovi_android.so 与
+            // libexo_dovi_renderer.so（按 ModuleDefinition.DOVI.loadOrder），
+            // 再 loadLibrary——已预载的库会被跳过；模块未安装时这里抛
+            // UnsatisfiedLinkError，probe() 即 false，播 DV 片源降级不崩。
+            App app = App.get();
+            if (app != null) {
+                ModuleManager.getInstance(app).ensureLoaded(ModuleDefinition.DOVI);
+            }
             System.loadLibrary("exo_dovi_renderer");
             return new LoadResult(true, "loaded");
         } catch (Throwable error) {

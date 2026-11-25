@@ -7,11 +7,11 @@
 ## Recovery anchor（恢复锚点）
 
 - **目标**：把 App 里的大件拆成可选模块，基础包瘦下来，功能不砍、需要时再下载/安装；用户首次用某功能时下载对应模块，失败则回落到基础功能。
-- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线已做完（commit 见“实施记录”）。
+- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线已做完（commit 见“实施记录”）。
 - **验收标准**：见“验收标准”一节（手机真机可测条目）。
 - **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；其余全部是只读调研，见“现状映射”。
 - **未验证项**：Stage 0 已解决第 1、2、6、8 条（见“Stage 0 核查结论”）；剩余第 3、4、5、7 条见“未验证 / 需实施时验证”清单（已更新状态）。
-- **唯一下一步**：单元 ③ Sherpa/DV/ijk/LUT 接线 → 单元 ④ 设置“模块”页 + 提示 call sites → 单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
+- **唯一下一步**：单元 ④ 设置“模块”页 + 提示 call sites → 单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
 
 ## 决定变更记录（VLC 拆不拆）
 
@@ -254,6 +254,16 @@
 - `setting/PlayerSetting.java`：`isPlayerAvailable` 改成真检查——IJK/MPV/VLC 查对应模块安装态，EXO/系统恒可用；`isIjkAvailable()` 不再恒 true，新增 `isMpvAvailable()`/`isVlcAvailable()`；`sanitizePlayer` 不动（只校验常量合法性，设置页对话框要如实显示用户已存的选择，模块缺失的回落由播放侧负责）；`App.get()` 为 null 时判不可用（防 Application 未 attach 时调用）。
 - `player/PlayerManager.java`：`buildEngine` 加 try/catch——任一引擎构造失败时（VLC 预载失败是主因：正常切换前 resolveManualPlayer/resolveAvailablePlayer 已用 isPlayerAvailable 拦过，但构造时仍可能遇到竞态或同尺寸损坏文件；且构造前旧引擎已释放，直接抛会裸奔）统一回落 EXO，并把 `playerType` 与会话内核改回 EXO，与刚建起来的引擎保持一致；EXO 本身建不起来则原样抛出。写法照 4522/4624 行已有的 buildEngine try/catch 先例。
 - 本单元未改任何 UI：设置页选 MPV/VLC 且模块未安装时，本单元的行为是 `sanitizePlayer` 不拦、播放侧回落 EXO（旧有静默回落）；“请到模块里面下载”提示在单元 ④ 的 call site 接。
+- 体积影响：本单元只改 Java 代码，基础包体积不变。
+
+### 单元 ③ Sherpa/DV/ijk/LUT 接线（guard 会话 module-wire-rest，2026-11-25 晚）
+
+- `subtitle/RealtimeSubtitleController.java`：`prepareModel` 的 try 顶部先验 Sherpa 模块（`ModuleManager.ensureLoaded(SHERPA)`），未安装直接抛 `IllegalStateException("实时字幕模块未安装，请到模块里面下载实时字幕")`，走现有 catch → failRecognizer → 状态 ERROR + 提示；放在 `ensureModel` 之前，避免无谓下载模型文件。模块装好后下一次开启重新尝试。模型文件本身仍是在线下载，不动。
+- `player/exo/ExoDv5Native.java`：`static final LOAD_RESULT` 改懒加载（`ensureLoaded()`，成功后快路径、失败下次重试；`probe()`/`create()` 都走它）。`loadLibrary()` 先预载 DV 模块（libdovi_android + libexo_dovi_renderer，按 loadOrder），再 `System.loadLibrary("exo_dovi_renderer")`（已预载的库会被跳过）；模块未安装时抛 UnsatisfiedLinkError → probe()=false，播 DV 片源降级不崩。`App.get()` 为 null 时跳过预载直接走老路。
+- `tv/danmaku/ijk/media/player/IjkLibLoader.java`：加载失败不再缓存（catch 里 `loadAttempted = false`），模块后装上时下一次 `isAvailable()` 重新尝试（旧代码一旦失败整进程判不可用）。
+- `tv/danmaku/ijk/media/player/IjkMediaPlayer.java`：匿名 `IjkLibLoader` 的 `loadLibrary` 优先从模块私有目录 `System.load` 绝对路径，找不到（模块未安装）时回退 `System.loadLibrary`（过渡期包内仍有 .so 时走老路；模块化完成后抛 UnsatisfiedLinkError，由 isAvailable() 接住判不可用）。加载顺序仍是 ijkffmpeg → ijksdl → ijkplayer。
+- `player/lut/LutStore.java`：`scanPresets` 增加 `scanModule()`（在 scanAssets 之后、scanTree 之前）：模块已安装时从 `modules/lut/` 列 `.cube` 补齐，预设 id 用 `module:` 前缀、asset=false、path 为绝对路径，`LutEffectFactory.open` 直接走 FileInputStream；未安装时只有 assets 里的 1 个默认（乌托邦.cube，按名排序首项）可用。manifest.json 不是 .cube，`formatOf` 为 null 自动跳过。
+- 注意（留给单元 ④）：LUT 模块装/删后须调 `LutStore.clearCache()`（或 refreshPresets），否则缓存的预设列表不更新。
 - 体积影响：本单元只改 Java 代码，基础包体积不变。
 
 ## 未决问题（需要用户拍板）

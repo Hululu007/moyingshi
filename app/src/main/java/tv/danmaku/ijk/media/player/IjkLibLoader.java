@@ -25,6 +25,9 @@ public abstract class IjkLibLoader {
             }
             this.isAvailable = true;
         } catch (Throwable unused) {
+            // 失败不缓存：模块后装上时下一次调用重新尝试加载
+            //（旧代码一旦失败整进程判不可用，用户装完模块仍播不了 ijk）。
+            this.loadAttempted = false;
             Log.w(TAG, "Failed to load " + Arrays.toString(this.nativeLibraries));
         }
         return this.isAvailable;
