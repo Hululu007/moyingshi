@@ -16,13 +16,14 @@ public class PlayerSetting {
     public static final int IJK = 1;
     public static final int SYSTEM = 2;
     public static final int MPV = 3;
+    public static final int VLC = 4;
     public static final int NONE = -1;
     /**
-     * 内核优先级顺序：EXO → IJK → MPV → 系统。下标是位次，元素是内核常量。
+     * 内核优先级顺序：EXO → IJK → MPV → 系统 → VLC。下标是位次，元素是内核常量。
      * 常量数值本身是持久化值（也是 select_player_kernel 等数组的下标），不能重排，
      * 所以顺序只在这张表里表达：选择菜单按它排列，播放失败的内核回退也按它推进。
      */
-    public static final int[] KERNEL_ORDER = {EXO, IJK, MPV, SYSTEM};
+    public static final int[] KERNEL_ORDER = {EXO, IJK, MPV, SYSTEM, VLC};
     public static final int RENDER_SURFACE = 0;
     public static final int RENDER_TEXTURE = 1;
     public static final int MPV_RENDER_OPENGL = 0;
@@ -182,7 +183,7 @@ public class PlayerSetting {
     }
 
     public static boolean isPlayer(int player) {
-        return player == EXO || player == IJK || player == SYSTEM || player == MPV;
+        return player == EXO || player == IJK || player == SYSTEM || player == MPV || player == VLC;
     }
 
     public static int sanitizePlayer(int player) {
@@ -245,7 +246,7 @@ public class PlayerSetting {
 
     /**
      * 回退用：从优先级顺序开头扫描，跳过已试过的内核（当前内核由调用方先标记）。
-     * 所以无论从哪个内核失败，回退都按 EXO → IJK → MPV → 系统 推进，只是跳过自身。
+     * 所以无论从哪个内核失败，回退都按 EXO → IJK → MPV → 系统 → VLC 推进，只是跳过自身。
      */
     public static int firstUntriedPlayer(boolean[] tried) {
         if (tried == null) return kernelAt(0);
@@ -267,7 +268,7 @@ public class PlayerSetting {
     }
 
     public static boolean useNativeVideoOutput(int player) {
-        return player == IJK || player == SYSTEM || player == MPV;
+        return player == IJK || player == SYSTEM || player == MPV || player == VLC;
     }
 
     public static void putRender(int render) {

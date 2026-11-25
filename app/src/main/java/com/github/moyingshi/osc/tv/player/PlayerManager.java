@@ -50,6 +50,7 @@ import com.github.moyingshi.osc.tv.player.engine.PlaySpec;
 import com.github.moyingshi.osc.tv.player.engine.PlayerCacheState;
 import com.github.moyingshi.osc.tv.player.engine.PlayerEngine;
 import com.github.moyingshi.osc.tv.player.engine.SystemPlayerEngine;
+import com.github.moyingshi.osc.tv.player.engine.VlcPlayerEngine;
 import com.github.moyingshi.osc.tv.player.audio.PlaybackMediaClock;
 import com.github.moyingshi.osc.tv.player.audio.PlaybackMediaSessionController;
 import com.github.moyingshi.osc.tv.player.audio.PlaybackMediaSignalHub;
@@ -6388,6 +6389,7 @@ public void resetTrack(int type) {
             case PlayerSetting.IJK -> new IjkPlayerEngine(decode, listener);
             case PlayerSetting.SYSTEM -> new SystemPlayerEngine(decode, listener);
             case PlayerSetting.MPV -> new MpvPlayerEngine(decode, lutAllowed, listener, this::onMpvVideoSizeProbed);
+            case PlayerSetting.VLC -> new VlcPlayerEngine(decode, listener);
             default -> new ExoPlayerEngine(decode, listener, mediaSignals, mediaClock);
         };
         return next;

@@ -46,6 +46,7 @@ androidxTestExtJunit = "1.2.1"
 juniversalchardet = "1.0.3"
 jgit = "6.10.0.202406032230-r"
 jsoup = "1.22.2"
+libvlc = "3.7.8"
 logger = "2.2.0"
 lottie = "6.7.1"
 material = "1.14.0"
@@ -121,6 +122,7 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version
 rtmp-client = { group = "com.github.mcxinyu", name = "LibRtmp-Client-for-Android", version.ref = "rtmpClient" }
 logger = { group = "com.orhanobut", name = "logger", version.ref = "logger" }
 lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
+libvlc-all = { group = "org.videolan.android", name = "libvlc-all", version.ref = "libvlc" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 materialdesigncolors = { group = "com.github.bassaer", name = "materialdesigncolors", version.ref = "materialdesigncolors" }
 media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }

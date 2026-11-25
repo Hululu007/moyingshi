@@ -15,6 +15,7 @@ public class PlayerSettingTest {
         assertTrue(PlayerSetting.useNativeVideoOutput(PlayerSetting.IJK));
         assertTrue(PlayerSetting.useNativeVideoOutput(PlayerSetting.SYSTEM));
         assertTrue(PlayerSetting.useNativeVideoOutput(PlayerSetting.MPV));
+        assertTrue(PlayerSetting.useNativeVideoOutput(PlayerSetting.VLC));
     }
 
     @Test
@@ -22,6 +23,7 @@ public class PlayerSettingTest {
         assertEquals(0, PlayerSetting.getRender(PlayerSetting.IJK));
         assertEquals(0, PlayerSetting.getRender(PlayerSetting.SYSTEM));
         assertEquals(0, PlayerSetting.getRender(PlayerSetting.MPV));
+        assertEquals(0, PlayerSetting.getRender(PlayerSetting.VLC));
     }
 
     @Test
@@ -29,16 +31,18 @@ public class PlayerSettingTest {
         assertEquals(PlayerSetting.IJK, PlayerSetting.nextPlayer(PlayerSetting.EXO));
         assertEquals(PlayerSetting.MPV, PlayerSetting.nextPlayer(PlayerSetting.IJK));
         assertEquals(PlayerSetting.SYSTEM, PlayerSetting.nextPlayer(PlayerSetting.MPV));
-        assertEquals(PlayerSetting.EXO, PlayerSetting.nextPlayer(PlayerSetting.SYSTEM));
+        assertEquals(PlayerSetting.VLC, PlayerSetting.nextPlayer(PlayerSetting.SYSTEM));
+        assertEquals(PlayerSetting.EXO, PlayerSetting.nextPlayer(PlayerSetting.VLC));
     }
 
     @Test
     public void kernelOrder_rankAndPositionRoundTrip() {
-        assertArrayEquals(new int[]{PlayerSetting.EXO, PlayerSetting.IJK, PlayerSetting.MPV, PlayerSetting.SYSTEM}, PlayerSetting.KERNEL_ORDER);
+        assertArrayEquals(new int[]{PlayerSetting.EXO, PlayerSetting.IJK, PlayerSetting.MPV, PlayerSetting.SYSTEM, PlayerSetting.VLC}, PlayerSetting.KERNEL_ORDER);
         assertEquals(0, PlayerSetting.kernelRank(PlayerSetting.EXO));
         assertEquals(1, PlayerSetting.kernelRank(PlayerSetting.IJK));
         assertEquals(2, PlayerSetting.kernelRank(PlayerSetting.MPV));
         assertEquals(3, PlayerSetting.kernelRank(PlayerSetting.SYSTEM));
+        assertEquals(4, PlayerSetting.kernelRank(PlayerSetting.VLC));
         for (int rank = 0; rank < PlayerSetting.kernelCount(); rank++) {
             assertEquals(rank, PlayerSetting.kernelRank(PlayerSetting.kernelAt(rank)));
         }
@@ -52,8 +56,8 @@ public class PlayerSettingTest {
 
     @Test
     public void orderKernels_reordersConstantIndexedLabels() {
-        String[] labels = {"EXO", "IJK", "系统", "MPV"};
-        assertArrayEquals(new String[]{"EXO", "IJK", "MPV", "系统"}, PlayerSetting.orderKernels(labels));
+        String[] labels = {"EXO", "IJK", "系统", "MPV", "VLC"};
+        assertArrayEquals(new String[]{"EXO", "IJK", "MPV", "系统", "VLC"}, PlayerSetting.orderKernels(labels));
     }
 
     @Test

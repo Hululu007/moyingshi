@@ -29,6 +29,9 @@
 
 -keep class tv.danmaku.ijk.media.player.** { *; }
 -keepclassmembers class tv.danmaku.ijk.media.player.** { *; }
+
+-keep class org.videolan.libvlc.** { *; }
+-keepclassmembers class org.videolan.libvlc.** { *; }
 -keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
 
 -keep class androidx.media3.decoder.VideoDecoderOutputBuffer { *; }

@@ -1,0 +1,742 @@
+package androidx.media3.vlcplayer;
+
+import android.content.Context;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.TextureView;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
+import androidx.media3.common.SimpleBasePlayer;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.Tracks;
+import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.UnstableApi;
+
+import com.github.moyingshi.osc.tv.player.PlaybackResourceClassifier;
+import com.github.moyingshi.osc.tv.player.PlaybackRoute;
+import com.github.moyingshi.osc.tv.player.engine.PlayerEngine;
+import com.github.moyingshi.osc.tv.player.exo.ExoUtil;
+import com.github.catvod.crawler.SpiderDebug;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.interfaces.IMedia;
+import org.videolan.libvlc.interfaces.IVLCVout;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * VLC 内核的 Media3 适配器：把 libvlc 的 {@link MediaPlayer} 包成
+ * {@link SimpleBasePlayer}，与 mpv/ijk 的同款包装（MpvPlayer / IjkSimplePlayer）
+ * 对齐同一套 PlayerEngine 契约。
+ *
+ * <p>Stage 1 范围：播/停/seek/倍速/音量、音轨与内嵌字幕轨枚举与选择、Surface 接入、
+ * 错误映射。外挂字幕、字幕样式、画面调节、Anime4K、LUT、双字幕不在本阶段
+ * （见 docs/vlc-player-kernel.md 的 Stage 2/4）。
+ *
+ * <p>libvlc API 签名按 3.4.3 官方 Javadoc 核实（3.7.8 无逐版 Javadoc，3.x 线稳定）：
+ * {@code setSpuTrack(int)}、{@code getVideoTracksCount()}、
+ * {@code addSlave(int, Uri, boolean)}、{@code IMedia.Slave.Type.Subtitle}。
+ */
+@UnstableApi
+public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLayoutListener {
+
+    private static final String TAG = "TV-vlc";
+    private static final long STATE_REFRESH_INTERVAL_MS = 1000;
+
+    private static final Commands COMMANDS = new Commands.Builder()
+            .add(COMMAND_PLAY_PAUSE)
+            .add(COMMAND_PREPARE)
+            .add(COMMAND_STOP)
+            .add(COMMAND_RELEASE)
+            .add(COMMAND_SET_REPEAT_MODE)
+            .add(COMMAND_GET_CURRENT_MEDIA_ITEM)
+            .add(COMMAND_GET_TIMELINE)
+            .add(COMMAND_GET_METADATA)
+            .add(COMMAND_SET_MEDIA_ITEM)
+            .add(COMMAND_CHANGE_MEDIA_ITEMS)
+            .add(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+            .add(COMMAND_SEEK_TO_DEFAULT_POSITION)
+            .add(COMMAND_GET_VOLUME)
+            .add(COMMAND_SET_VOLUME)
+            .add(COMMAND_SET_SPEED_AND_PITCH)
+            .add(COMMAND_SET_VIDEO_SURFACE)
+            .add(COMMAND_GET_TRACKS)
+            .build();
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable stateRefreshRunnable = this::refreshPlaybackState;
+    private final LibVLC libVlc;
+    private final MediaPlayer mediaPlayer;
+    private MediaItem mediaItem;
+    private Object videoOutput;
+    private PlaybackParameters playbackParameters;
+    private PlaybackException playerError;
+    private Tracks currentTracks;
+    private VideoSize videoSize;
+    private String currentPlayableUrl;
+    private PlaybackResourceClassifier.Classification resourceClassification;
+    private long cachedPositionMs;
+    private long cachedDurationMs;
+    private long pendingSeekPositionMs;
+    private float volume;
+    private int decode;
+    private int playbackState;
+    private boolean playWhenReady;
+    private boolean loading;
+    private boolean repeatOne;
+    private boolean prepared;
+    private boolean mediaSet;
+    private boolean newlyRenderedFirstFrame;
+    private boolean renderedFirstFrameSeen;
+    private volatile boolean released;
+
+    public VlcPlayer(Context context) {
+        this(context, PlayerEngine.HARD);
+    }
+
+    public VlcPlayer(Context context, int decode) {
+        super(Looper.getMainLooper());
+        this.decode = decode;
+        // 关掉 libvlc 默认的片名 OSD，避免画面上多一行系统字幕条。
+        libVlc = new LibVLC(context.getApplicationContext(), List.of("--no-video-title-show"));
+        mediaPlayer = new MediaPlayer(libVlc);
+        mediaPlayer.setEventListener(this::onVlcEvent);
+        playbackParameters = PlaybackParameters.DEFAULT;
+        currentTracks = Tracks.EMPTY;
+        videoSize = VideoSize.UNKNOWN;
+        playbackState = Player.STATE_IDLE;
+        cachedDurationMs = C.TIME_UNSET;
+        pendingSeekPositionMs = C.TIME_UNSET;
+        playWhenReady = true;
+        volume = 1f;
+    }
+
+    public void setDecode(int decode) {
+        this.decode = decode;
+    }
+
+    @Override
+    protected State getState() {
+        int state = playbackState;
+        boolean isLoading = loading && state != Player.STATE_IDLE && state != Player.STATE_ENDED;
+        boolean firstFrameEvent = newlyRenderedFirstFrame;
+        newlyRenderedFirstFrame = false;
+        State.Builder builder = new State.Builder()
+                .setAvailableCommands(COMMANDS)
+                .setPlayWhenReady(playWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+                .setPlaybackState(state)
+                .setIsLoading(isLoading)
+                .setPlayerError(playerError)
+                .setRepeatMode(repeatOne ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF)
+                .setPlaybackParameters(playbackParameters)
+                .setVideoSize(videoSize)
+                .setNewlyRenderedFirstFrame(firstFrameEvent)
+                .setVolume(volume)
+                .setPlaylist(mediaItem == null ? ImmutableList.of() : ImmutableList.of(mediaItemData()))
+                .setCurrentMediaItemIndex(mediaItem == null ? C.INDEX_UNSET : 0);
+        if (mediaItem != null) {
+            long duration = duration();
+            long position = position();
+            long buffered = bufferedPosition(position, duration);
+            builder.setContentPositionMs(isPlayingInternal()
+                    ? PositionSupplier.getExtrapolating(position, playbackParameters.speed)
+                    : PositionSupplier.getConstant(position));
+            builder.setContentBufferedPositionMs(PositionSupplier.getConstant(buffered));
+            builder.setTotalBufferedDurationMs(PositionSupplier.getConstant(Math.max(0, buffered - position)));
+        }
+        return builder.build();
+    }
+
+    private MediaItemData mediaItemData() {
+        long duration = duration();
+        return new MediaItemData.Builder(mediaItem.mediaId)
+                .setMediaItem(mediaItem)
+                .setMediaMetadata(mediaItem.mediaMetadata)
+                .setDurationUs(duration == C.TIME_UNSET ? C.TIME_UNSET : duration * 1000)
+                .setIsSeekable(duration > 0)
+                .setIsDynamic(duration == C.TIME_UNSET)
+                .setTracks(currentTracks)
+                .build();
+    }
+
+    public Tracks getCurrentTracksSnapshot() {
+        return currentTracks;
+    }
+
+    public VideoSize getVideoSizeSnapshot() {
+        return videoSize;
+    }
+
+    public PlaybackRoute.Resolution getPlaybackRouteResolution() {
+        return PlaybackRoute.resolve(currentPlayableUrl);
+    }
+
+    public PlaybackResourceClassifier.Classification getResourceClassification() {
+        return resourceClassification;
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetMediaItems(List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
+        // 换片先停掉旧媒体，避免 setMedia 之前旧片继续出声。
+        if (mediaSet) {
+            try {
+                mediaPlayer.stop();
+            } catch (Throwable ignored) {
+            }
+            mediaSet = false;
+        }
+        mediaItem = mediaItems.isEmpty() ? null : mediaItems.get(0);
+        pendingSeekPositionMs = mediaItem != null && startPositionMs > 0 ? startPositionMs : C.TIME_UNSET;
+        playbackState = Player.STATE_IDLE;
+        loading = false;
+        currentTracks = Tracks.EMPTY;
+        playerError = null;
+        prepared = false;
+        cachedPositionMs = Math.max(0, startPositionMs == C.TIME_UNSET ? 0 : startPositionMs);
+        cachedDurationMs = C.TIME_UNSET;
+        videoSize = VideoSize.UNKNOWN;
+        newlyRenderedFirstFrame = false;
+        renderedFirstFrameSeen = false;
+        currentPlayableUrl = null;
+        resourceClassification = null;
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleAddMediaItems(int index, List<MediaItem> mediaItems) {
+        if (mediaItem == null && !mediaItems.isEmpty()) mediaItem = mediaItems.get(0);
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleReplaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
+        if (mediaItems.isEmpty()) {
+            stopInternal();
+            mediaItem = null;
+            invalidateState();
+        } else {
+            mediaItem = mediaItems.get(0);
+        }
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleRemoveMediaItems(int fromIndex, int toIndex) {
+        stopInternal();
+        mediaItem = null;
+        playbackState = Player.STATE_IDLE;
+        loading = false;
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handlePrepare() {
+        openCurrent();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
+        this.playWhenReady = playWhenReady;
+        if (released || mediaItem == null || !mediaSet) {
+            invalidateState();
+            return Futures.immediateVoidFuture();
+        }
+        try {
+            if (playWhenReady) {
+                if (playbackState == Player.STATE_ENDED) mediaPlayer.setTime(0);
+                mediaPlayer.play();
+            } else if (mediaPlayer.isPlaying()) {
+                mediaPlayer.pause();
+            }
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "play-when-ready failed errorType=%s", e.getClass().getSimpleName());
+        }
+        invalidateState();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleStop() {
+        stopInternal();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleRelease() {
+        released = true;
+        stopStateRefresh();
+        stopInternal(false);
+        detachVideoOutput();
+        try {
+            mediaPlayer.release();
+        } catch (Throwable ignored) {
+        }
+        try {
+            libVlc.release();
+        } catch (Throwable ignored) {
+        }
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetRepeatMode(int repeatMode) {
+        repeatOne = repeatMode == Player.REPEAT_MODE_ONE;
+        invalidateState();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSeek(int mediaItemIndex, long positionMs, int seekCommand) {
+        if (positionMs == C.TIME_UNSET) positionMs = 0;
+        positionMs = Math.max(0, positionMs);
+        cachedPositionMs = positionMs;
+        if (!prepared || !mediaSet) {
+            // 还没起播：只记目标，Playing 事件里再 seek（与 ijk 的 pendingSeek 同款做法）。
+            pendingSeekPositionMs = positionMs;
+            invalidateState();
+            return Futures.immediateVoidFuture();
+        }
+        try {
+            mediaPlayer.setTime(positionMs);
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "seek failed errorType=%s", e.getClass().getSimpleName());
+        }
+        invalidateState();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetPlaybackParameters(PlaybackParameters playbackParameters) {
+        this.playbackParameters = playbackParameters;
+        try {
+            mediaPlayer.setRate(playbackParameters.speed);
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "set rate failed errorType=%s", e.getClass().getSimpleName());
+        }
+        invalidateState();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetVolume(float volume, int volumeOperationType) {
+        this.volume = Math.max(0f, Math.min(1f, volume));
+        try {
+            // libvlc 音量 0..200，100 为标准音量。
+            mediaPlayer.setVolume((int) (this.volume * 100));
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "set volume failed errorType=%s", e.getClass().getSimpleName());
+        }
+        invalidateState();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleSetVideoOutput(Object videoOutput) {
+        this.videoOutput = videoOutput;
+        detachVideoOutput();
+        bindVideoOutput();
+        return Futures.immediateVoidFuture();
+    }
+
+    @Override
+    protected ListenableFuture<?> handleClearVideoOutput(@Nullable Object videoOutput) {
+        if (videoOutput == null || videoOutput == this.videoOutput) {
+            this.videoOutput = null;
+            detachVideoOutput();
+        }
+        return Futures.immediateVoidFuture();
+    }
+
+    /** 引擎层选轨入口：audio/spu 的 libvlc 轨道 id（Format.id 里 "type:id" 的后半段）。 */
+    public void setAudioTrackIndex(int vlcTrackId) {
+        if (released || !mediaSet) return;
+        try {
+            mediaPlayer.setAudioTrack(vlcTrackId);
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "set audio track failed errorType=%s", e.getClass().getSimpleName());
+            return;
+        }
+        refreshTracks();
+        invalidateState();
+    }
+
+    /** 传入 -1 表示关闭字幕（libvlc 的哨兵值）。 */
+    public void setSpuTrackIndex(int vlcTrackId) {
+        if (released || !mediaSet) return;
+        try {
+            mediaPlayer.setSpuTrack(vlcTrackId);
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "set spu track failed errorType=%s", e.getClass().getSimpleName());
+            return;
+        }
+        refreshTracks();
+        invalidateState();
+    }
+
+    private void onVlcEvent(MediaPlayer.Event event) {
+        if (event == null || released) return;
+        // libvlc 事件应在主线程回调；不在主线程时转一下，invalidateState 必须在主线程调。
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post(() -> onVlcEvent(event));
+            return;
+        }
+        switch (event.type) {
+            case MediaPlayer.Event.Opening:
+                playbackState = Player.STATE_BUFFERING;
+                loading = true;
+                invalidateState();
+                break;
+            case MediaPlayer.Event.Buffering: {
+                float buffering = event.getBuffering();
+                if (buffering >= 100f) {
+                    if (playbackState == Player.STATE_BUFFERING) {
+                        playbackState = Player.STATE_READY;
+                        loading = false;
+                    }
+                } else {
+                    playbackState = Player.STATE_BUFFERING;
+                    loading = true;
+                }
+                invalidateState();
+                break;
+            }
+            case MediaPlayer.Event.Playing:
+                prepared = true;
+                playbackState = Player.STATE_READY;
+                loading = false;
+                playerError = null;
+                refreshTracks();
+                if (pendingSeekPositionMs != C.TIME_UNSET) {
+                    long target = pendingSeekPositionMs;
+                    pendingSeekPositionMs = C.TIME_UNSET;
+                    try {
+                        mediaPlayer.setTime(target);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                bindVideoOutput();
+                invalidateState();
+                startStateRefresh();
+                break;
+            case MediaPlayer.Event.Paused:
+                // 暂停只是 playWhenReady=false 的确认态，READY 不变。
+                invalidateState();
+                break;
+            case MediaPlayer.Event.Stopped:
+                if (playbackState != Player.STATE_IDLE) {
+                    playbackState = Player.STATE_IDLE;
+                    loading = false;
+                    stopStateRefresh();
+                    invalidateState();
+                }
+                break;
+            case MediaPlayer.Event.EndReached:
+                if (repeatOne && mediaSet) {
+                    try {
+                        mediaPlayer.setTime(0);
+                        mediaPlayer.play();
+                    } catch (Throwable ignored) {
+                    }
+                    break;
+                }
+                playbackState = Player.STATE_ENDED;
+                loading = false;
+                stopStateRefresh();
+                invalidateState();
+                break;
+            case MediaPlayer.Event.EncounteredError:
+                playbackState = Player.STATE_IDLE;
+                loading = false;
+                prepared = false;
+                stopStateRefresh();
+                playerError = new PlaybackException(
+                        "VLC_LOAD_FAILED",
+                        null,
+                        PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+                SpiderDebug.log(TAG, "encountered error url=%s", summarizeUrl());
+                invalidateState();
+                break;
+            case MediaPlayer.Event.TimeChanged:
+                cachedPositionMs = Math.max(0, event.getTimeChanged());
+                // 位置靠 getState 里的 extrapolate 平滑推进，这里不 invalidate。
+                break;
+            case MediaPlayer.Event.LengthChanged:
+                cachedDurationMs = event.getLengthChanged();
+                invalidateState();
+                break;
+            case MediaPlayer.Event.Vout:
+                if (event.getVoutCount() > 0 && !renderedFirstFrameSeen) {
+                    renderedFirstFrameSeen = true;
+                    newlyRenderedFirstFrame = true;
+                }
+                invalidateState();
+                break;
+            case MediaPlayer.Event.ESAdded:
+            case MediaPlayer.Event.ESDeleted:
+            case MediaPlayer.Event.ESSelected:
+                refreshTracks();
+                invalidateState();
+                break;
+            default:
+                break;
+        }
+    }
+
+    @Override
+    public void onNewVideoLayout(IVLCVout vlcVout, int width, int height,
+                                 int visibleWidth, int visibleHeight, int sarNum, int sarDen) {
+        if (width > 0 && height > 0) {
+            videoSize = new VideoSize(width, height);
+        } else {
+            videoSize = VideoSize.UNKNOWN;
+        }
+        refreshTracks();
+        invalidateState();
+    }
+
+    private void openCurrent() {
+        if (mediaItem == null || mediaItem.localConfiguration == null) return;
+        if (released) return;
+        try {
+            playbackState = Player.STATE_BUFFERING;
+            loading = true;
+            playerError = null;
+            prepared = false;
+            newlyRenderedFirstFrame = false;
+            renderedFirstFrameSeen = false;
+            Uri sourceUri = mediaItem.localConfiguration.uri;
+            Map<String, String> headers = ExoUtil.extractHeaders(mediaItem);
+            String playableUrl = sourceUri.toString();
+            currentPlayableUrl = playableUrl;
+            resourceClassification = PlaybackResourceClassifier.classifyRequest(
+                    playableUrl, mediaItem.localConfiguration.mimeType, mediaItem.localConfiguration.mimeType);
+            Media media = new Media(libVlc, sourceUri);
+            try {
+                applyHttpOptions(media, headers);
+                media.setHWDecoderEnabled(decode == PlayerEngine.HARD, false);
+                mediaPlayer.setMedia(media);
+                mediaSet = true;
+            } finally {
+                // setMedia 后 player 内部已 retain，立即 release 是官方示例写法。
+                media.release();
+            }
+            SpiderDebug.log(TAG, "open decode=%s headers=%d urlLen=%d",
+                    decode == PlayerEngine.HARD ? "hard" : "soft",
+                    headers.size(), playableUrl.length());
+            // 关键顺序：先接 surface 再 play，否则会出现“只有声音没有画面”。
+            bindVideoOutput();
+            invalidateState();
+            startStateRefresh();
+        } catch (Throwable e) {
+            playerError = new PlaybackException(
+                    "VLC_LOAD_FAILED",
+                    e,
+                    PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+            playbackState = Player.STATE_IDLE;
+            loading = false;
+            prepared = false;
+            mediaSet = false;
+            stopStateRefresh();
+            SpiderDebug.log(TAG, "open failed errorType=%s", e.getClass().getSimpleName());
+            invalidateState();
+        }
+    }
+
+    /**
+     * Stage 1 只传 UA 与 Referer（libvlc media options 有对应项）。
+     * Cookie 与任意自定义头 libvlc 3.x 没有直达的 media option，Stage 2 实测后定降级方案。
+     */
+    private void applyHttpOptions(IMedia media, Map<String, String> headers) {
+        if (media == null || headers == null || headers.isEmpty()) return;
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (key == null || value == null) continue;
+            if ("User-Agent".equalsIgnoreCase(key)) {
+                media.addOption(":http-user-agent=" + value);
+            } else if ("Referer".equalsIgnoreCase(key)) {
+                media.addOption(":http-referrer=" + value);
+            }
+        }
+    }
+
+    private void stopInternal(boolean notifyState) {
+        try {
+            if (mediaSet) mediaPlayer.stop();
+        } catch (Throwable ignored) {
+        }
+        mediaSet = false;
+        prepared = false;
+        loading = false;
+        playbackState = Player.STATE_IDLE;
+        stopStateRefresh();
+        if (notifyState) invalidateState();
+    }
+
+    private void stopInternal() {
+        stopInternal(true);
+    }
+
+    private void startStateRefresh() {
+        mainHandler.removeCallbacks(stateRefreshRunnable);
+        mainHandler.postDelayed(stateRefreshRunnable, STATE_REFRESH_INTERVAL_MS);
+    }
+
+    private void stopStateRefresh() {
+        mainHandler.removeCallbacks(stateRefreshRunnable);
+    }
+
+    private void refreshPlaybackState() {
+        if (mediaItem == null || playbackState == Player.STATE_IDLE
+                || playbackState == Player.STATE_ENDED || playerError != null) return;
+        long length = safeLength();
+        if (length > 0) cachedDurationMs = length;
+        invalidateState();
+        startStateRefresh();
+    }
+
+    private long safeLength() {
+        try {
+            return mediaPlayer.getLength();
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
+
+    private long position() {
+        try {
+            long actual = Math.max(0, mediaPlayer.getTime());
+            if (pendingSeekPositionMs == C.TIME_UNSET) return actual;
+            boolean reached = Math.abs(actual - pendingSeekPositionMs) <= 1500;
+            if (reached) {
+                pendingSeekPositionMs = C.TIME_UNSET;
+                return actual;
+            }
+            return pendingSeekPositionMs;
+        } catch (Throwable ignored) {
+            return pendingSeekPositionMs == C.TIME_UNSET ? Math.max(0, cachedPositionMs) : pendingSeekPositionMs;
+        }
+    }
+
+    private long duration() {
+        long duration = cachedDurationMs > 0 ? cachedDurationMs : safeLength();
+        return duration > 0 ? duration : C.TIME_UNSET;
+    }
+
+    private long bufferedPosition(long position, long duration) {
+        // libvlc Java 绑定不暴露已缓冲位置：缓冲中按当前位置算，其余按总时长算。
+        if (playbackState == Player.STATE_BUFFERING) return position;
+        return duration == C.TIME_UNSET ? position : duration;
+    }
+
+    private void refreshTracks() {
+        if (released || !mediaSet) return;
+        try {
+            List<Tracks.Group> groups = new ArrayList<>();
+            int selectedVideo = safeTrackId(() -> mediaPlayer.getVideoTrack());
+            int selectedAudio = safeTrackId(() -> mediaPlayer.getAudioTrack());
+            int selectedSpu = safeTrackId(() -> mediaPlayer.getSpuTrack());
+            addTrackGroup(groups, C.TRACK_TYPE_VIDEO, mediaPlayer.getVideoTracks(), selectedVideo);
+            addTrackGroup(groups, C.TRACK_TYPE_AUDIO, mediaPlayer.getAudioTracks(), selectedAudio);
+            addTrackGroup(groups, C.TRACK_TYPE_TEXT, mediaPlayer.getSpuTracks(), selectedSpu);
+            currentTracks = groups.isEmpty() ? Tracks.EMPTY : new Tracks(groups);
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "tracks refresh failed errorType=%s", e.getClass().getSimpleName());
+        }
+    }
+
+    private int safeTrackId(TrackIdSupplier supplier) {
+        try {
+            return supplier.get();
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
+
+    private interface TrackIdSupplier {
+        int get();
+    }
+
+    private void addTrackGroup(List<Tracks.Group> groups, int type,
+                               MediaPlayer.TrackDescription[] descriptions, int selectedId) {
+        if (descriptions == null) return;
+        for (MediaPlayer.TrackDescription description : descriptions) {
+            if (description == null) continue;
+            String label = description.name == null || description.name.isEmpty() ? null : description.name;
+            Format format = new Format.Builder()
+                    .setId(type + ":" + description.id)
+                    .setLabel(label)
+                    .build();
+            boolean selected = description.id == selectedId;
+            TrackGroup group = new TrackGroup("vlc:" + type + ":" + description.id, format);
+            groups.add(new Tracks.Group(group, false,
+                    new int[]{C.FORMAT_HANDLED}, new boolean[]{selected}));
+        }
+    }
+
+    /**
+     * Surface 接入：Media3 的 PlayerView 在 surface 建好/销毁时调
+     * setVideoSurface(surface)，经 SimpleBasePlayer 走到这里。
+     * 顺序必须是 setVideoSurface → attachViews → play，否则黑屏只有声音。
+     */
+    private void bindVideoOutput() {
+        if (released || mediaPlayer == null || videoOutput == null) return;
+        try {
+            IVLCVout vout = mediaPlayer.getVLCVout();
+            if (videoOutput instanceof SurfaceView view) {
+                vout.setVideoView(view);
+            } else if (videoOutput instanceof TextureView view) {
+                vout.setVideoView(view);
+            } else if (videoOutput instanceof SurfaceHolder holder) {
+                Surface surface = holder.getSurface();
+                if (surface == null || !surface.isValid()) return;
+                vout.setVideoSurface(surface, holder);
+            } else if (videoOutput instanceof Surface surface) {
+                if (!surface.isValid()) return;
+                vout.setVideoSurface(surface, null);
+            } else {
+                return;
+            }
+            if (!vout.areViewsAttached()) {
+                vout.attachViews(this);
+            }
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "bind surface failed errorType=%s", e.getClass().getSimpleName());
+        }
+    }
+
+    private void detachVideoOutput() {
+        if (mediaPlayer == null) return;
+        try {
+            IVLCVout vout = mediaPlayer.getVLCVout();
+            if (vout.areViewsAttached()) vout.detachViews();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private String summarizeUrl() {
+        String url = currentPlayableUrl;
+        if (url == null) return "null";
+        int query = url.indexOf('?');
+        String shown = query >= 0 ? url.substring(0, query) : url;
+        return shown.length() > 80 ? shown.substring(0, 80) + "..." : shown;
+    }
+}
