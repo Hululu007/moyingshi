@@ -7,11 +7,11 @@
 ## Recovery anchor（恢复锚点）
 
 - **目标**：把 VLC（libvlc）作为第五个播放内核接进墨影视，与 EXO/IJK/SYSTEM/MPV 并列，用户可在设置里选、可在播放器里切、按线路记住（History.kernelByFlag），默认内核不变。
-- **当前状态**：Stage 1 已实现并提交（见“Stage 1 实施记录”），等待 GitHub 构建 + 发布验证。
+- **当前状态**：Stage 1 已实现、构建全绿并发布 v5.6.0-beta-202611251756（见“Stage 1 实施记录”）。待用户真机验证播放行为。
 - **验收标准**：见“验收标准”一节（手机可测条目）。
 - **当前文件/符号**：见“Stage 1 实施记录”。
-- **未验证项**：见“未验证 / 需实施时验证”清单（HTTP 任意头、双字幕、PiP 下 Surface 存活、VLC 与 mpv 的 .so 符号共存、TV 端 surface 链路、实施后包体实测值）+ Stage 1 实施记录里的“待真机验证”。
-- **唯一下一步**：GitHub 构建跑完 → 验发布（4 个 APK + 包体实测）→ 补文档里的 run/发布号。
+- **未验证项**：见“未验证 / 需实施时验证”清单 + Stage 1 实施记录里的“待真机验证”。
+- **唯一下一步**：用户真机验证 VLC 播放（验收标准 1–10）→ 有问题修 Stage 1 回炉，无问题进 Stage 2（轨道与字幕）。
 
 ## 要实现的实际能力
 
@@ -157,7 +157,7 @@
 - **核查后确认不用改的**：`SettingPlayerFragment`（`onKernel` 走 `PlayerKernelDialog` + `select_player_kernel` 数组下标）、`PlayerKernelDialog`（全由 `KERNEL_ORDER`/`kernelAt`/`kernelRank` 驱动）、leanback `SettingPlayerActivity`（同款数组 + 对话框）、`History.kernelByFlag`（存 int，VLC=4 无需改结构）。TV 端因此 Stage 1 即随手机一起进（共用 PlayerManager + 同款入口），待真机验证。
 - **libvlc 签名核查**：上游源码站 403 读不到 3.7.8 源码，签名以 3.4.3 官方 Javadoc 核实（`setSpuTrack(int): boolean`、`getVideoTracksCount()`、`addSlave(int, Uri, boolean)`、`IMedia.Slave.Type.Subtitle`、`Media(ILibVLC, Uri)`、`LibVLC(Context, List<String>)`、`IVLCVout` 在 `org.videolan.libvlc.interfaces` 包）；3.7.8 下无逐版 Javadoc，残留风险由 GitHub 构建（唯一编译检查）兜底。
 - **验证结果**（构建前）：本地无 JDK/Android SDK，未编译；逐行复核已做（类型、泛型、lambda、XML 属性、跨包可见性——VlcPlayer 供引擎用的方法均为 public）。
-- **构建 / 发布**（待填）：run 号 ____；发布版本 ____；mobile-arm64 实测包体 ____（上一版约 170MB，预期 +46MB 级）；构建耗时 ____。
+- **构建 / 发布**：首编 run 45589056581 失败——唯一编译错误 `VlcPlayer.java:158 cannot find symbol isPlayingInternal()`（4 个 Assemble 任务同报一处；测试任务未受影响）。根因：`isPlayingInternal()` 是各播放器自有的 private 辅助方法（IjkSimplePlayer:1323、MpvPlayer:4946、SystemSimplePlayer:452），不是 SimpleBasePlayer 的方法，VlcPlayer 抄调用时漏了定义；修复 commit `ac8cf3b4`（+8 行，照 ijk 同款：`READY && mediaPlayer.isPlaying()`，tag `recovery/vlc-kernel-stage1-fix1/20261125175626-ac8cf3b43745`）。重编 run 45590195523 全绿（测试 5m16s，全程约 12 分钟），发布 **v5.6.0-beta-202611251756**（prerelease）。包体实测：mobile-arm64 213MB（上一版 169MB，**+44MB**，验收 ≤50MB 通过）；mobile-armeabi-v7a 176MB（+38MB）；leanback-arm64 214MB（+44MB）；leanback-armeabi-v7a 177MB（+38MB）。与评审预测（arm64 +46MB、armeabi-v7a +~40MB）吻合。
 - **待真机验证**（验收标准 1–10 的手机项，本地无法验）：设置里切 VLC 生效；MP4/HLS/RTSP 各一播通无黑屏；暂停/seek/倍速/切集/切线/切站；内嵌字幕与音轨切换；旋转与 PiP 不黑屏；跳过片头片尾、弹幕、后台音频 + 通知栏；B6/Anime4K/LUT 置灰；切回其他内核回归；连续播 3 集、切内核 10 次不闪退。
 
 ## 验收标准（手机真机可测）
