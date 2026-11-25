@@ -367,25 +367,58 @@ def extractAarJni = { File aarFile, String abi, File destDir, List<String> names
 def findCmakeDoviSo = { String abi, String flavor ->
     def flavorCap = flavor == "arm64_v8a" ? "Arm64_v8a" : "Armeabi_v7a"
     def buildDir = project.layout.buildDirectory.get().asFile
-    // 1) CMake 原始产物（未 strip；AGP 文档口径 intermediates/cmake/<variant>/obj/<abi>/）。
-    def cmakeMatches = project.fileTree("${buildDir}/intermediates/cmake") {
-        include "**/obj/${abi}/libexo_dovi_renderer.so"
-    }.files.sort { it.path }
-    if (!cmakeMatches.isEmpty()) return cmakeMatches.first()
-    // 2) 兜底：mergeNativeLibs 已合并的产物（同样未 strip；strip 产物在 stripped_native_libs 里）。
-    //    首编 run 45625164694 实测：buildCMake 跑完、mergeNativeLibs 跑完后 intermediates/cmake 下仍无该 .so，
-    //    故不能只认 CMake 原始目录；合并产物是同一份 .so 的逐字节拷贝，zip 内容不变。
-    //    优先取 mobile variant（与 CI“只从 mobile 任务收集模块 zip”口径一致），其余 variant 仅作后备。
-    def mergedMatches = project.fileTree("${buildDir}/intermediates/merged_native_libs") {
-        include "**/out/lib/${abi}/libexo_dovi_renderer.so"
-    }.files.sort { it.path }
-    if (!mergedMatches.isEmpty()) {
-        def mobile = mergedMatches.find { it.path.contains("/mobile${flavorCap}Release/") }
-        return mobile != null ? mobile : mergedMatches.first()
+    // 布局无关搜索：run 45629469467 实测，在 AGP 9.2.1 下 intermediates/cmake/**/obj/<abi>/
+    // 与 intermediates/merged_native_libs/**/out/lib/<abi>/ 两处都找不到该 .so——虽然它确实
+    // 在 APK 里（v…251828 的 APK 中 arm64 9,583,656 字节、armeabi 6,746,144 字节），且
+    // buildCMakeRelWithDebInfo 与 mergeNativeLibs 都在 packageModules 之前跑完。AGP 的
+    // intermediates 布局随版本变化（merged_native_libs 就有带/不带任务名目录的两种布局，
+    // 见 syafiy.dev 的 16KB 修复文：intermediates/merged_native_libs/<variant>/
+    // merge<Variant>NativeLibs/out/lib 与 .../<variant>/out/lib 两种写法都要试），
+    // 不能再按文档口径写死两条路径。改为在整个 build 树 + .cxx（CMake 构建目录）里按
+    // 文件名 + ABI 目录匹配，再按优先级排序；strip 过的产物一律排除（模块 zip 要未 strip 的）。
+    def searchRoots = []
+    if (buildDir.isDirectory()) searchRoots << buildDir
+    def cxxDir = new File(projectDir, ".cxx")
+    if (cxxDir.isDirectory()) searchRoots << cxxDir
+    def candidates = []
+    searchRoots.each { root ->
+        project.fileTree(root) {
+            include "**/${abi}/libexo_dovi_renderer.so"
+        }.files.each { f -> candidates << f }
+    }
+    // 排除 strip 产物（stripped_native_libs 里的是 strip 过的，zip 里不能用）。
+    candidates = candidates.findAll { !(it.path.contains("/stripped_native_libs/")) }
+    if (!candidates.isEmpty()) {
+        // 优先级：CMake 原始产物（未 strip）> .cxx 构建目录产物（未 strip）>
+        // merged_native_libs 合并产物（未 strip）> 其他；同级内优先 release/relWithDebInfo，
+        // 其次 mobile variant（与 CI“只从 mobile 任务收集模块 zip”口径一致）。
+        candidates.sort { a, b ->
+            def score = { File f ->
+                def p = f.path
+                def s = 0
+                if (p.contains("/intermediates/cmake/")) s += 0
+                else if (p.contains("/.cxx/")) s += 10
+                else if (p.contains("/merged_native_libs/")) s += 20
+                else s += 30
+                if (p.contains("/debug/") || p.contains("/Debug/")) s += 5
+                if (!(p.contains("/mobile${flavorCap}Release/"))) s += 1
+                return s
+            }
+            def d = score(a) <=> score(b)
+            return d != 0 ? d : (a.path <=> b.path)
+        }
+        return candidates.first()
+    }
+    // 诊断：同名文件在其他 ABI 下是否存在（用于区分“搜索本身失效”与“该 ABI 确实没产物”)。
+    def anyAbi = []
+    searchRoots.each { root ->
+        project.fileTree(root) {
+            include "**/libexo_dovi_renderer.so"
+        }.files.each { f -> anyAbi << f.path }
     }
     throw new GradleException(
-            "找不到 libexo_dovi_renderer.so（ABI ${abi}）：intermediates/cmake 下无 **/obj/${abi}/ 产物，" +
-            "intermediates/merged_native_libs 下也无 **/out/lib/${abi}/ 产物；" +
+            "找不到 libexo_dovi_renderer.so（ABI ${abi}）：已在 ${searchRoots} 下按 **/${abi}/libexo_dovi_renderer.so 全树搜索，" +
+            "未 strip 候选 0 个；同名文件在其他 ABI 下：${anyAbi.isEmpty() ? "无" : anyAbi.join(", ")}；" +
             "请确认 CMake 构建（buildCMakeRelWithDebInfo[${abi}]）已产出该 .so")
 }
 
@@ -490,9 +523,11 @@ moduleAbis.each { abi, flavor ->
         group = "build"
         description = "打包 ${abi} 的 6 个模块分包 + 总包（app/build/outputs/modules/${abi}/）"
         // DV 的渲染器 .so 由 CMake 编出。CI 实测任务名是 buildCMakeRelWithDebInfo[arm64-v8a]
-        //（按 CMake 构建类型 + ABI 命名，不含 variant 名），旧的 contains(variantCap) 匹配不到任何任务，
-        // 依赖是空操作。另等 mobile variant 的 mergeNativeLibs 完成，保证合并产物已落盘（兜底查找用）。
-        dependsOn(tasks.matching { it.name.startsWith("buildCMake") && it.name.endsWith("[${abi}]") })
+        //（按 CMake 构建类型 + ABI 命名，不含 variant 名）。只依赖 release 的 CMake 任务：
+        // 旧的 startsWith("buildCMake") 还会匹配到 buildCMakeDebug，白白多编一次。
+        // 用精确任务名依赖：任务不存在时构建会明确报错，而不是像 matching 那样静默空操作。
+        // 另等 mobile variant 的 mergeNativeLibs 完成，保证合并产物已落盘（兜底查找用）。
+        dependsOn("buildCMakeRelWithDebInfo[${abi}]")
         dependsOn("mergeMobile${flavorCap}ReleaseNativeLibs")
         doLast {
             packageModulesAction(abi, flavor)
