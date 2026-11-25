@@ -364,15 +364,29 @@ def extractAarJni = { File aarFile, String abi, File destDir, List<String> names
     }
 }
 
-def findCmakeDoviSo = { String abi ->
-    def matches = project.fileTree("${project.layout.buildDirectory.get().asFile}/intermediates/cmake") {
+def findCmakeDoviSo = { String abi, String flavor ->
+    def flavorCap = flavor == "arm64_v8a" ? "Arm64_v8a" : "Armeabi_v7a"
+    def buildDir = project.layout.buildDirectory.get().asFile
+    // 1) CMake 原始产物（未 strip；AGP 文档口径 intermediates/cmake/<variant>/obj/<abi>/）。
+    def cmakeMatches = project.fileTree("${buildDir}/intermediates/cmake") {
         include "**/obj/${abi}/libexo_dovi_renderer.so"
     }.files.sort { it.path }
-    if (matches.isEmpty()) {
-        throw new GradleException(
-                "找不到 CMake 产物 libexo_dovi_renderer.so（ABI ${abi}）：模块打包任务依赖 release 的 CMake 构建")
+    if (!cmakeMatches.isEmpty()) return cmakeMatches.first()
+    // 2) 兜底：mergeNativeLibs 已合并的产物（同样未 strip；strip 产物在 stripped_native_libs 里）。
+    //    首编 run 45625164694 实测：buildCMake 跑完、mergeNativeLibs 跑完后 intermediates/cmake 下仍无该 .so，
+    //    故不能只认 CMake 原始目录；合并产物是同一份 .so 的逐字节拷贝，zip 内容不变。
+    //    优先取 mobile variant（与 CI“只从 mobile 任务收集模块 zip”口径一致），其余 variant 仅作后备。
+    def mergedMatches = project.fileTree("${buildDir}/intermediates/merged_native_libs") {
+        include "**/out/lib/${abi}/libexo_dovi_renderer.so"
+    }.files.sort { it.path }
+    if (!mergedMatches.isEmpty()) {
+        def mobile = mergedMatches.find { it.path.contains("/mobile${flavorCap}Release/") }
+        return mobile != null ? mobile : mergedMatches.first()
     }
-    return matches.first()
+    throw new GradleException(
+            "找不到 libexo_dovi_renderer.so（ABI ${abi}）：intermediates/cmake 下无 **/obj/${abi}/ 产物，" +
+            "intermediates/merged_native_libs 下也无 **/out/lib/${abi}/ 产物；" +
+            "请确认 CMake 构建（buildCMakeRelWithDebInfo[${abi}]）已产出该 .so")
 }
 
 def packageModulesAction = { String abi, String flavor ->
@@ -397,7 +411,7 @@ def packageModulesAction = { String abi, String flavor ->
     extractAarJni(vlcAar, abi, new File(aarStage, "vlc"), moduleFiles["vlc"])
     extractAarJni(hdrAar, abi, new File(aarStage, "hdr"), ["libdovi_android.so"])
 
-    def doviRenderer = findCmakeDoviSo(abi)
+    def doviRenderer = findCmakeDoviSo(abi, flavor)
 
     def subZips = []
     moduleOrder.each { moduleId ->
@@ -472,12 +486,14 @@ def packageModulesAction = { String abi, String flavor ->
 
 moduleAbis.each { abi, flavor ->
     def flavorCap = flavor == "arm64_v8a" ? "Arm64_v8a" : "Armeabi_v7a"
-    def variantCap = flavor == "arm64_v8a" ? "MobileArm64_v8aRelease" : "MobileArmeabi_v7aRelease"
     tasks.register("packageModules${flavorCap}") {
         group = "build"
         description = "打包 ${abi} 的 6 个模块分包 + 总包（app/build/outputs/modules/${abi}/）"
-        // DV 的渲染器 .so 由 CMake 编出：先等 mobile variant 的 CMake 构建完成。
-        dependsOn(tasks.matching { it.name.startsWith("buildCMake") && it.name.contains(variantCap) })
+        // DV 的渲染器 .so 由 CMake 编出。CI 实测任务名是 buildCMakeRelWithDebInfo[arm64-v8a]
+        //（按 CMake 构建类型 + ABI 命名，不含 variant 名），旧的 contains(variantCap) 匹配不到任何任务，
+        // 依赖是空操作。另等 mobile variant 的 mergeNativeLibs 完成，保证合并产物已落盘（兜底查找用）。
+        dependsOn(tasks.matching { it.name.startsWith("buildCMake") && it.name.endsWith("[${abi}]") })
+        dependsOn("mergeMobile${flavorCap}ReleaseNativeLibs")
         doLast {
             packageModulesAction(abi, flavor)
         }

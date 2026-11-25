@@ -374,3 +374,10 @@
 - 模块管理入口：设置里单独一项“模块”
 - 未决问题 1–8 的答复：按上面已批内容执行；TV 端模块管理页尽量与手机同款，若 TV 设置结构不同则只保证回落行为
 - 批准人 / 日期：用户 / 2026-11-25 19:26
+
+## 首编失败修复（run 45625164694，2026-11-25 21:58）
+
+首编 4 个 build job + 测试 job 全挂，两处独立根因（workflow 本身合法，YAML 解析通过）：
+
+1. **测试 job 编译失败**：`ModuleDownloaderTest.java:38/:47` 的 `request.getPath()` 与 `request.getHeader("Range")` 在 mockwebserver 5.4.0（`gradle/libs.versions.toml:59` 的 `okhttp = "5.4.0"`，`app/build.gradle:271` 的 `testImplementation libs.okhttp.mockwebserver`）上不存在（`cannot find symbol`）。修法：只改测试，不改生产代码——按官方 5.x 文档的 Dispatcher 示例改用 `request.getUrl().encodedPath()`（本测试 URL 无 query，与旧 getPath() 等价，另加 getUrl() 为空的兜底），`request.getHeaders().get("Range")`（语义同旧 getHeader：首个值或 null）。commit `95504b36`，tag `recovery/module-fix-test-api/20261125215826-95504b36f0ff`。
+2. **4 个 build job 全挂在 packageModules**：`findCmakeDoviSo` 在 `build/intermediates/cmake/**/obj/<abi>/` 下找不到 `libexo_dovi_renderer.so`。CI 日志实测两点：① CMake 任务实际叫 `buildCMakeRelWithDebInfo[arm64-v8a]`（按 CMake 构建类型 + ABI 命名，不含 variant 名），旧 `dependsOn(tasks.matching { startsWith("buildCMake") && contains(variantCap) })` 匹配不到任何任务，依赖是空操作；② buildCMake 与 mergeNativeLibs 明明都在 packageModules 之前跑完，`intermediates/cmake` 下仍无该 .so。修法：dependsOn 改按真实任务名匹配（`startsWith("buildCMake") && endsWith("[${abi}]")`），另加 `dependsOn("mergeMobile${flavorCap}ReleaseNativeLibs")` 保证合并产物已落盘；`findCmakeDoviSo` 先找 CMake 原始产物，找不到再兜底找 `intermediates/merged_native_libs/**/out/lib/<abi>/` 的合并产物（同样未 strip，是同一份 .so 的逐字节拷贝，zip 内容不变；优先取 mobile variant，与 CI“只从 mobile 任务收集模块 zip”口径一致）；两处都没有时抛错改为列出两个搜索位置，便于下次定位。commit 与 tag 见本会话的 finish 回执。
