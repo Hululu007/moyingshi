@@ -42,7 +42,7 @@ public class ProfileMonthChartView extends View {
 
     private void init(Context context) {
         density = context.getResources().getDisplayMetrics().density;
-        int gridColor = resolveAttr(context, R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
+        int gridColor = resolveAttr(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
         gridPaint.setColor(gridColor);
         gridPaint.setStrokeWidth(1 * density);
         linePaint.setStyle(Paint.Style.STROKE);
@@ -50,7 +50,7 @@ public class ProfileMonthChartView extends View {
         linePaint.setStrokeJoin(Paint.Join.ROUND);
         linePaint.setStrokeCap(Paint.Cap.ROUND);
         dotPaint.setStyle(Paint.Style.FILL);
-        int textColor = resolveAttr(context, R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
+        int textColor = resolveAttr(context, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
         textPaint.setColor(textColor);
         textPaint.setTextSize(11 * density);
         textPaint.setTextAlign(Paint.Align.CENTER);

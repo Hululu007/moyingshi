@@ -742,27 +742,27 @@ public class ProfileFragment extends BaseFragment {
     }
 
     private int primaryColor() {
-        return resolveAttr(R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
+        return resolveAttr(com.google.android.material.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
     }
 
     private int secondaryColor() {
-        return resolveAttr(R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
+        return resolveAttr(com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
     }
 
     private int onSurfaceColor() {
-        return resolveAttr(R.attr.colorOnSurface, Color.parseColor("#FF1A1C1E"));
+        return resolveAttr(com.google.android.material.R.attr.colorOnSurface, Color.parseColor("#FF1A1C1E"));
     }
 
     private int containerHighColor() {
-        return resolveAttr(R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
+        return resolveAttr(com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
     }
 
     private int containerHighestColor() {
-        return resolveAttr(R.attr.colorSurfaceContainerHighest, Color.parseColor("#FFE1E2E9"));
+        return resolveAttr(com.google.android.material.R.attr.colorSurfaceContainerHighest, Color.parseColor("#FFE1E2E9"));
     }
 
     private int outlineColor() {
-        return resolveAttr(R.attr.colorOutline, Color.parseColor("#FFBDBDBD"));
+        return resolveAttr(com.google.android.material.R.attr.colorOutline, Color.parseColor("#FFBDBDBD"));
     }
 
     private int resolveAttr(int attr, int fallback) {

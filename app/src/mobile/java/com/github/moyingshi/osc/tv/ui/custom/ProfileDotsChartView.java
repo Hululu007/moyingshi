@@ -37,10 +37,10 @@ public class ProfileDotsChartView extends View {
 
     private void init(Context context) {
         density = context.getResources().getDisplayMetrics().density;
-        int primary = resolveAttr(context, R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
+        int primary = resolveAttr(context, com.google.android.material.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
         dotPaint.setColor(primary);
         dotPaint.setStyle(Paint.Style.FILL);
-        int textColor = resolveAttr(context, R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
+        int textColor = resolveAttr(context, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
         textPaint.setColor(textColor);
         textPaint.setTextSize(11 * density);
         textPaint.setTextAlign(Paint.Align.CENTER);
