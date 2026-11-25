@@ -169,7 +169,7 @@ fi
 protected_status="$(git status --short -- \
   'third_party/*lock*.json' \
   'third_party/patches' \
-  'app/src/*/assets/mpv-libs' \
+  'app/src/*/mpv-libs' \
   'app/src/main/jniLibs' \
   '*.aar' \
   '*.so' || true)"

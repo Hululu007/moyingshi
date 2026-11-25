@@ -60,7 +60,7 @@ Options:
   --abi arm64-v8a        Build the validated 64-bit stack (default)
   --abi armeabi-v7a      Build the 32-bit stack
   --abi all              Build both ARM ABIs
-  --install              Replace the matching app/src/*/assets/mpv-libs files
+  --install              Replace the matching app/src/*/mpv-libs files
   --prepare-only         Download and pin all sources without compiling
   --stage-only           Stage and verify an already-built native prefix
   --incremental          Keep build prefixes instead of doing a clean rebuild
@@ -840,8 +840,8 @@ stage_abi() {
   local assets
 
   case "$abi" in
-    arm64-v8a) assets="$ROOT/app/src/arm64_v8a/assets/mpv-libs/arm64-v8a" ;;
-    armeabi-v7a) assets="$ROOT/app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a" ;;
+    arm64-v8a) assets="$ROOT/app/src/arm64_v8a/mpv-libs/arm64-v8a" ;;
+    armeabi-v7a) assets="$ROOT/app/src/armeabi_v7a/mpv-libs/armeabi-v7a" ;;
   esac
 
   rm -rf "$output"

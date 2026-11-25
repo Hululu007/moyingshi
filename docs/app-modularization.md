@@ -7,11 +7,11 @@
 ## Recovery anchor（恢复锚点）
 
 - **目标**：把 App 里的大件拆成可选模块，基础包瘦下来，功能不砍、需要时再下载/安装；用户首次用某功能时下载对应模块，失败则回落到基础功能。
-- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线、单元 ④ 设置“模块”页 + 提示已做完（commit 见“实施记录”与 finish 回执）。
+- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线、单元 ④ 设置“模块”页 + 提示、单元 ⑤ Gradle 打包已做完（commit 见“实施记录”与 finish 回执）。5 个单元的代码全部在 main 上，未触发构建。
 - **验收标准**：见“验收标准”一节（手机真机可测条目）。
-- **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress/ModulePrompt/ModuleActivity）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；其余全部是只读调研，见“现状映射”。
-- **未验证项**：Stage 0 已解决第 1、2、6、8 条（见“Stage 0 核查结论”）；剩余第 3、4、5、7 条见“未验证 / 需实施时验证”清单（已更新状态）。
-- **唯一下一步**：单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
+- **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress/ModulePrompt/ModuleActivity）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；打包在 `app/build.gradle`（`packaging.jniLibs.excludes` + `packageModules*` 任务 + `moduleAar` 配置）；模块文件源在 `app/src/<abi>/mpv-libs/`、`app/src/main/jniLibs/`、`app/src/main/lut-presets/` 与两个 AAR；其余全部是只读调研，见“现状映射”。
+- **未验证项**：Stage 0 已解决第 1、2、6、8 条（见“Stage 0 核查结论”）；剩余第 3、4、5、7 条见“未验证 / 需实施时验证”清单（已更新状态）。新增：Gradle 打包的编译正确性（`packaging` 排除 + 打包任务 + assemble 接线）与基础包实测体积，只能由 GitHub 构建验证。
+- **唯一下一步**：workflow diff 报给父代理（浏览器改）→ 触发构建 → 核对 release（4 个 APK + 14 个模块 zip）→ 发版 + 版本记录。
 
 ## 决定变更记录（VLC 拆不拆）
 
@@ -72,11 +72,11 @@
 | 模块 | 内容 | 省多少 | 留在基础包里的最小集 | 依赖关系 | 备注 |
 |---|---|---|---|---|---|
 | **mod-mpv** | mpv bundle 全部 10 个 `.so`（44.5MB） | 44.5MB | `MPVLib`、`MpvPlayer`、`MpvPlayerEngine` 的 Java 代码（小）；`MpvPlayer` 的加载失败路径原样保留 | 无（自带 FFmpeg 与 libc++_shared） | 拆法最顺：加载器已抽象，换数据源即可 |
-| **mod-vlc** | `libvlc.so` 45.9 + `libvlcjni.so` 0.1 = 46.0MB | 46.0MB | `org.videolan.libvlc` Java 绑定（AAR 的 classes.jar，约 1–2MB，待实测）+ `VlcPlayer`/`VlcPlayerEngine` 的 Java 代码 | 无（静态链接 FFmpeg 自带；libc++_shared 是否需要待 `readelf` 核实） | 拆法与 mpv 不同：应用层从不显式加载，须在首次 `new LibVLC()` 前 `System.load` 预载两个 `.so`（先 libvlc、后 libvlcjni），绑定的 `loadLibrary` 随后发现已加载即跳过 |
-| **mod-sherpa** | `libsherpa-onnx-jni.so` 23.6MB | 23.6MB | `com.k2fsa.sherpa.onnx` Java 绑定（323KB jar）+ `subtitle/RealtimeSubtitle*` 的 Java 代码；模型文件本来就在线下载，不动 | 无（ONNX Runtime 自带） | 试点首选（见下）。前置条件：先定位 `.so` 的打包来源（Stage 0） |
+| **mod-vlc** | `libvlc.so` 45.9 + `libvlcjni.so` 0.1 + AAR 自带的 `libc++_shared.so` 9.3 = **约 55.3MB（zip 未压缩）**；APK 口径省 47.4MB（另含基础包的 `libc++_shared.so` 1.37MB，见下） | 47.4MB | `org.videolan.libvlc` Java 绑定（AAR 的 classes.jar，约 1–2MB，待实测）+ `VlcPlayer`/`VlcPlayerEngine` 的 Java 代码 | 无（静态链接 FFmpeg 自带；libc++_shared 用 AAR 里那份，不用基础包的） | 拆法与 mpv 不同：应用层从不显式加载，须在首次 `new LibVLC()` 前 `System.load` 预载三个 `.so`（先 AAR 的 libc++_shared、后 libvlc、最后 libvlcjni），绑定的 `loadLibrary` 随后发现已加载即跳过。**纠正**：评审初版写的 46.0MB 是 APK 内 VLC 的 footprint（复用了基础包 1.37MB 的 libc++_shared）；zip 必须自带 VLC 自己的 9.3MB 那份（与 libvlc.so 同一套 NDK STL 构建才配对），故 zip 约 55MB。 |
+| **mod-sherpa** | `libsherpa-onnx-jni.so` 23.6MB（实测：arm64 23,603,240 字节，armeabi 16,110,348 字节） | 23.6MB | `com.k2fsa.sherpa.onnx` Java 绑定（`app/libs/sherpa-onnx-v1.13.4.jar`，实测 175,635 字节≈172KB；评审写的 323KB 是错的，以实测为准）+ `subtitle/RealtimeSubtitle*` 的 Java 代码；模型文件本来就在线下载，不动 | 无（ONNX Runtime 自带） | 试点首选（见下）。前置条件：先定位 `.so` 的打包来源（Stage 0） |
 | **mod-dovi** | `libexo_dovi_renderer.so` 9.6 + `libdovi_android.so` 0.45 = 10.0MB | 10.0MB | `ExoDv5Native` 的 Java 代码 + `probe()`；Exo 本体不动 | 依赖 Exo（默认内核，随包） | 探针设计已就绪；缺失即 probe()=false |
 | **mod-ijk** | `libijkffmpeg.so` 9.3 + `libijkplayer.so` 0.6 + `libijksdl.so` 0.4 = 10.3MB | 10.3MB | `IjkPlayerEngine`、`IjkSimplePlayer`、ijk 的 Java 壳 | 无 | `isPlayerAvailable` 的门改成真检查即可；回落 EXO 已有 |
-| **mod-lut**（资产包，非原生模块） | 13 个 `.cube` 3.7MB 下载 | 3.7MB | `player/lut/` 解析代码；首屏默认 LUT 可留 1 个在包内，其余懒加载 | 依赖 B6 画面调节（mpv 下可用） | 无原生加载，风险最低；但省得少，只能当添头 |
+| **mod-lut**（资产包，非原生模块） | 13 个 `.cube` 3.7MB 下载（zip 压缩后；实测：12 个文件未压缩 9,862,336 字节，`.cube` 是文本、压缩比约 3:1；“磁盘 11MB”是 13 个文件合计 10,832,768 字节，含留包内的乌托邦.cube） | 3.7MB | `player/lut/` 解析代码；首屏默认 LUT 可留 1 个在包内，其余懒加载 | 依赖 B6 画面调节（mpv 下可用） | 无原生加载，风险最低；但省得少，只能当添头 |
 | **不拆** | Exo FFmpeg 8.2MB、Python 20.9MB、Thunder 6.4MB、JianPian 5.3MB、TFLite 3.5MB、ASS 2.8MB | — | — | — | 见下节 |
 
 ### 不拆的件（说明原因）
@@ -94,10 +94,10 @@
 | Stage 1 试点（Sherpa） | −23.6MB | 约 189MB |
 | Stage 2（DV） | −10.0MB | 约 179MB |
 | Stage 3（mpv） | −44.5MB | 约 135MB |
-| Stage 4（VLC） | −46.0MB | 约 89MB |
-| Stage 5（ijk + LUT） | −14.0MB | 约 75MB |
+| Stage 4（VLC） | −47.4MB | 约 88MB |
+| Stage 5（ijk + LUT） | −14.0MB | 约 74MB |
 
-> 注：模块 zip 本身有极小 overhead（zip 容器 + manifest，不到 0.1MB/个），上表已忽略。全量后基础包约 75–79MB；Thunder/剪片/TFLite 若日后也拆，可再到约 64MB，但不推荐为此立项。
+> 注：模块 zip 本身有极小 overhead（zip 容器 + manifest，不到 0.1MB/个），上表已忽略。全量后基础包约 74MB（估算，构建实测待定；VLC 那行已按 47.4MB 修正，原 46.0MB 漏了基础包的 `libc++_shared.so` 1.37MB）；Thunder/剪片/TFLite 若日后也拆，可再到约 64MB，但不推荐为此立项。
 
 ## 方案对比
 
@@ -282,6 +282,17 @@
 - TV 决定（best-effort）：TV 设置页是 `SettingActivity` 固定三列瓷砖网格（`activity_setting.xml`，焦点链写死），加一格要重排网格 + 焦点链，风险高——**TV 设置页不加“模块”格**。TV 侧回落行为完整（`isPlayerAvailable` 门控 + `buildEngine` 回落 EXO）+ 提示的“去下载”按钮能跳到模块页（ModuleActivity 在 main Manifest，主源码集，TV 构建也有）。TV 用户从提示进来可下载模块；TV 设置里没有独立入口，见报告。
 - 体积影响：本单元只加 Java 代码与两份小布局，基础包体积不变；瘦身在单元 ⑤。
 
+### 单元 ⑤ Gradle 打包（guard 会话 module-gradle-packaging，2026-11-25 晚）
+
+- `app/build.gradle`：`android.packaging.jniLibs.excludes`（用 `addAll`，AGP 的 excludes 只有 getter、Groovy 下 `+=` 不可靠）排除 9 个 `.so` ×2 ABI（Sherpa、ijk×3、libc++_shared、libvlc、libvlcjni、libexo_dovi_renderer、libdovi_android）。排除前对 APK 内全部 `.so` 做 `readelf DT_NEEDED` 核查：只有 libvlc.so 需要 libc++_shared.so（故基础包删它安全，VLC zip 自带 AAR 那份）；libexo_ass.so 只依赖系统库；其余基础包 `.so` 不依赖任何一个被排除的文件（libmedia3ext 依赖的 FFmpeg 库留在基础包）。
+- `app/build.gradle` 末尾：`packageModulesArm64_v8a` / `packageModulesArmeabi_v7a` 两个任务（`moduleAbis`/`moduleOrder`/`moduleFiles`/`moduleUpstreamVersions` 四张表；文件清单与 `ModuleDefinition.files` 必须保持一致）。每 ABI 产 6 个分包 + 1 个总包到 `app/build/outputs/modules/<abi>/`：分包根目录是 manifest.json（module/moduleVersion/appVersionCodeMin=Max=当前 versionCode/abi/upstreamVersion/files[{name,size,sha256}]，与 `ModuleManifest`/`ModuleInstaller` 的格式逐项对过：总清单是 `{modules:[{file,module,size,sha256}]}`，内层分包文件名不含 `/`）+ 模块文件平铺；总包是 6 个分包 + total-manifest.json，不重复放 `.so`。确定性：`ZipOutputStream` 固定时间戳 1980-01-01 + 固定条目顺序（manifest 在首位），manifest 不含时间戳。
+- 各模块 `.so` 来源（逐项实测，非推测）：mpv 是移出 assets 后的 `app/src/<flavor>/mpv-libs/<abi>/`（10 个文件，arm64 46,673,648 字节）；VLC 从 `moduleAar` 配置解析的 libvlc-all 3.7.8 AAR 取 `jni/<abi>/` 三件（arm64：libc++_shared.so 9,290,184 + libvlc.so 45,875,392 + libvlcjni.so 101,104；zip 约 55MB）；Sherpa/ijk 取 `app/src/main/jniLibs/<abi>/`（Sherpa arm64 23,603,240、armeabi 16,110,348；ijk arm64 10,303,584、armeabi 7,582,160）；DV 的 libdovi_android.so 取 exoplayerhdrutils 0.4.0 AAR 的 `jni/<abi>/`（arm64 589,400），libexo_dovi_renderer.so 取 CMake 产物 `build/intermediates/cmake/**/obj/<abi>/`（任务依赖 mobile variant 的 CMake 构建，`tasks.matching` 按名匹配；找不到时抛错明说，不静默出坏包；mobile/leanback 产物可能因 DWARF 内嵌路径不同而字节不同，按路径排序取首个，CI 只从 mobile 任务收集，故发布物唯一；注意 zip 里这份是未 strip 的，比 APK 里 9.6MB 那份略大）；LUT 取移出 assets 后的 `app/src/main/lut-presets/`（12 个文件 9,862,336 字节，zip 压缩后约 3.7MB）。
+- 资产移出 assets（AGP 9.2.1 的 `packaging` DSL 只有 dex/jniLibs/resources 三块，官方 API 参考已核实**没有 assets 块**，assets 没法用排除语法）：`app/src/<abi>/assets/mpv-libs/` → `app/src/<abi>/mpv-libs/`（`git mv`，20 个文件；`assets/lab/` 不动）；12 个 `.cube` 从 `app/src/main/assets/lut_presets/` → `app/src/main/lut-presets/`（乌托邦.cube 留 assets，`lut_presets/` 里留了 `.gitkeep`）。配套改了五处路径：`scripts/verify_mpv_native_assets.sh`（verify_abi 的目录）、`scripts/build_mpv_native.sh`（--install 目标 + 帮助文案）、`scripts/build_mpv_player_jni.sh`（--install 目标，libplayer.so 同一位置）、`third_party/mpv-native-build.md`（安装目录说明 + “不再作为 assets 打进 APK”）、`.codex/skills/upstream-integration-governor/scripts/verify_upstream_checkpoint.sh`（受保护路径 glob）。另有一处没法随代码推：`.github/workflows/mpv-native-rebuild.yml:185-189` 也往旧路径拷 libplayer.so，见 workflow diff（浏览器改）。历史任务文档（docs/C10、P1/P2-*、android7-support-audit 等）里提到的旧路径是当时状态的记录，不动。
+- `configurations.moduleAar`（不可消费、可解析）：只解析 libvlc-all 与 exoplayerhdrutils 两个 AAR 供打包任务取 `.so`；Java 绑定仍由 `implementation` 引入、留基础包。
+- 接线：4 个 release assemble 任务（`assemble(Mobile|Leanback)(Arm64_v8a|Armeabi_v7a)Release`，与 workflow 矩阵同名）各 `dependsOn` 对应 ABI 的 package 任务；debug 不打。任务无 inputs/outputs 声明，每次 release assemble 都重新打。
+- 体积影响（估算，构建实测待定）：mobile-arm64 基础包 213MB → 约 74MB（移出 mpv 44.5 + VLC 相关 47.4 + Sherpa 23.6 + DV 10.0 + ijk 10.3 + LUT 3.7 ≈ 139.5MB；`.so` 几乎不压缩、`.cube` 按压缩后 3.7MB 计）。模块 zip（未压缩口径）：mpv 46.7MB、VLC 55.3MB、Sherpa 23.6MB、DV 约 11–13MB（含未 strip 的渲染器）、ijk 10.3MB、LUT 约 3.7MB（zip 压缩后）；总包约 150MB。Chaquopy Python（20.9MB）不在 6 个模块里，没动。
+- 本单元未改 workflow（gh token 缺 workflow 权限，diff 见父代理收到的报告）；本地无 JDK/Gradle，`packaging` 排除与打包任务的编译正确性只能由 GitHub 构建验证（构建触发前须先上 workflow diff）。
+
 ## 未决问题（需要用户拍板）
 
 1. **试点选哪个**：推荐 Sherpa（最独立、与播放解耦、省 23.6MB）。是否同意？还是改 DV（更小、探针现成）或 mpv（最大、最能验证机器）？
@@ -301,7 +312,7 @@
 4. DV 模块缺失时 Exo 的回退行为：播 DV 片源是降级 HDR10/HEVC 还是报错；`ExoDv5Native.probe()` 的调用方与回退链路需实施时读全。
 5. TV（leanback）侧各模块入口可达性：VLC/mpv 切内核在 TV 上可达（Stage 1 已进）；实时字幕、DV 在 TV 端的入口与回落需核查。
 6. `libc++_shared.so` 的归属：**已核查（Stage 0 结论 2）**：`lib/` 里的那份与 `assets/mpv-libs/` 里的那份 md5 相同（`b02c898086ba3f55f3748f6cf6bae128`）；基础包 `lib/*.so` 里只有 libvlc.so 需要它。VLC 模块化后基础包可删 libc++_shared.so（省 1.4MB），VLC 模块 zip 自带并先预载；mpv 模块自带自己那份。
-7. GitHub release 附件大小限制与下载速度：模块 zip（单个最大 46MB）随 release 发是否有限制、用户侧下载速度是否可接受；若 GitHub 直连在用户网络下慢，是否需要镜像。
+7. GitHub release 附件大小限制与下载速度：模块 zip（单个最大约 55MB，VLC）随 release 发是否有限制、用户侧下载速度是否可接受；若 GitHub 直连在用户网络下慢，是否需要镜像。
 8. Sherpa Java 绑定是否在类加载时就 `loadLibrary`（静态块在哪个类）：**已核查（Stage 0 结论 9）**：jar 内 `LibraryUtils.class` 含 "sherpa-onnx-jni" 字串、`LibraryLoader.class` 含 "loadLibrary" → jar 自带加载器；拦截点是首次用 Sherpa 类之前预载（`RealtimeSubtitleRecognizer.create()` → `new OnlineRecognizer(...)`，约 :83）。
 
 ## 证据索引

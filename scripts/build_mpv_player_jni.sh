@@ -152,7 +152,7 @@ build_abi() {
   local prefix="$BUILDSCRIPTS/prefix/$prefix_name"
   local native_output="$WORK_DIR/output/$abi"
   local output="$WORK_DIR/output-jni/$abi"
-  local assets="$ROOT/app/src/$flavor/assets/mpv-libs/$abi"
+  local assets="$ROOT/app/src/$flavor/mpv-libs/$abi"
   local libcxx_shared="$SYSROOT/usr/lib/$cxx_lib_abi/libc++_shared.so"
   local out="$output/libplayer.so"
   local tmp="$out.tmp"

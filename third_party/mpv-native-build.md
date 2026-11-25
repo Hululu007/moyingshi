@@ -16,11 +16,11 @@
 
 ## 两种构建必须分开
 
-日常 App 构建不会编译 MPV native。仓库已经提交以下目录中的 `.so`，Gradle 和 GitHub Actions 直接把它们作为 assets 打进 APK：
+日常 App 构建不会编译 MPV native。仓库已经提交以下目录中的 `.so`，模块化之后它们不再作为 assets 打进 APK，而是由 Gradle 的模块打包任务（见 `app/build.gradle` 的 `packageModules*`）打成 mod-mpv 的模块 zip，随 release 一起发；未装模块时 MPV 内核不可用、回落 EXO：
 
 ```text
-app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/
-app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/
+app/src/arm64_v8a/mpv-libs/arm64-v8a/
+app/src/armeabi_v7a/mpv-libs/armeabi-v7a/
 ```
 
 因此普通用户 clone 后直接执行 Gradle 即可，不需要运行本文的 native 脚本：

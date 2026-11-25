@@ -159,7 +159,7 @@ verify_abi() {
   local abi="$1"
   local flavor="$2"
   local file_pattern="$3"
-  local directory="$ROOT/app/src/$flavor/assets/mpv-libs/$abi"
+  local directory="$ROOT/app/src/$flavor/mpv-libs/$abi"
   local required name file_path file_info dynamic soname mpv_dynamic
 
   required="libc++_shared.so libmpv.so libmvcodec.so libmvdevice.so libmvfilter.so libmvformat.so libmvutil.so libmwresample.so libmwscale.so libplayer.so"
