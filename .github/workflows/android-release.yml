@@ -184,11 +184,13 @@ jobs:
             --tests 'com.github.moyingshi.osc.tv.utils.GithubProxyTest' \
             --tests 'com.github.moyingshi.osc.tv.ui.dialog.AboutDialogLayoutTest' \
             --tests 'com.github.moyingshi.osc.tv.ui.adapter.VodAdapterLayoutTest' \
+            --tests 'com.github.moyingshi.osc.tv.module.*' \
             --no-daemon
           ./gradlew \
             :app:testLeanbackArm64_v8aDebugUnitTest \
             --tests 'com.github.moyingshi.osc.tv.player.danmaku.*' \
             --tests 'com.github.moyingshi.osc.tv.utils.GithubProxyTest' \
+            --tests 'com.github.moyingshi.osc.tv.module.*' \
             --no-daemon
 
   build:
@@ -330,7 +332,25 @@ jobs:
           fi
           cp "${apks[0]}" dist/
           ls -lh dist/
-
+  - name: Collect module zips
+    if: startsWith(matrix.variant, 'Mobile')
+    run: |
+      set -euo pipefail
+      case "${{ matrix.variant }}" in
+        MobileArm64_v8a) ABI=arm64-v8a ;;
+        MobileArmeabi_v7a) ABI=armeabi-v7a ;;
+        *) echo "::error title=Unknown variant::${{ matrix.variant }}"; exit 1 ;;
+    esac
+    cp app/build/outputs/modules/$ABI/*.zip dist/
+    ls -lh dist/*.zip
+    - name: Upload ${{ matrix.variant }} module zips
+      if: startsWith(matrix.variant, 'Mobile')
+      uses: actions/upload-artifact@v4
+      with:
+        name: modules-${{ matrix.variant }}
+        path: dist/*.zip
+        if-no-files-found: error
+        retention-days: 7
       - name: Upload ${{ matrix.variant }} APK
         uses: actions/upload-artifact@v4
         with:
@@ -362,6 +382,12 @@ jobs:
           pattern: apk-*
           path: dist
           merge-multiple: true
+      - name: Download module zips
+        uses: actions/download-artifact@v4
+        with:
+          pattern: modules-*
+          path: dist
+          merge-multiple: true
 
       - name: Collect artifacts
         run: |
@@ -370,6 +396,12 @@ jobs:
           if [ "$apk_count" -ne 4 ]; then
             echo "::error title=Missing release APKs::Expected 4 APKs, found $apk_count."
             find dist -maxdepth 1 -name '*.apk' -printf '%f\n' || true
+            exit 1
+          fi
+          zip_count="$(find dist -maxdepth 1 -name '*.zip' | wc -l)"
+          if [ "$zip_count" -ne 14 ]; then
+            echo "::error title=Missing module zips::Expected 14 module zips, found $zip_count."
+            find dist -maxdepth 1 -name '*.zip' -printf '%f\n' || true
             exit 1
           fi
           ls -lh dist/
@@ -491,14 +523,14 @@ jobs:
           fi
           NOTES="${RELEASE_NOTES:-手动触发 GitHub Actions 构建发布。}"
           if gh release view "${{ needs.meta.outputs.tag }}" >/dev/null 2>&1; then
-            gh release upload "${{ needs.meta.outputs.tag }}" dist/*.apk dist/*.json --clobber
+            gh release upload "${{ needs.meta.outputs.tag }}" dist/*.apk dist/*.json dist/*.zip --clobber
           else
             gh release create "${{ needs.meta.outputs.tag }}" \
               --target "$GITHUB_SHA" \
               --title "${{ needs.meta.outputs.title }}" \
               --notes "$NOTES" \
               $PRERELEASE_FLAG \
-              dist/*.apk dist/*.json
+              dist/*.apk dist/*.json dist/*.zip
           fi
 
       - name: Publish update channel manifests
