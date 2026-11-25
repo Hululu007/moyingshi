@@ -49,6 +49,11 @@ public class SlotMachineView extends LinearLayout {
         void onPosterClick(Vod vod);
     }
 
+    /** 长按列上海报：与点按同款取正中可见格的 Vod（返回 true 表示已处理，点按不再触发）。 */
+    public interface OnPosterLongClickListener {
+        void onPosterLongClick(Vod vod);
+    }
+
     private static final int COLUMN_COUNT = 3;
     private static final int STRIP_SIZE = 12;
     /** 机身固定高（fragment_dice.xml 里 150dp）：格高先按它建带，布局后再按实测高纠正。 */
@@ -66,6 +71,7 @@ public class SlotMachineView extends LinearLayout {
 
     private OnStopListener mListener;
     private OnPosterClickListener mPosterClickListener;
+    private OnPosterLongClickListener mPosterLongClickListener;
     private boolean mSpinning;
     /** cancel 触发的 onAnimationEnd 不算正常停转，拦住它误发 onStop。 */
     private boolean mCancelled;
@@ -104,6 +110,7 @@ public class SlotMachineView extends LinearLayout {
             column.setClipChildren(true);
             final int columnIndex = i;
             column.setOnClickListener(v -> onColumnClick(columnIndex));
+            column.setOnLongClickListener(v -> onColumnLongClick(columnIndex));
             LinearLayout strip = new LinearLayout(getContext());
             strip.setOrientation(LinearLayout.VERTICAL);
             strip.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT));
@@ -136,6 +143,10 @@ public class SlotMachineView extends LinearLayout {
 
     public void setOnPosterClickListener(OnPosterClickListener listener) {
         mPosterClickListener = listener;
+    }
+
+    public void setOnPosterLongClickListener(OnPosterLongClickListener listener) {
+        mPosterLongClickListener = listener;
     }
 
     public boolean isSpinning() {
@@ -303,6 +314,19 @@ public class SlotMachineView extends LinearLayout {
         List<Vod> strip = mStripLists.get(column);
         Vod vod = index < strip.size() ? strip.get(index) : null;
         if (vod != null && !TextUtils.isEmpty(vod.getName())) mPosterClickListener.onPosterClick(vod);
+    }
+
+    /** 长按列上海报：与点按同款取正中可见格的 Vod；滚动中、空位、无监听时返回 false（不消费事件）。 */
+    private boolean onColumnLongClick(int column) {
+        if (mSpinning || mPosterLongClickListener == null || mItemHeight <= 0) return false;
+        int index = Math.round(-mStrips[column].getTranslationY() / (float) mItemHeight);
+        if (index < 0) index = 0;
+        if (index >= STRIP_SIZE) index = STRIP_SIZE - 1;
+        List<Vod> strip = mStripLists.get(column);
+        Vod vod = index < strip.size() ? strip.get(index) : null;
+        if (vod == null || TextUtils.isEmpty(vod.getName())) return false;
+        mPosterLongClickListener.onPosterLongClick(vod);
+        return true;
     }
 
     private void cancelAnimators() {

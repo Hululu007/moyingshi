@@ -146,6 +146,7 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         mBinding.historyList.setAdapter(mHistoryAdapter);
         mBinding.slotMachine.setOnStopListener(names -> onSlotStopped());
         mBinding.slotMachine.setOnPosterClickListener(this::playDirect);
+        mBinding.slotMachine.setOnPosterLongClickListener(this::showSlotItemMenu);
         // 首次摇之前也不要“?”：三列先用中性素色占位填充，再预取一波候选海报填进去。
         mBinding.slotMachine.setItems(Collections.<Vod>emptyList(), Collections.<Vod>emptyList());
         updateSlotNames();
@@ -274,6 +275,19 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
     @Override
     public void onReshake(Vod item) {
         onShake();
+    }
+
+    /** 长按老虎机海报：弹避雷 / 收藏二选一（与历史卡片同一套 onBlock/onKeep；避雷进屏蔽名单，下次摇不再出，默认开着“避雷影片”开关时生效）。 */
+    private void showSlotItemMenu(Vod item) {
+        if (item == null || !isAdded()) return;
+        new AlertDialog.Builder(requireContext())
+                .setTitle(item.getName())
+                .setItems(new CharSequence[]{
+                        getString(R.string.dice_block),
+                        getString(R.string.dice_pool_keep)}, (dialog, which) -> {
+                    if (which == 0) onBlock(item);
+                    else onKeep(item);
+                }).show();
     }
 
     /** 点老虎机海报直接播那部片：有站源调 startDirect 从头播第一集；豆瓣片无站源时后台按片名搜一次，取第一个有站源的结果直接播，搜不到回落搜索页并提示。 */

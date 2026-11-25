@@ -92,3 +92,11 @@
 - 不动：摇片逻辑、类型取站源筛选数据的逻辑、点播、类别三档、底栏（仍 6 项）、TV、数据库、workflows、libexo_ass.so。
 - 验证：本机 git diff --check 通过；逐行核对（机身 150dp 两处一致且注释无 220dp 残留、三状态建带逻辑只换数值、摇一摇通栏且点按/文案/禁用切换正常、全部 chips 未选中深底白字且选中态不变、其他文字对比度、无悬空引用、无旧包名回流、底栏仍 6 项）；无 JDK/SDK 不本地编译，编译检查走 GitHub Actions；真机验证待用户装新测试版确认。
 - Recovery tag：由 task_guard finish 创建 recovery/dice-round-7/<timestamp>。
+
+## 第 8 轮（dice-slot-longpress，2026-11-25 14:46 用户发喜好选片截图，红圈圈住老虎机三列海报：“红圈那里加个长按，加两个选项避雷，收藏”，随后“弄好一起发”）
+- 老虎机长按：SlotMachineView 新增 OnPosterLongClickListener + setOnPosterLongClickListener；每列 FrameLayout 加 setOnLongClickListener，走 onColumnLongClick——与点按同款按竖带位移算正中可见格的 Vod；滚动中、空位、片名空、无监听时返回 false 不消费事件（点按不触发）；有片时回调后返回 true，点按不再触发。
+- 菜单：DiceFragment 接上监听，showSlotItemMenu 弹 AlertDialog（标题是片名，两项：避雷 dice_block / 收藏 dice_pool_keep，无新字符串）；选避雷走原 onBlock（进屏蔽名单 dice_blocked_names + 从摇片历史里删掉 + toast“已加入避雷，以后不再摇到它”），选收藏走原 onKeep（进 Keep 表 + toast“已加入收藏”），与历史卡片同一套逻辑。
+- 注意：避雷名单只在“避雷影片”开关开时才进 DiceEngine.filterBase（默认开，dice_block_film 默认 true）；开关关着时长按避雷只进名单、不影响摇片。豆瓣片也有 id（"douban:<豆瓣 id>"），收藏的 Keep key 不会撞键；点收藏页里那条时按站内搜片名回落（与历史卡片收藏同一条路）。
+- 长按后被避雷/收藏的那部片仍留在老虎机列上，直到下次摇片才换掉；下次摇片时被避雷的片不再出现。
+- 本轮与我的页收藏 tile 对齐修法（13ec04c4）一起推、一起编一个测试版。
+- Recovery tag：由 task_guard finish 创建 recovery/dice-slot-longpress/<timestamp>。
