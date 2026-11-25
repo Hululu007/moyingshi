@@ -621,6 +621,14 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         }
     }
 
+    private boolean isPlayingInternal() {
+        try {
+            return playbackState == Player.STATE_READY && mediaPlayer.isPlaying();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private long position() {
         try {
             long actual = Math.max(0, mediaPlayer.getTime());
