@@ -98,6 +98,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         });
         mBinding.lab.setOnClickListener(view -> LabActivity.start(requireContext()));
         mBinding.labNav.setOnClickListener(this::setLabNav);
+        mBinding.localSourceDialog.setOnClickListener(this::setLocalSourceDialog);
         mBinding.diceEntry.setOnClickListener(this::setDiceEntry);
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.siteName.setOnClickListener(this::setSiteName);
@@ -139,6 +140,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         View[] order = {
                 mBinding.lab,
                 mBinding.labNav,
+                mBinding.localSourceDialog,
                 mBinding.diceEntry,
                 mBinding.customCsp,
                 mBinding.webHomeExtension,
@@ -174,6 +176,7 @@ public class SettingEnhanceFragment extends BaseFragment {
     private void setText() {
         if (!canSetText()) return;
         safeSet("labNav", mBinding.labNavText, () -> getSwitch(Setting.isLabNav()));
+        safeSet("localSourceDialog", mBinding.localSourceDialogText, () -> getSwitch(Setting.isLocalSourceDialog()));
         safeSet("diceEntry", mBinding.diceEntryText, () -> getSwitch(Setting.isDiceEntry()));
         safeSet("driveCheck", mBinding.driveCheckText, () -> getSwitch(Setting.isDriveCheck()));
         safeSet("siteName", mBinding.siteNameText, () -> getString(R.string.setting_site_name_summary, SiteNameStore.count()));
@@ -315,6 +318,12 @@ public class SettingEnhanceFragment extends BaseFragment {
         Setting.putLabNav(!Setting.isLabNav());
         setSummary(mBinding.labNavText, getSwitch(Setting.isLabNav()));
         if (requireActivity() instanceof HomeActivity activity) activity.refreshNavigation();
+    }
+
+    /** 本地源弹窗开关：默认开；开则实验室本地源分组只留一行入口、点开弹窗，关则页内直接列文件。 */
+    private void setLocalSourceDialog(View view) {
+        Setting.putLocalSourceDialog(!Setting.isLocalSourceDialog());
+        setSummary(mBinding.localSourceDialogText, getSwitch(Setting.isLocalSourceDialog()));
     }
 
     /** 喜好选片入口开关：默认开；关则首页搜索条里的骰子按钮隐藏，开则恢复。 */

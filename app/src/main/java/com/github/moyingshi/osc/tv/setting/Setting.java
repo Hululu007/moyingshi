@@ -787,6 +787,15 @@ public class Setting {
         Prefers.put("lab_nav", value);
     }
 
+    /** 本地源弹窗开关：默认开；开则实验室本地源分组只留一行入口、点开弹窗，关则页内直接列文件。 */
+    public static boolean isLocalSourceDialog() {
+        return Prefers.getBoolean("local_source_dialog", true);
+    }
+
+    public static void putLocalSourceDialog(boolean value) {
+        Prefers.put("local_source_dialog", value);
+    }
+
     /** 喜好选片入口开关：默认开；关则首页搜索条里的骰子按钮隐藏。 */
     public static boolean isDiceEntry() {
         return Prefers.getBoolean("dice_entry", true);

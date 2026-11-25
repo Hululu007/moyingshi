@@ -26,11 +26,13 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatEditText;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.api.config.VodConfig;
@@ -43,6 +45,7 @@ import com.github.moyingshi.osc.tv.utils.FileChooser;
 import com.github.moyingshi.osc.tv.utils.LocalSource;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.databinding.ActivityLabBinding;
+import com.github.moyingshi.osc.tv.databinding.AdapterLabLocalSourceEntryBinding;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.utils.Notify;
@@ -93,6 +96,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     private AlertDialog settingsDialog;
     /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
     private LocalSourceAdapter localSourceAdapter;
+    /** 本地源弹窗模式的单行入口：只显示“本地源 + 文件数”，点它开弹窗。 */
+    private LabLocalSourceEntryAdapter localSourceEntryAdapter;
     private boolean localSourceScanning;
 
     /** 选本地源扫描目录：SAF 目录选择器自己授权，不用先要文件权限（与弹窗一致）。 */
@@ -252,7 +257,8 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         int selectedIndex = indexOfGroup(groups, currentGroup);
         groupAdapter.select(selectedIndex);
         if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
-            showLocalSources();
+            if (Setting.isLocalSourceDialog()) showLocalSourceEntry();
+            else showLocalSources();
             return;
         }
         setScanMenuVisible(false);
@@ -394,6 +400,26 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
         else reload();
     }
 
+    /** 本地源分组（弹窗模式）：页内只留一行入口（本地源 + 文件数），点它开本地源弹窗；文件列表、点源切站、行末删除都在弹窗里（与工具栏 + 一致）。 */
+    private void showLocalSourceEntry() {
+        if (localSourceEntryAdapter == null) {
+            localSourceEntryAdapter = new LabLocalSourceEntryAdapter(this, this::openLocalSourceDialog);
+        }
+        if (mBinding.recycler.getAdapter() != localSourceEntryAdapter) mBinding.recycler.setAdapter(localSourceEntryAdapter);
+        localSourceEntryAdapter.setCount(LocalSource.getSites().size());
+        mBinding.empty.getRoot().setVisibility(View.GONE);
+        mBinding.recycler.setVisibility(View.VISIBLE);
+        setScanMenuVisible(true);
+        mBinding.progress.setVisibility(View.GONE);
+        mBinding.swipeRefresh.setRefreshing(false);
+    }
+
+    /** 本地源分组当前视图（弹窗入口 / 页内列表二选一）：下拉重扫与行末删除后都走这里刷新。 */
+    private void refreshLocalSourceGroup() {
+        if (Setting.isLocalSourceDialog()) showLocalSourceEntry();
+        else showLocalSources();
+    }
+
     /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）。 */
     private void showLocalSources() {
         if (localSourceAdapter == null) {
@@ -436,7 +462,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 LocalSource.invalidate();
                 boolean skippedLarge = LocalSource.takeSkippedLargeDir();
                 int pruned = LocalSource.takePrunedCount();
-                showLocalSources();
+                refreshLocalSourceGroup();
                 // 有文件夹因文件过多被跳过：只提示这句，不再报导入数（与弹窗一致）。
                 if (skippedLarge) Notify.show(R.string.lab_local_source_too_many_files);
                 else Notify.show(getString(R.string.lab_local_source_imported, count));
@@ -474,7 +500,7 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
     @Override
     public void onDeleteClick(Site item) {
         LocalSource.removeByKeys(List.of(item.getKey()));
-        showLocalSources();
+        refreshLocalSourceGroup();
         Notify.show(getString(R.string.lab_local_source_deleted, 1));
         reloadLocalConfig();
     }
@@ -846,6 +872,56 @@ public class LabActivity extends AppCompatActivity implements LabPackageAdapter.
                 return true;
             }
             return false;
+        }
+    }
+
+    /**
+     * 本地源弹窗模式的单行入口：标题 + 文件数，点整行开弹窗。
+     *
+     * <p>行用实验室卡片底（shape_lab_card，与包列表行同款），文案色走 Lab 主题的
+     * colorOnSurface / colorOnSurfaceVariant；行在实验室页内，不在弹窗里，
+     * 用 Activity 自身的上下文建视图是正确的。
+     */
+    private static final class LabLocalSourceEntryAdapter extends RecyclerView.Adapter<LabLocalSourceEntryAdapter.Holder> {
+
+        private final Context context;
+        private final Runnable onOpen;
+        private int count;
+
+        LabLocalSourceEntryAdapter(Context context, Runnable onOpen) {
+            this.context = context;
+            this.onOpen = onOpen;
+        }
+
+        void setCount(int count) {
+            this.count = count;
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            return new Holder(AdapterLabLocalSourceEntryBinding.inflate(LayoutInflater.from(context), parent, false));
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull Holder holder, int position) {
+            holder.binding.count.setText(context.getString(R.string.lab_local_source_count, count));
+            holder.binding.getRoot().setOnClickListener(v -> onOpen.run());
+        }
+
+        @Override
+        public int getItemCount() {
+            return 1;
+        }
+
+        static class Holder extends RecyclerView.ViewHolder {
+            final AdapterLabLocalSourceEntryBinding binding;
+
+            Holder(@NonNull AdapterLabLocalSourceEntryBinding binding) {
+                super(binding.getRoot());
+                this.binding = binding;
+            }
         }
     }
 
