@@ -7,7 +7,7 @@
 ## Recovery anchor（恢复锚点）
 
 - **目标**：把 App 里的大件拆成可选模块，基础包瘦下来，功能不砍、需要时再下载/安装；用户首次用某功能时下载对应模块，失败则回落到基础功能。
-- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线、单元 ④ 设置“模块”页 + 提示、单元 ⑤ Gradle 打包已做完（commit 见“实施记录”与 finish 回执）。5 个单元的代码全部在 main 上，未触发构建。
+- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线、单元 ④ 设置“模块”页 + 提示、单元 ⑤ Gradle 打包已做完（commit 见“实施记录”与 finish 回执）。5 个单元的代码全部在 main 上（HEAD `e9a17079`，已推远端 main；单元⑤ `72a22a33` + `.gitattributes` 修复 `e9a17079`），未触发构建。
 - **验收标准**：见“验收标准”一节（手机真机可测条目）。
 - **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress/ModulePrompt/ModuleActivity）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；打包在 `app/build.gradle`（`packaging.jniLibs.excludes` + `packageModules*` 任务 + `moduleAar` 配置）；模块文件源在 `app/src/<abi>/mpv-libs/`、`app/src/main/jniLibs/`、`app/src/main/lut-presets/` 与两个 AAR；其余全部是只读调研，见“现状映射”。
 - **未验证项**：Stage 0 已解决第 1、2、6、8 条（见“Stage 0 核查结论”）；剩余第 3、4、5、7 条见“未验证 / 需实施时验证”清单（已更新状态）。新增：Gradle 打包的编译正确性（`packaging` 排除 + 打包任务 + assemble 接线）与基础包实测体积，只能由 GitHub 构建验证。
@@ -292,6 +292,7 @@
 - 接线：4 个 release assemble 任务（`assemble(Mobile|Leanback)(Arm64_v8a|Armeabi_v7a)Release`，与 workflow 矩阵同名）各 `dependsOn` 对应 ABI 的 package 任务；debug 不打。任务无 inputs/outputs 声明，每次 release assemble 都重新打。
 - 体积影响（估算，构建实测待定）：mobile-arm64 基础包 213MB → 约 74MB（移出 mpv 44.5 + VLC 相关 47.4 + Sherpa 23.6 + DV 10.0 + ijk 10.3 + LUT 3.7 ≈ 139.5MB；`.so` 几乎不压缩、`.cube` 按压缩后 3.7MB 计）。模块 zip（未压缩口径）：mpv 46.7MB、VLC 55.3MB、Sherpa 23.6MB、DV 约 11–13MB（含未 strip 的渲染器）、ijk 10.3MB、LUT 约 3.7MB（zip 压缩后）；总包约 150MB。Chaquopy Python（20.9MB）不在 6 个模块里，没动。
 - 本单元未改 workflow（gh token 缺 workflow 权限，diff 见父代理收到的报告）；本地无 JDK/Gradle，`packaging` 排除与打包任务的编译正确性只能由 GitHub 构建验证（构建触发前须先上 workflow diff）。
+- 提交过程（2026-11-25 20:11–20:12）：commit `72a22a33`（40 文件，293+/24-，全部 rename 100% 相似度，字节未动），recovery tag `recovery/module-gradle-packaging/20261125201159-72a22a33f908`。guard `start` 曾三次失败：`--adopt-dirty` 必须与 initial-dirty 清单逐项精确匹配，目录级 adopt 不支持前缀匹配，且 git 对非 ASCII 文件名（12 个中文 `.cube`）输出带引号的八进制转义、目录前缀匹配不上；解法是 `git config core.quotePath false`（本地仓库配置，不进提交）后用文件级 adopt（7 个改动文件）+ 新路径目录级 adopt（3 个目录）。`finish` 又失败一次：3 个 CRLF 行尾的 `.cube` 文件（低对比/复古深棕/通透鲜艳）被 `git diff --cached --check` 当行尾空白拦下；解法是新增 `.gitattributes` 规则 `*.cube whitespace=cr-at-eol`（数据文件字节不动，约 7.5 万行 LUT 不改写，已实测 check 通过）。但提交时 `printf >` 覆盖了已存在的 `.gitattributes`，丢了 `*.patch` 与两个 drpy min.js 的空白豁免，随后 quick-fix 会话 `module-gitattributes-fix` 以 commit `e9a17079`（tag `recovery/module-gitattributes-fix/20261125201234-e9a17079f331`）把原有 4 行逐字节恢复、`.cube` 规则保留。教训：覆盖已存在文件前先读原内容。两次 commit 均已推上远端 main（只推 main + 当次 recovery tag，不用 `--tags`）。
 
 ## 未决问题（需要用户拍板）
 
