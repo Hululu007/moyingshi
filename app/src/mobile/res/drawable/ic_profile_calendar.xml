@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 我的页头日历图标：自画通用日历轮廓（非 Arcane 资产）。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M7,3v2 M17,3v2 M4,9h16 M5,5h14a1,1 0 0,1 1,1v13a1,1 0 0,1 -1,1H5a1,1 0 0,1 -1,-1V6a1,1 0 0,1 1,-1z"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

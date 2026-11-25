@@ -9,8 +9,10 @@ import com.github.moyingshi.osc.tv.following.Following;
 import com.github.moyingshi.osc.tv.following.FollowingAgenda;
 import com.github.moyingshi.osc.tv.following.FollowingStore;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -65,13 +67,37 @@ public final class ProfileStats {
     public final List<GenreCount> topGenres;
     public final NameCount trend1;
     public final List<NameCount> trend2;
+    /** 今天 / 本周 / 本月小时与分布、近 12 周每日小时（Arcane 版式：点图、曲线、贡献格用）。 */
+    public final double todayHours;
+    public final int todayMovies;
+    public final int todaySeries;
+    public final double[] todayHourly;
+    public final double weekHours;
+    public final int weekMovies;
+    public final int weekSeries;
+    public final double[] weekDaily;
+    public final double monthHours;
+    public final int monthMovies;
+    public final int monthSeries;
+    public final double[] monthDailySeries;
+    public final double[] monthDailyMovies;
+    public final double lastMonthHours;
+    public final List<NameCount> monthTop3;
+    public final double[] dailyHours;
+    public final int genreTotal;
 
     private ProfileStats(int followingCount, int unwatchedTotal, int endedCount, Following nextAiring,
                          List<Following> upcomingThisMonth, int keepCount, List<Keep> recentKeeps,
                          int historyCount, List<History> recentHistory, List<History> watching,
                          int monthTitleCount, int monthPlayCount, String monthTopTitle, int monthTopCount,
                          int movieCount, int seriesCount, List<GenreCount> topGenres,
-                         NameCount trend1, List<NameCount> trend2) {
+                         NameCount trend1, List<NameCount> trend2,
+                         double todayHours, int todayMovies, int todaySeries, double[] todayHourly,
+                         double weekHours, int weekMovies, int weekSeries, double[] weekDaily,
+                         double monthHours, int monthMovies, int monthSeries,
+                         double[] monthDailySeries, double[] monthDailyMovies,
+                         double lastMonthHours, List<NameCount> monthTop3, double[] dailyHours,
+                         int genreTotal) {
         this.followingCount = followingCount;
         this.unwatchedTotal = unwatchedTotal;
         this.endedCount = endedCount;
@@ -91,6 +117,23 @@ public final class ProfileStats {
         this.topGenres = topGenres;
         this.trend1 = trend1;
         this.trend2 = trend2;
+        this.todayHours = todayHours;
+        this.todayMovies = todayMovies;
+        this.todaySeries = todaySeries;
+        this.todayHourly = todayHourly;
+        this.weekHours = weekHours;
+        this.weekMovies = weekMovies;
+        this.weekSeries = weekSeries;
+        this.weekDaily = weekDaily;
+        this.monthHours = monthHours;
+        this.monthMovies = monthMovies;
+        this.monthSeries = monthSeries;
+        this.monthDailySeries = monthDailySeries;
+        this.monthDailyMovies = monthDailyMovies;
+        this.lastMonthHours = lastMonthHours;
+        this.monthTop3 = monthTop3;
+        this.dailyHours = dailyHours;
+        this.genreTotal = genreTotal;
     }
 
     /** 必须在后台线程调用：读库 + 聚合。 */
@@ -170,6 +213,8 @@ public final class ProfileStats {
         List<GenreCount> topGenres = new ArrayList<>();
         List<Map.Entry<String, Integer>> sortedGenres = new ArrayList<>(genreCounts.entrySet());
         sortedGenres.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+        int genreTotal = 0;
+        for (Map.Entry<String, Integer> entry : genreCounts.entrySet()) genreTotal += entry.getValue();
         for (int i = 0; i < Math.min(3, sortedGenres.size()); i++) {
             topGenres.add(new GenreCount(sortedGenres.get(i).getKey(), sortedGenres.get(i).getValue()));
         }
@@ -179,10 +224,74 @@ public final class ProfileStats {
         // Trend2 最近热门：最近 7 天播放次数前 5
         List<NameCount> trend2 = topWatchedList(history, sevenDaysAgo, 5);
 
+        // 今天 / 本周 / 本月小时与分布 + 近 12 周每日小时（贡献格 + 点图 + 本月曲线用）
+        long todayStart = today.atStartOfDay(zone).toInstant().toEpochMilli();
+        long lastMonthStart = today.withDayOfMonth(1).minusMonths(1).atStartOfDay(zone).toInstant().toEpochMilli();
+        int daysInMonth = today.lengthOfMonth();
+        double todayHours = 0;
+        int todayMovies = 0;
+        int todaySeries = 0;
+        double[] todayHourly = new double[24];
+        double weekHours = 0;
+        int weekMovies = 0;
+        int weekSeries = 0;
+        double[] weekDaily = new double[7];
+        double monthHours = 0;
+        int monthMovies = 0;
+        int monthSeries = 0;
+        double[] monthDailySeries = new double[daysInMonth];
+        double[] monthDailyMovies = new double[daysInMonth];
+        double lastMonthHours = 0;
+        double[] dailyHours = new double[84];
+        LocalDate startMonday = today.minusDays(today.getDayOfWeek().getValue() - 1).minusWeeks(11);
+        for (History item : history) {
+            long at = item.getCreateTime();
+            double hours = watchedHours(item);
+            String type = item.getTypeName();
+            boolean isMovie = type != null && type.contains("电影");
+            boolean isSeries = type != null && (type.contains("电视") || type.contains("剧"));
+            LocalDate date = Instant.ofEpochMilli(at).atZone(zone).toLocalDate();
+            int dayIndex = (int) ChronoUnit.DAYS.between(startMonday, date);
+            if (dayIndex >= 0 && dayIndex < dailyHours.length) dailyHours[dayIndex] += hours;
+            if (at >= todayStart) {
+                todayHours += hours;
+                if (isMovie) todayMovies++;
+                else if (isSeries) todaySeries++;
+                todayHourly[Instant.ofEpochMilli(at).atZone(zone).getHour()] += hours;
+            }
+            if (at >= weekStart) {
+                weekHours += hours;
+                if (isMovie) weekMovies++;
+                else if (isSeries) weekSeries++;
+                weekDaily[date.getDayOfWeek().getValue() - 1] += hours;
+            }
+            if (at >= monthStart && at < monthEnd) {
+                monthHours += hours;
+                if (isMovie) monthMovies++;
+                else if (isSeries) monthSeries++;
+                int day = date.getDayOfMonth() - 1;
+                if (isMovie) monthDailyMovies[day] += hours;
+                else if (isSeries) monthDailySeries[day] += hours;
+            } else if (at >= lastMonthStart && at < monthStart) {
+                lastMonthHours += hours;
+            }
+        }
+        List<NameCount> monthTop3 = topWatchedList(history, monthStart, 3);
+
         return new ProfileStats(following.size(), unwatchedTotal, endedCount, nextAiring, upcoming,
                 keeps.size(), recentKeeps, history.size(), recentHistory, watching,
                 monthCounts.size(), monthPlayCount, monthTopTitle, monthTopCount,
-                movieCount, seriesCount, topGenres, trend1, trend2);
+                movieCount, seriesCount, topGenres, trend1, trend2,
+                todayHours, todayMovies, todaySeries, todayHourly,
+                weekHours, weekMovies, weekSeries, weekDaily,
+                monthHours, monthMovies, monthSeries, monthDailySeries, monthDailyMovies,
+                lastMonthHours, monthTop3, dailyHours, genreTotal);
+    }
+
+    /** 已看小时：有进度按进度算，看完按全长算；没进度记 0。 */
+    private static double watchedHours(History item) {
+        if (item.getDuration() <= 0 || item.getPosition() <= 0) return 0;
+        return Math.min(item.getPosition(), item.getDuration()) / 3600000.0;
     }
 
     private static NameCount topWatched(List<History> history, long since) {
