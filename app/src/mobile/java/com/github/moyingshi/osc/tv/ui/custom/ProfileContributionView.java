@@ -45,7 +45,7 @@ public class ProfileContributionView extends View {
         gap = 3 * density;
         radius = 2 * density;
         emptyColor = resolveAttr(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
-        primaryColor = resolveAttr(context, com.google.android.material.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
+        primaryColor = resolveAttr(context, androidx.appcompat.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
     }
 
     private static int resolveAttr(Context context, int attr, int fallback) {

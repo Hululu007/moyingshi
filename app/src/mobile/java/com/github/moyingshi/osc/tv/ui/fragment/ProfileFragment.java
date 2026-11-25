@@ -742,7 +742,7 @@ public class ProfileFragment extends BaseFragment {
     }
 
     private int primaryColor() {
-        return resolveAttr(com.google.android.material.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
+        return resolveAttr(androidx.appcompat.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
     }
 
     private int secondaryColor() {
