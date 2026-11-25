@@ -3041,7 +3041,10 @@
     <string name="profile_title">Profile</string>
     <string name="profile_year_sub">My viewing data</string>
     <string name="profile_edit_layout">Edit layout</string>
-    <string name="profile_all_hidden">All cards are hidden. Tap Edit layout to bring them back.</string>
+    <string name="profile_manage_cards">Manage cards</string>
+    <string name="profile_manage_modules">Manage modules</string>
+    <string name="profile_done">Done</string>
+    <string name="profile_all_hidden">All cards are hidden. Tap Manage modules to bring them back.</string>
     <string name="profile_card_calendar">Calendar</string>
     <string name="profile_card_overview">Overview</string>
     <string name="profile_card_history">History</string>

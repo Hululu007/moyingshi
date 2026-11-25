@@ -45,8 +45,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 我的页：10 张观影数据卡片，纵向一列；顺序与显隐走 ProfileLayout，编辑走
- * ProfileEditorDialog。数据一次后台取完（ProfileStats.load），每张卡就算
+ * 我的页：10 张观影数据卡片，纵向一列；顺序与显隐走 ProfileLayout，管理走
+ * ProfileEditorDialog（底部管理卡片面板，页面底部的管理模块按钮打开）。数据一次后台取完（ProfileStats.load），每张卡就算
  * 没数据也显示一句说明，绝不出现空卡。
  */
 public class ProfileFragment extends BaseFragment {
@@ -65,7 +65,7 @@ public class ProfileFragment extends BaseFragment {
     @Override
     protected void initView() {
         mBinding.yearTitle.setText(String.valueOf(LocalDate.now().getYear()));
-        mBinding.editBtn.setOnClickListener(v -> new ProfileEditorDialog(requireContext(), this::load).show());
+        mBinding.manageBtn.setOnClickListener(v -> ProfileEditorDialog.create(this::load).show(getChildFragmentManager()));
         load();
     }
 

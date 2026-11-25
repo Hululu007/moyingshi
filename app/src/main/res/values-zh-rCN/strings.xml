@@ -3033,7 +3033,10 @@
     <string name="profile_title">我的</string>
     <string name="profile_year_sub">我的观影数据</string>
     <string name="profile_edit_layout">编辑布局</string>
-    <string name="profile_all_hidden">全部卡片都藏起来了，点“编辑布局”恢复</string>
+    <string name="profile_manage_cards">管理卡片</string>
+    <string name="profile_manage_modules">管理模块</string>
+    <string name="profile_done">完成</string>
+    <string name="profile_all_hidden">全部卡片都藏起来了，点“管理模块”恢复</string>
     <string name="profile_card_calendar">日历</string>
     <string name="profile_card_overview">总览</string>
     <string name="profile_card_history">历史</string>
