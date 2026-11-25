@@ -13,6 +13,7 @@ import mockwebserver3.Dispatcher;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
+import okhttp3.HttpUrl;
 import okio.Buffer;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -35,7 +36,10 @@ public class ModuleDownloaderTest {
         server.setDispatcher(new Dispatcher() {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
-                String path = request.getPath();
+                // mockwebserver 5.4.0（mockwebserver3）的 RecordedRequest 没有 getPath()：
+                // 按官方 5.x 文档用 getUrl().encodedPath()；本测试的 URL 无 query，与旧 getPath() 等价。
+                HttpUrl requestUrl = request.getUrl();
+                String path = requestUrl != null ? requestUrl.encodedPath() : "";
                 if ("/not-found.zip".equals(path)) {
                     return new MockResponse.Builder().code(404).build();
                 }
@@ -44,7 +48,9 @@ public class ModuleDownloaderTest {
                     return new MockResponse.Builder().code(200)
                             .body(new Buffer().write(content)).build();
                 }
-                String range = request.getHeader("Range");
+                // 5.4.0 的 RecordedRequest 没有 getHeader(String)：
+                // 用 getHeaders().get(name)，语义相同（首个值，不存在则 null）。
+                String range = request.getHeaders().get("Range");
                 if (range != null && range.startsWith("bytes=")) {
                     long start = Long.parseLong(range.substring(6, range.length() - 1));
                     if (start >= content.length) {
