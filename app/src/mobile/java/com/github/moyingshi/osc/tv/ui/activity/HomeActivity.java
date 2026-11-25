@@ -573,7 +573,7 @@ public class HomeActivity extends BaseActivity implements NavigationBarView.OnIt
         }
         if (itemId == R.id.live) return openLive();
         if (itemId == R.id.following) {
-            FollowingActivity.start(this, null);
+            ProfileActivity.start(this);
             return false;
         }
         return false;

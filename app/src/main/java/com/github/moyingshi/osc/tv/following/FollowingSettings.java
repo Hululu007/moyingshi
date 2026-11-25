@@ -20,7 +20,7 @@ public final class FollowingSettings {
     }
 
     public static boolean isEnabled() {
-        return Prefers.getBoolean(ENABLED, false);
+        return Prefers.getBoolean(ENABLED, true);
     }
 
     public static void setEnabled(boolean enabled) {

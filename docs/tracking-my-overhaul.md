@@ -41,6 +41,8 @@
   - 2026-11-25 04:50 预查锚点：入口在 VodFragment 首页搜索条（fragment_vod.xml：searchDice 第 87 行、searchHistory 第 99 行，VodFragment.java:217-219 接法同款，显隐走 Setting 开关）；数据源现成：AppDatabase.get().getKeepDao().findAll()（收藏）、getHistoryDao().findAll()（历史）、FollowingStore.list()（追更）；新页形态参照手机端 DiceActivity/DiceFragment。
   - 2026-11-25 05:10 代码写完，提交待编：ProfileCard（10 卡枚举）+ ProfileLayout（顺序/隐藏存 Prefers）+ ProfileStats（一次后台取数：追更/收藏/历史展示口径/在看/本月/题材/Trend1 本周最常看/Trend2 最近 7 天）+ ProfileActivity/ProfileFragment（仿 DiceActivity，纵向卡片列，每卡无数据也显示说明）+ ProfileEditorDialog（上移/下移/隐藏，关闭即保存）+ 首页搜索条人物图标入口（骰子左侧）；卡片点进追更/历史/收藏页，海报点开走 HistoryResumeCoordinator / KeepActivity 同一路。TV 端不动。
 - **P4 联调发版**：三阶段合起来走一遍，编测试版给用户测，版本记录补一笔。
+  - 2026-11-25 05:14 已完成：P1/P2/P3 各自独立编测试版发给用户（v5.6.0-beta-202611242304 / …250434 / …250501），版本记录补到第 67 条。追更+我的页三段全部做完，待用户真机验收。
+  - 2026-11-25 08:04 用户定“点追更就进我的页”：底栏追更（普通+玻璃都走 handleNavItem）改开 ProfileActivity；FollowingSettings.isEnabled 默认改 true（底栏追更默认显示、后台检查默认跑）；搜索条人物图标入口去掉。追更日历页仍在，从我的页追更卡片和通知点进去。只改本地、不推不编，等他开口。
 
 ## 未决小项（P1 动手前定）
 

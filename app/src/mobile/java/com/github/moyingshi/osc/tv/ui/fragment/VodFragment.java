@@ -53,7 +53,6 @@ import com.github.moyingshi.osc.tv.setting.AppBranding;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
 import com.github.moyingshi.osc.tv.ui.activity.DiceActivity;
-import com.github.moyingshi.osc.tv.ui.activity.ProfileActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
 import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.moyingshi.osc.tv.ui.activity.SearchActivity;
@@ -216,7 +215,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             return true;
         });
         mBinding.searchHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
-        mBinding.searchProfile.setOnClickListener(v -> ProfileActivity.start(requireActivity()));
         mBinding.searchDice.setOnClickListener(v -> DiceActivity.start(requireActivity()));
         mBinding.searchDice.setVisibility(Setting.isDiceEntry() ? View.VISIBLE : View.GONE);
         mBinding.searchMore.setOnClickListener(this::onSearchMore);
