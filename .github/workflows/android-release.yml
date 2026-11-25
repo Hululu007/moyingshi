@@ -341,8 +341,8 @@ jobs:
             MobileArmeabi_v7a) ABI=armeabi-v7a ;;
             *) echo "::error title=Unknown variant::${{ matrix.variant }}"; exit 1 ;;
           esac
-      cp app/build/outputs/modules/$ABI/*.zip dist/
-      ls -lh dist/*.zip
+          cp app/build/outputs/modules/$ABI/*.zip dist/
+        ls -lh dist/*.zip
       - name: Upload ${{ matrix.variant }} module zips
         if: startsWith(matrix.variant, 'Mobile')
         uses: actions/upload-artifact@v4
