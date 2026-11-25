@@ -6385,13 +6385,32 @@ public void resetTrack(int type) {
             exoSpeedRestoreState.clear();
             mediaSignals.detachPipeline();
         }
-        PlayerEngine next = switch (type) {
-            case PlayerSetting.IJK -> new IjkPlayerEngine(decode, listener);
-            case PlayerSetting.SYSTEM -> new SystemPlayerEngine(decode, listener);
-            case PlayerSetting.MPV -> new MpvPlayerEngine(decode, lutAllowed, listener, this::onMpvVideoSizeProbed);
-            case PlayerSetting.VLC -> new VlcPlayerEngine(decode, listener);
-            default -> new ExoPlayerEngine(decode, listener, mediaSignals, mediaClock);
-        };
+        PlayerEngine next;
+        try {
+            next = switch (type) {
+                case PlayerSetting.IJK -> new IjkPlayerEngine(decode, listener);
+                case PlayerSetting.SYSTEM -> new SystemPlayerEngine(decode, listener);
+                case PlayerSetting.MPV -> new MpvPlayerEngine(decode, lutAllowed, listener, this::onMpvVideoSizeProbed);
+                case PlayerSetting.VLC -> new VlcPlayerEngine(decode, listener);
+                default -> new ExoPlayerEngine(decode, listener, mediaSignals, mediaClock);
+            };
+        } catch (Throwable error) {
+            // 只有 VLC 会在构造时加载原生库：模块未安装/损坏时 VlcPlayerEngine 在
+            // new LibVLC 之前抛 IllegalStateException（预载失败）或 UnsatisfiedLinkError。
+            // 正常切换前 resolveManualPlayer/resolveAvailablePlayer 已用
+            // isPlayerAvailable 拦过，但构造时仍可能遇到竞态（切核后删模块）或同尺寸
+            // 损坏文件；调用处在 buildEngine 之前已释放旧引擎，直接抛会让播放器
+            // 带着已释放的引擎裸奔。统一回落 EXO，并把会话内核改回 EXO，
+            // 与刚建起来的引擎保持一致（本方法就是建引擎的地方）。
+            // EXO 本身建不起来就没有退路，原样抛出。
+            if (type == PlayerSetting.EXO) throw error;
+            PlaybackTrace.log("player-engine", playbackTrace.current(),
+                    "build engine failed type=%d errorType=%s action=fallback-exo",
+                    type, error.getClass().getSimpleName());
+            playerType = PlayerSetting.EXO;
+            PlayerSetting.putActivePlayer(PlayerSetting.EXO);
+            next = new ExoPlayerEngine(decode, listener, mediaSignals, mediaClock);
+        }
         return next;
     }
 

@@ -13,6 +13,8 @@ import androidx.media3.vlcplayer.VlcPlayer;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
 import com.github.moyingshi.osc.tv.bean.Track;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
 import com.github.moyingshi.osc.tv.player.PlaybackResourceClassifier;
 import com.github.moyingshi.osc.tv.player.PlaybackRoute;
 import com.github.moyingshi.osc.tv.player.PlaybackTrace;
@@ -222,6 +224,18 @@ public class VlcPlayerEngine implements PlayerEngine {
     }
 
     private VlcPlayer buildPlayer(Player.Listener listener) {
+        // VLC 的原生库由第三方绑定在 LibVLC 构造时加载，应用层从不显式加载：
+        // 必须在 new VlcPlayer 之前 System.load 预载（先 libvlc 后 libvlcjni），
+        // 否则绑定找不到库直接抛 UnsatisfiedLinkError。模块未安装/损坏时这里抛
+        // IllegalStateException，由 PlayerManager.buildEngine 接住回落 EXO。
+        ModuleManager modules = ModuleManager.getInstance(App.get());
+        if (!modules.ensureLoaded(ModuleDefinition.VLC)) {
+            if (!modules.isInstalled(ModuleDefinition.VLC.id)) {
+                throw new IllegalStateException("VLC 模块未安装，请到模块里面下载 VLC");
+            }
+            throw new IllegalStateException("VLC 模块加载失败，请到模块管理里重新下载 VLC",
+                    modules.getLoadError(ModuleDefinition.VLC.id));
+        }
         VlcPlayer player = new VlcPlayer(App.get(), decode);
         player.addListener(listener);
         return player;

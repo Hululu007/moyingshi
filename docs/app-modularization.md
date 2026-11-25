@@ -7,11 +7,11 @@
 ## Recovery anchor（恢复锚点）
 
 - **目标**：把 App 里的大件拆成可选模块，基础包瘦下来，功能不砍、需要时再下载/安装；用户首次用某功能时下载对应模块，失败则回落到基础功能。
-- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心已做完（commit 待填，见“实施记录”）。
+- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线已做完（commit 见“实施记录”）。
 - **验收标准**：见“验收标准”一节（手机真机可测条目）。
 - **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；其余全部是只读调研，见“现状映射”。
 - **未验证项**：Stage 0 已解决第 1、2、6、8 条（见“Stage 0 核查结论”）；剩余第 3、4、5、7 条见“未验证 / 需实施时验证”清单（已更新状态）。
-- **唯一下一步**：单元 ② mpv/VLC 接线 → 单元 ③ Sherpa/DV/ijk/LUT 接线 → 单元 ④ 设置“模块”页 + 提示 call sites → 单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
+- **唯一下一步**：单元 ③ Sherpa/DV/ijk/LUT 接线 → 单元 ④ 设置“模块”页 + 提示 call sites → 单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
 
 ## 决定变更记录（VLC 拆不拆）
 
@@ -246,6 +246,15 @@
   - `ModuleInstallerTest`：有效分包安装落盘、sha 不符拒绝且旧模块保留、ABI 不符、版本绑定过期、缺 manifest、zip-slip、总包一好一坏（好装上坏跳过）、总清单 sha 错只影响该分包。
   - `ModuleDownloaderTest`（MockWebServer，`mockwebserver3` 包，OkHttp 5.4.0）：整包下载、断点续传、服务端忽略 Range 从头下、416 删旧重下、404 报错、代理 URL 失败回退直连 URL、取消、进度回调。
 - 体积影响：本单元只加 Java 代码（约 30KB 量级），基础包体积不变；瘦身在单元 ⑤（Gradle 打包移出 .so/assets 后生效）。
+
+### 单元 ② mpv/VLC 接线（guard 会话 module-wire-mpv-vlc，2026-11-25 晚）
+
+- `is/xyz/mpv/MPVLib.java`：`ensureLoaded` 不再从 assets 拷 bundle，委托给 `ModuleManager.ensureLoaded(ModuleDefinition.MPV)`（数据源改成模块目录 `modules/mpv/`，LOAD_ORDER 与 marker 逻辑随之删除）；失败不缓存——模块装好或重装后下一次调用重新尝试加载（旧代码 `loadError != null` 直接返回的粘滞分支已删，否则用户装完模块仍播不了）；`isBundledVulkanEnabled` 改读模块目录的 libmpv.so 扫 "List of enabled features:"，缓存按 libmpv.so 的 lastModified 失效。
+- `player/engine/VlcPlayerEngine.java`：`buildPlayer` 在 `new VlcPlayer` 之前预载 VLC 模块（先 libvlc 后 libvlcjni，由 ModuleManager 按 loadOrder 做）；模块未安装抛 `IllegalStateException("VLC 模块未安装，请到模块里面下载 VLC")`，已装但加载失败抛“请到模块管理里重新下载 VLC”（带 loadError 作 cause）。
+- `setting/PlayerSetting.java`：`isPlayerAvailable` 改成真检查——IJK/MPV/VLC 查对应模块安装态，EXO/系统恒可用；`isIjkAvailable()` 不再恒 true，新增 `isMpvAvailable()`/`isVlcAvailable()`；`sanitizePlayer` 不动（只校验常量合法性，设置页对话框要如实显示用户已存的选择，模块缺失的回落由播放侧负责）；`App.get()` 为 null 时判不可用（防 Application 未 attach 时调用）。
+- `player/PlayerManager.java`：`buildEngine` 加 try/catch——任一引擎构造失败时（VLC 预载失败是主因：正常切换前 resolveManualPlayer/resolveAvailablePlayer 已用 isPlayerAvailable 拦过，但构造时仍可能遇到竞态或同尺寸损坏文件；且构造前旧引擎已释放，直接抛会裸奔）统一回落 EXO，并把 `playerType` 与会话内核改回 EXO，与刚建起来的引擎保持一致；EXO 本身建不起来则原样抛出。写法照 4522/4624 行已有的 buildEngine try/catch 先例。
+- 本单元未改任何 UI：设置页选 MPV/VLC 且模块未安装时，本单元的行为是 `sanitizePlayer` 不拦、播放侧回落 EXO（旧有静默回落）；“请到模块里面下载”提示在单元 ④ 的 call site 接。
+- 体积影响：本单元只改 Java 代码，基础包体积不变。
 
 ## 未决问题（需要用户拍板）
 

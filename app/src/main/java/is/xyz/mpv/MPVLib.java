@@ -2,22 +2,21 @@ package is.xyz.mpv;
 
 import android.content.Context;
 import android.content.pm.FeatureInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.Surface;
 
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
+
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,27 +24,14 @@ import java.util.List;
 public final class MPVLib {
 
     private static final String TAG = "mpv";
-    private static final String ASSET_ROOT = "mpv-libs";
-    private static final String BUNDLE_MARKER = ".bundle-last-update";
-    private static final String[] LOAD_ORDER = {
-            "c++_shared",
-            "mvutil",
-            "mwresample",
-            "mwscale",
-            "mvcodec",
-            "mvformat",
-            "mvfilter",
-            "mvdevice",
-            "mpv",
-            "player"
-    };
-
+    // 预载顺序见 ModuleDefinition.MPV.loadOrder（与旧 LOAD_ORDER 同顺序）。
     private static final List<EventObserver> OBSERVERS = new ArrayList<>();
     private static final List<LogObserver> LOG_OBSERVERS = new ArrayList<>();
     private static boolean loaded;
     private static Throwable loadError;
     private static String loadedAbi;
     private static Boolean bundledVulkanEnabled;
+    private static long bundledVulkanStamp;
     private static Boolean deviceVulkan13Capable;
     private static final long CONTEXT_RECREATE_COOLDOWN_MS = 350;
     private static final long CONTEXT_SHUTDOWN_TIMEOUT_MS = 2000;
@@ -57,43 +43,28 @@ public final class MPVLib {
     private MPVLib() {
     }
 
+    /**
+     * 从 mpv 模块（已下载的 zip 安装到私有目录）加载原生库，不再从 assets 拷 bundle。
+     * 模块未安装/损坏时返回 false（不抛），MpvPlayer 走现有播放错误链；
+     * 不缓存失败：模块装好或重装后下一次调用会重新尝试加载。
+     */
     public static synchronized boolean ensureLoaded(Context context) {
         if (loaded) return true;
-        if (loadError != null) {
+        Context app = context.getApplicationContext();
+        ModuleManager modules = ModuleManager.getInstance(app);
+        if (!modules.ensureLoaded(ModuleDefinition.MPV)) {
+            Throwable error = modules.getLoadError(ModuleDefinition.MPV.id);
+            loadError = error != null ? error
+                    : new IOException("MPV 模块未安装，请到模块里面下载 MPV");
             com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.failure("mpv-bundle", loadError);
+            Log.e(TAG, "Unable to load MPV native libraries from module", loadError);
             return false;
         }
-        String loadingLibrary = "mpv-bundle";
-        try {
-            Context app = context.getApplicationContext();
-            String abi = chooseAbi(app.getAssets());
-            if (abi == null) throw new UnsatisfiedLinkError("No bundled MPV native libraries for " + String.join(",", Build.SUPPORTED_ABIS));
-            File root = app.getDir("mpv-libs", Context.MODE_PRIVATE);
-            File dir = new File(root, abi);
-            if (!dir.exists() && !dir.mkdirs()) throw new IOException("Unable to create " + dir);
-            File marker = new File(root, BUNDLE_MARKER);
-            String bundleId = getBundleId(app, abi);
-            boolean refreshBundle = !bundleId.equals(readMarker(marker));
-            for (String lib : LOAD_ORDER) copyLibrary(app.getAssets(), abi, lib, dir, refreshBundle);
-            for (String lib : LOAD_ORDER) {
-                loadingLibrary = System.mapLibraryName(lib);
-                System.load(new File(dir, loadingLibrary).getAbsolutePath());
-            }
-            loadedAbi = abi;
-            loaded = true;
-            com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.request();
-            try {
-                writeMarker(marker, bundleId);
-            } catch (IOException e) {
-                Log.w(TAG, "Unable to update bundled MPV native marker", e);
-            }
-            return true;
-        } catch (Throwable e) {
-            loadError = e;
-            com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.failure(loadingLibrary, e);
-            Log.e(TAG, "Unable to load bundled MPV native libraries", e);
-            return false;
-        }
+        loadError = null;
+        loadedAbi = modules.abi();
+        loaded = true;
+        com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.request();
+        return true;
     }
 
     public static synchronized Throwable getLoadError() {
@@ -105,15 +76,21 @@ public final class MPVLib {
     }
 
     public static synchronized boolean isBundledVulkanEnabled(Context context) {
-        if (bundledVulkanEnabled != null) return bundledVulkanEnabled;
+        Context app = context.getApplicationContext();
+        ModuleManager modules = ModuleManager.getInstance(app);
+        // 缓存按模块安装戳失效：模块装好/重装后 libmpv.so 换了，Vulkan 能力要重测。
+        File libmpv = modules.moduleFile(ModuleDefinition.MPV.id, "libmpv.so");
+        long stamp = libmpv.lastModified();
+        if (bundledVulkanEnabled != null && stamp == bundledVulkanStamp) {
+            return bundledVulkanEnabled;
+        }
         try {
-            Context app = context.getApplicationContext();
-            String abi = chooseAbi(app.getAssets());
-            bundledVulkanEnabled = abi != null && hasBundledFeature(app.getAssets(), abi, "vulkan");
+            bundledVulkanEnabled = stamp != 0 && hasBundledFeature(libmpv, "vulkan");
         } catch (Throwable e) {
             bundledVulkanEnabled = false;
             Log.w(TAG, "Unable to detect bundled MPV Vulkan support", e);
         }
+        bundledVulkanStamp = stamp;
         return bundledVulkanEnabled;
     }
 
@@ -151,69 +128,8 @@ public final class MPVLib {
         return isBundledVulkanEnabled(context) && isDeviceVulkan13Capable(context);
     }
 
-    private static String chooseAbi(AssetManager assets) {
-        for (String abi : Build.SUPPORTED_ABIS) {
-            if (assetExists(assets, abi, "mpv")) return abi;
-        }
-        return assetExists(assets, "armeabi-v7a", "mpv") ? "armeabi-v7a" : null;
-    }
-
-    private static boolean assetExists(AssetManager assets, String abi, String lib) {
-        try (InputStream ignored = assets.open(assetPath(abi, lib), AssetManager.ACCESS_STREAMING)) {
-            return true;
-        } catch (IOException ignored) {
-            return false;
-        }
-    }
-
-    private static String getBundleId(Context app, String abi) throws IOException {
-        try {
-            PackageInfo info = app.getPackageManager().getPackageInfo(app.getPackageName(), 0);
-            return info.lastUpdateTime + ":" + abi;
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new IOException("Unable to read app update time", e);
-        }
-    }
-
-    private static String readMarker(File marker) {
-        if (!marker.isFile()) return "";
-        try (InputStream in = new FileInputStream(marker); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[128];
-            int read;
-            while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
-            return out.toString(StandardCharsets.UTF_8.name());
-        } catch (IOException e) {
-            Log.w(TAG, "Unable to read bundled MPV native marker", e);
-            return "";
-        }
-    }
-
-    private static void writeMarker(File marker, String bundleId) throws IOException {
-        try (FileOutputStream out = new FileOutputStream(marker)) {
-            out.write(bundleId.getBytes(StandardCharsets.UTF_8));
-            out.getFD().sync();
-        }
-    }
-
-    private static void copyLibrary(AssetManager assets, String abi, String lib, File dir, boolean force) throws IOException {
-        File outFile = new File(dir, System.mapLibraryName(lib));
-        try (InputStream in = assets.open(assetPath(abi, lib), AssetManager.ACCESS_STREAMING)) {
-            long size = in.available();
-            if (!force && outFile.length() == size && size > 0) return;
-            try (OutputStream out = new FileOutputStream(outFile)) {
-                byte[] buffer = new byte[64 * 1024];
-                int read;
-                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
-            }
-        }
-    }
-
-    private static String assetPath(String abi, String lib) {
-        return ASSET_ROOT + "/" + abi + "/" + System.mapLibraryName(lib);
-    }
-
-    private static boolean hasBundledFeature(AssetManager assets, String abi, String feature) throws IOException {
-        try (InputStream in = assets.open(assetPath(abi, "mpv"), AssetManager.ACCESS_STREAMING)) {
+    private static boolean hasBundledFeature(File library, String feature) throws IOException {
+        try (InputStream in = new FileInputStream(library)) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buffer = new byte[64 * 1024];
             int read;

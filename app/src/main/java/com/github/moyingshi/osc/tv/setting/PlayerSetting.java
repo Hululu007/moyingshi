@@ -5,6 +5,8 @@ import android.provider.Settings;
 
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
 import com.github.moyingshi.osc.tv.player.VideoAspectMode;
 import com.github.moyingshi.osc.tv.utils.BrightnessPolicy;
 import com.github.moyingshi.osc.tv.utils.Util;
@@ -194,12 +196,38 @@ public class PlayerSetting {
         return isPlayer(player) ? player : getPlayer();
     }
 
+    /**
+     * 内核是否可用：EXO/系统内核随包走恒可用；IJK/MPV/VLC 是否装了对应模块。
+     * 模块未安装时切到该内核会走回落（resolveAvailablePlayer/resolveManualPlayer），
+     * 设置页与播放器内切内核的“请到模块里面下载”提示也在调用处判断它。
+     * 注意：sanitizePlayer 只校验常量合法性，不查模块——设置页对话框要如实显示
+     * 用户已存的选择，模块缺失的回落由播放侧负责。
+     */
     public static boolean isPlayerAvailable(int player) {
-        return player != IJK || isIjkAvailable();
+        return switch (player) {
+            case IJK -> isIjkAvailable();
+            case MPV -> isMpvAvailable();
+            case VLC -> isVlcAvailable();
+            default -> true;
+        };
     }
 
     public static boolean isIjkAvailable() {
-        return true;
+        return isModuleInstalled(ModuleDefinition.IJK.id);
+    }
+
+    public static boolean isMpvAvailable() {
+        return isModuleInstalled(ModuleDefinition.MPV.id);
+    }
+
+    public static boolean isVlcAvailable() {
+        return isModuleInstalled(ModuleDefinition.VLC.id);
+    }
+
+    private static boolean isModuleInstalled(String moduleId) {
+        App app = App.get();
+        if (app == null) return false;
+        return ModuleManager.getInstance(app).isInstalled(moduleId);
     }
 
     public static int kernelCount() {
