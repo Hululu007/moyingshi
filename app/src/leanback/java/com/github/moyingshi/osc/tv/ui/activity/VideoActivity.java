@@ -105,6 +105,8 @@ import com.github.moyingshi.osc.tv.setting.PlayerButtonSetting;
 import com.github.moyingshi.osc.tv.setting.MultiThreadProxySetting;
 import com.github.moyingshi.osc.tv.setting.PlaybackExperimentSetting;
 import com.github.moyingshi.osc.tv.setting.PreloadSetting;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModulePrompt;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.setting.FlagSwitchPlaybackPolicy;
 import com.github.moyingshi.osc.tv.setting.Setting;
@@ -5704,6 +5706,11 @@ private boolean runtimeSourceOnly;
     }
 
     private void switchPlayerKernel(int type) {
+        ModuleDefinition module = PlayerSetting.moduleForPlayer(type);
+        if (module != null && !PlayerSetting.isPlayerAvailable(type)) {
+            ModulePrompt.showMissingModule(this, module);
+            return;
+        }
         cancelKeySeek();
         if (refreshAndSwitchPlayerKernel(type)) return;
         mClock.setCallback(null);

@@ -29,6 +29,9 @@ import com.github.moyingshi.osc.tv.bean.AiConfig;
 import com.github.moyingshi.osc.tv.bean.Sub;
 import com.github.moyingshi.osc.tv.bean.Track;
 import com.github.moyingshi.osc.tv.databinding.DialogTrackBinding;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
+import com.github.moyingshi.osc.tv.module.ModulePrompt;
 import com.github.moyingshi.osc.tv.player.PlayerHelper;
 import com.github.moyingshi.osc.tv.player.PlayerManager;
 import com.github.moyingshi.osc.tv.player.exo.TrackUtil;
@@ -234,6 +237,10 @@ public final class TrackDialog extends BaseBottomSheetDialog implements TrackAda
         if (controller.isEnabled() || controller.isPreparing()) {
             stopRealtimeAi();
             showAiMessage(R.string.subtitle_realtime_off);
+            return;
+        }
+        if (!ModuleManager.getInstance(requireContext()).isInstalled(ModuleDefinition.SHERPA.id)) {
+            ModulePrompt.showMissingModule(this, ModuleDefinition.SHERPA);
             return;
         }
         if (!controller.isModelReady()) {

@@ -230,6 +230,16 @@ public class PlayerSetting {
         return ModuleManager.getInstance(app).isInstalled(moduleId);
     }
 
+    /** 内核对应的模块（EXO/系统随包走，无模块）；供“请到模块里面下载”提示的 call site 用。 */
+    public static ModuleDefinition moduleForPlayer(int player) {
+        return switch (player) {
+            case IJK -> ModuleDefinition.IJK;
+            case MPV -> ModuleDefinition.MPV;
+            case VLC -> ModuleDefinition.VLC;
+            default -> null;
+        };
+    }
+
     public static int kernelCount() {
         return KERNEL_ORDER.length;
     }

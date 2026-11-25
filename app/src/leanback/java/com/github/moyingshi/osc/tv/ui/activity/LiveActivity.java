@@ -55,6 +55,8 @@ import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.LiveListScrim;
 import com.github.moyingshi.osc.tv.theme.PlaybackMenuScrim;
 import com.github.moyingshi.osc.tv.setting.PlayerButtonSetting;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModulePrompt;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.ui.adapter.ChannelAdapter;
 import com.github.moyingshi.osc.tv.ui.adapter.EpgDataAdapter;
@@ -585,6 +587,11 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     }
 
     private void switchPlayerKernel(int type) {
+        ModuleDefinition module = PlayerSetting.moduleForPlayer(type);
+        if (module != null && !PlayerSetting.isPlayerAvailable(type)) {
+            ModulePrompt.showMissingModule(this, module);
+            return;
+        }
         cancelKeySeek();
         player().switchPlayer(type);
         setPlayerKernel();

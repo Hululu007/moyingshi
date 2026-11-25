@@ -117,6 +117,11 @@
             android:theme="@style/Theme.App.Lab" />
 
         <activity
+            android:name=".module.ModuleActivity"
+            android:exported="false"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode" />
+
+        <activity
             android:name=".lab.LabDetailActivity"
             android:exported="false"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"

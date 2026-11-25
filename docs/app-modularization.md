@@ -7,11 +7,11 @@
 ## Recovery anchor（恢复锚点）
 
 - **目标**：把 App 里的大件拆成可选模块，基础包瘦下来，功能不砍、需要时再下载/安装；用户首次用某功能时下载对应模块，失败则回落到基础功能。
-- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线已做完（commit 见“实施记录”）。
+- **当前状态**：评审完成，用户已于 2026-11-25 19:26 批准并补充设计（见“用户决定栏”与“决定补充记录”）：一步到位全量做、模块两种获取方式（在线下载直连本仓库 release + 本地导入已下载的压缩包）、设置里单独一项“模块”。实施中：Stage 0 已通过（见“Stage 0 核查结论”），单元 ① 模块管理器核心、单元 ② mpv/VLC 接线、单元 ③ Sherpa/DV/ijk/LUT 接线、单元 ④ 设置“模块”页 + 提示已做完（commit 见“实施记录”与 finish 回执）。
 - **验收标准**：见“验收标准”一节（手机真机可测条目）。
-- **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；其余全部是只读调研，见“现状映射”。
+- **当前文件/符号**：本文档；实施代码在 `app/src/main/java/com/github/moyingshi/osc/tv/module/`（ModuleDefinition/ModuleManifest/ModuleVerifier/ModuleInstaller/ModuleDownloader/ModuleManager/ModuleStatus/ModuleProgress/ModulePrompt/ModuleActivity）与 `app/src/test/java/com/github/moyingshi/osc/tv/module/`（5 个 JVM 单元测试类）；其余全部是只读调研，见“现状映射”。
 - **未验证项**：Stage 0 已解决第 1、2、6、8 条（见“Stage 0 核查结论”）；剩余第 3、4、5、7 条见“未验证 / 需实施时验证”清单（已更新状态）。
-- **唯一下一步**：单元 ④ 设置“模块”页 + 提示 call sites → 单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
+- **唯一下一步**：单元 ⑤ Gradle 打包 → workflow diff 报给父代理（浏览器改）→ 触发构建。
 
 ## 决定变更记录（VLC 拆不拆）
 
@@ -265,6 +265,22 @@
 - `player/lut/LutStore.java`：`scanPresets` 增加 `scanModule()`（在 scanAssets 之后、scanTree 之前）：模块已安装时从 `modules/lut/` 列 `.cube` 补齐，预设 id 用 `module:` 前缀、asset=false、path 为绝对路径，`LutEffectFactory.open` 直接走 FileInputStream；未安装时只有 assets 里的 1 个默认（乌托邦.cube，按名排序首项）可用。manifest.json 不是 .cube，`formatOf` 为 null 自动跳过。
 - 注意（留给单元 ④）：LUT 模块装/删后须调 `LutStore.clearCache()`（或 refreshPresets），否则缓存的预设列表不更新。
 - 体积影响：本单元只改 Java 代码，基础包体积不变。
+
+### 单元 ④ 设置“模块”页 + 提示（guard 会话 module-settings-page，2026-11-25 晚）
+
+- 新文案（`values/strings.xml` 与 `values-zh-rCN/strings.xml`，各 22 条）：`setting_module`/`setting_module_sub`（设置行）、`module_missing_prompt`（用户原话“请到模块里面下载 %1$s”）、`module_go_download`（去下载）、`module_download_all`（下载全部（总包））、`module_import`（本地导入）、`module_download`（在线下载）、`module_delete`、`module_redownload`、4 个状态文案、`module_downloading`（下载中 %1$d%%）、`module_mobile_confirm`、`module_install_success`/`module_install_failed`/`module_download_failed`、`module_pick_zip`、`module_page_hint`、`module_importing`、`module_busy`。标准按钮沿用 `android.R.string.ok`/`cancel`。
+- `module/ModulePrompt.java`：未安装提示的唯一构造点。`showMissingModule(Activity/Fragment, ModuleDefinition[, Runnable onCancel])`：文案 = 原话 + 模块显示名；“去下载”按钮直跳 `ModuleActivity.start(activity, definition.id)`（尽量直达该模块行）；取消/返回键走 onCancel（按钮 dismiss 不触发 OnCancelListener，不会重复跑）；空/finishing/destroyed 的 Activity 或 detached 的 Fragment 时直接跑 onCancel。只在用户主动选了未安装模块时由 call site 弹，已安装不弹。
+- `module/ModuleActivity.java`（main 源码集，main Manifest 已声明 `.module.ModuleActivity`，与 LabActivity 同格式）：Toolbar + 提示行 + “下载全部（总包）”按钮 + RecyclerView（6 行，名/大小/版本/状态）。行点开弹操作单（`WebHtvAlertDialogBuilder.setItems`）：未安装是在线下载/本地导入；已安装是重新下载/本地导入/删除；过期/损坏是重新下载/本地导入/删除；下载中是取消下载。删除先弹确认。在线下载走 `ModuleManager.downloadAndInstall`/`downloadAndInstallAll`（已走 GitHub 代理，见单元 ①）；移动网络下先弹确认（`isWifi()` 假时）；进度写进行副标题（总包进度落到全部 6 行，取消令牌记在 "all" 键上）；同时只跑一个下载（按钮置灰 + `module_busy` 提示）。本地导入照实验室抄：`ActivityResultLauncher` + `ACTION_OPEN_DOCUMENT` 选 zip → 拷缓存 → 工作线程 `installZip`（分包/总包都能导）→ `Notify` 结果 + 刷新。LUT 装/删后调 `LutStore.clearCache()`（单元 ③ 的遗留点已闭合）。布局 `activity_module.xml` + `item_module.xml` 在 main res（自写，不依赖 mobile 才有的 `ItemSettingCardRowBinding`，否则 leanback 编不过）；滚动到指定行用 `list.post(scrollToPosition)`（布局前不滚动，实验室的教训）。
+- `setting/PlayerSetting.java`：新增 `moduleForPlayer(int)`（IJK→IJK、MPV→MPV、VLC→VLC，EXO/系统返回 null；放在 PlayerSetting 是为避免 module↔setting  import 环）。
+- 手机设置入口：`SettingFragment` 特色功能组末尾（追更提醒行之后）加“模块”行（`ROW_MODULE`，图标 `ic_setting_download`、紫圈），点开 `ModuleActivity.start(requireContext())`。
+- 提示 call sites（未安装时弹提示、取消则按原有回落走，不改内核、不崩、不反复弹；已安装时原样通过）：
+  - 设置选内核：手机 `SettingPlayerFragment.onKernel`、TV `SettingPlayerActivity.setKernel`（`PlayerKernelDialog` 回调里先查 `isPlayerAvailable(which)`，未安装弹提示并 return、不 `putPlayer`）。
+  - 播放器内切内核：leanback `VideoActivity`/`CastActivity`/`LiveActivity` 与手机 `LiveActivity` 的 `switchPlayerKernel(int)` 顶部、`VideoActivity.onChoose()`（`kernelAt(index)` 之后）。
+  - 实时字幕：`TrackDialog.onRealtimeAi`（停止分支之后、选模型之前查 Sherpa；取消则不启用，功能保持关闭）。
+  - LUT：手机 `SettingPlayerFragment.onLut`、TV `SettingPlayerActivity.onLut`（未安装先弹提示；取消仍打开对话框——包内自带 1 个默认 LUT 可用）。
+  - **DV 无提示点**：grep 确认 DV 没有任何用户侧入口（设置页、播放器设置、字符串里都没有 DV/杜比行；探针只在 `ExoDv5GpuRendererFactory.shouldCreate` 内部调），未安装时按单元 ③ 的 probe()=false 降级，不额外弹提示；如实记下，不编一个入口。
+- TV 决定（best-effort）：TV 设置页是 `SettingActivity` 固定三列瓷砖网格（`activity_setting.xml`，焦点链写死），加一格要重排网格 + 焦点链，风险高——**TV 设置页不加“模块”格**。TV 侧回落行为完整（`isPlayerAvailable` 门控 + `buildEngine` 回落 EXO）+ 提示的“去下载”按钮能跳到模块页（ModuleActivity 在 main Manifest，主源码集，TV 构建也有）。TV 用户从提示进来可下载模块；TV 设置里没有独立入口，见报告。
+- 体积影响：本单元只加 Java 代码与两份小布局，基础包体积不变；瘦身在单元 ⑤。
 
 ## 未决问题（需要用户拍板）
 

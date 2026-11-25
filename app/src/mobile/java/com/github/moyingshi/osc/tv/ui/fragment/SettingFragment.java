@@ -44,6 +44,7 @@ import com.github.moyingshi.osc.tv.impl.ConfigListener;
 import com.github.moyingshi.osc.tv.impl.LiveListener;
 import com.github.moyingshi.osc.tv.impl.SiteListener;
 import com.github.moyingshi.osc.tv.lab.LabActivity;
+import com.github.moyingshi.osc.tv.module.ModuleActivity;
 import com.github.moyingshi.osc.tv.setting.ConfigSyncPolicy;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.setting.SiteHealthStore;
@@ -114,6 +115,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
     public static final String ROW_DRIVE = "drive";
     public static final String ROW_SITE_HEALTH = "site_health";
     public static final String ROW_FOLLOWING_REMINDER = "following_reminder";
+    public static final String ROW_MODULE = "module";
     public static final String ROW_CACHE = "cache";
     public static final String ROW_BACKUP = "backup";
     public static final String ROW_RESTORE = "restore";
@@ -272,6 +274,9 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         addDivider(feature);
         addRow(feature, inflater, R.drawable.ic_home_following, R.drawable.shape_setting_circle_blue,
                 R.string.setting_following_reminder, R.string.setting_following_reminder_sub, ROW_FOLLOWING_REMINDER, this::onFollowingReminder);
+        addDivider(feature);
+        addRow(feature, inflater, R.drawable.ic_setting_download, R.drawable.shape_setting_circle_purple,
+                R.string.setting_module, R.string.setting_module_sub, ROW_MODULE, this::onModule);
 
         // 数据与存储：缓存 / 备份 / 恢复 / DoH / 无痕模式
         ViewGroup storage = addGroup(container, inflater, R.string.setting_group_storage, false);
@@ -597,6 +602,10 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
     private void onLab() {
         LabActivity.start(requireContext());
+    }
+
+    private void onModule() {
+        ModuleActivity.start(requireContext());
     }
 
     private void onGitCloud() {

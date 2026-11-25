@@ -28,6 +28,8 @@ import com.github.moyingshi.osc.tv.player.PlayerHelper;
 import com.github.moyingshi.osc.tv.player.PlayerManager;
 import com.github.moyingshi.osc.tv.service.DLNARendererService;
 import com.github.moyingshi.osc.tv.service.PlaybackService;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModulePrompt;
 import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.moyingshi.osc.tv.ui.custom.CustomKeyDownVod;
 import com.github.moyingshi.osc.tv.ui.custom.CustomSeekView;
@@ -238,6 +240,11 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     }
 
     private void switchPlayerKernel(int type) {
+        ModuleDefinition module = PlayerSetting.moduleForPlayer(type);
+        if (module != null && !PlayerSetting.isPlayerAvailable(type)) {
+            ModulePrompt.showMissingModule(this, module);
+            return;
+        }
         cancelKeySeek();
         if (player().isEmpty()) return;
         position = player().getPosition();

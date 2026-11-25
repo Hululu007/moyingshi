@@ -15,6 +15,9 @@ import com.github.moyingshi.osc.tv.databinding.FragmentSettingPlayerBinding;
 import com.github.moyingshi.osc.tv.impl.BufferListener;
 import com.github.moyingshi.osc.tv.impl.SpeedListener;
 import com.github.moyingshi.osc.tv.impl.UaListener;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
+import com.github.moyingshi.osc.tv.module.ModulePrompt;
 import com.github.moyingshi.osc.tv.player.lut.LutSetting;
 import com.github.moyingshi.osc.tv.player.mpv.MpvConfigStore;
 import com.github.moyingshi.osc.tv.setting.PlaybackPerformanceSetting;
@@ -184,6 +187,11 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
 
     private void onKernel(View view) {
         PlayerKernelDialog.show(this, PlayerSetting.getPlayer(), which -> {
+            ModuleDefinition module = PlayerSetting.moduleForPlayer(which);
+            if (module != null && !PlayerSetting.isPlayerAvailable(which)) {
+                ModulePrompt.showMissingModule(this, module);
+                return;
+            }
             mBinding.kernelText.setText(kernel[which]);
             PlayerSetting.putPlayer(which);
             setMpvRows();
@@ -199,6 +207,12 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     }
 
     private void onLut(View view) {
+        if (!ModuleManager.getInstance(requireContext()).isInstalled(ModuleDefinition.LUT.id)) {
+            // 取消仍打开对话框：包内自带 1 个默认 LUT 可用。
+            ModulePrompt.showMissingModule(this, ModuleDefinition.LUT,
+                    () -> LutDialog.show(this, () -> mBinding.lutText.setText(LutSetting.getSummary())));
+            return;
+        }
         LutDialog.show(this, () -> mBinding.lutText.setText(LutSetting.getSummary()));
     }
 
