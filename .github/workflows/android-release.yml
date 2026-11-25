@@ -342,7 +342,7 @@ jobs:
             *) echo "::error title=Unknown variant::${{ matrix.variant }}"; exit 1 ;;
           esac
           cp app/build/outputs/modules/$ABI/*.zip dist/
-        ls -lh dist/*.zip
+          ls -lh dist/*.zip
       - name: Upload ${{ matrix.variant }} module zips
         if: startsWith(matrix.variant, 'Mobile')
         uses: actions/upload-artifact@v4
