@@ -402,6 +402,10 @@ public class ProfileFragment extends BaseFragment {
         Context context = requireContext();
         LinearLayout page = new LinearLayout(context);
         page.setOrientation(LinearLayout.VERTICAL);
+        // ViewPager2 要求每页填满整个 pager（宽高都得是 match_parent），否则进页就抛
+        // IllegalStateException: Pages must fill the whole ViewPager2
+        page.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         LinearLayout titleRow = new LinearLayout(context);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
