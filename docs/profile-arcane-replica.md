@@ -4,20 +4,12 @@
 
 - 目标：我的页（ProfileFragment）按用户 2026-11-25 发的 Arcane 截图 1:1 复刻：页头“我的”+日历图标、7 天日期条、历史观看格子、追剧行、今天三页横滑、收藏/在看双 tile、本月曲线+刷剧 TOP3、类型分布、管理模块按钮。底栏 6 项不动，数据口径用咱们自己的历史/追更/收藏。
 - 验收：GitHub 构建全绿，编出测试版发用户；用户真机截图确认版式与 Arcane 一致（或按截图再改一轮）。
-- 计划状态：实现已完成（ProfileStats 数据、3 个自定义画图 View、ProfileFragment 重写、字符串、页头、日历图标），待推上去编测试版验证。
-- 当前文件/符号：
-  - `app/src/main/java/com/github/moyingshi/osc/tv/profile/ProfileStats.java`（加 today/week/month 小时与分布、月度每日剧集/电影小时、上月小时、月 TOP3、近 12 周每日小时）
-  - `app/src/mobile/java/com/github/moyingshi/osc/tv/ui/fragment/ProfileFragment.java`（重写 render/fillCard）
-  - `app/src/mobile/java/com/github/moyingshi/osc/tv/ui/custom/ProfileContributionView.java`（新建，历史格）
-  - `app/src/mobile/java/com/github/moyingshi/osc/tv/ui/custom/ProfileMonthChartView.java`（新建，本月双线图）
-  - `app/src/mobile/java/com/github/moyingshi/osc/tv/ui/custom/ProfileDotsChartView.java`（新建，今天/本周/本月点图）
-  - `app/src/mobile/res/layout/fragment_profile.xml`（页头改“我的”+日历图标）
-  - `app/src/mobile/res/drawable/ic_profile_calendar.xml`（新建，自画日历图标）
-  - `app/src/main/res/values/strings.xml`、`app/src/main/res/values-zh-rCN/strings.xml`（新文案各一处）
-- 已完成：Arcane 分析文档已读；用户录屏已抽帧核对（管理面板分组与 10 模块清单）；guard `profile-arcane-replica`（standard）已开，基线 fcf0bc34，工作区干净。
-- 未验证：全部实现与构建（待做）。
-- 未决风险：见“待用户确认的假设”；三张图（历史格/点图/曲线）与横滑页数只能等用户真机截图再对。
-- 下一步：推上 main，触发构建，核对构建结果与 4 个 APK 后发用户。
+- 计划状态：已发布 v5.6.0-beta-202611251130（第 71 版，构建 run 45540476594 全绿，提交 44de31a4 + ffd5b03e + 19456b2c），版本记录 Space 第 71 条已补。
+- 第二轮（按录屏改交互，2026-11-25 13:20–13:33）：用户发两段 Arcane 录屏（视频 1 空号、视频 2 有 3 条播放记录）+“先别推”，要求照着视频里的交互做。guard `profile-video-interaction`（standard，基线 61da9471，scope 含 ProfileCard.java）已开；代码全部改完在本地，**只本地提交，不推不编，等用户开口**（13:20 他亲口“先别推”；13:16 崩溃修好的构建 run 45552515123 已由他取消，结论 cancelled，未发版；其手机 arm64 编译挂在 Chaquopy 生成 Python JNI 库那步，是 2026-11-21 那类瞬时问题，与崩溃修法无关，测试 3 分 47 秒全绿）。
+- 第二轮改动文件：ProfileStats.java（全量历史、周日周、最近 7 天/上 7 天、题材走势、题材小时、TOP3 按小时排）、ProfileCard.java（默认顺序改成 Arcane 管理面板顺序）、ProfileContributionView.java（5 行 ×14 列行优先、实心紫）、ProfileBarsChartView.java（新建，本周柱状）、ProfileLineChartView.java（新建，紫色折线+渐变填充）、ProfileDotsChartView.java（今天页：零小时灰点、有量橙色细条）、ProfileMonthChartView.java（堆叠柱状：下紫上橙）、ProfileFragment.java（总览三页重做、圆点移到卡外、tile 双列流式排、在看海报/方块切换、TOP3 条形、类型分布堆叠条）、ProfileActivitySheetDialog.java（新建，观看活动面板）、ProfileCalendarSheetDialog.java（新建，日历面板）、HistoryActivity.java（历史观看/收藏双 Tab）、strings.xml + strings-zh-rCN.xml（新文案）。
+- 未验证：全部实现与构建（本地无 SDK，构建只能走 GitHub；用户说先别推，所以还没推、还没编）。等他开口再推再编。
+- 未决/推测：见“第二轮：与视频不符/无法核实处”。
+- 下一步：用户说“推”/“编”后推上 main 触发构建，构建全绿后发测试版（手机 arm64 在前），版本记录 Space 补第 72 条；用户真机截图确认。
 
 ## 参考证据（设计研究已完成）
 
@@ -56,3 +48,34 @@
 - monthTop3：本月播放次数前 3（NameCount 列表，复用 topWatchedList）。
 - dailyHours：近 12 周每日已看小时（Map<LocalDate, Double> 或 float[84]，供贡献格）。
 - 类型判断沿用现有：typeName 含“电影”→电影，含“电视”/“剧”→剧集，其余不进双线图。
+
+## 第二轮：按两段录屏改交互（2026-11-25 13:20–13:33，用户说“先别推”，只本地提交）
+
+视频 1（空号，`/tmp/arcane-interact/f001–f024.jpg`）与视频 2（有 3 条播放记录，`~/workspace/user/media_library/video/ab/ab179c1d4d93b92f6a7ae03fafc6b0d0aa1f393a2d62aeea49cda090294e89bf.mp4`，37.85 秒，`/tmp/arcane-data/f001–f038.jpg`）逐帧已读完。视频 2 纠正了第一轮的多个假设：
+
+- 总览三页是**今天 / 本周观看 / 最近7天**（不是今天/本周/本月）；最近7天页无计数行，只有小时 + ↑/↓ 环比 + 紫色折线（渐变填充、3 条格线、无横轴刻度）。
+- 今天页：计数是两行（“N 部电影”/“N 集剧”，数字大、单位小），图在右侧；24 格里零小时是灰色小圆点贴底，有量是橙色细竖条。
+- 本周观看页：右上角是“11/22 – 28”（月只写在开头）；7 根竖条（周日–周六），零值是灰色小药丸。
+- 历史格是 **5 行 × 14 列、行优先、近 70 天**，最新一天在右下角；有记录的格子是**实心紫**（#6366F1，不是主色蓝）。
+- 本月观看是**堆叠柱状图**（下段电影紫、上段剧集橙），不是双线图；刷剧 TOP3 仍在本月卡内，行 = 片名 + 类型色条形 + 小时数（TOP3 按本月已看小时排，不再按播放次数）。
+- 类型分布是全宽堆叠横条 + 小时 + “N 部电影 · M 部剧”+ 图例“● 题材 P%”（占比按小时算；空类型名归为“其他”）。
+- 分类走势 1/2 是**独立 tile**（题材名 + 近 7 天小时 + ↑/↓ + 紫色迷你折线），无数据时不显示；不是并入本月卡。
+- tile 按卡片顺序双列排，整卡插中间会断行（收藏单独成行、在看+走势成行都由此来）；在看空时不显示（视频 1 空号只有收藏 tile）。
+- 在看 tile 有海报扇（最多 3 张交叠海报）；点 tile 右上角“…”弹菜单切**海报 / 方块**（带对勾，存在 Prefers 里 `profile_tile_mode_<卡片名>`）；海报形态是整宽区块（头“在看 N ›”+ …，3 列海报格）。
+- 点历史格弹**观看活动**面板（标题 观看活动 / 完成，chips 全部/电影/剧集，总小时 + 编辑；记录按天分组，组头“yyyy-MM-dd · 当天总时长”，行是浅灰卡片：片名 + 集数备注 + 右侧已看时长；点行续播，编辑态点行删除并刷新我的页）；点总览卡也弹这面板，标题是该页的时段（今天 → yyyy-MM-dd，本周 → “M/d – M/d”，最近7天 → 最近7天）。
+- 点页头日历图标弹**日历**面板（月历 + 上月/下月 + 点日跳到那一周）；日期条的今天是主色字，选中日是灰色圆角底。
+- 观看历史页加双 Tab：历史观看 / ♡ 收藏 N 条（收藏走 KeepAdapter，点播走收藏页同一套分流）。
+- 默认卡片顺序改成 Arcane 管理面板顺序：日历、历史观看、追剧、观看概览、收藏、本月观看、在看、分类走势 1、分类走势 2、类型分布（已存过顺序的用户不受影响，存过的顺序优先）。
+
+### 第二轮：与视频不符 / 无法核实处（等用户真机截图再对）
+
+- 收藏 tile 数：视频 2 里收藏 tile 仍显示 0，但观看历史的收藏 Tab 写 3 条——Arcane 自己前后不一。咱们 tile 用真实收藏数（keepCount）。
+- TOP3 第二行：视频里只有一条带片名+小时的紫条，下面还有一条更短的橙条、没片名没小时。咱们每行都显示片名+条形+小时。
+- 本周柱状有数据时的颜色视频里没拍到，暂按橙色（与今天页的橙条同色）。
+- 贡献格有记录时是否按小时分深浅：视频里唯一有记录的格子是实心紫，2 秒的记录看着也是饱和紫，所以暂定有记录就实心紫、不分档。
+- 类型分布多题材时的配色只验到第 1 个是紫，其余暂按橙、绿。
+- 在看海报格的角标：Arcane 是“1/192”集数进度 + “2%”；咱们没有集数/总集数字段，角标改用备注（vodRemarks，如“第01集”）+ 百分比；没贴 Arcane 的来源徽章（那是对方的站源名）。
+- 活动面板里分钟/小时的长写法（“N 分钟”“N.NN 小时”）视频里没出现，是按“2 秒”的格式顺推的。
+- 活动面板的周/最近7天标题（“11/22 – 28”/“最近7天”）是按今天页标题是日期推测的，视频只拍到了今天页点开。
+- 在看 tile 点开在视频里是“在看”列表面板；本轮 tile 点开仍进观看历史页（列表面板未做）。
+- 观看历史页只加了双 Tab，海报格样式没动（视频里是 2 列海报格，咱们仍是列表式海报行）。

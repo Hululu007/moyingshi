@@ -14,19 +14,21 @@ import androidx.annotation.Nullable;
 import com.github.moyingshi.osc.tv.R;
 
 /**
- * 历史观看贡献格：7 行（周一–周日）× 12 列（周），格子颜色深浅按当天已看小时分 4 档。
- * 数据是近 12 周（周一对齐）的每日已看小时，index = 列 × 7 + 行。
+ * 历史观看贡献格：5 行 × 14 列（近 70 天），行优先、最新一天在右下角；
+ * 有观看记录的格子填实心紫色（Arcane 的配色），没记录的是浅灰底。
+ * 数据是近 70 天的每日已看小时，index 0 = 69 天前，index 69 = 今天。
  */
 public class ProfileContributionView extends View {
 
-    private static final int COLS = 12;
-    private static final int ROWS = 7;
+    public static final int FILLED_COLOR = Color.parseColor("#FF6366F1");
+
+    private static final int COLS = 14;
+    private static final int ROWS = 5;
 
     private double[] hours = new double[COLS * ROWS];
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
     private int emptyColor;
-    private int primaryColor;
     private float gap;
     private float radius;
 
@@ -45,7 +47,6 @@ public class ProfileContributionView extends View {
         gap = 3 * density;
         radius = 2 * density;
         emptyColor = resolveAttr(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
-        primaryColor = resolveAttr(context, androidx.appcompat.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
     }
 
     private static int resolveAttr(Context context, int attr, int fallback) {
@@ -54,7 +55,7 @@ public class ProfileContributionView extends View {
         return fallback;
     }
 
-    /** 每天已看小时，84 个（12 周 × 7 天），不足 84 个的按 0 补。 */
+    /** 每天已看小时，70 个（近 70 天），不足 70 个的按 0 补。 */
     public void setData(@Nullable double[] dailyHours) {
         hours = new double[COLS * ROWS];
         if (dailyHours != null) {
@@ -75,21 +76,15 @@ public class ProfileContributionView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float cell = (getWidth() - getPaddingLeft() - getPaddingRight() - (COLS - 1) * gap) / COLS;
-        for (int col = 0; col < COLS; col++) {
-            for (int row = 0; row < ROWS; row++) {
-                double h = hours[col * ROWS + row];
-                paint.setColor(colorFor(h));
+        for (int row = 0; row < ROWS; row++) {
+            for (int col = 0; col < COLS; col++) {
+                double h = hours[row * COLS + col];
+                paint.setColor(h > 0 ? FILLED_COLOR : emptyColor);
                 float left = getPaddingLeft() + col * (cell + gap);
                 float top = getPaddingTop() + row * (cell + gap);
                 rect.set(left, top, left + cell, top + cell);
                 canvas.drawRoundRect(rect, radius, radius, paint);
             }
         }
-    }
-
-    private int colorFor(double hours) {
-        if (hours <= 0) return emptyColor;
-        int alpha = hours <= 0.5 ? 90 : hours <= 1 ? 140 : hours <= 2 ? 190 : 255;
-        return (primaryColor & 0x00FFFFFF) | (alpha << 24);
     }
 }

@@ -5,16 +5,15 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import com.github.moyingshi.osc.tv.R;
-
 /**
- * 本月观看双线图：剧集（橙）与电影（蓝）两条线，按当月每日已看小时画；
+ * 本月观看堆叠柱状图：每天一根竖条，下段电影（紫）上段剧集（橙），高度按当天总小时；
  * 3 条横格线，横轴标 1 / 8 / 15 / 22 / 月末。没数据时只画格线与刻度。
  */
 public class ProfileMonthChartView extends View {
@@ -25,9 +24,10 @@ public class ProfileMonthChartView extends View {
     private double[] series = new double[0];
     private double[] movies = new double[0];
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF rect = new RectF();
+    private final Path topPath = new Path();
     private float density;
 
     public ProfileMonthChartView(Context context) {
@@ -45,11 +45,7 @@ public class ProfileMonthChartView extends View {
         int gridColor = resolveAttr(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.parseColor("#FFE1E2E9"));
         gridPaint.setColor(gridColor);
         gridPaint.setStrokeWidth(1 * density);
-        linePaint.setStyle(Paint.Style.STROKE);
-        linePaint.setStrokeWidth(2 * density);
-        linePaint.setStrokeJoin(Paint.Join.ROUND);
-        linePaint.setStrokeCap(Paint.Cap.ROUND);
-        dotPaint.setStyle(Paint.Style.FILL);
+        barPaint.setStyle(Paint.Style.FILL);
         int textColor = resolveAttr(context, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
         textPaint.setColor(textColor);
         textPaint.setTextSize(11 * density);
@@ -92,39 +88,71 @@ public class ProfileMonthChartView extends View {
         }
 
         double max = 0;
-        for (double v : series) max = Math.max(max, v);
-        for (double v : movies) max = Math.max(max, v);
-        if (max > 0) {
-            drawLine(canvas, series, SERIES_COLOR, left, right, top, bottom, max);
-            drawLine(canvas, movies, MOVIES_COLOR, left, right, top, bottom, max);
+        for (int i = 0; i < days; i++) {
+            double s = i < series.length ? series[i] : 0;
+            double m = i < movies.length ? movies[i] : 0;
+            max = Math.max(max, s + m);
         }
+        if (max <= 0) {
+            drawLabels(canvas, days, left, right);
+            return;
+        }
+        float slot = (right - left) / days;
+        float barWidth = Math.min(10 * density, slot * 0.6f);
+        float radius = 2 * density;
+        for (int i = 0; i < days; i++) {
+            double s = i < series.length ? series[i] : 0;
+            double m = i < movies.length ? movies[i] : 0;
+            if (s + m <= 0) continue;
+            float cx = left + slot * i + slot / 2;
+            float totalH = (float) ((s + m) / max * (bottom - top));
+            float movieH = (float) (m / (s + m) * totalH);
+            float barTop = bottom - totalH;
+            float splitY = bottom - movieH;
+            // 下段：电影（紫）；只有它时顶边也圆角
+            barPaint.setColor(MOVIES_COLOR);
+            if (movieH > 0) {
+                if (s > 0) {
+                    rect.set(cx - barWidth / 2, splitY, cx + barWidth / 2, bottom);
+                    canvas.drawRect(rect, barPaint);
+                } else {
+                    drawTopRounded(canvas, cx - barWidth / 2, barTop, cx + barWidth / 2, bottom, radius);
+                }
+            }
+            // 上段：剧集（橙），顶边圆角
+            if (s > 0) {
+                barPaint.setColor(SERIES_COLOR);
+                drawTopRounded(canvas, cx - barWidth / 2, barTop, cx + barWidth / 2, splitY, radius);
+            }
+        }
+        drawLabels(canvas, days, left, right);
+    }
 
+    /** 顶边圆角、底边直角的竖条段。 */
+    private void drawTopRounded(Canvas canvas, float left, float top, float right, float bottom, float radius) {
+        if (bottom - top < radius * 2) {
+            rect.set(left, top, right, bottom);
+            canvas.drawRoundRect(rect, radius, radius, barPaint);
+            return;
+        }
+        topPath.reset();
+        topPath.moveTo(left, bottom);
+        topPath.lineTo(left, top + radius);
+        topPath.arcTo(left, top, left + radius * 2, top + radius * 2, 180, 90, false);
+        topPath.lineTo(right - radius, top);
+        topPath.arcTo(right - radius * 2, top, right, top + radius * 2, 270, 90, false);
+        topPath.lineTo(right, bottom);
+        topPath.close();
+        canvas.drawPath(topPath, barPaint);
+    }
+
+    private void drawLabels(Canvas canvas, int days, float left, float right) {
         // 横轴刻度：1 / 8 / 15 / 22 / 月末
         int[] marks = {1, 8, 15, 22, days};
         for (int day : marks) {
             if (day < 1 || day > days) continue;
             float x = days == 1 ? left : left + (day - 1) * (right - left) / (days - 1);
             canvas.drawText(String.valueOf(day), x, getHeight() - 6 * density, textPaint);
-        }
-    }
-
-    private void drawLine(Canvas canvas, double[] values, int color,
-                          float left, float right, float top, float bottom, double max) {
-        if (values.length == 0) return;
-        linePaint.setColor(color);
-        dotPaint.setColor(color);
-        Path path = new Path();
-        for (int i = 0; i < values.length; i++) {
-            float x = values.length == 1 ? left : left + i * (right - left) / (values.length - 1);
-            float y = (float) (bottom - values[i] / max * (bottom - top));
-            if (i == 0) path.moveTo(x, y);
-            else path.lineTo(x, y);
-        }
-        canvas.drawPath(path, linePaint);
-        for (int i = 0; i < values.length; i++) {
-            float x = values.length == 1 ? left : left + i * (right - left) / (values.length - 1);
-            float y = (float) (bottom - values[i] / max * (bottom - top));
-            canvas.drawCircle(x, y, 2.5f * density, dotPaint);
         }
     }
 }

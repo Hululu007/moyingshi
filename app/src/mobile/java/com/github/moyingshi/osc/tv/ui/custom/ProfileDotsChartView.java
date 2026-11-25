@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -11,18 +12,20 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import com.github.moyingshi.osc.tv.R;
-
 /**
- * 点图：每格一个点，点的高度按值、大小按值微调；横轴只画给出的刻度（其余格留空）。
- * 今天页用 24 格（00:00 / 12:00 / 24:00），本周/本月页按天。
+ * 今天页的 24 格小时图：没看的小时画灰色小圆点贴底，看过的画橙色细竖条（高度按小时数）。
+ * 横轴只画 00:00 / 12:00 / 24:00。
  */
 public class ProfileDotsChartView extends View {
+
+    public static final int BAR_COLOR = Color.parseColor("#FFF59E0B");
 
     private double[] values = new double[0];
     private String[] labels = new String[0];
     private final Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF rect = new RectF();
     private float density;
 
     public ProfileDotsChartView(Context context) {
@@ -37,9 +40,11 @@ public class ProfileDotsChartView extends View {
 
     private void init(Context context) {
         density = context.getResources().getDisplayMetrics().density;
-        int primary = resolveAttr(context, androidx.appcompat.R.attr.colorPrimary, Color.parseColor("#FF0B57D0"));
-        dotPaint.setColor(primary);
+        int dotColor = resolveAttr(context, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
+        dotPaint.setColor(dotColor);
         dotPaint.setStyle(Paint.Style.FILL);
+        barPaint.setColor(BAR_COLOR);
+        barPaint.setStyle(Paint.Style.FILL);
         int textColor = resolveAttr(context, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
         textPaint.setColor(textColor);
         textPaint.setTextSize(11 * density);
@@ -77,11 +82,17 @@ public class ProfileDotsChartView extends View {
         double max = 0;
         for (double v : values) max = Math.max(max, v);
         if (max <= 0) max = 1;
+        float barWidth = 5 * density;
         for (int i = 0; i < n; i++) {
             float x = n == 1 ? (left + right) / 2 : left + i * (right - left) / (n - 1);
-            float y = (float) (bottom - values[i] / max * (bottom - top));
-            float r = (float) (2.5 * density + values[i] / max * 2.5 * density);
-            canvas.drawCircle(x, y, Math.max(r, 2 * density), dotPaint);
+            if (values[i] > 0) {
+                float h = (float) (values[i] / max * (bottom - top));
+                h = Math.max(h, 8 * density);
+                rect.set(x - barWidth / 2, bottom - h, x + barWidth / 2, bottom);
+                canvas.drawRoundRect(rect, barWidth / 2, barWidth / 2, barPaint);
+            } else {
+                canvas.drawCircle(x, bottom - 2.5f * density, 2.5f * density, dotPaint);
+            }
             if (i < labels.length && !TextUtils.isEmpty(labels[i])) {
                 canvas.drawText(labels[i], x, getHeight() - 6 * density, textPaint);
             }

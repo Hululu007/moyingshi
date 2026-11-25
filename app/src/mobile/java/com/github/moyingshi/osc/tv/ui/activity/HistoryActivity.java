@@ -2,10 +2,16 @@ package com.github.moyingshi.osc.tv.ui.activity;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,24 +22,37 @@ import androidx.viewbinding.ViewBinding;
 
 import com.github.moyingshi.osc.tv.Product;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.api.config.VodConfig;
+import com.github.moyingshi.osc.tv.bean.Config;
 import com.github.moyingshi.osc.tv.bean.History;
+import com.github.moyingshi.osc.tv.bean.Keep;
 import com.github.moyingshi.osc.tv.databinding.ActivityHistoryBinding;
 import com.github.moyingshi.osc.tv.event.ConfigEvent;
 import com.github.moyingshi.osc.tv.event.RefreshEvent;
+import com.github.moyingshi.osc.tv.impl.Callback;
 import com.github.moyingshi.osc.tv.setting.Setting;
 import com.github.moyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.moyingshi.osc.tv.ui.adapter.HistoryAdapter;
+import com.github.moyingshi.osc.tv.ui.adapter.KeepAdapter;
 import com.github.moyingshi.osc.tv.ui.base.BaseActivity;
 import com.github.moyingshi.osc.tv.ui.dialog.SyncDialog;
 import com.github.moyingshi.osc.tv.utils.MobileWindow;
+import com.github.moyingshi.osc.tv.utils.Notify;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnClickListener {
+public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnClickListener, KeepAdapter.OnClickListener {
+
+    private static final int TAB_HISTORY = 0;
+    private static final int TAB_KEEP = 1;
 
     private ActivityHistoryBinding mBinding;
     private HistoryAdapter mAdapter;
+    private KeepAdapter mKeepAdapter;
+    private int mTab = TAB_HISTORY;
+    private TextView mHistoryTab;
+    private TextView mKeepTab;
 
     public static void start(Activity activity) {
         activity.startActivity(new Intent(activity, HistoryActivity.class));
@@ -55,7 +74,9 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
         setSupportActionBar(mBinding.toolbar);
         setEmptyContent();
         setRecyclerView();
-        getHistory();
+        ((ViewGroup) mBinding.getRoot()).addView(buildTabs(), 1);
+        switchTab(TAB_HISTORY);
+        getKeep();
     }
 
     /**
@@ -78,24 +99,94 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
                 Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
     }
 
+    // ---------- 历史观看 / 收藏双 Tab（我的页 Arcane 版式） ----------
+
+    private LinearLayout buildTabs() {
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabs.setPadding(dp(16), dp(4), dp(16), dp(4));
+        mHistoryTab = buildTab(getString(R.string.profile_card_history), TAB_HISTORY);
+        mKeepTab = buildTab("", TAB_KEEP);
+        tabs.addView(mHistoryTab);
+        tabs.addView(mKeepTab);
+        return tabs;
+    }
+
+    private TextView buildTab(String text, int tab) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextSize(16);
+        view.setPadding(dp(12), dp(8), dp(12), dp(8));
+        view.setOnClickListener(v -> switchTab(tab));
+        return view;
+    }
+
+    private void switchTab(int tab) {
+        mTab = tab;
+        updateTabStyles();
+        if (tab == TAB_KEEP) {
+            mBinding.recycler.setAdapter(mKeepAdapter);
+            getKeep();
+        } else {
+            mBinding.recycler.setAdapter(mAdapter);
+            getHistory();
+        }
+    }
+
+    private void updateTabStyles() {
+        styleTab(mHistoryTab, mTab == TAB_HISTORY);
+        styleTab(mKeepTab, mTab == TAB_KEEP);
+    }
+
+    private void styleTab(TextView tab, boolean selected) {
+        tab.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+        tab.setTextColor(selected ? onSurfaceColor() : secondaryColor());
+    }
+
+    private void updateKeepTabLabel() {
+        if (mKeepTab == null || mKeepAdapter == null) return;
+        mKeepTab.setText(getString(R.string.profile_history_tab_favorites, mKeepAdapter.getItemCount()));
+    }
+
+    private void getKeep() {
+        mKeepAdapter.setItems(Keep.getVod(), () -> {
+            updateKeepTabLabel();
+            mBinding.recycler.post(this::updateMarquee);
+        });
+    }
+
     private void setRecyclerView() {
         int column = MobileWindow.isWide(this) ? Product.getColumn(this) : 3;
         mBinding.recycler.setHasFixedSize(true);
         mBinding.recycler.setLayoutManager(new GridLayoutManager(this, column));
         mBinding.recycler.setAdapter(mAdapter = new HistoryAdapter(this));
+        mKeepAdapter = new KeepAdapter(this);
         // 列表数量变化后统一驱动状态机（BaseDiffAdapter 的钩子）：注册一次，之后无论从哪条
         // 路径改动列表（单条删除、删除全部、刷新）状态都会跟着列表走，宿主不可能再忘。
-        mAdapter.setOnCountChanged(count -> mBinding.progressLayout.showContent(true, count));
+        // 只驱动当前 Tab 的空态，另一 Tab 的数量变化不抢状态。
+        mAdapter.setOnCountChanged(count -> {
+            if (mTab == TAB_HISTORY) mBinding.progressLayout.showContent(true, count);
+        });
+        mKeepAdapter.setOnCountChanged(count -> {
+            if (mTab == TAB_KEEP) mBinding.progressLayout.showContent(true, count);
+        });
         mBinding.recycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 recyclerView.post(() -> {
                     if (newState == RecyclerView.SCROLL_STATE_IDLE) updateMarquee();
-                    else mAdapter.setMarqueeRange(RecyclerView.NO_POSITION, RecyclerView.NO_POSITION);
+                    else setMarqueeRange(RecyclerView.NO_POSITION, RecyclerView.NO_POSITION);
                 });
             }
         });
-        mAdapter.setSize(Product.getSpec(this, column));
+        int[] size = Product.getSpec(this, column);
+        mAdapter.setSize(size);
+        mKeepAdapter.setSize(size);
+    }
+
+    private void setMarqueeRange(int first, int last) {
+        if (mTab == TAB_KEEP) mKeepAdapter.setMarqueeRange(first, last);
+        else mAdapter.setMarqueeRange(first, last);
     }
 
     private void getHistory() {
@@ -107,11 +198,11 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
 
     private void updateMarquee() {
         if (mBinding.recycler.getScrollState() != RecyclerView.SCROLL_STATE_IDLE) {
-            mAdapter.setMarqueeRange(RecyclerView.NO_POSITION, RecyclerView.NO_POSITION);
+            setMarqueeRange(RecyclerView.NO_POSITION, RecyclerView.NO_POSITION);
             return;
         }
         int[] range = findMarqueeRange(mBinding.recycler);
-        mAdapter.setMarqueeRange(range[0], range[1]);
+        setMarqueeRange(range[0], range[1]);
     }
 
     private int[] findMarqueeRange(RecyclerView recyclerView) {
@@ -134,10 +225,19 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
     }
 
     private void onSync() {
-        SyncDialog.create().history().show(this);
+        if (mTab == TAB_KEEP) SyncDialog.create().keep().show(this);
+        else SyncDialog.create().history().show(this);
     }
 
     private void onDelete() {
+        if (mTab == TAB_KEEP) {
+            if (mKeepAdapter.isDelete()) {
+                new WebHtvAlertDialogBuilder(this).setTitle(R.string.dialog_delete_record).setMessage(R.string.dialog_delete_keep).setNegativeButton(R.string.dialog_negative, null).setPositiveButton(R.string.dialog_positive, (dialog, which) -> mKeepAdapter.clear()).show();
+            } else if (mKeepAdapter.getItemCount() > 0) {
+                mKeepAdapter.setDelete(true);
+            }
+            return;
+        }
         if (mAdapter.isDelete()) {
             new WebHtvAlertDialogBuilder(this).setTitle(R.string.dialog_delete_record).setMessage(Setting.isGlobalHistoryEnabled() ? R.string.dialog_delete_global_history : R.string.dialog_delete_history).setNegativeButton(R.string.dialog_negative, null).setPositiveButton(R.string.dialog_positive, (dialog, which) -> mAdapter.clear()).show();
         } else if (mAdapter.getItemCount() > 0) {
@@ -147,14 +247,16 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onConfigEvent(ConfigEvent event) {
-        if (event.isVod() && mAdapter != null) {
-            mAdapter.notifyDataSetChanged();
+        if (event.isVod()) {
+            if (mAdapter != null) mAdapter.notifyDataSetChanged();
+            if (mKeepAdapter != null) mKeepAdapter.notifyDataSetChanged();
         }
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onRefreshEvent(RefreshEvent event) {
-        if (event.getType().equals(RefreshEvent.Type.HISTORY)) getHistory();
+        if (event.getType().equals(RefreshEvent.Type.HISTORY) && mTab == TAB_HISTORY) getHistory();
+        else if (event.getType().equals(RefreshEvent.Type.KEEP) && mTab == TAB_KEEP) getKeep();
     }
 
     @Override
@@ -171,9 +273,50 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
     }
 
     @Override
+    public void onItemClick(Keep item) {
+        Config config = Config.find(item.getCid());
+        if (config == null) SearchActivity.start(this, item.getVodName());
+        else if (item.getCid() != VodConfig.getCid()) loadConfig(config, item);
+        else VideoActivity.start(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic());
+    }
+
+    @Override
+    public void onItemDelete(Keep item) {
+        mKeepAdapter.remove(item.delete(), () -> {
+            updateKeepTabLabel();
+            if (mKeepAdapter.getItemCount() == 0) mKeepAdapter.setDelete(false);
+            mBinding.recycler.post(this::updateMarquee);
+        });
+    }
+
+    @Override
     public boolean onLongClick() {
-        mAdapter.setDelete(!mAdapter.isDelete());
+        if (mTab == TAB_KEEP) mKeepAdapter.setDelete(!mKeepAdapter.isDelete());
+        else mAdapter.setDelete(!mAdapter.isDelete());
         return true;
+    }
+
+    /** 收藏的源不是当前源时先加载该源配置（与收藏页同一套逻辑），再起播。 */
+    private void loadConfig(Config config, Keep item) {
+        VodConfig.load(config, new Callback() {
+            @Override
+            public void success() {
+                VideoActivity.start(getActivity(), item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic());
+            }
+
+            @Override
+            public void error(String msg) {
+                Notify.show(msg);
+                mBinding.progressLayout.showError(
+                        R.string.error_config_load,
+                        msg,
+                        R.string.error_retry,
+                        view -> {
+                            mBinding.progressLayout.showProgress();
+                            loadConfig(config, item);
+                        });
+            }
+        });
     }
 
     @Override
@@ -199,7 +342,30 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
 
     @Override
     protected void onBackInvoked() {
-        if (mAdapter.isDelete()) mAdapter.setDelete(false);
+        if (mTab == TAB_KEEP) {
+            if (mKeepAdapter.isDelete()) mKeepAdapter.setDelete(false);
+            else super.onBackInvoked();
+        } else if (mAdapter.isDelete()) mAdapter.setDelete(false);
         else super.onBackInvoked();
+    }
+
+    private int onSurfaceColor() {
+        return resolveAttr(com.google.android.material.R.attr.colorOnSurface, Color.parseColor("#FF1A1C1E"));
+    }
+
+    private int secondaryColor() {
+        return resolveAttr(com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#FF8A8A8A"));
+    }
+
+    private int resolveAttr(int attr, int fallback) {
+        TypedValue value = new TypedValue();
+        if (getTheme().resolveAttribute(attr, value, true) && value.data != 0) {
+            return value.data;
+        }
+        return fallback;
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
     }
 }

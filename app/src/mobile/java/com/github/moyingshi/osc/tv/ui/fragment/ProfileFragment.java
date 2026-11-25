@@ -4,13 +4,22 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -19,8 +28,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.github.catvod.utils.Prefers;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.R;
+import com.github.moyingshi.osc.tv.bean.History;
 import com.github.moyingshi.osc.tv.databinding.FragmentProfileBinding;
 import com.github.moyingshi.osc.tv.databinding.ItemProfileCardBinding;
 import com.github.moyingshi.osc.tv.following.Following;
@@ -30,40 +41,59 @@ import com.github.moyingshi.osc.tv.profile.ProfileLayout;
 import com.github.moyingshi.osc.tv.profile.ProfileStats;
 import com.github.moyingshi.osc.tv.ui.activity.FollowingActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HistoryActivity;
+import com.github.moyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
 import com.github.moyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
+import com.github.moyingshi.osc.tv.ui.custom.ProfileBarsChartView;
 import com.github.moyingshi.osc.tv.ui.custom.ProfileContributionView;
 import com.github.moyingshi.osc.tv.ui.custom.ProfileDotsChartView;
+import com.github.moyingshi.osc.tv.ui.custom.ProfileLineChartView;
 import com.github.moyingshi.osc.tv.ui.custom.ProfileMonthChartView;
+import com.github.moyingshi.osc.tv.ui.dialog.ProfileActivitySheetDialog;
+import com.github.moyingshi.osc.tv.ui.dialog.ProfileCalendarSheetDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ProfileEditorDialog;
+import com.github.moyingshi.osc.tv.utils.ImgUtil;
 import com.github.moyingshi.osc.tv.utils.Task;
 import com.google.android.material.card.MaterialCardView;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * 我的页：按 Arcane 截图 1:1 复刻的观影数据页。
+ * 我的页：按 Arcane 截图与两段录屏 1:1 复刻的观影数据页。
  * 版式：页头“我的”+日历图标 → 7 天日期条 → 历史观看格 → 追剧行 →
- * 今天三页横滑（今天/本周/本月）→ 收藏/在看双 tile → 本月曲线+刷剧 TOP3 → 类型分布 → 管理模块。
- * 模块顺序与显隐仍走 ProfileLayout；TREND1/2 不再单独成卡，并入本月卡的 TOP3；
- * 收藏与在看合成一行双 tile。数据一次后台取完（ProfileStats.load）。
+ * 今天三页横滑（今天/本周观看/最近7天，圆点在卡外）→ 收藏/在看/分类走势 tile（按卡片顺序双列排，
+ * 整卡插中间会断行）→ 本月观看（堆叠柱状图+刷剧 TOP3）→ 类型分布 → 管理模块。
+ * 模块顺序与显隐仍走 ProfileLayout；在看空时不显示，在看 tile 可切海报/方块两种形态。
+ * 数据一次后台取完（ProfileStats.load）。
  */
 public class ProfileFragment extends BaseFragment {
 
+    /** 类型分布堆叠条的配色（第 1 个题材紫，与 Arcane 一致；其余为推测）。 */
+    private static final int[] GENRE_COLORS = {
+            Color.parseColor("#FF6366F1"), Color.parseColor("#FFF59E0B"), Color.parseColor("#FF10B981")};
+
+    private enum TileMode {
+        SQUARE, POSTER
+    }
+
     private FragmentProfileBinding mBinding;
+    private ProfileStats currentStats;
 
     /** 日期条选中日（默认今天）与条内控件，点选后只刷新条本身，不重载数据。 */
     private LocalDate selectedDate;
+    private LocalDate stripWeekStart;
     private List<LocalDate> stripDates;
     private List<View> stripCells;
     private TextView stripStatus;
-    private ProfileStats stripStats;
+    private View calendarSectionView;
+    private int calendarSectionIndex = -1;
 
     public static ProfileFragment newInstance() {
         return new ProfileFragment();
@@ -76,7 +106,13 @@ public class ProfileFragment extends BaseFragment {
 
     @Override
     protected void initView() {
-        mBinding.calendarBtn.setOnClickListener(v -> FollowingActivity.start(requireActivity()));
+        mBinding.calendarBtn.setOnClickListener(v -> ProfileCalendarSheetDialog.create(
+                selectedDate == null ? LocalDate.now() : selectedDate,
+                day -> {
+                    stripWeekStart = day.minusDays(day.getDayOfWeek().getValue() % 7);
+                    selectedDate = day;
+                    rebuildCalendarSection();
+                }).show(getChildFragmentManager()));
         mBinding.manageBtn.setOnClickListener(v -> ProfileEditorDialog.create(this::load).show(getChildFragmentManager()));
         load();
     }
@@ -93,29 +129,64 @@ public class ProfileFragment extends BaseFragment {
     }
 
     private void render(ProfileStats stats, List<ProfileCard> cards) {
+        currentStats = stats;
         mBinding.cardContainer.removeAllViews();
         mBinding.emptyHint.setVisibility(cards.isEmpty() ? View.VISIBLE : View.GONE);
         LayoutInflater inflater = LayoutInflater.from(requireContext());
-        boolean tilesDone = false;
+        calendarSectionIndex = -1;
+        calendarSectionView = null;
+        LinearLayout pendingRow = null;
+        int pendingCount = 0;
         for (ProfileCard card : cards) {
+            // 在看海报形态是整宽区块，不进双列 tile 行。
+            if (card == ProfileCard.WATCHING && tileMode(card) == TileMode.POSTER && !stats.watching.isEmpty()) {
+                if (pendingRow != null) {
+                    mBinding.cardContainer.addView(pendingRow);
+                    pendingRow = null;
+                    pendingCount = 0;
+                }
+                mBinding.cardContainer.addView(buildWatchingPosterSection(stats));
+                continue;
+            }
+            if (isTile(card)) {
+                View tile = buildTile(card, stats);
+                if (tile == null) continue;
+                if (pendingRow == null) {
+                    pendingRow = newTileRow();
+                    pendingCount = 0;
+                }
+                pendingRow.addView(tile, tileLayoutParams(pendingCount > 0));
+                pendingCount++;
+                if (pendingCount == 2) {
+                    mBinding.cardContainer.addView(pendingRow);
+                    pendingRow = null;
+                    pendingCount = 0;
+                }
+                continue;
+            }
+            if (pendingRow != null) {
+                mBinding.cardContainer.addView(pendingRow);
+                pendingRow = null;
+                pendingCount = 0;
+            }
             switch (card) {
                 case CALENDAR:
-                    mBinding.cardContainer.addView(buildCalendarSection(stats));
+                    calendarSectionIndex = mBinding.cardContainer.getChildCount();
+                    calendarSectionView = buildCalendarSection(stats);
+                    mBinding.cardContainer.addView(calendarSectionView);
                     break;
                 case TRACKING:
                     mBinding.cardContainer.addView(buildTrackingSection(stats));
                     break;
-                case TREND1:
-                case TREND2:
-                    // 并入本月卡的刷剧 TOP3，不再单独成卡。
+                case OVERVIEW: {
+                    ItemProfileCardBinding cardBinding = ItemProfileCardBinding.inflate(inflater, mBinding.cardContainer, false);
+                    cardBinding.cardTitle.setText(card.titleRes);
+                    cardBinding.cardHeader.setVisibility(View.GONE);
+                    ViewPager2 pager = fillOverview(cardBinding.cardContent, stats);
+                    mBinding.cardContainer.addView(cardBinding.getRoot());
+                    mBinding.cardContainer.addView(buildOverviewDots(pager));
                     break;
-                case FAVORITES:
-                case WATCHING:
-                    if (!tilesDone) {
-                        mBinding.cardContainer.addView(buildTileRow(stats, cards));
-                        tilesDone = true;
-                    }
-                    break;
+                }
                 default: {
                     ItemProfileCardBinding cardBinding = ItemProfileCardBinding.inflate(inflater, mBinding.cardContainer, false);
                     cardBinding.cardTitle.setText(card.titleRes);
@@ -124,6 +195,57 @@ public class ProfileFragment extends BaseFragment {
                     break;
                 }
             }
+        }
+        if (pendingRow != null) mBinding.cardContainer.addView(pendingRow);
+    }
+
+    /** 只重建日期条那一段（日历面板点日跳周用），不重载数据。 */
+    private void rebuildCalendarSection() {
+        if (calendarSectionView == null || calendarSectionIndex < 0 || currentStats == null) return;
+        View section = buildCalendarSection(currentStats);
+        mBinding.cardContainer.removeViewAt(calendarSectionIndex);
+        mBinding.cardContainer.addView(section, calendarSectionIndex);
+        calendarSectionView = section;
+    }
+
+    private static boolean isTile(ProfileCard card) {
+        return card == ProfileCard.FAVORITES || card == ProfileCard.WATCHING
+                || card == ProfileCard.TREND1 || card == ProfileCard.TREND2;
+    }
+
+    private LinearLayout newTileRow() {
+        Context context = requireContext();
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowLp.setMargins(0, 0, 0, dp(12));
+        row.setLayoutParams(rowLp);
+        return row;
+    }
+
+    private LinearLayout.LayoutParams tileLayoutParams(boolean hasStartMargin) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (hasStartMargin) lp.setMarginStart(dp(12));
+        return lp;
+    }
+
+    /** tile 卡片：在看空时不显示，分类走势没数据时不显示。 */
+    private View buildTile(ProfileCard card, ProfileStats stats) {
+        switch (card) {
+            case FAVORITES:
+                return buildFavoritesTile(stats);
+            case WATCHING:
+                if (stats.watching.isEmpty()) return null;
+                return buildWatchingTile(stats);
+            case TREND1:
+                if (stats.genreTrends.isEmpty()) return null;
+                return buildTrendTile(stats.genreTrends.get(0));
+            case TREND2:
+                if (stats.genreTrends.size() < 2) return null;
+                return buildTrendTile(stats.genreTrends.get(1));
+            default:
+                return null;
         }
     }
 
@@ -134,6 +256,8 @@ public class ProfileFragment extends BaseFragment {
                 navigate(binding, () -> HistoryActivity.start(requireActivity()));
                 ProfileContributionView grid = new ProfileContributionView(requireContext());
                 grid.setData(stats.dailyHours);
+                grid.setOnClickListener(v -> openActivitySheet(
+                        getString(R.string.profile_activity_title), daysAgoStart(69), tomorrowStart()));
                 content.addView(grid);
                 TextView openHistory = new TextView(requireContext());
                 openHistory.setText(getString(R.string.profile_open_history) + " ›");
@@ -142,10 +266,6 @@ public class ProfileFragment extends BaseFragment {
                 openHistory.setPadding(0, dp(10), 0, 0);
                 openHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
                 content.addView(openHistory);
-                break;
-            case OVERVIEW:
-                binding.cardHeader.setVisibility(View.GONE);
-                fillOverview(content, stats);
                 break;
             case MONTH:
                 binding.cardMore.setVisibility(View.GONE);
@@ -165,16 +285,31 @@ public class ProfileFragment extends BaseFragment {
         binding.cardHeader.setOnClickListener(v -> target.run());
     }
 
+    private void openActivitySheet(String title, long startMillis, long endMillis) {
+        if (currentStats == null || currentStats.allHistory == null) return;
+        ProfileActivitySheetDialog.create(title, startMillis, endMillis, currentStats.allHistory, this::load)
+                .show(getChildFragmentManager());
+    }
+
+    private static long daysAgoStart(int daysAgo) {
+        return LocalDate.now().minusDays(daysAgo).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    private static long tomorrowStart() {
+        return LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
     // ---------- 日历：7 天日期条 ----------
 
     private View buildCalendarSection(ProfileStats stats) {
         Context context = requireContext();
-        stripStats = stats;
         LocalDate today = LocalDate.now();
-        LocalDate sunday = today.minusDays(today.getDayOfWeek().getValue() % 7);
+        if (stripWeekStart == null) {
+            stripWeekStart = today.minusDays(today.getDayOfWeek().getValue() % 7);
+            selectedDate = today;
+        }
         stripDates = new ArrayList<>();
-        for (int i = 0; i < 7; i++) stripDates.add(sunday.plusDays(i));
-        selectedDate = today;
+        for (int i = 0; i < 7; i++) stripDates.add(stripWeekStart.plusDays(i));
 
         LinearLayout section = new LinearLayout(context);
         section.setOrientation(LinearLayout.VERTICAL);
@@ -241,6 +376,7 @@ public class ProfileFragment extends BaseFragment {
             LinearLayout cell = (LinearLayout) stripCells.get(i);
             LocalDate date = stripDates.get(i);
             TextView dayNum = (TextView) cell.getChildAt(0);
+            TextView weekday = (TextView) cell.getChildAt(1);
             boolean isSelected = date.equals(selectedDate);
             boolean isToday = date.equals(today);
             if (isSelected) {
@@ -251,14 +387,15 @@ public class ProfileFragment extends BaseFragment {
             } else {
                 cell.setBackground(null);
             }
-            dayNum.setTextColor(isToday || isSelected ? primaryColor() : onSurfaceColor());
+            dayNum.setTextColor(isToday ? primaryColor() : onSurfaceColor());
+            weekday.setTextColor(isToday ? primaryColor() : secondaryColor());
         }
     }
 
     private void refreshStripStatus() {
-        if (stripStatus == null || selectedDate == null || stripStats == null) return;
+        if (stripStatus == null || selectedDate == null || currentStats == null) return;
         List<String> names = new ArrayList<>();
-        for (Following item : stripStats.upcomingThisMonth) {
+        for (Following item : currentStats.upcomingThisMonth) {
             if (toDate(item.nextAirAt).equals(selectedDate)) names.add(item.vodName);
         }
         if (names.isEmpty()) {
@@ -339,46 +476,44 @@ public class ProfileFragment extends BaseFragment {
         return section;
     }
 
-    // ---------- 总览：今天 / 本周 / 本月三页横滑 ----------
+    // ---------- 总览：今天 / 本周观看 / 最近7天三页横滑 ----------
 
-    private void fillOverview(LinearLayout content, ProfileStats stats) {
+    private ViewPager2 fillOverview(LinearLayout content, ProfileStats stats) {
         LocalDate today = LocalDate.now();
-        LocalDate monday = today.minusDays(today.getDayOfWeek().getValue() - 1);
-        LocalDate sunday = monday.plusDays(6);
+        LocalDate sunday = today.minusDays(today.getDayOfWeek().getValue() % 7);
+        LocalDate saturday = sunday.plusDays(6);
         List<View> pages = new ArrayList<>();
-        pages.add(buildStatPage(getString(R.string.profile_today),
-                FollowingAgenda.shortDate(toMillis(today)),
-                stats.todayHours, stats.todayMovies, stats.todaySeries,
-                stats.todayHourly, hourLabels()));
-        pages.add(buildStatPage(getString(R.string.profile_this_week),
-                FollowingAgenda.shortDate(toMillis(monday)) + "–" + FollowingAgenda.shortDate(toMillis(sunday)),
-                stats.weekHours, stats.weekMovies, stats.weekSeries,
-                stats.weekDaily, weekdayLabels()));
-        pages.add(buildStatPage(getString(R.string.profile_this_month),
-                monthName(today),
-                stats.monthHours, stats.monthMovies, stats.monthSeries,
-                mergeDaily(stats.monthDailySeries, stats.monthDailyMovies), monthLabels(today.lengthOfMonth())));
+        pages.add(buildTodayPage(stats, today));
+        pages.add(buildWeekPage(stats, sunday, saturday));
+        pages.add(buildLast7Page(stats));
 
         ViewPager2 pager = new ViewPager2(requireContext());
         pager.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(200)));
         pager.setAdapter(new PagerAdapter(pages));
         content.addView(pager);
+        return pager;
+    }
 
-        LinearLayout dots = new LinearLayout(requireContext());
+    /** 圆点指示器在卡片外面、卡片下方；选中是深色，未选中是描边灰。 */
+    private View buildOverviewDots(ViewPager2 pager) {
+        Context context = requireContext();
+        LinearLayout dots = new LinearLayout(context);
         dots.setOrientation(LinearLayout.HORIZONTAL);
         dots.setGravity(Gravity.CENTER);
-        dots.setPadding(0, dp(8), 0, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, dp(4), 0, dp(12));
+        dots.setLayoutParams(lp);
         List<View> dotViews = new ArrayList<>();
-        for (int i = 0; i < pages.size(); i++) {
-            View dot = new View(requireContext());
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(8), dp(8));
-            if (i > 0) lp.setMarginStart(dp(6));
-            dot.setLayoutParams(lp);
+        for (int i = 0; i < 3; i++) {
+            View dot = new View(context);
+            LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(8), dp(8));
+            if (i > 0) dotLp.setMarginStart(dp(6));
+            dot.setLayoutParams(dotLp);
             dots.addView(dot);
             dotViews.add(dot);
         }
-        content.addView(dots);
         updateDots(dotViews, 0);
         pager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -386,19 +521,84 @@ public class ProfileFragment extends BaseFragment {
                 updateDots(dotViews, position);
             }
         });
+        return dots;
     }
 
     private void updateDots(List<View> dots, int selected) {
         for (int i = 0; i < dots.size(); i++) {
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
-            bg.setColor(i == selected ? primaryColor() : outlineColor());
+            bg.setColor(i == selected ? onSurfaceColor() : outlineColor());
             dots.get(i).setBackground(bg);
         }
     }
 
-    private View buildStatPage(String title, String dateLabel, double hours, int movies, int series,
-                               double[] values, String[] labels) {
+    private View buildTodayPage(ProfileStats stats, LocalDate today) {
+        LinearLayout page = newStatPage();
+        page.addView(statTitleRow(getString(R.string.profile_today),
+                FollowingAgenda.shortDate(toMillis(today))));
+        page.addView(bigNumberLine(String.format(Locale.US, "%.2f", stats.todayHours), R.string.profile_hours_unit));
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(4), 0, 0);
+        row.addView(countsColumn(stats.todayMovies, stats.todaySeries));
+        ProfileDotsChartView chart = new ProfileDotsChartView(requireContext());
+        chart.setData(stats.todayHourly, hourLabels());
+        chart.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(chart);
+        page.addView(row);
+        long start = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long end = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        String sheetTitle = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        page.setOnClickListener(v -> openActivitySheet(sheetTitle, start, end));
+        return page;
+    }
+
+    private View buildWeekPage(ProfileStats stats, LocalDate sunday, LocalDate saturday) {
+        LinearLayout page = newStatPage();
+        String range = weekRangeLabel(sunday, saturday);
+        page.addView(statTitleRow(getString(R.string.profile_week_watch), range));
+        page.addView(bigNumberLine(String.format(Locale.US, "%.2f", stats.weekHoursSun), R.string.profile_hours_unit));
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(4), 0, 0);
+        row.addView(countsColumn(stats.weekMoviesSun, stats.weekSeriesSun));
+        ProfileBarsChartView chart = new ProfileBarsChartView(requireContext());
+        chart.setData(stats.weekDailySun, sunWeekdayLabels());
+        chart.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(chart);
+        page.addView(row);
+        long start = sunday.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        long end = saturday.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        page.setOnClickListener(v -> openActivitySheet(range, start, end));
+        return page;
+    }
+
+    private View buildLast7Page(ProfileStats stats) {
+        LinearLayout page = newStatPage();
+        page.addView(statTitleRow(getString(R.string.profile_last_7_days), null));
+        page.addView(bigNumberLine(String.format(Locale.US, "%.2f", stats.last7Hours), R.string.profile_hours_unit));
+        double delta = stats.last7Hours - stats.prev7Hours;
+        TextView deltaView = new TextView(requireContext());
+        deltaView.setText(getString(delta >= 0
+                ? R.string.profile_month_delta_up : R.string.profile_month_delta_down, Math.abs(delta)));
+        deltaView.setTextSize(13);
+        deltaView.setTextColor(delta >= 0
+                ? Color.parseColor("#FF4CAF50") : Color.parseColor("#FFF44336"));
+        deltaView.setPadding(0, dp(2), 0, dp(4));
+        page.addView(deltaView);
+        ProfileLineChartView chart = new ProfileLineChartView(requireContext());
+        chart.setData(stats.last7Daily);
+        page.addView(chart);
+        long start = daysAgoStart(6);
+        page.setOnClickListener(v -> openActivitySheet(
+                getString(R.string.profile_last_7_days), start, tomorrowStart()));
+        return page;
+    }
+
+    private LinearLayout newStatPage() {
         Context context = requireContext();
         LinearLayout page = new LinearLayout(context);
         page.setOrientation(LinearLayout.VERTICAL);
@@ -406,6 +606,11 @@ public class ProfileFragment extends BaseFragment {
         // IllegalStateException: Pages must fill the whole ViewPager2
         page.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        return page;
+    }
+
+    private View statTitleRow(String title, @Nullable String dateLabel) {
+        Context context = requireContext();
         LinearLayout titleRow = new LinearLayout(context);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -413,34 +618,72 @@ public class ProfileFragment extends BaseFragment {
         titleView.setText(title);
         titleView.setTextSize(16);
         titleView.setTypeface(null, Typeface.BOLD);
-        TextView dateView = new TextView(context);
-        dateView.setText(dateLabel);
-        dateView.setTextSize(13);
-        dateView.setTextColor(secondaryColor());
-        View spacer = new View(context);
-        spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1f));
         titleRow.addView(titleView);
-        titleRow.addView(spacer);
-        titleRow.addView(dateView);
-        page.addView(titleRow);
-        TextView hoursView = new TextView(context);
-        hoursView.setText(getString(R.string.profile_hours, hours));
-        hoursView.setTextSize(22);
-        hoursView.setTypeface(null, Typeface.BOLD);
-        hoursView.setPadding(0, dp(8), 0, 0);
-        page.addView(hoursView);
-        TextView counts = new TextView(context);
-        counts.setText(getString(R.string.profile_movies_count, movies) + "  "
-                + getString(R.string.profile_series_count, series));
-        counts.setTextSize(13);
-        counts.setTextColor(secondaryColor());
-        counts.setPadding(0, dp(2), 0, 0);
-        page.addView(counts);
-        ProfileDotsChartView chart = new ProfileDotsChartView(context);
-        chart.setData(values, labels);
-        chart.setPadding(0, dp(8), 0, 0);
-        page.addView(chart);
-        return page;
+        if (dateLabel != null) {
+            View spacer = new View(context);
+            spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1f));
+            titleRow.addView(spacer);
+            TextView dateView = new TextView(context);
+            dateView.setText(dateLabel);
+            dateView.setTextSize(13);
+            dateView.setTextColor(secondaryColor());
+            titleRow.addView(dateView);
+        }
+        return titleRow;
+    }
+
+    /** 左侧两行计数：N 部电影 / N 集剧，数字大、单位小。 */
+    private View countsColumn(int movies, int series) {
+        Context context = requireContext();
+        LinearLayout column = new LinearLayout(context);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        lp.setMarginEnd(dp(12));
+        column.setLayoutParams(lp);
+        column.addView(countLine(movies, R.string.profile_movies_unit));
+        column.addView(countLine(series, R.string.profile_series_unit));
+        return column;
+    }
+
+    private TextView countLine(int number, int unitRes) {
+        TextView view = new TextView(requireContext());
+        SpannableStringBuilder sb = new SpannableStringBuilder(String.valueOf(number));
+        sb.setSpan(new StyleSpan(Typeface.BOLD), 0, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sb.setSpan(new RelativeSizeSpan(1.55f), 0, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int start = sb.length();
+        sb.append(" ").append(getString(unitRes));
+        sb.setSpan(new ForegroundColorSpan(secondaryColor()), start, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        view.setText(sb);
+        view.setTextSize(13);
+        view.setTextColor(onSurfaceColor());
+        return view;
+    }
+
+    /** 大数字 + 小单位（“0.00 小时”）：数字 22sp 粗体，单位 13sp 灰字。 */
+    private TextView bigNumberLine(String number, int unitRes) {
+        TextView view = new TextView(requireContext());
+        SpannableStringBuilder sb = new SpannableStringBuilder(number);
+        sb.setSpan(new StyleSpan(Typeface.BOLD), 0, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sb.setSpan(new RelativeSizeSpan(1.6f), 0, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int start = sb.length();
+        sb.append(" ").append(getString(unitRes));
+        sb.setSpan(new ForegroundColorSpan(secondaryColor()), start, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sb.setSpan(new RelativeSizeSpan(0.9f), start, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        view.setText(sb);
+        view.setTextSize(14);
+        view.setTextColor(onSurfaceColor());
+        view.setPadding(0, dp(6), 0, 0);
+        return view;
+    }
+
+    private static String weekRangeLabel(LocalDate sunday, LocalDate saturday) {
+        String start = sunday.getMonthValue() + "/" + sunday.getDayOfMonth();
+        String end = saturday.getMonthValue() == sunday.getMonthValue()
+                ? String.valueOf(saturday.getDayOfMonth())
+                : saturday.getMonthValue() + "/" + saturday.getDayOfMonth();
+        return start + " – " + end;
     }
 
     private static String[] hourLabels() {
@@ -452,37 +695,17 @@ public class ProfileFragment extends BaseFragment {
         return labels;
     }
 
-    private static String[] weekdayLabels() {
+    private static String[] sunWeekdayLabels() {
         String[] labels = new String[7];
         java.time.DayOfWeek[] days = {
-                java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY, java.time.DayOfWeek.WEDNESDAY,
-                java.time.DayOfWeek.THURSDAY, java.time.DayOfWeek.FRIDAY, java.time.DayOfWeek.SATURDAY,
-                java.time.DayOfWeek.SUNDAY};
-        for (int i = 0; i < days.length; i++) {
-            labels[i] = days[i].getDisplayName(TextStyle.SHORT, Locale.getDefault());
-        }
+                java.time.DayOfWeek.SUNDAY, java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
+                java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY, java.time.DayOfWeek.FRIDAY,
+                java.time.DayOfWeek.SATURDAY};
+        for (int i = 0; i < days.length; i++) labels[i] = "";
+        labels[0] = days[0].getDisplayName(TextStyle.SHORT, Locale.getDefault());
+        labels[3] = days[3].getDisplayName(TextStyle.SHORT, Locale.getDefault());
+        labels[6] = days[6].getDisplayName(TextStyle.SHORT, Locale.getDefault());
         return labels;
-    }
-
-    private static String[] monthLabels(int days) {
-        String[] labels = new String[days];
-        for (int i = 0; i < labels.length; i++) labels[i] = "";
-        int[] marks = {1, 8, 15, 22, days};
-        for (int day : marks) {
-            if (day >= 1 && day <= days) labels[day - 1] = String.valueOf(day);
-        }
-        return labels;
-    }
-
-    private static double[] mergeDaily(double[] series, double[] movies) {
-        int n = Math.max(series.length, movies.length);
-        double[] merged = new double[n];
-        for (int i = 0; i < n; i++) {
-            double s = i < series.length ? series[i] : 0;
-            double m = i < movies.length ? movies[i] : 0;
-            merged[i] = s + m;
-        }
-        return merged;
     }
 
     private static long toMillis(LocalDate date) {
@@ -531,40 +754,205 @@ public class ProfileFragment extends BaseFragment {
         }
     }
 
-    // ---------- 收藏 / 在看双 tile ----------
+    // ---------- 收藏 / 在看 / 分类走势 tile ----------
 
-    private View buildTileRow(ProfileStats stats, List<ProfileCard> cards) {
-        Context context = requireContext();
-        LinearLayout row = new LinearLayout(context);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rowLp.setMargins(0, 0, 0, dp(12));
-        row.setLayoutParams(rowLp);
-        boolean first = true;
-        if (cards.contains(ProfileCard.FAVORITES)) {
-            MaterialCardView tile = buildTile(String.valueOf(stats.keepCount),
-                    getString(R.string.profile_card_favorites),
-                    () -> KeepActivity.start(requireActivity()));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(120), 1f);
-            if (!first) lp.setMarginStart(dp(12));
-            tile.setLayoutParams(lp);
-            row.addView(tile);
-            first = false;
-        }
-        if (cards.contains(ProfileCard.WATCHING)) {
-            MaterialCardView tile = buildTile(String.valueOf(stats.watching.size()),
-                    getString(R.string.profile_card_watching),
-                    () -> HistoryActivity.start(requireActivity()));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(120), 1f);
-            if (!first) lp.setMarginStart(dp(12));
-            tile.setLayoutParams(lp);
-            row.addView(tile);
-        }
-        return row;
+    private MaterialCardView buildFavoritesTile(ProfileStats stats) {
+        MaterialCardView tile = newTileCard(dp(120));
+        LinearLayout inner = tileInner();
+        inner.addView(tileMore(null));
+        inner.addView(tileNumber(String.valueOf(stats.keepCount)));
+        inner.addView(tileLabel(getString(R.string.profile_card_favorites)));
+        tile.addView(inner);
+        tile.setOnClickListener(v -> KeepActivity.start(requireActivity()));
+        return tile;
     }
 
-    private MaterialCardView buildTile(String number, String label, Runnable target) {
+    private MaterialCardView buildWatchingTile(ProfileStats stats) {
+        MaterialCardView tile = newTileCard(dp(150));
+        LinearLayout inner = tileInner();
+        TextView more = tileMore(null);
+        inner.addView(more);
+        inner.addView(tileNumber(String.valueOf(stats.watching.size())));
+        inner.addView(tileLabel(getString(R.string.profile_card_watching)));
+        inner.addView(watchingFan(stats));
+        tile.addView(inner);
+        more.setOnClickListener(v -> showTileModeMenu(v, ProfileCard.WATCHING));
+        tile.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
+        return tile;
+    }
+
+    /** 在看 tile 底部：最多 3 张海报交叠的小扇形。 */
+    private View watchingFan(ProfileStats stats) {
+        Context context = requireContext();
+        LinearLayout fan = new LinearLayout(context);
+        fan.setOrientation(LinearLayout.HORIZONTAL);
+        fan.setPadding(0, dp(8), 0, 0);
+        int count = Math.min(3, stats.watching.size());
+        for (int i = 0; i < count; i++) {
+            History item = stats.watching.get(i);
+            ImageView poster = new ImageView(context);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(30), dp(45));
+            if (i > 0) lp.setMarginStart(-dp(10));
+            poster.setLayoutParams(lp);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(4));
+            bg.setColor(containerHighColor());
+            poster.setBackground(bg);
+            poster.setClipToOutline(true);
+            poster.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            ImgUtil.load(item.getVodName(), item.getVodPic(), poster);
+            fan.addView(poster);
+        }
+        return fan;
+    }
+
+    private MaterialCardView buildTrendTile(ProfileStats.GenreTrend trend) {
+        MaterialCardView tile = newTileCard(dp(158));
+        LinearLayout inner = tileInner();
+        TextView title = new TextView(requireContext());
+        title.setText(trend.name);
+        title.setTextSize(15);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setMaxLines(1);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        inner.addView(title);
+        inner.addView(bigNumberLine(String.format(Locale.US, "%.2f", trend.last7Hours), R.string.profile_hours_unit));
+        double delta = trend.last7Hours - trend.prev7Hours;
+        TextView deltaView = new TextView(requireContext());
+        deltaView.setText(getString(delta >= 0
+                ? R.string.profile_month_delta_up : R.string.profile_month_delta_down, Math.abs(delta)));
+        deltaView.setTextSize(13);
+        deltaView.setTextColor(delta >= 0
+                ? Color.parseColor("#FF4CAF50") : Color.parseColor("#FFF44336"));
+        inner.addView(deltaView);
+        ProfileLineChartView chart = new ProfileLineChartView(requireContext());
+        chart.setData(trend.last7Daily);
+        chart.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
+        inner.addView(chart);
+        tile.addView(inner);
+        return tile;
+    }
+
+    /** 在看海报形态：整宽区块，头“在看 N ›”+ …，下面 3 列海报格。 */
+    private View buildWatchingPosterSection(ProfileStats stats) {
+        Context context = requireContext();
+        LinearLayout section = new LinearLayout(context);
+        section.setOrientation(LinearLayout.VERTICAL);
+        section.setPadding(dp(16), dp(4), dp(16), dp(4));
+        LinearLayout.LayoutParams sectionLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        sectionLp.setMargins(0, 0, 0, dp(12));
+        section.setLayoutParams(sectionLp);
+
+        LinearLayout header = new LinearLayout(context);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = new TextView(context);
+        title.setText(getString(R.string.profile_watching_poster_title, stats.watching.size()));
+        title.setTextSize(16);
+        title.setTypeface(null, Typeface.BOLD);
+        TextView chevron = new TextView(context);
+        chevron.setText("›");
+        chevron.setTextSize(20);
+        chevron.setTextColor(secondaryColor());
+        chevron.setPadding(dp(4), 0, 0, 0);
+        View spacer = new View(context);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 0, 1f));
+        TextView more = new TextView(context);
+        more.setText("…");
+        more.setTextSize(20);
+        more.setTextColor(secondaryColor());
+        header.addView(title);
+        header.addView(chevron);
+        header.addView(spacer);
+        header.addView(more);
+        header.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
+        more.setOnClickListener(v -> showTileModeMenu(v, ProfileCard.WATCHING));
+        section.addView(header);
+
+        int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+        float density = context.getResources().getDisplayMetrics().density;
+        int columns = 3;
+        int gap = (int) (12 * density);
+        int cellWidth = (int) ((screenWidth - 32 * density - (columns - 1) * gap) / columns);
+        int cellHeight = (int) (cellWidth * 1.5f);
+        LinearLayout grid = new LinearLayout(context);
+        grid.setOrientation(LinearLayout.HORIZONTAL);
+        grid.setPadding(0, dp(8), 0, 0);
+        for (int i = 0; i < stats.watching.size(); i++) {
+            final History item = stats.watching.get(i);
+            LinearLayout cell = new LinearLayout(context);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams cellLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            if (i > 0) cellLp.setMarginStart(gap);
+            cell.setLayoutParams(cellLp);
+            FrameLayout posterBox = new FrameLayout(context);
+            posterBox.setLayoutParams(new LinearLayout.LayoutParams(cellWidth, cellHeight));
+            ImageView poster = new ImageView(context);
+            poster.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            GradientDrawable bg = new GradientDrawable();
+            bg.setCornerRadius(dp(8));
+            bg.setColor(containerHighColor());
+            poster.setBackground(bg);
+            poster.setClipToOutline(true);
+            poster.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            ImgUtil.load(item.getVodName(), item.getVodPic(), poster);
+            posterBox.addView(poster);
+            String remarks = item.getVodRemarks();
+            if (!TextUtils.isEmpty(remarks)) {
+                posterBox.addView(posterBadge(remarks, Gravity.BOTTOM | Gravity.START));
+            }
+            if (item.getDuration() > 0 && item.getPosition() > 0) {
+                int percent = (int) (item.getPosition() * 100 / item.getDuration());
+                posterBox.addView(posterBadge(percent + "%", Gravity.BOTTOM | Gravity.END));
+            }
+            posterBox.setOnClickListener(v -> HistoryResumeCoordinator.open(requireActivity(), item));
+            cell.addView(posterBox);
+            TextView name = new TextView(context);
+            name.setText(item.getVodName());
+            name.setTextSize(14);
+            name.setMaxLines(1);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            name.setPadding(0, dp(4), 0, 0);
+            cell.addView(name);
+            String year = item.getYear();
+            if (!TextUtils.isEmpty(year)) {
+                TextView yearView = new TextView(context);
+                yearView.setText(year);
+                yearView.setTextSize(13);
+                yearView.setTextColor(secondaryColor());
+                cell.addView(yearView);
+            }
+            grid.addView(cell);
+        }
+        section.addView(grid);
+        return section;
+    }
+
+    /** 海报角标：半透明黑底白字。 */
+    private TextView posterBadge(String text, int gravity) {
+        Context context = requireContext();
+        TextView badge = new TextView(context);
+        badge.setText(text);
+        badge.setTextSize(11);
+        badge.setTextColor(Color.WHITE);
+        badge.setMaxLines(1);
+        badge.setEllipsize(TextUtils.TruncateAt.END);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(4));
+        bg.setColor(Color.parseColor("#80000000"));
+        badge.setBackground(bg);
+        badge.setPadding(dp(4), dp(1), dp(4), dp(1));
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, gravity);
+        lp.setMargins(dp(4), dp(4), dp(4), dp(4));
+        badge.setLayoutParams(lp);
+        return badge;
+    }
+
+    private MaterialCardView newTileCard(int heightDp) {
         Context context = requireContext();
         MaterialCardView card = new MaterialCardView(context);
         card.setCardBackgroundColor(containerHighestColor());
@@ -572,29 +960,69 @@ public class ProfileFragment extends BaseFragment {
         card.setCardElevation(0);
         card.setStrokeColor(getResources().getColor(R.color.setting_card_divider, null));
         card.setStrokeWidth(dp(1));
+        // 行里用的 LayoutParams 会盖掉这里的高，用最小高度保底。
+        card.setMinimumHeight(heightDp);
+        return card;
+    }
+
+    private LinearLayout tileInner() {
+        Context context = requireContext();
         LinearLayout inner = new LinearLayout(context);
         inner.setOrientation(LinearLayout.VERTICAL);
         inner.setPadding(dp(16), dp(12), dp(16), dp(16));
-        TextView more = new TextView(context);
+        return inner;
+    }
+
+    private TextView tileMore(@Nullable View.OnClickListener onClick) {
+        TextView more = new TextView(requireContext());
         more.setText("…");
         more.setTextSize(20);
         more.setTextColor(secondaryColor());
         more.setGravity(Gravity.END);
-        inner.addView(more);
-        TextView numberView = new TextView(context);
+        if (onClick != null) more.setOnClickListener(onClick);
+        return more;
+    }
+
+    private TextView tileNumber(String number) {
+        TextView numberView = new TextView(requireContext());
         numberView.setText(number);
         numberView.setTextSize(24);
         numberView.setTypeface(null, Typeface.BOLD);
-        inner.addView(numberView);
-        TextView labelView = new TextView(context);
+        return numberView;
+    }
+
+    private TextView tileLabel(String label) {
+        TextView labelView = new TextView(requireContext());
         labelView.setText(label);
         labelView.setTextSize(13);
         labelView.setTextColor(secondaryColor());
         labelView.setPadding(0, dp(2), 0, 0);
-        inner.addView(labelView);
-        card.addView(inner);
-        card.setOnClickListener(v -> target.run());
-        return card;
+        return labelView;
+    }
+
+    private void showTileModeMenu(View anchor, ProfileCard card) {
+        Context context = requireContext();
+        PopupMenu popup = new PopupMenu(context, anchor);
+        boolean poster = tileMode(card) == TileMode.POSTER;
+        popup.getMenu().add(Menu.NONE, 1, Menu.NONE, getString(R.string.profile_tile_poster))
+                .setCheckable(true).setChecked(poster);
+        popup.getMenu().add(Menu.NONE, 2, Menu.NONE, getString(R.string.profile_tile_square))
+                .setCheckable(true).setChecked(!poster);
+        popup.setOnMenuItemClickListener(item -> {
+            setTileMode(card, item.getItemId() == 1 ? TileMode.POSTER : TileMode.SQUARE);
+            load();
+            return true;
+        });
+        popup.show();
+    }
+
+    private TileMode tileMode(ProfileCard card) {
+        String saved = Prefers.getString("profile_tile_mode_" + card.name(), "square");
+        return "poster".equals(saved) ? TileMode.POSTER : TileMode.SQUARE;
+    }
+
+    private void setTileMode(ProfileCard card, TileMode mode) {
+        Prefers.put("profile_tile_mode_" + card.name(), mode == TileMode.POSTER ? "poster" : "square");
     }
 
     // ---------- 本月观看 ----------
@@ -607,12 +1035,7 @@ public class ProfileFragment extends BaseFragment {
         monthLabel.setTextSize(13);
         monthLabel.setTextColor(secondaryColor());
         content.addView(monthLabel);
-        TextView hours = new TextView(context);
-        hours.setText(getString(R.string.profile_hours, stats.monthHours));
-        hours.setTextSize(22);
-        hours.setTypeface(null, Typeface.BOLD);
-        hours.setPadding(0, dp(4), 0, 0);
-        content.addView(hours);
+        content.addView(bigNumberLine(String.format(Locale.US, "%.2f", stats.monthHours), R.string.profile_hours_unit));
         double delta = stats.monthHours - stats.lastMonthHours;
         TextView deltaView = new TextView(context);
         deltaView.setText(getString(delta >= 0
@@ -649,12 +1072,55 @@ public class ProfileFragment extends BaseFragment {
                 empty.setTextColor(secondaryColor());
                 content.addView(empty);
             } else {
-                int rank = 0;
+                double max = 0;
+                for (ProfileStats.NameCount entry : stats.monthTop3) max = Math.max(max, entry.hours);
+                if (max <= 0) max = 1;
                 for (ProfileStats.NameCount entry : stats.monthTop3) {
-                    addLine(content, getString(R.string.profile_trend_row, ++rank, entry.name, entry.count));
+                    content.addView(buildTop3Row(entry, max));
                 }
             }
         }
+    }
+
+    /** 刷剧 TOP3 行：片名 + 类型色条形 + 小时数。 */
+    private View buildTop3Row(ProfileStats.NameCount entry, double maxHours) {
+        Context context = requireContext();
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(6), 0, dp(6));
+        TextView name = new TextView(context);
+        name.setText(entry.name);
+        name.setTextSize(14);
+        name.setMaxLines(1);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        name.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(name);
+        LinearLayout bar = new LinearLayout(context);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(0, dp(8), 2f);
+        barLp.setMarginStart(dp(8));
+        bar.setLayoutParams(barLp);
+        View fill = new View(context);
+        fill.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, (float) Math.max(entry.hours, maxHours * 0.05)));
+        GradientDrawable fillBg = new GradientDrawable();
+        fillBg.setColor(entry.movie ? ProfileMonthChartView.MOVIES_COLOR : ProfileMonthChartView.SERIES_COLOR);
+        fillBg.setCornerRadius(dp(4));
+        fill.setBackground(fillBg);
+        bar.addView(fill);
+        if (entry.hours < maxHours) {
+            View rest = new View(context);
+            rest.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, (float) (maxHours - Math.max(entry.hours, maxHours * 0.05))));
+            bar.addView(rest);
+        }
+        row.addView(bar);
+        TextView hours = new TextView(context);
+        hours.setText(getString(R.string.profile_hours, entry.hours));
+        hours.setTextSize(13);
+        hours.setTextColor(secondaryColor());
+        hours.setPadding(dp(8), 0, 0, 0);
+        row.addView(hours);
+        return row;
     }
 
     private View dotView(int color) {
@@ -680,9 +1146,9 @@ public class ProfileFragment extends BaseFragment {
     // ---------- 类型分布 ----------
 
     private void fillGenres(LinearLayout content, ProfileStats stats) {
-        addLine(content, getString(R.string.profile_genres_summary, stats.movieCount, stats.seriesCount));
-        if (stats.topGenres.isEmpty()) {
-            TextView empty = new TextView(requireContext());
+        Context context = requireContext();
+        if (stats.genreHours.isEmpty()) {
+            TextView empty = new TextView(context);
             empty.setText(R.string.profile_genres_no_data);
             empty.setTextSize(14);
             empty.setTextColor(secondaryColor());
@@ -690,50 +1156,42 @@ public class ProfileFragment extends BaseFragment {
             content.addView(empty);
             return;
         }
-        int max = 0;
-        for (ProfileStats.GenreCount genre : stats.topGenres) max = Math.max(max, genre.count);
-        for (ProfileStats.GenreCount genre : stats.topGenres) {
-            content.addView(buildGenreRow(genre, max, stats.genreTotal));
-        }
-    }
-
-    private View buildGenreRow(ProfileStats.GenreCount genre, int max, int total) {
-        Context context = requireContext();
-        LinearLayout row = new LinearLayout(context);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(6), 0, dp(6));
-        TextView name = new TextView(context);
-        name.setText(genre.name);
-        name.setTextSize(14);
-        name.setLayoutParams(new LinearLayout.LayoutParams(dp(72), ViewGroup.LayoutParams.WRAP_CONTENT));
-        row.addView(name);
+        // 全宽堆叠条：按题材小时分段。
         LinearLayout bar = new LinearLayout(context);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(0, dp(8), 1f);
-        barLp.setMarginStart(dp(8));
-        bar.setLayoutParams(barLp);
-        View fill = new View(context);
-        fill.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, genre.count));
-        GradientDrawable fillBg = new GradientDrawable();
-        fillBg.setColor(primaryColor());
-        fillBg.setCornerRadius(dp(4));
-        fill.setBackground(fillBg);
-        bar.addView(fill);
-        if (genre.count < max) {
-            View rest = new View(context);
-            rest.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, max - genre.count));
-            bar.addView(rest);
+        bar.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(10)));
+        GradientDrawable barBg = new GradientDrawable();
+        barBg.setCornerRadius(dp(5));
+        barBg.setColor(containerHighColor());
+        bar.setBackground(barBg);
+        bar.setClipToOutline(true);
+        for (int i = 0; i < stats.genreHours.size(); i++) {
+            ProfileStats.GenreHours genre = stats.genreHours.get(i);
+            View segment = new View(context);
+            segment.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, (float) genre.hours));
+            segment.setBackgroundColor(GENRE_COLORS[i % GENRE_COLORS.length]);
+            bar.addView(segment);
         }
-        row.addView(bar);
-        int percent = total > 0 ? (int) Math.round(genre.count * 100.0 / total) : 0;
-        TextView value = new TextView(context);
-        value.setText(getString(R.string.profile_genres_bar, genre.count, percent));
-        value.setTextSize(13);
-        value.setTextColor(secondaryColor());
-        value.setPadding(dp(8), 0, 0, 0);
-        row.addView(value);
-        return row;
+        content.addView(bar);
+        content.addView(bigNumberLine(String.format(Locale.US, "%.2f", stats.genreHoursTotal), R.string.profile_hours_unit));
+        addLine(content, getString(R.string.profile_genres_summary, stats.movieCount, stats.seriesCount));
+        for (int i = 0; i < stats.genreHours.size(); i++) {
+            ProfileStats.GenreHours genre = stats.genreHours.get(i);
+            int percent = stats.genreHoursTotal > 0
+                    ? (int) Math.round(genre.hours * 100.0 / stats.genreHoursTotal) : 0;
+            LinearLayout row = new LinearLayout(context);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, dp(6), 0, 0);
+            row.addView(dotView(GENRE_COLORS[i % GENRE_COLORS.length]));
+            TextView label = new TextView(context);
+            label.setText(getString(R.string.profile_genres_legend, genre.name, percent));
+            label.setTextSize(14);
+            label.setPadding(dp(6), 0, 0, 0);
+            row.addView(label);
+            content.addView(row);
+        }
     }
 
     // ---------- 小工具 ----------
