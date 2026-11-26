@@ -9194,7 +9194,12 @@ public void resetTrack(int type) {
             if (action == PlayerEngine.ErrorAction.DECODE && retryHardDecodeSwitch(e)) return;
             if (action == PlayerEngine.ErrorAction.FATAL && retryLocalProxy(e)) return;
             if (retryTransientSourceFailure(e, failure)) return;
-            if (shouldStopOnManualSwitchFailure(manualPlayerSwitchPending, action)) {
+            // 手动切核后新内核在 READY 前失败，默认直接报错、不走回落；但这会把
+            // 内核本身的加载/解码失败也挡住（VLC 打不开流时 EXO 明明能播）。
+            // 只有「取不到流」的临时源失败才值得立刻报错（换核也救不了），其余
+            // 内核相关失败继续往下走 fallbackPlayback 换核。
+            if (shouldStopOnManualSwitchFailure(manualPlayerSwitchPending, action)
+                    && PlaybackErrorClassifier.isTransientSourceFailure(failure.stage(), e.errorCode)) {
                 finishPlaybackProfileAbSession(
                         "manual-switch-error", SystemClock.elapsedRealtime());
                 callback.onError(errorMessage);
