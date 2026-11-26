@@ -158,6 +158,7 @@ import com.github.moyingshi.osc.tv.ui.custom.CustomMovement;
 import com.github.moyingshi.osc.tv.ui.custom.CustomSeekView;
 import com.github.moyingshi.osc.tv.ui.custom.PlayerOsdController;
 import com.github.moyingshi.osc.tv.ui.custom.SpaceItemDecoration;
+import com.github.moyingshi.osc.tv.ui.custom.VerticalPageSwitcher;
 import com.github.moyingshi.osc.tv.ui.dialog.AdRuleEditDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.CastDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.CodecCapabilityDialog;
@@ -459,6 +460,7 @@ private int mAudioBackgroundRandomNonce;
     private androidx.appcompat.app.AlertDialog mIntroSkipConfirmDialog;
     private ValueAnimator mAnimator;
     private CustomKeyDown mKeyDown;
+    private VerticalPageSwitcher mPageSwitcher;
     private View mNightModeOverlay;
     private int mNightModeLevel = PlayerSetting.NIGHT_MODE_OFF;
     private List<String> mBroken;
@@ -1961,8 +1963,40 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         mBinding.control.action.opening.setOnLongClickListener(view -> onOpeningReset());
         // 控制层显示时会先于 video 容器接收事件，空白区域必须直接转发给手势检测器。
         mBinding.control.getRoot().setOnTouchListener(this::onPlayerControlTouch);
+        mPageSwitcher = new VerticalPageSwitcher(mBinding.video, mBinding.episodePeer, new VerticalPageSwitcher.Listener() {
+            @Override
+            public boolean isEnabled() {
+                return isFullscreen() && player() != null && player().isPortrait() && getEpisodeCount() > 1;
+            }
+
+            @Override
+            public boolean canSwitch(int offset) {
+                return hasAdjacentEpisode(offset);
+            }
+
+            @Override
+            public void onSwitch(int offset) {
+                setR1Callback();
+                if (offset > 0) checkNext();
+                else checkPrev();
+            }
+
+            @Override
+            public void onPreparePeer(int offset) {
+                Episode item = hasAdjacentEpisode(offset) ? getAdjacentEpisode(offset) : null;
+                mBinding.episodePeerLabel.setText(item == null ? "" : (offset > 0 ? "\u2193 " : "\u2191 ") + item.getName());
+            }
+
+            @Override
+            public void onCancelBaseGesture() {
+                MotionEvent cancel = MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(), MotionEvent.ACTION_CANCEL, 0f, 0f, 0);
+                mKeyDown.onTouchEvent(cancel);
+                cancel.recycle();
+            }
+        });
         mBinding.video.setOnTouchListener((view, event) ->
                 (!isVisible(mBinding.control.getRoot()) && dispatchDiscMenuTouch(event))
+                        || mPageSwitcher.onTouchEvent(event)
                         || mKeyDown.onTouchEvent(event));
         mBinding.control.action.getRoot().setOnTouchListener(this::onActionTouch);
         mBinding.swipeLayout.setOnRefreshListener(this::onSwipeRefresh);
