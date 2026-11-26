@@ -32,6 +32,7 @@ import com.github.moyingshi.osc.tv.ui.activity.FileActivity;
 import com.github.moyingshi.osc.tv.ui.activity.HomeActivity;
 import com.github.moyingshi.osc.tv.ui.activity.PluginManagerActivity;
 import com.github.moyingshi.osc.tv.ui.activity.SmbBrowserActivity;
+import com.github.moyingshi.osc.tv.ui.dialog.RemotePlayerPanel;
 import com.github.moyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.moyingshi.osc.tv.ui.dialog.AudioSourceDialog;
 import com.github.moyingshi.osc.tv.ui.dialog.ComicSourceDialog;
@@ -122,6 +123,11 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.playbackWebhook.setOnClickListener(view -> ViewingRecordSyncDialog.show(this, this::setText));
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
         mBinding.remoteTrust.setOnClickListener(view -> RemoteTrustDialog.show(this, this::setText));
+        // 遥控面板复用同一条中转通道：长按“远程托管”打开。
+        mBinding.remoteTrust.setOnLongClickListener(view -> {
+            RemotePlayerPanel.show(this);
+            return true;
+        });
         mBinding.gitCloud.setOnClickListener(view -> GitCloudDialog.show(this, this::setText));
         mBinding.shellProxy.setOnClickListener(view -> ShellProxyDialog.show(this, this::setText));
         mBinding.shellProxy.setOnLongClickListener(v -> false);
