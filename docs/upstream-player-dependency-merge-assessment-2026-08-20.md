@@ -27,6 +27,7 @@
 
 | 顺序 | 任务 ID | 类别 | 功能/能力 | 状态 | 唯一文档 |
 | ---: | --- | --- | --- | --- | --- |
+| 既有应用任务续修 | `INTRO-SKIP-02` | 通用/App网络兼容 | TODB片段数据源在Android9使用隔离TLS1.3能力；非播放器上游合并阶段，保留已有任务ID | 研究与真实回归红灯已完成，兼容适配及5556验收进行中 | [INTRO-SKIP-02-sources-and-kinds.md](INTRO-SKIP-02-sources-and-kinds.md) |
 | 既有任务续修 | `E11` | Exo/App | 压缩音频输出、跳转释放状态、隧道一致性与起播恢复 | A 为 `123d871c027eb686702766bca995f616e8d2bd1e`，首次起播研究为 `e9fef2b90ee8aa634327c2c179eb3dc5d22cb1be`，直通开关修复为 `24fa078d2dc8a404fad23fc30972e5fc4a8a1b5b`。首次快速恢复现已实现：完整 AU 供数及启动门槛读回后，以 800 ms 窗口和原始播放头/路由复核判错，使用 Media3 内部恢复复用当前媒体与缓存；保留正常直出与关闭开关的 PCM 行为。C4 第七轮合并保留本地厂商直出初始化失败立即 PCM 回退，并接入按媒体/路由失败记忆、直通开关一致性和已缓冲起播恢复；合并冲突组合的最终验证记录见唯一任务文档。 | [E11-exo-compressed-audio-direct.md](E11-exo-compressed-audio-direct.md) |
 | 插入修复 | `P11` | MPV/App | AV3A 直播使用 `.m3u8?ts=…` 媒体端点时保持分片语义，修复代理误报 HTTP 400 | 已修复；19 项定向测试、Debug/快速 Release 构建和手机同源实播通过，持续超过 6 分钟、AV3A 音频输出无写入错误；Release 已安装，视频手动解码合同保持；源内迅雷插件 Debug JNI 问题独立记录 | [P11-mpv-live-av3a.md](P11-mpv-live-av3a.md) |
 | 插入修复 | `P12` | MPV/native/App | 重编 libplayer.so 修复包名改名后 MPV 全灭：旧二进制 FindClass 旧包名 IsoSessionManager 致 ClassNotFoundException，创建门闩随之卡死；并加固 MpvPlayer 初始化失败路径 | 实施中：本地加固 + CI 重编 workflow 已提交于 fix/mpv-jni-rebuild（基线 `38097b63`），待 CI strings 校验与真机验证；新二进制另行成套提交，不与源码混提交 | [P12-mpv-jni-rebuild-rename.md](P12-mpv-jni-rebuild-rename.md) |
