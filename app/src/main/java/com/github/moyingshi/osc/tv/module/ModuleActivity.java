@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.ViewGroup;
 
@@ -107,6 +108,12 @@ public class ModuleActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_module, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         refresh();
@@ -116,6 +123,14 @@ public class ModuleActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
             finish();
+            return true;
+        }
+        if (item.getItemId() == R.id.action_import) {
+            if (!downloading.isEmpty()) {
+                Notify.show(R.string.module_busy);
+                return true;
+            }
+            startLocalImport();
             return true;
         }
         return super.onOptionsItemSelected(item);

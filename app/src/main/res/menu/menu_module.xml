@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!-- 右上角“本地导入”文字按钮：点开 SAF 选本地 zip。无图标，文字按工具栏字色渲染（浅色底深色字）。 -->
+    <item
+        android:id="@+id/action_import"
+        android:title="@string/module_import"
+        app:showAsAction="always"/>
+</menu>
