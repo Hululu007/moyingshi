@@ -23,11 +23,9 @@ import androidx.media3.common.util.UnstableApi;
 import com.github.moyingshi.osc.tv.App;
 import com.github.moyingshi.osc.tv.player.exo.ExoUtil;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -295,7 +293,7 @@ class SystemSimplePlayer extends SimpleBasePlayer implements MediaPlayer.OnPrepa
             playerError = null;
             mediaPlayer.reset();
             bindVideoOutput();
-            mediaPlayer.setDataSource(App.get(), mediaItem.localConfiguration.uri, headersWithRange());
+            mediaPlayer.setDataSource(App.get(), mediaItem.localConfiguration.uri, requestHeaders());
             mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
             mediaPlayer.setScreenOnWhilePlaying(true);
             mediaPlayer.setLooping(repeatOne);
@@ -310,10 +308,16 @@ class SystemSimplePlayer extends SimpleBasePlayer implements MediaPlayer.OnPrepa
         }
     }
 
-    private Map<String, String> headersWithRange() {
-        Map<String, String> headers = new HashMap<>(ExoUtil.extractHeaders(mediaItem));
-        headers.putIfAbsent(HttpHeaders.RANGE, "bytes=0-");
-        return headers;
+    /**
+     * 只传蜘蛛返回的请求头（Referer / User-Agent / Cookie 等），不强制加 Range。
+     * <p>
+     * 之前这里硬补了 {@code Range: bytes=0-}：EXO 首请求从不带 Range，系统播放器却在
+     * 首请求（常为 m3u8 清单）上带了它，部分源/CDN 对清单请求拒绝 Range，返回 HTTP
+     * 错误后 MediaPlayer 报 (1, -1004) MEDIA_ERROR_IO，而同一条内容 EXO/mpv/ijk
+     * 都能播。MediaPlayer 寻址时自己会发 Range，不需要首请求就补。
+     */
+    private Map<String, String> requestHeaders() {
+        return ExoUtil.extractHeaders(mediaItem);
     }
 
     private void stopInternal(boolean resetState) {
