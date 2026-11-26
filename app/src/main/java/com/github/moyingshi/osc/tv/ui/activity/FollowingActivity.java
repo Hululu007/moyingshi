@@ -125,12 +125,6 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 load();
             });
 
-    private final ActivityResultLauncher<Intent> calendarLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) return;
-                focusFromCalendar(result.getData().getStringExtra(EXTRA_IDENTITY_KEY));
-            });
-
     public static Intent intent(Context context, String identityKey) {
         Intent intent = new Intent(context, FollowingActivity.class);
         if (!TextUtils.isEmpty(identityKey)) intent.putExtra(EXTRA_IDENTITY_KEY, identityKey);
@@ -193,7 +187,8 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
             load();
         });
         binding.alistImport.setOnClickListener(view -> showServerImportDialog());
-        binding.calendar.setOnClickListener(view -> calendarLauncher.launch(FollowingCalendarActivity.intent(this)));
+        // 日历里点某集会直接续播或打开详情，不再把身份回传到本页，所以这里只要普通启动。
+        binding.calendar.setOnClickListener(view -> startActivity(FollowingCalendarActivity.intent(this)));
         // 日期 Tab 与日期条只在手机端布局里可见：TV 布局里是 gone 的同名占位，findViewById 能拿到但不启用。
         View agendaTabs = findViewById(R.id.agendaTabs);
         agendaEnabled = agendaTabs != null && agendaTabs.getVisibility() == View.VISIBLE;
@@ -373,28 +368,6 @@ public class FollowingActivity extends AppCompatActivity implements FollowingAda
                 selected ? R.color.following_button_primary_bg : R.color.following_button_secondary_bg)));
         tab.setTextColor(ContextCompat.getColor(this,
                 selected ? R.color.following_button_primary_text : R.color.following_button_secondary_text));
-    }
-
-    /**
-     * 日历页只交回身份：仍走本页原有筛选与滚动定位，不新建本页实例、不自动播放、不标已读。
-     * 当前筛选隐藏该条目时只说明原因，不擅自清除筛选。
-     */
-    private void focusFromCalendar(String identityKey) {
-        if (TextUtils.isEmpty(identityKey)) return;
-        Task.execute(() -> {
-            Following item = FollowingStore.find(identityKey);
-            boolean visible = item != null && matchesFilter(item);
-            String title = item == null ? identityKey : item.vodName;
-            App.post(() -> {
-                if (binding == null || isFinishing() || isDestroyed()) return;
-                if (!visible) {
-                    Notify.show(getString(R.string.following_calendar_notice_filtered, title, getString(filterLabel())));
-                    return;
-                }
-                focusIdentity = identityKey;
-                load();
-            });
-        });
     }
 
     private void markAllRead() {

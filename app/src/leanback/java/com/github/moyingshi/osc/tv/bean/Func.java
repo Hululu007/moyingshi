@@ -3,7 +3,6 @@ package com.github.moyingshi.osc.tv.bean;
 import androidx.annotation.Nullable;
 
 import com.github.moyingshi.osc.tv.R;
-import com.github.moyingshi.osc.tv.following.FollowingPlaybackBridge;
 import com.github.moyingshi.osc.tv.impl.Diffable;
 import com.github.moyingshi.osc.tv.setting.CustomCspSetting;
 import com.github.moyingshi.osc.tv.utils.ResUtil;
@@ -50,11 +49,9 @@ public class Func implements Diffable<Func> {
     }
 
     private static String resolveText(int resId) {
-        if (resId == R.string.home_following) {
-            int unread = FollowingPlaybackBridge.cachedUnreadCount();
-            String text = ResUtil.getString(resId);
-            return unread > 0 ? text + " · " + unread : text;
-        }
+        // TV 首页按钮只放两字名称：带上「· 未读数」会被按钮宽度截成「追更…」，
+        // 未读数在追更页顶部的「追更 N 部 · 未读 N 部」里本来就有。
+        if (resId == R.string.home_following) return ResUtil.getString(resId);
         if (resId != R.string.home_custom_csp) return ResUtil.getString(resId);
         CustomCspSetting.Status status = CustomCspSetting.status();
         if (!status.available()) return ResUtil.getString(resId);
