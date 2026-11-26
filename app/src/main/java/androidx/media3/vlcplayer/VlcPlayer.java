@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -13,6 +14,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -21,11 +23,14 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.mpvplayer.MpvHlsProxy;
 
 import com.github.moyingshi.osc.tv.player.PlaybackResourceClassifier;
 import com.github.moyingshi.osc.tv.player.PlaybackRoute;
+import com.github.moyingshi.osc.tv.player.cache.PlaybackDiskBufferStore;
 import com.github.moyingshi.osc.tv.player.engine.PlayerEngine;
 import com.github.moyingshi.osc.tv.player.exo.ExoUtil;
+import com.github.moyingshi.osc.tv.setting.PlayerSetting;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -39,6 +44,7 @@ import org.videolan.libvlc.interfaces.IVLCVout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -84,6 +90,7 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
     private final Runnable stateRefreshRunnable = this::refreshPlaybackState;
     private final LibVLC libVlc;
     private final MediaPlayer mediaPlayer;
+    private final MpvHlsProxy hlsProxy;
     private MediaItem mediaItem;
     private Object videoOutput;
     private PlaybackParameters playbackParameters;
@@ -118,6 +125,9 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         libVlc = new LibVLC(context.getApplicationContext(), List.of("--no-video-title-show"));
         mediaPlayer = new MediaPlayer(libVlc);
         mediaPlayer.setEventListener(this::onVlcEvent);
+        // 与 mpv/ijk 同款：本地代理只在头里有 libvlc 表达不了的项时才启用，
+        // 平时不占端口、不跑服务（见 openCurrent）。
+        hlsProxy = new MpvHlsProxy(PlayerSetting.VLC);
         playbackParameters = PlaybackParameters.DEFAULT;
         currentTracks = Tracks.EMPTY;
         videoSize = VideoSize.UNKNOWN;
@@ -287,6 +297,10 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         detachVideoOutput();
         try {
             mediaPlayer.release();
+        } catch (Throwable ignored) {
+        }
+        try {
+            hlsProxy.release();
         } catch (Throwable ignored) {
         }
         try {
@@ -528,7 +542,27 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
             currentPlayableUrl = playableUrl;
             resourceClassification = PlaybackResourceClassifier.classifyRequest(
                     playableUrl, mediaItem.localConfiguration.mimeType, mediaItem.localConfiguration.mimeType);
-            Media media = new Media(libVlc, sourceUri);
+            // libvlc 的 media options 只能传 UA/Referer：头里一旦有 Cookie 或任意自定义头，
+            // 直连必被源拒绝（EncounteredError → VLC_LOAD_FAILED），而 EXO/mpv/ijk 都传全量头。
+            // 此时走现有本地代理 MpvHlsProxy（mpv/ijk 同款）：代理用 OkHttp 带全量头向上游取流，
+            // LibVLC 只需连 127.0.0.1。头里只有 UA/Referer（或无头）时保持直连，零行为变化。
+            // 非 http(s)（rtsp/file 等）代理帮不上忙，同样保持直连。
+            Uri mediaUri = sourceUri;
+            hlsProxy.clear();
+            if (needsProxyHeaders(headers) && isHttpUrl(playableUrl)) {
+                String mediaKey = PlaybackDiskBufferStore.mediaKey(mediaItem);
+                String mimeType = mediaItem.localConfiguration.mimeType;
+                if (isLikelyDash(mimeType, playableUrl)) {
+                    mediaUri = Uri.parse(hlsProxy.proxyDash(playableUrl, headers, mediaKey));
+                } else if (isLikelyHls(mimeType, playableUrl)) {
+                    mediaUri = Uri.parse(hlsProxy.proxy(playableUrl, headers, mediaKey));
+                } else {
+                    mediaUri = Uri.parse(hlsProxy.proxyFile(playableUrl, headers, mediaKey));
+                }
+                SpiderDebug.log(TAG, "proxy enabled mime=%s headers=%d",
+                        mimeType, headers.size());
+            }
+            Media media = new Media(libVlc, mediaUri);
             try {
                 applyHttpOptions(media, headers);
                 media.setHWDecoderEnabled(decode == PlayerEngine.HARD, false);
@@ -561,8 +595,9 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
     }
 
     /**
-     * Stage 1 只传 UA 与 Referer（libvlc media options 有对应项）。
-     * Cookie 与任意自定义头 libvlc 3.x 没有直达的 media option，Stage 2 实测后定降级方案。
+     * 只传 UA 与 Referer（libvlc media options 有对应项）。
+     * Cookie 与任意自定义头 libvlc 3.x 没有直达的 media option，头里一旦有它们，
+     * openCurrent 会改走本地代理 MpvHlsProxy（代理带全量头取流），而不是在这里硬传。
      */
     private void applyHttpOptions(IMedia media, Map<String, String> headers) {
         if (media == null || headers == null || headers.isEmpty()) return;
@@ -576,6 +611,49 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
                 media.addOption(":http-referrer=" + value);
             }
         }
+    }
+
+    /**
+     * 头里是否含有 libvlc media options 表达不了的项（Cookie 与任意自定义头）。
+     * 只有 UA/Referer（或无头）时直连即可（applyHttpOptions 已覆盖），其余一律走本地代理。
+     */
+    private static boolean needsProxyHeaders(Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) return false;
+        for (String key : headers.keySet()) {
+            if (key == null) continue;
+            if ("User-Agent".equalsIgnoreCase(key) || "Referer".equalsIgnoreCase(key)) continue;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isHttpUrl(String url) {
+        if (TextUtils.isEmpty(url)) return false;
+        String scheme = Uri.parse(url).getScheme();
+        return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+    }
+
+    /** 与 IjkSimplePlayer 同款判定：mime 或 URL 后缀含 m3u8。 */
+    private static boolean isLikelyHls(String mimeType, String url) {
+        if (MimeTypes.APPLICATION_M3U8.equals(mimeType)
+                || "application/vnd.apple.mpegurl".equalsIgnoreCase(mimeType)
+                || "application/x-mpegurl".equalsIgnoreCase(mimeType)
+                || "hls".equalsIgnoreCase(mimeType)) {
+            return true;
+        }
+        String lower = url == null ? "" : url.toLowerCase(Locale.US);
+        return lower.contains("m3u8");
+    }
+
+    /** 与 IjkSimplePlayer 同款判定：mime 或 URL 含 mpd。 */
+    private static boolean isLikelyDash(String mimeType, String url) {
+        if (MimeTypes.APPLICATION_MPD.equals(mimeType)
+                || "application/dash+xml".equalsIgnoreCase(mimeType)
+                || "dash".equalsIgnoreCase(mimeType)) {
+            return true;
+        }
+        String lower = url == null ? "" : url.toLowerCase(Locale.US);
+        return lower.contains(".mpd") || lower.contains("type=mpd") || lower.contains("format=mpd");
     }
 
     private void stopInternal(boolean notifyState) {
