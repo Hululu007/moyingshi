@@ -10,7 +10,7 @@ import java.nio.file.Path;
 public class NodeServiceForegroundTest {
     @Test
     public void startCommandAlwaysCallsStartForegroundBeforeHandlingIntent() throws Exception {
-        Path path = Path.of("src", "main", "java", "com", "github", "moyingshi", "osc", "tv",
+        Path path = Path.of("src", "main", "java", "com", "github", "aiyingshi", "osc", "tv",
                 "node", "NodeService.java");
         String source = Files.readString(path);
         int onStart = source.indexOf("public int onStartCommand(Intent intent, int flags, int startId)");

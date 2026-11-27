@@ -52,7 +52,7 @@ public class MultiThreadProxyDialogFocusTest {
 
     private static String dialogSource() throws Exception {
         return new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of(
-                "com", "github", "moyingshi", "osc", "tv", "ui", "dialog", "MultiThreadProxyDialog.java"))),
+                "com", "github", "aiyingshi", "osc", "tv", "ui", "dialog", "MultiThreadProxyDialog.java"))),
                 StandardCharsets.UTF_8);
     }
 
