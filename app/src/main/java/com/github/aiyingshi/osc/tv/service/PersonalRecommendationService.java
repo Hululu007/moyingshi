@@ -1387,7 +1387,7 @@ public class PersonalRecommendationService {
         return !isBlank(subject.id) ? "douban:" + subject.id : "douban-title:" + normalizeTitle(subject.title);
     }
 
-    static String normalizeTitle(String text) {
+    public static String normalizeTitle(String text) {
         return Objects.toString(text, "").replaceAll("[\\s·•・._\\-/\\\\|()（）\\[\\]【】《》<>:：,，.。]+", "").trim().toLowerCase(Locale.ROOT);
     }
 
