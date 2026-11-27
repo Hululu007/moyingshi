@@ -40,6 +40,8 @@ import com.github.moyingshi.osc.tv.bean.Result;
 import com.github.moyingshi.osc.tv.bean.Sub;
 import com.github.moyingshi.osc.tv.bean.Track;
 import com.github.moyingshi.osc.tv.impl.ParseCallback;
+import com.github.moyingshi.osc.tv.module.ModuleDefinition;
+import com.github.moyingshi.osc.tv.module.ModuleManager;
 import com.github.moyingshi.osc.tv.node.NodeRuntime;
 import com.github.moyingshi.osc.tv.player.codec.CodecCapabilityInspector;
 import com.github.moyingshi.osc.tv.player.engine.ExoPlayerEngine;
@@ -6407,11 +6409,48 @@ public void resetTrack(int type) {
             PlaybackTrace.log("player-engine", playbackTrace.current(),
                     "build engine failed type=%d errorType=%s action=fallback-exo",
                     type, error.getClass().getSimpleName());
+            // VLC 构造失败以前是静默回落 EXO：用户只看到“马上回 EXO”，
+            // 根本不知道是模块没载上还是 LibVLC 构造抛了。把真实原因弹出来，
+            // 下一步按提示修，不再靠猜。
+            if (type == PlayerSetting.VLC) {
+                String detail = vlcBuildFailureDetail(error);
+                App.post(() -> Notify.show(ResUtil.getString(R.string.error_vlc_start_failed, detail)));
+            }
             playerType = PlayerSetting.EXO;
             PlayerSetting.putActivePlayer(PlayerSetting.EXO);
             next = new ExoPlayerEngine(decode, listener, mediaSignals, mediaClock);
         }
         return next;
+    }
+
+    /**
+     * VLC 构造失败的原因摘要：异常类型 + 首行消息（截断防刷屏），再附模块预载的
+     * 上次失败原因（有的话）。只做展示，不做诊断推断。
+     */
+    private static String vlcBuildFailureDetail(Throwable error) {
+        StringBuilder detail = new StringBuilder();
+        appendFailureCause(detail, error);
+        App app = App.get();
+        if (app != null) {
+            Throwable loadError = ModuleManager.getInstance(app).getLoadError(ModuleDefinition.VLC.id);
+            if (loadError != null && loadError != error) {
+                if (detail.length() > 0) detail.append("；");
+                appendFailureCause(detail, loadError);
+            }
+        }
+        String text = detail.toString();
+        return text.length() > 160 ? text.substring(0, 160) : text;
+    }
+
+    private static void appendFailureCause(StringBuilder out, Throwable error) {
+        if (error == null) return;
+        out.append(error.getClass().getSimpleName());
+        String message = error.getMessage();
+        if (message == null) return;
+        int newline = message.indexOf('\n');
+        String firstLine = (newline >= 0 ? message.substring(0, newline) : message).trim();
+        if (firstLine.length() > 120) firstLine = firstLine.substring(0, 120);
+        if (!firstLine.isEmpty()) out.append(": ").append(firstLine);
     }
 
     public void browse(PlaySpec spec) {

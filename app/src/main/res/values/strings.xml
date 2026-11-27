@@ -1811,6 +1811,7 @@
     <string name="error_play_mpv_decode_failed">MPV failed to decode this media. Try switching soft/hard decode or choose another line.</string>
     <string name="error_play_mpv_video_output">MPV failed to initialize video output. Try switching decode mode or reopen playback.</string>
     <string name="error_play_vlc">VLC failed to play this media. Switch player manually or choose another line.</string>
+    <string name="error_vlc_start_failed">VLC failed to start: %1$s</string>
     <string name="error_play_stage_app_local">The app playback service could not be reached. Reopen playback or restart the app.</string>
     <string name="error_play_stage_external_local">The local proxy port could not be reached. Restart the proxy or choose another line.</string>
     <string name="error_play_stage_external_supply">An external or unknown local proxy could not provide a continuous data stream. The app cannot inspect its CDN, authorization, or cache state. Check the proxy or choose another line.</string>

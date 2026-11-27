@@ -1764,6 +1764,7 @@
     <string name="error_play_mpv_decode_failed">MPV 解码失败，请尝试切换软硬解或更换线路</string>
     <string name="error_play_mpv_video_output">MPV 视频输出初始化失败，请尝试切换解码或重新进入播放</string>
     <string name="error_play_vlc">VLC 播放该媒体失败，请手动切换内核或更换线路</string>
+    <string name="error_vlc_start_failed">VLC 启动失败：%1$s</string>
     <string name="error_play_stage_app_local">App 本地播放服务连接失败，请重新进入播放或重启应用</string>
     <string name="error_play_stage_external_local">本地代理端口连接失败，请重启代理或更换线路</string>
     <string name="error_play_stage_external_supply">外部或未知本地代理未能持续提供数据，App 无法判断其内部 CDN、鉴权或缓存状态，请检查代理或更换线路</string>
