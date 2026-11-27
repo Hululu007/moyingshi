@@ -1,4 +1,4 @@
-package com.github.moyingshi.osc.tv.player.iso;
+package com.github.aiyingshi.osc.tv.player.iso;
 
 import org.junit.After;
 import org.junit.Test;

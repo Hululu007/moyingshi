@@ -3,7 +3,7 @@
 任务来源：用户 2026-11-11 14:38 说“b6”。B6 是 B 档最后一项待做的功能级工程（1–2 周）。
 参考：`~/workspace/ui-ref/analysis.md`（B6 在第 4 节；播放器在第 2.4 节）、BieCuiLe 解包 `~/workspace/ui-ref/extracted/`（`assets/flutter_assets/assets/shaders/Anime4K_Upscale_CNN_x2_S.glsl`、`assets/flutter_assets/assets/i18n/en.json`）。
 基线：main `d3f2b211`（B5 之后，已推到线上 main，本地与线上一致，工作树干净）。
-约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.moyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项、B1–B5）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
+约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留AI影视已有改动（品牌/包名 com.github.aiyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项、B1–B5）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
 
 完成句：播放器里加“画面”入口，五项调节（亮度/对比度/饱和度/色相/伽马）在 Exo 与 mpv 内核实时生效、ijk 明确不支持，Anime4K 开关只在 mpv 内核可用（默认关），调节值持久化，黑边虚化本期不做。
 
@@ -37,20 +37,20 @@
 
 BieCuiLe 用 media_kit（Dart 封装 libmpv）。media_kit 的 `mpv_kit_video` 包有 `MpvVideoAdjustment` 枚举（pub.dev 文档实证）：brightness / contrast / saturation / gamma / hue 五个值，**每个都是 -100..100 的整数，0 = 不变**，直接对应 mpv 的同名属性。mpv 手册（mpv.io/manual，2026-11-11 查）同样写明：`--brightness/--contrast/--saturation/--gamma/--hue` 均为 `<-100-100>`，默认 0；“Not supported by all video output drivers”。
 
-**结论：BieCuiLe 的五项滑杆没有自研数值，就是 mpv 属性 -100..100、默认 0。** 墨影视照搬这个口径：滑杆一律 -100..100、默认 0；精确数值反编译拿不到也不需要——mpv 手册就是数值来源。
+**结论：BieCuiLe 的五项滑杆没有自研数值，就是 mpv 属性 -100..100、默认 0。** AI影视照搬这个口径：滑杆一律 -100..100、默认 0；精确数值反编译拿不到也不需要——mpv 手册就是数值来源。
 
 ### 1.3 Anime4K shader（实证：文件本身）
 
 - BieCuiLe APK 内只有 **一个** shader 文件：`assets/shaders/Anime4K_Upscale_CNN_x2_S.glsl`，18,638 字节，Anime4K v3.2（S = Small 档，最轻的一档）。
 - 文件头是 bloc97 的 MIT License（2019–2021）；内含 5 个 pass（`//!DESC` 计）：4 个卷积 pass（Conv-4x3x3x3 → 2 个 Conv-4x3x3x8 → 最后卷积）+ 1 个 Depth-to-Space pass（`//!SAVE MAIN`，2x 放大输出）；每个 pass 都有 `//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *`，即**只在输出比输入大 1.2 倍以上（真正需要放大）时才生效**，播 1080p 片源基本不跑。
 - 自包含：无 `#include`、无外部纹理，5 个 pass 靠 `//!SAVE conv2d_tf / conv2d_1_tf / conv2d_2_tf / conv2d_last_tf` 在文件内串联。mpv 的 `glsl-shaders` 原生支持这种多 pass 单文件格式。
-- 来源核对（2026-11-11）：从上游 bloc97/Anime4K 仓库下载 `glsl/Upscale/Anime4K_Upscale_CNN_x2_S.glsl`（master 分支），sha256 `4c53ec2e287908f7ee7bcb266b0170421626d663576468b7d7dafc62962649a4`，**与 APK 内文件逐字节相同**。所以墨影视直接用上游文件，不从 APK 里抠（出处干净，MIT 头完整保留）。
+- 来源核对（2026-11-11）：从上游 bloc97/Anime4K 仓库下载 `glsl/Upscale/Anime4K_Upscale_CNN_x2_S.glsl`（master 分支），sha256 `4c53ec2e287908f7ee7bcb266b0170421626d663576468b7d7dafc62962649a4`，**与 APK 内文件逐字节相同**。所以AI影视直接用上游文件，不从 APK 里抠（出处干净，MIT 头完整保留）。
 
 ### 1.4 黑边虚化（实证：只有文案，没有可搬的实现）
 
 en.json 只有 "黑边虚化": "Blur letterbox" 一条文案；Flutter 侧的实现在编译后的 Dart 里，反编译拿不到。按 media_kit/Flutter 的常见做法，它是“视频后面再铺一层模糊放大的同一视频”做背景（两层视频），不是 mpv 内置功能（mpv 没有 blur-letterbox 选项/属性）。见 §5：本期不做。
 
-## 2. 决策：墨影视怎么做（分内核）
+## 2. 决策：AI影视怎么做（分内核）
 
 ### 2.1 总口径
 
@@ -68,7 +68,7 @@ en.json 只有 "黑边虚化": "Blur letterbox" 一条文案；Flutter 侧的实
 - 注意：mpv 手册说 eq 属性“不是所有 vo 都支持”；moyingshi 默认 `vo=gpu`（`MpvPlayerConfig.java:206`，`vo = "gpu"`），gpu/gpu-next 均支持 eq 属性。`mediacodec_embed` 直出模式（surface-direct）下没有 GPU VO，eq 属性与 glsl-shader 都不生效——与 LUT 的限制完全一致（`MpvPlayerEngine.supportsNativeLut()` 在 surface-direct 时返回 false；`LutEligibility` 同样判 surface-direct 不可用）。Anime4K 与五项调节在 surface-direct 下同样不可用，面板里按同一口径提示（复用 `LutEligibility` 式的不可用原因文案，见 §6）。
 - Anime4K：把上游 shader 文件放 `app/src/main/assets/shaders/Anime4K_Upscale_CNN_x2_S.glsl`，运行时由新写的 `Anime4kShaderStore` 拷到缓存目录（`cacheDir/mpv_shaders/Anime4K_Upscale_CNN_x2_S.glsl`，与 LUT 的 `mpv_lut_shaders` 目录并列；清缓存时一并清理，见单元 3），再走现成的 `glsl-shaders` 机制挂载。
   - 现状缺口：`MpvPlayer.applyShaderPipeline()` 只管一个槽位（`lutShader` / `appliedLutShaderPath`，`change-list glsl-shaders append/remove`）。Anime4K 需要**第二个独立槽位**：新增 `anime4kShaderPath` + 公开 `setAnime4kShader(@Nullable String path)`，`applyShaderPipeline` 改为分别管理两个槽位（各管各的 append/remove，互不干扰）。
-  - 挂载顺序：glsl-shaders 列表里 **Anime4K 在前、LUT 在后**（先超分放大，再做 LUT 调色；与“先修后调”的常规顺序一致）。BieCuiLe 只有一个 shader，无参考顺序；这是墨影视自己的决定，写死在 `applyShaderPipeline` 里。
+  - 挂载顺序：glsl-shaders 列表里 **Anime4K 在前、LUT 在后**（先超分放大，再做 LUT 调色；与“先修后调”的常规顺序一致）。BieCuiLe 只有一个 shader，无参考顺序；这是AI影视自己的决定，写死在 `applyShaderPipeline` 里。
   - `gpu-shader-cache-dir` 已配（`MpvPlayer.java:1855`），shader 编译结果有缓存，二次打开不重复编译。
 
 ### 2.3 Exo 内核：自写 GlEffect（抄 LUT 的现成套路）
@@ -82,7 +82,7 @@ en.json 只有 "黑边虚化": "Blur letterbox" 一条文案；Flutter 侧的实
 
 ### 2.4 五项映射公式（Exo shader 侧；mpv 侧走原生映射）
 
-滑杆值 `s ∈ [-100, 100]`，默认 0。Exo shader 用以下**墨影视自定**映射（标准教科书组合，写死在 `PictureAdjustEffect` 里；mpv 侧把 `s` 原样传给原生属性，由 mpv 自己映射——**两边曲线不完全一致是已知差异，默认 0 时两者均为原样**）：
+滑杆值 `s ∈ [-100, 100]`，默认 0。Exo shader 用以下**AI影视自定**映射（标准教科书组合，写死在 `PictureAdjustEffect` 里；mpv 侧把 `s` 原样传给原生属性，由 mpv 自己映射——**两边曲线不完全一致是已知差异，默认 0 时两者均为原样**）：
 
 | 项 | Exo shader 映射 | 说明 |
 |---|---|---|
@@ -98,7 +98,7 @@ en.json 只有 "黑边虚化": "Blur letterbox" 一条文案；Flutter 侧的实
 
 - ijkplayer 的 `IjkMediaPlayer.setOption(OPT_CATEGORY_PLAYER, "vf0"/"vf1", ...)` 确实能挂 FFmpeg 视频滤镜（上游 issue #3025 实证），FFmpeg `eq` 滤镜也确实支持 brightness/contrast/saturation/gamma（+ `hue` 滤镜管色相）。但三点致命：
   1. `vf*` 只能在 prepare 阶段设，播放中改滤镜要重建播放器（issue 原话 "must be applied on preparing stage, not during play stage"）——做不到拖动滑杆实时生效；
-  2. 硬解（MediaCodec）下视频帧不走 CPU 滤镜链，滤镜是否生效未经证实，墨影视默认硬解；
+  2. 硬解（MediaCodec）下视频帧不走 CPU 滤镜链，滤镜是否生效未经证实，AI影视默认硬解；
   3. ijk 没有任何 shader/GL 挂载点，Anime4K 完全接不上。
 - 决定：ijk 下五项调节与 Anime4K 都不支持；面板在 ijk 内核时显示不可用原因（不是静默失效）。调节值照样持久化，切回 Exo/mpv 即生效。后续如有人验证 `vf0=eq=...` 在 prepare 时挂载可行，可单独立项做“ijk 启动时应用已保存值”（不实时），不在 B6 范围。
 
@@ -159,7 +159,7 @@ B6 是 material 新功能（新用户能力 + 跨 Exo/mpv 管线），且动 mpv
 | FFmpeg eq 滤镜 | ffmpeg-cookbook eq 文档（brightness -1..1、contrast、saturation、gamma 0.1..10） | Exo 侧 gamma 映射取 10^(s/100) 的口径来源；ijk 的 eq 可能性来源 | 二手 |
 | ijkplayer 上游 issue | bilibili/ijkplayer #3025（`vf0` 只能 prepare 时设） | ijk 本期不支持的直接依据 | 一手 |
 | 本地实现（范本） | `player/lut/DynamicLutEffect.java`（GlEffect + BaseGlShaderProgram + HDR 抛错）、`MpvPlayer.applyShaderPipeline`（glsl-shaders 单槽位）、`PlayerManager.applyLut/safeSetVideoEffects`（effects 组合点）、`LutEligibility`（HDR/surface-direct/DRM/tunnel 门禁）、`LutSetting`（Prefers 持久化范本）、`SliderNumberDialog`（Slider 用法）、`PlayerButtonSetting` + `VodPlayerChrome` + `VodPlayerUiHost`（按钮链） | 全部设计点都有本地现成套路可抄，无新依赖 | 一手（仓库内） |
-| 不适用类 | 上游 webhtv 播放器 commit（B6 是墨影视自研功能，无上游对应物）、论文/基准测试（无公开的 Anime4K 手机端基准可引；性能结论靠真机实测，不编数字） | 已注明原因，不硬凑 | — |
+| 不适用类 | 上游 webhtv 播放器 commit（B6 是AI影视自研功能，无上游对应物）、论文/基准测试（无公开的 Anime4K 手机端基准可引；性能结论靠真机实测，不编数字） | 已注明原因，不硬凑 | — |
 
 方案比较：
 
@@ -169,7 +169,7 @@ B6 是 material 新功能（新用户能力 + 跨 Exo/mpv 管线），且动 mpv
 | 全内核统一 shader（Exo 也接 Anime4K） | 否决：Exo 接 Anime4K 需多 pass GlEffect 链 + 浮点中间纹理，未验证；v1 只 mpv，后续可单独立项验证 |
 | ijk 用 vf0=eq 接五项调节 | 否决：prepare 时才能设、播放中改不了、硬解下未验证；v1 不做，面板明示不支持 |
 | 黑边虚化一起做 | 否决：需第二层模糊视频（双路解码或额外 blur pass），是独立工程；本期不做，tracker 里记为后续项 |
-| WebView/Flutter 嵌 media_kit（照搬 BieCuiLe） | 否决：即 B8（已排除）；墨影视已有三内核，mpv 原生属性就是同一条路 |
+| WebView/Flutter 嵌 media_kit（照搬 BieCuiLe） | 否决：即 B8（已排除）；AI影视已有三内核，mpv 原生属性就是同一条路 |
 | **选定：mpv 原生属性 + 原生 shader；Exo 自写 GlEffect；ijk 不支持；黑边虚化不做** | 全部复用本地已有管线，零新依赖，零上游改动 |
 
 ## 8. 实施计划（单元 + 文件 + 提交）
@@ -200,8 +200,8 @@ B6 是 material 新功能（新用户能力 + 跨 Exo/mpv 管线），且动 mpv
 
 ## 11. 与 BieCuiLe 的差异（诚实记录）
 
-- BieCuiLe 的五项调节在它三个内核（media_kit/mpv/ijk）下据称都可用（Flutter 侧统一调 mpv 属性——它的 ijk 也是包在 media_kit 的 mpv 之外的另一路，具体行为反编译拿不到）；墨影视 v1 只在 Exo/mpv 做，ijk 明确不支持（§2.5 有据）。
-- BieCuiLe 的 Anime4K 档位未知（只确认它带了 S 档这一个文件）；墨影视 v1 只上 S 档。
-- BieCuiLe 有“黑边虚化”，墨影视 v1 不做（§1.4/§5）。
-- BieCuiLe 的调节面板在播放器内是常驻面板形态（Dart 侧）；墨影视做成弹窗对话框（原生侧无常驻面板容器，弹窗是 LUT 同款形态）。
-- 滑杆数值口径一致（-100..100 默认 0），但 Exo 下的伽马曲线是墨影视自定映射（§2.4），与 mpv 原生映射不完全一致；默认 0 时两者均为原样。
+- BieCuiLe 的五项调节在它三个内核（media_kit/mpv/ijk）下据称都可用（Flutter 侧统一调 mpv 属性——它的 ijk 也是包在 media_kit 的 mpv 之外的另一路，具体行为反编译拿不到）；AI影视 v1 只在 Exo/mpv 做，ijk 明确不支持（§2.5 有据）。
+- BieCuiLe 的 Anime4K 档位未知（只确认它带了 S 档这一个文件）；AI影视 v1 只上 S 档。
+- BieCuiLe 有“黑边虚化”，AI影视 v1 不做（§1.4/§5）。
+- BieCuiLe 的调节面板在播放器内是常驻面板形态（Dart 侧）；AI影视做成弹窗对话框（原生侧无常驻面板容器，弹窗是 LUT 同款形态）。
+- 滑杆数值口径一致（-100..100 默认 0），但 Exo 下的伽马曲线是AI影视自定映射（§2.4），与 mpv 原生映射不完全一致；默认 0 时两者均为原样。

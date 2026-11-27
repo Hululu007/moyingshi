@@ -1,4 +1,4 @@
-package com.github.moyingshi.osc.tv.player.iso;
+package com.github.aiyingshi.osc.tv.player.iso;
 
 import androidx.media3.mpvplayer.IsoCacheTestSupport;
 import androidx.media3.mpvplayer.MpvHlsCacheCoordinator;

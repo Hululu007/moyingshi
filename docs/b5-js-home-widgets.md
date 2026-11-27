@@ -3,7 +3,7 @@
 任务来源：用户 2026-11-11 07:55 说“开始b5”。B5 是 B 档里最重的一项（1–2 周功能级工程）。
 参考：`~/workspace/ui-ref/analysis.md`（B5 在第 4 节；BieCuiLe 组件在第 2.1 节）、参考 APK 解包 `~/workspace/ui-ref/extracted/`（`assets/flutter_assets/assets/widgets/*.js`、`assets/widget_host.js`、`assets/flutter_assets/assets/widget_samples/samples.json`）。
 基线：main `4598c4a8`（B1–B4 之后 + 横幅 ViewPager2 闪退修复，已推到线上 main，本地与线上一致）。
-约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.moyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
+约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每完成一个逻辑单元走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留AI影视已有改动（品牌/包名 com.github.aiyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
 
 ## Recovery anchor
 
@@ -99,32 +99,32 @@
 |---|---|---|
 | Bangumi | `https://api.bgm.tv` 公开接口，免登录 | `POST /v0/search/subjects`（浏览/季度/排行）、`GET /calendar`（每日放送）；条目只有资料，点开后在当前资源里搜片名。 |
 | 豆瓣 | `https://m.douban.com/rexxar/api/v2` 移动版公开接口，免登录 | 需 Referer + 浏览器 UA 请求头；图片要带 `customHeaders`（Referer: movie.douban.com）否则被拒；榜单/分类/豆列。 |
-| Mikan | `https://mikanani.kas.pub`（镜像，默认）/ `https://mikanani.me`（主站），HTML 抓取 | 季度新番/每日放送/最近更新；条目是 `type: 'link'`，点开走 `loadDetail` 列各字幕组磁力（字幕组=线路）；墨影视没有磁力引擎，点开改为在当前资源里搜片名（见 §5）。 |
+| Mikan | `https://mikanani.kas.pub`（镜像，默认）/ `https://mikanani.me`（主站），HTML 抓取 | 季度新番/每日放送/最近更新；条目是 `type: 'link'`，点开走 `loadDetail` 列各字幕组磁力（字幕组=线路）；AI影视没有磁力引擎，点开改为在当前资源里搜片名（见 §5）。 |
 | TMDB | 宿主 `Widget.tmdb`（设置里填的 API Key，Key 不进脚本） | 探索发现/趋势/播出平台/出品公司/系列电影；401 时提示去设置里检查 Key。 |
 
 ### 1.5 widget_samples
 
-`assets/flutter_assets/assets/widget_samples/samples.json` 是 8 条示例数据（title/year/rating/overview/poster/backdrop），只用于组件 UI 预览，不参与数据逻辑。墨影视不需要它。
+`assets/flutter_assets/assets/widget_samples/samples.json` 是 8 条示例数据（title/year/rating/overview/poster/backdrop），只用于组件 UI 预览，不参与数据逻辑。AI影视不需要它。
 
-## 2. 决策：墨影视怎么做（CapyPlayer 兼容 + 原生适配）
+## 2. 决策：AI影视怎么做（CapyPlayer 兼容 + 原生适配）
 
 ### 2.1 总体方案
 
-**复用现有 QuickJS 引擎，不另起 WebView。** 墨影视已有 QuickJS（`quickjs/` 模块 + `com.whl.quickjs.wrapper.QuickJSContext`，app 模块直接依赖 wrapper，见 app/build.gradle:172-173），drpy 蜘蛛就是这么跑的。B5 在 app 模块新建一套 Widget 引擎：
+**复用现有 QuickJS 引擎，不另起 WebView。** AI影视已有 QuickJS（`quickjs/` 模块 + `com.whl.quickjs.wrapper.QuickJSContext`，app 模块直接依赖 wrapper，见 app/build.gradle:172-173），drpy 蜘蛛就是这么跑的。B5 在 app 模块新建一套 Widget 引擎：
 
 - `WidgetHost`（Java）：建 QuickJSContext → 挂 console → 注入 `Widget` 宿主 API（JS shim + Java 桥）→ 加载组件脚本 → 读 `WidgetMetadata` → 按名调模块函数 → 结果转 JSON。
 - 组件脚本格式与 CapyPlayer 完全兼容（`WidgetMetadata` + async 函数 + 同样的条目结构），BieCuiLe 的 4 个内置组件脚本改少量适配就能直接用（主要是 `Widget.*` API 名字保持一致，`loadDetail` 的磁力语义改掉）。
 - 与 drpy 引擎并行：drpy 跑的是“源”（home/category/detail/search/play），Widget 跑的是“首页组件”（metadata/modules/invoke）；两者共用 QuickJS 运行时模式，但各建各的 Context、各走各的宿主 API，互不干扰。
 
-**不采用的方案**：WebView 宿主（BieCuiLe 的做法）——墨影视是原生 App，为 4 个组件专门起 WebView 宿主太重，且 QuickJS 已有现成运行时与 drpy 实战验证；`Widget.dom` 用 jsoup 实现（quickjs 模块已依赖 jsoup 1.22.2），不依赖浏览器 DOMParser。
+**不采用的方案**：WebView 宿主（BieCuiLe 的做法）——AI影视是原生 App，为 4 个组件专门起 WebView 宿主太重，且 QuickJS 已有现成运行时与 drpy 实战验证；`Widget.dom` 用 jsoup 实现（quickjs 模块已依赖 jsoup 1.22.2），不依赖浏览器 DOMParser。
 
-### 2.2 组件文件格式（墨影视版）
+### 2.2 组件文件格式（AI影视版）
 
-与 §1.1 完全一致（CapyPlayer 兼容），另加两条墨影视约定：
+与 §1.1 完全一致（CapyPlayer 兼容），另加两条AI影视约定：
 
 - 组件文件是普通 JS 脚本（非 ES module），顶层 `var WidgetMetadata` + 顶层 `async function`。不支持 `import`（组件要自包含；如需共用逻辑，用宿主提供的 `Widget.*` API）。
 - 首页默认模块：每个内置组件指定一个 `homeModule`（metadata 里加 `homeModule: '函数名'` 字段，或默认取 modules[0] 中非 category 的第一个）。首页只渲染各组件的 homeModule 一行；点“更多”进浏览页才能换模块/改参数。
-- Mikan 的 `loadDetail` 不采用：墨影视没有磁力引擎，Mikan 条目点开改为在当前资源里搜片名（与 Bangumi/豆瓣一致）。
+- Mikan 的 `loadDetail` 不采用：AI影视没有磁力引擎，Mikan 条目点开改为在当前资源里搜片名（与 Bangumi/豆瓣一致）。
 
 ### 2.3 沙箱 API（`Widget` 全局对象）
 
@@ -191,7 +191,7 @@ public JsonObject get(@NonNull String path, Map<String, String> params, @NonNull
 放在 `app/src/main/assets/widgets/`（新建目录）：`bangumi.js`、`douban.js`、`mikan.js`、`tmdb.js`，以 BieCuiLe 的 4 个脚本为底本改写：
 
 - 保留 `WidgetMetadata`（id 保持 `builtin.*`，author 改回 BieCuiLe——注明来源）、modules/params/函数逻辑。
-- 改动点：Mikan 的 `loadDetail` 删掉（墨影视无磁力引擎；条目点开走搜片名）；`Widget.storage` 的 key 命名空间不变；TMDB 组件的 `Widget.tmdb` 走墨影视桥（语义一致）。
+- 改动点：Mikan 的 `loadDetail` 删掉（AI影视无磁力引擎；条目点开走搜片名）；`Widget.storage` 的 key 命名空间不变；TMDB 组件的 `Widget.tmdb` 走AI影视桥（语义一致）。
 - 各组件加 `homeModule`：Bangumi=`bgmCalendar`（每日放送）、豆瓣=`doubanHotMovies`（近期热门电影）、Mikan=`mikanDaily`（每日放送）、TMDB=`tmdbTrending`（趋势，周榜）。
 - 版本：`version: '1.0.0'`，随 App 发版走；脚本更新时清对应缓存。
 
@@ -217,7 +217,7 @@ public JsonObject get(@NonNull String path, Map<String, String> params, @NonNull
 | | drpy 蜘蛛（现有） | Widget 组件（新增） |
 |---|---|---|
 | 脚本格式 | ES module（`export default {home, homeVod, category, detail, search, play}`） | 普通脚本（`var WidgetMetadata` + 顶层 async 函数） |
-| 入口 | `JsLoader` → `quickjs Spider`（`com.github.moyingshi.osc.tv.quickjs.crawler.Spider`） | 新增 `WidgetHost`（app 模块，`com.github.moyingshi.osc.tv.widget`） |
+| 入口 | `JsLoader` → `quickjs Spider`（`com.github.aiyingshi.osc.tv.quickjs.crawler.Spider`） | 新增 `WidgetHost`（app 模块，`com.github.aiyingshi.osc.tv.widget`） |
 | JS 宿主 API | `local`、`req`/`_http`、`pd`/`pdfh`、drpy2-fast 引擎 | `Widget.http/tmdb/storage/dom`、`fetch`、`console` |
 | 数据来源 | 站点（py/js/json） | 公开 API（Bangumi/豆瓣/Mikan/TMDB） |
 | 渲染 | 点播页/分类页/详情页/搜索页/播放器 | 首页分区行 + 浏览页 |
@@ -237,9 +237,9 @@ public JsonObject get(@NonNull String path, Map<String, String> params, @NonNull
 
 ## 5. 与 BieCuiLe 的差异（诚实记录）
 
-- BieCuiLe 的组件点开后：Bangumi/豆瓣条目在当前资源里搜片名；Mikan 条目走 `loadDetail` 列字幕组磁力直接播（它有磁力引擎）。墨影视无磁力引擎，**Mikan 条目点开一律改为搜片名**（与 Bangumi/豆瓣一致），磁力播放不在本期范围。
-- BieCuiLe 的组件有 `search`（组件内搜索）和 `globalParams`（Mikan 站点地址可换）；墨影视 v1 只做 homeModule 行 + 浏览页模块/参数，组件内搜索与全局参数设置不在 v1（Mikan 站点地址固定用镜像 `mikanani.kas.pub`，主站备用写进脚本常量，不暴露设置项；后续可加）。
-- BieCuiLe 的 widget 行在“热门推荐”之下；墨影视放在 AppBar 内 continue 行之后、分类 chip 之前（与 B1/B2 同一折叠区）。
+- BieCuiLe 的组件点开后：Bangumi/豆瓣条目在当前资源里搜片名；Mikan 条目走 `loadDetail` 列字幕组磁力直接播（它有磁力引擎）。AI影视无磁力引擎，**Mikan 条目点开一律改为搜片名**（与 Bangumi/豆瓣一致），磁力播放不在本期范围。
+- BieCuiLe 的组件有 `search`（组件内搜索）和 `globalParams`（Mikan 站点地址可换）；AI影视 v1 只做 homeModule 行 + 浏览页模块/参数，组件内搜索与全局参数设置不在 v1（Mikan 站点地址固定用镜像 `mikanani.kas.pub`，主站备用写进脚本常量，不暴露设置项；后续可加）。
+- BieCuiLe 的 widget 行在“热门推荐”之下；AI影视放在 AppBar 内 continue 行之后、分类 chip 之前（与 B1/B2 同一折叠区）。
 
 ## 6. 证据：公开 API 实测（2026-11-11 上午，curl）
 

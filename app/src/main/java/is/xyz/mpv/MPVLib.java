@@ -9,8 +9,8 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.Surface;
 
-import com.github.moyingshi.osc.tv.module.ModuleDefinition;
-import com.github.moyingshi.osc.tv.module.ModuleManager;
+import com.github.aiyingshi.osc.tv.module.ModuleDefinition;
+import com.github.aiyingshi.osc.tv.module.ModuleManager;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -56,14 +56,14 @@ public final class MPVLib {
             Throwable error = modules.getLoadError(ModuleDefinition.MPV.id);
             loadError = error != null ? error
                     : new IOException("MPV 模块未安装，请到模块里面下载 MPV");
-            com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.failure("mpv-bundle", loadError);
+            com.github.aiyingshi.osc.tv.player.NativeLibraryDiagnostics.failure("mpv-bundle", loadError);
             Log.e(TAG, "Unable to load MPV native libraries from module", loadError);
             return false;
         }
         loadError = null;
         loadedAbi = modules.abi();
         loaded = true;
-        com.github.moyingshi.osc.tv.player.NativeLibraryDiagnostics.request();
+        com.github.aiyingshi.osc.tv.player.NativeLibraryDiagnostics.request();
         return true;
     }
 

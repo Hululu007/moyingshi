@@ -15,9 +15,9 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 
-import com.github.moyingshi.osc.tv.App;
-import com.github.moyingshi.osc.tv.module.ModuleDefinition;
-import com.github.moyingshi.osc.tv.module.ModuleManager;
+import com.github.aiyingshi.osc.tv.App;
+import com.github.aiyingshi.osc.tv.module.ModuleDefinition;
+import com.github.aiyingshi.osc.tv.module.ModuleManager;
 
 import java.io.File;
 import java.io.IOException;

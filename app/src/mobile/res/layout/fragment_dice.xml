@@ -80,7 +80,7 @@
         </androidx.appcompat.widget.LinearLayoutCompat>
 
         <!-- 老虎机 -->
-        <com.github.moyingshi.osc.tv.ui.custom.SlotMachineView
+        <com.github.aiyingshi.osc.tv.ui.custom.SlotMachineView
             android:id="@+id/slotMachine"
             android:layout_width="match_parent"
             android:layout_height="150dp"

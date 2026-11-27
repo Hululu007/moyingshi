@@ -1,6 +1,6 @@
 // 蜜柑计划 Mikan Project — BieCuiLe 内置组件库（CapyPlayer 组件规范）。
 // 每日放送、最近更新、季度新番；条目只有资料，点开后在当前资源里搜索片名。
-// 墨影视适配：以 BieCuiLe 脚本为底本，删掉详情页磁力相关代码（墨影视没有磁力引擎，
+// AI影视适配：以 BieCuiLe 脚本为底本，删掉详情页磁力相关代码（AI影视没有磁力引擎，
 // 条目点开改为搜片名），加 homeModule（首页默认模块），列表逻辑未动。
 
 var MIKAN_DEFAULT = 'https://mikanani.kas.pub';

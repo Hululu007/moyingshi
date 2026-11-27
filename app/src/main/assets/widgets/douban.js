@@ -1,6 +1,6 @@
 // 豆瓣 — BieCuiLe 内置组件库（CapyPlayer 组件规范）。
 // 数据来自豆瓣移动版公开接口，免登录；条目只有资料，点开后在当前资源里搜索片名。
-// 墨影视适配：以 BieCuiLe 脚本为底本，仅加 homeModule（首页默认模块），其余逻辑未动。
+// AI影视适配：以 BieCuiLe 脚本为底本，仅加 homeModule（首页默认模块），其余逻辑未动。
 var DOUBAN_API = 'https://m.douban.com/rexxar/api/v2';
 var DOUBAN_HEADERS = {
   Referer: 'https://m.douban.com/',

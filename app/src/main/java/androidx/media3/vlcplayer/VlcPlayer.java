@@ -25,12 +25,12 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.mpvplayer.MpvHlsProxy;
 
-import com.github.moyingshi.osc.tv.player.PlaybackResourceClassifier;
-import com.github.moyingshi.osc.tv.player.PlaybackRoute;
-import com.github.moyingshi.osc.tv.player.cache.PlaybackDiskBufferStore;
-import com.github.moyingshi.osc.tv.player.engine.PlayerEngine;
-import com.github.moyingshi.osc.tv.player.exo.ExoUtil;
-import com.github.moyingshi.osc.tv.setting.PlayerSetting;
+import com.github.aiyingshi.osc.tv.player.PlaybackResourceClassifier;
+import com.github.aiyingshi.osc.tv.player.PlaybackRoute;
+import com.github.aiyingshi.osc.tv.player.cache.PlaybackDiskBufferStore;
+import com.github.aiyingshi.osc.tv.player.engine.PlayerEngine;
+import com.github.aiyingshi.osc.tv.player.exo.ExoUtil;
+import com.github.aiyingshi.osc.tv.setting.PlayerSetting;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;

@@ -2,8 +2,8 @@ package androidx.media3.mpvplayer;
 
 import androidx.annotation.Nullable;
 
-import com.github.moyingshi.osc.tv.player.cache.DiskCacheCapacityPolicy;
-import com.github.moyingshi.osc.tv.utils.FileUtil;
+import com.github.aiyingshi.osc.tv.player.cache.DiskCacheCapacityPolicy;
+import com.github.aiyingshi.osc.tv.utils.FileUtil;
 
 import java.io.File;
 import java.io.FileInputStream;

@@ -204,7 +204,7 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <com.github.moyingshi.osc.tv.ui.custom.CustomViewPager
+    <com.github.aiyingshi.osc.tv.ui.custom.CustomViewPager
         android:id="@+id/pager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -235,7 +235,7 @@
         放在 CoordinatorLayout 里与既有的 @id/progress 同级：两者都是铺满的状态浮层，
         绘制在 appBar 之上，和进度条的位置关系一致。
     -->
-    <com.github.moyingshi.osc.tv.ui.custom.ProgressLayout
+    <com.github.aiyingshi.osc.tv.ui.custom.ProgressLayout
         android:id="@+id/state"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -250,7 +250,7 @@
         app:backgroundTint="?attr/colorSecondaryContainer"
         app:layout_anchor="@id/pager"
         app:layout_anchorGravity="end|bottom"
-        app:layout_behavior="com.github.moyingshi.osc.tv.ui.custom.CustomFabBehavior"
+        app:layout_behavior="com.github.aiyingshi.osc.tv.ui.custom.CustomFabBehavior"
         app:srcCompat="@drawable/ic_fab_tune"
         app:tint="?attr/colorOnSecondaryContainer"
         tools:visibility="visible" />
@@ -263,7 +263,7 @@
         app:backgroundTint="?attr/colorSecondaryContainer"
         app:layout_anchor="@id/pager"
         app:layout_anchorGravity="end|bottom"
-        app:layout_behavior="com.github.moyingshi.osc.tv.ui.custom.CustomFabBehavior"
+        app:layout_behavior="com.github.aiyingshi.osc.tv.ui.custom.CustomFabBehavior"
         app:srcCompat="@drawable/ic_fab_link"
         app:tint="?attr/colorOnSecondaryContainer"
         tools:visibility="visible" />
@@ -278,7 +278,7 @@
         app:backgroundTint="?attr/colorSecondaryContainer"
         app:layout_anchor="@id/pager"
         app:layout_anchorGravity="end|bottom"
-        app:layout_behavior="com.github.moyingshi.osc.tv.ui.custom.CustomFabBehavior"
+        app:layout_behavior="com.github.aiyingshi.osc.tv.ui.custom.CustomFabBehavior"
         app:srcCompat="@drawable/ic_fab_top"
         app:tint="?attr/colorOnSecondaryContainer"
         tools:visibility="visible" />

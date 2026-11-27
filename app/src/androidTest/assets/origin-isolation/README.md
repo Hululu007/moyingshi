@@ -44,7 +44,7 @@ $dest='/sdcard/Android/data/com.silent.android.webhtv/files/origin-isolation-inp
 & $adb -s emulator-5554 shell mkdir -p $dest
 & $adb -s emulator-5554 push app/build/origin-isolation/jar-fixture/origin-fixture.jar "$dest/origin-fixture.jar"
 & $adb -s emulator-5554 push app/build/origin-isolation/media-fixture "$dest/media-fixture"
-& $adb -s emulator-5554 shell am instrument -w -r -e class com.github.moyingshi.osc.tv.playback.origin.OriginIsolationPlaybackTest com.github.moyingshi.osc.tv.test/androidx.test.runner.AndroidJUnitRunner
+& $adb -s emulator-5554 shell am instrument -w -r -e class com.github.aiyingshi.osc.tv.playback.origin.OriginIsolationPlaybackTest com.github.aiyingshi.osc.tv.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 默认 AndroidJUnitRunner 支持这里的 JUnit3 TestCase；使用现有 AndroidX InstrumentationRegistry，

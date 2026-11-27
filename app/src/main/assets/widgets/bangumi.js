@@ -1,6 +1,6 @@
 // Bangumi 番组计划 — BieCuiLe 内置组件库（CapyPlayer 组件规范）。
 // 数据来自 api.bgm.tv 公开接口，免登录；条目只有资料，点开后在当前资源里搜索片名。
-// 墨影视适配：以 BieCuiLe 脚本为底本，仅加 homeModule（首页默认模块），其余逻辑未动。
+// AI影视适配：以 BieCuiLe 脚本为底本，仅加 homeModule（首页默认模块），其余逻辑未动。
 var BGM_API = 'https://api.bgm.tv';
 // 搜索接口一页最多给 20 条
 var BGM_PAGE_SIZE = 20;

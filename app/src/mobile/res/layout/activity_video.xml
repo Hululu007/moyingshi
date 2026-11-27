@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:tag="port">
 
-    <com.github.moyingshi.osc.tv.ui.custom.ContextWallImageView
+    <com.github.aiyingshi.osc.tv.ui.custom.ContextWallImageView
         android:id="@+id/contextWall"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -73,12 +73,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <com.github.moyingshi.osc.tv.ui.custom.LyricsOverlayView
+        <com.github.aiyingshi.osc.tv.ui.custom.LyricsOverlayView
             android:id="@+id/lyrics"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <com.github.moyingshi.osc.tv.ui.custom.KaraokeStatusView
+        <com.github.aiyingshi.osc.tv.ui.custom.KaraokeStatusView
             android:id="@+id/karaoke"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -104,7 +104,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <com.github.moyingshi.osc.tv.ui.custom.LutQuickPanel
+        <com.github.aiyingshi.osc.tv.ui.custom.LutQuickPanel
             android:id="@+id/lutQuick"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
@@ -133,12 +133,12 @@
         android:layout_height="match_parent"
         android:layout_below="@+id/video">
 
-        <com.github.moyingshi.osc.tv.ui.custom.ProgressLayout
+        <com.github.aiyingshi.osc.tv.ui.custom.ProgressLayout
             android:id="@+id/progressLayout"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <com.github.moyingshi.osc.tv.ui.custom.FixedNestedScrollView
+            <com.github.aiyingshi.osc.tv.ui.custom.FixedNestedScrollView
                 android:id="@+id/scroll"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -289,7 +289,7 @@
 
                         </androidx.appcompat.widget.LinearLayoutCompat>
 
-                        <com.github.moyingshi.osc.tv.ui.custom.LyricsOverlayView
+                        <com.github.aiyingshi.osc.tv.ui.custom.LyricsOverlayView
                             android:id="@+id/audioLyrics"
                             android:layout_width="match_parent"
                             android:layout_height="164dp"
@@ -305,7 +305,7 @@
                             android:gravity="center_horizontal"
                             android:orientation="vertical">
 
-                        <com.github.moyingshi.osc.tv.ui.custom.KaraokeStatusView
+                        <com.github.aiyingshi.osc.tv.ui.custom.KaraokeStatusView
                             android:id="@+id/audioKaraoke"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -321,7 +321,7 @@
                             android:paddingEnd="14dp"
                             android:paddingBottom="2dp">
 
-                            <com.github.moyingshi.osc.tv.ui.custom.CustomSeekView
+                            <com.github.aiyingshi.osc.tv.ui.custom.CustomSeekView
                                 android:id="@+id/audioSeek"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content" />
@@ -836,7 +836,7 @@
                         tools:listitem="@layout/adapter_episode_group"
                         tools:visibility="visible" />
 
-                    <com.github.moyingshi.osc.tv.ui.custom.CustomRecyclerView
+                    <com.github.aiyingshi.osc.tv.ui.custom.CustomRecyclerView
                         android:id="@+id/episode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -951,7 +951,7 @@
                         tools:visibility="visible" />
 
                 </androidx.appcompat.widget.LinearLayoutCompat>
-            </com.github.moyingshi.osc.tv.ui.custom.FixedNestedScrollView>
-        </com.github.moyingshi.osc.tv.ui.custom.ProgressLayout>
+            </com.github.aiyingshi.osc.tv.ui.custom.FixedNestedScrollView>
+        </com.github.aiyingshi.osc.tv.ui.custom.ProgressLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 </RelativeLayout>

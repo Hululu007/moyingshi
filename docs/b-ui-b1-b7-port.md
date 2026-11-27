@@ -1,9 +1,9 @@
-# B 档 UI 改版 — BieCuiLe → 墨影视（B1–B7）
+# B 档 UI 改版 — BieCuiLe → AI影视（B1–B7）
 
 任务来源：用户 2026-11-10 21:50 定“B档全套”（B1–B7，B8 全量 Flutter 重写不做）。
 参考：`~/workspace/ui-ref/analysis.md`（第 4 节）、参考 APK `~/workspace/ui-ref/ref-app.apk`（BieCuiLe com.langhuan.tv v1.1.5，Flutter UI，只能仿外观）。
 基线：main `c3c507e9`，仓库干净，无预存脏文件。
-约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每做完一项走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留墨影视已有改动（品牌/包名 com.github.moyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
+约束：只在本地改、本地提交，**不推 GitHub**；不编测试版；每做完一项走一次 task_guard finish（一个 guard 会话 = 一次原子提交 + recovery tag）；保留AI影视已有改动（品牌/包名 com.github.aiyingshi.osc.tv、液态玻璃、短剧、Archive.org 爬虫、本地源、默认搜索本站、底栏 6 项）；底栏上限 6 项；本机无 Android SDK，编译检查靠 GitHub 构建。
 
 ## 进度
 
@@ -20,7 +20,7 @@
 
 ## Recovery anchor
 
-- 目标：B1–B7 逐项落地到墨影视原生 UI，B7 先评估再决定做不做；全部本地提交、不推、不编。
+- 目标：B1–B7 逐项落地到AI影视原生 UI，B7 先评估再决定做不做；全部本地提交、不推、不编。
 - 当前阶段：B1–B6 + 吸顶分类栏已提交；B7 已评估为不做。
 - 分支/HEAD：main / a26b910c（吸顶已提交，本地 only，未推、未编；B6 也在本地未推）。
 - 已完成：B1 首页轮播横幅（ef5b9e0d）；B2 继续观看横滑行（7e23040d）；B3 悬浮玻璃胶囊底栏（6d163ba1）；B4 详情页演员回退（1be0182f，其余五项原已存在）；B5 首页 JS 组件区（见下 B5 小节，6 笔提交）；B6 画面调节 + Anime4K（见下 B6 小节，7 笔提交）；吸顶分类栏（a26b910c，见下吸顶小节）。
@@ -47,7 +47,7 @@
   - B6 静态核对（单元 7）：全量 `git diff d3f2b211..HEAD --check` 通过；12 条新 strings 三端齐全；底栏仍 6 项；Anime4K 文件 sha256 复核一致；ijk/System 走默认方法零改动；`TmdbDetailActivity.java` 括号 -6 与 HEAD 一致（改动前已有，字符串/注释里的括号）。
   - B6 待真机验证（推后编测试版才能验）：五项滑杆在 Exo/mpv 下实时生效、归零恢复原样；切 ijk 后面板提示不支持、切回后上次的值还在；Anime4K 开后 720p 动漫明显变锐、无掉帧；HDR 片源下 Exo 调节不生效（有提示）、mpv 下生效；LUT 与 Anime4K 同时开不闪退；开 Anime4K 播 10 分钟看发热/帧率/电量。
   - B6 未做：黑边虚化（需第二层模糊视频，是独立工程）；ijk 五项调节（vf0 只能 prepare 时设、硬解下未验证）；Exo Anime4K（需多 pass GlEffect 链 + 浮点中间纹理，未验证）；SystemPlayer；直播/TV 播放器按钮（引擎层已通用，只缺按钮接线）；全屏 VideoActivity 的控制栏（`view_control_vod_action.xml` / `dialog_control.xml` 里的 LUT 按钮旁未加画面按钮，见 B6 小节末尾）。
-- B7 评估结论：不做。media_kit 是 Flutter 专属包（Dart 封装 libmpv），原生 Android App 无法使用；墨影视已有等价且更多的实现——三内核 Exo/ijk/mpv（player/engine/ 下 ExoPlayerEngine、IjkPlayerEngine、MpvPlayerEngine），渲染路径（PlaybackAutoContext.Kernel：EXO/IJK/MPV；RenderPath：exo-tunneling、mpv-surface-direct、mpv-gpu、ijk-native），用户可选手动切换（PlayerSetting → PlaybackAutoContext.Kernel，见 PlayerManager.java 约 8498 行）。BieCuiLe 的 media_kit 底层就是 libmpv，与墨影视的 MpvPlayerEngine 同源；引入 media_kit 需嵌 Flutter（即 B8，已排除），零播放收益。
+- B7 评估结论：不做。media_kit 是 Flutter 专属包（Dart 封装 libmpv），原生 Android App 无法使用；AI影视已有等价且更多的实现——三内核 Exo/ijk/mpv（player/engine/ 下 ExoPlayerEngine、IjkPlayerEngine、MpvPlayerEngine），渲染路径（PlaybackAutoContext.Kernel：EXO/IJK/MPV；RenderPath：exo-tunneling、mpv-surface-direct、mpv-gpu、ijk-native），用户可选手动切换（PlayerSetting → PlaybackAutoContext.Kernel，见 PlayerManager.java 约 8498 行）。BieCuiLe 的 media_kit 底层就是 libmpv，与AI影视的 MpvPlayerEngine 同源；引入 media_kit 需嵌 Flutter（即 B8，已排除），零播放收益。
 - 吸顶分类栏已做（2026-11-11，用户 15:08 发首页截图提要求，15:10 说“做好直接推”）：
   - 方案：AppBarLayout scroll flags（标准做法，不复制分类行）：Toolbar/轮播（B1）/继续观看（B2）/组件区（B5）加 `layout_scrollFlags="scroll"`，上滑一起滑走；typeBar 不加 flag——它是 AppBar 最后一个子项，收到底时正好停在屏幕顶部（y=0）钉住，下滑回顶时随展开回到原位。单行单 Adapter，无选中状态同步问题。
   - 背景：typeBar 展开时透明（壁纸上的样子）；VodFragment 给 typeBar 挂 colorSurface ColorDrawable，初始透明，复用 AppBar offset 监听按收起比例淡入，收到底时全不透明，海报不透出来（设计文档 §5.4）。offset 监听的 chips 顶边距调整（最多 12dp）现在 range>0 才真正跑起来。

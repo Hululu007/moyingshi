@@ -20,7 +20,7 @@
     android:paddingEnd="9dp"
     android:paddingBottom="20dp">
 
-    <com.github.moyingshi.osc.tv.ui.custom.CustomRecyclerView
+    <com.github.aiyingshi.osc.tv.ui.custom.CustomRecyclerView
         android:id="@+id/typeRecycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -49,7 +49,7 @@
         android:textStyle="bold"
         android:visibility="gone" />
 
-    <com.github.moyingshi.osc.tv.ui.custom.CustomRecyclerView
+    <com.github.aiyingshi.osc.tv.ui.custom.CustomRecyclerView
         android:id="@+id/filterRecycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

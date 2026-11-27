@@ -1,6 +1,6 @@
 package androidx.media3.mpvplayer;
 
-import com.github.moyingshi.osc.tv.player.PlaybackAutoContext;
+import com.github.aiyingshi.osc.tv.player.PlaybackAutoContext;
 
 import org.junit.Test;
 

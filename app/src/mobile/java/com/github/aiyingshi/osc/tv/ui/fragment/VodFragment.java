@@ -1,0 +1,1077 @@
+package com.github.aiyingshi.osc.tv.ui.fragment;
+
+import android.net.Uri;
+import android.content.res.ColorStateList;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.widget.PopupMenu;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentStatePagerAdapter;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.viewbinding.ViewBinding;
+import androidx.viewpager.widget.PagerAdapter;
+import androidx.viewpager.widget.ViewPager;
+import androidx.viewpager2.widget.ViewPager2;
+
+import com.github.aiyingshi.osc.tv.App;
+import com.github.aiyingshi.osc.tv.R;
+import com.github.aiyingshi.osc.tv.api.config.VodConfig;
+import com.github.aiyingshi.osc.tv.bean.Class;
+import com.github.aiyingshi.osc.tv.bean.Config;
+import com.github.aiyingshi.osc.tv.bean.Device;
+import com.github.aiyingshi.osc.tv.bean.Filter;
+import com.github.aiyingshi.osc.tv.bean.History;
+import com.github.aiyingshi.osc.tv.bean.Result;
+import com.github.aiyingshi.osc.tv.bean.Site;
+import com.github.aiyingshi.osc.tv.bean.Value;
+import com.github.aiyingshi.osc.tv.bean.Vod;
+import com.github.aiyingshi.osc.tv.databinding.AdapterWidgetSectionBinding;
+import com.github.aiyingshi.osc.tv.databinding.FragmentVodBinding;
+import com.github.aiyingshi.osc.tv.widget.WidgetItem;
+import com.github.aiyingshi.osc.tv.widget.WidgetManager;
+import com.github.aiyingshi.osc.tv.event.CastEvent;
+import com.github.aiyingshi.osc.tv.event.ConfigEvent;
+import com.github.aiyingshi.osc.tv.event.RefreshEvent;
+import com.github.aiyingshi.osc.tv.event.StateEvent;
+import com.github.aiyingshi.osc.tv.impl.Callback;
+import com.github.aiyingshi.osc.tv.impl.ConfigListener;
+import com.github.aiyingshi.osc.tv.impl.FilterListener;
+import com.github.aiyingshi.osc.tv.impl.SiteListener;
+import com.github.aiyingshi.osc.tv.model.SiteViewModel;
+import com.github.aiyingshi.osc.tv.setting.Setting;
+import com.github.aiyingshi.osc.tv.setting.AppBranding;
+import com.github.aiyingshi.osc.tv.ui.activity.HomeActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.HistoryActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.DiceActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
+import com.github.aiyingshi.osc.tv.ui.activity.KeepActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.SearchActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.VideoActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.WidgetBrowseActivity;
+import com.github.aiyingshi.osc.tv.ui.adapter.BannerAdapter;
+import com.github.aiyingshi.osc.tv.ui.adapter.ContinueAdapter;
+import com.github.aiyingshi.osc.tv.ui.adapter.TypeAdapter;
+import com.github.aiyingshi.osc.tv.ui.adapter.WidgetSectionAdapter;
+import com.github.aiyingshi.osc.tv.ui.base.BaseFragment;
+import com.github.aiyingshi.osc.tv.ui.dialog.ApkPushDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.ApkPushMethodDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.ApkPushUrlDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.HistoryDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.LinkDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.PushPlayDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.PushPlayUrlDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.ReceiveDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.SiteDialog;
+import com.github.aiyingshi.osc.tv.ui.dialog.TypeFilterDialog;
+import com.github.aiyingshi.osc.tv.utils.ImgUtil;
+import com.github.aiyingshi.osc.tv.utils.Notify;
+import com.github.aiyingshi.osc.tv.utils.ResUtil;
+import com.github.aiyingshi.osc.tv.web.HomeWebController;
+import com.github.aiyingshi.osc.tv.web.WebHomeChrome;
+import com.github.aiyingshi.osc.tv.web.WebHomeChromeStartup;
+import com.github.aiyingshi.osc.tv.web.WebHomeViewport;
+import com.google.gson.JsonObject;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public class VodFragment extends BaseFragment implements ConfigListener, SiteListener, FilterListener, TypeAdapter.OnClickListener, HomeWebController.Listener {
+
+    private final ActivityResultLauncher<String[]> apkLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), this::onApkSelected);
+
+    private FragmentVodBinding mBinding;
+    private SiteViewModel mViewModel;
+    private HomeWebController mWeb;
+    private TypeAdapter mAdapter;
+    private Result mResult;
+    private String mChromeMode = WebHomeChrome.NORMAL;
+    private int mHomeWebTopMargin;
+    private Device pendingApkDevice;
+
+    // 首页轮播横幅（B1）：自动轮播，4 秒一页；用户拖动时暂停。
+    private BannerAdapter mBannerAdapter;
+    private boolean mBannerAutoScrollEnabled;
+    private boolean mBannerAutoScrollScheduled;
+    private boolean mBannerUserDragging;
+
+    // 首页“继续观看”（B2）：横向滑动行，读观看历史。
+    private ContinueAdapter mContinueAdapter;
+
+    // 首页组件区（B5）：Bangumi/豆瓣/Mikan/TMDB 推荐行；开关默认关。
+    private WidgetManager mWidgetManager;
+    private final Map<String, AdapterWidgetSectionBinding> mWidgetSections = new LinkedHashMap<>();
+    private final Map<String, WidgetSectionAdapter> mWidgetAdapters = new LinkedHashMap<>();
+
+    private final Runnable mBannerAutoScroll = new Runnable() {
+        @Override
+        public void run() {
+            mBannerAutoScrollScheduled = false;
+            if (!mBannerAutoScrollEnabled || mBannerUserDragging) return;
+            if (mBinding == null || mBannerAdapter == null || mBannerAdapter.getItemCount() <= 1) return;
+            int next = (mBinding.banner.getCurrentItem() + 1) % mBannerAdapter.getItemCount();
+            mBinding.banner.setCurrentItem(next, true);
+            App.post(this, 4000);
+            mBannerAutoScrollScheduled = true;
+        }
+    };
+
+    public static VodFragment newInstance() {
+        return new VodFragment();
+    }
+
+    private FolderFragment getFragment() {
+        return (FolderFragment) mBinding.pager.getAdapter().instantiateItem(mBinding.pager, mBinding.pager.getCurrentItem());
+    }
+
+    /** 底栏滚动折叠：只有当前 pager 页的 FolderFragment 才允许上报滚动（切页后旧页的回调失效）。 */
+    public boolean isCurrentFolder(FolderFragment folder) {
+        if (mBinding == null || folder == null || mBinding.pager.getAdapter() == null) return false;
+        if (mAdapter == null || mAdapter.getItemCount() == 0) return false;
+        return getFragment() == folder;
+    }
+
+    /**
+     * 首页内容竖向滚动：转发给 HomeActivity 折叠底栏。
+     * 网页首页模式时竖滚走 homeWeb 的监听，不走列表（TypeFragment 那路也被这道关拦住）。
+     */
+    public void onContentScrolled(int dy, boolean atTop) {
+        if (!isVisible() || getActivity() == null) return;
+        if (mWeb != null && mWeb.isVisible()) return;
+        if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).onContentScrolled(dy, atTop);
+    }
+
+    private Site getHome() {
+        return VodConfig.get().getHome();
+    }
+
+    private Config getConfig() {
+        return VodConfig.get().getConfig();
+    }
+
+    @Override
+    protected ViewBinding getBinding(@NonNull LayoutInflater inflater, @Nullable ViewGroup container) {
+        return mBinding = FragmentVodBinding.inflate(inflater, container, false);
+    }
+
+    @Override
+    protected void initView() {
+        EventBus.getDefault().register(this);
+        mBinding.title.setSelected(true);
+        mHomeWebTopMargin = ((ViewGroup.MarginLayoutParams) mBinding.homeWeb.getLayoutParams()).topMargin;
+        setRecyclerView();
+        setBannerView();
+        setContinueView();
+        setWebView();
+        setViewModel();
+        showProgress();
+        setTitle();
+        setLogo();
+        updateToolbarMenu();
+        setGlassSurfaces();
+    }
+
+    /** 首页玻璃面：3 个 FAB 用半透明底（与设置卡片同一套玻璃）。首页内容是滚动的海报/列表，
+     * 没有静态壁纸可模糊，真模糊只在设置页（壁纸静止）做，见 ThemeController.applyWallpaperBlur。 */
+    private void setGlassSurfaces() {
+        setFabGlass(mBinding.browse);
+        setFabGlass(mBinding.link);
+        setFabGlass(mBinding.top);
+    }
+
+    private void setFabGlass(com.google.android.material.floatingactionbutton.FloatingActionButton fab) {
+        fab.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.setting_card_bg)));
+    }
+
+    @Override
+    protected void initEvent() {
+        mBinding.top.setOnClickListener(this::onTop);
+        mBinding.logo.setOnClickListener(this::onLogo);
+        mBinding.logo.setOnLongClickListener(this::reloadConfig);
+        mBinding.link.setOnClickListener(this::onLink);
+        mBinding.browse.setOnClickListener(this::onBrowse);
+        mBinding.title.setOnClickListener(this::onSite);
+        mBinding.title.setOnLongClickListener(this::reloadConfig);
+        mBinding.searchBar.setOnClickListener(v -> onSearchClick());
+        mBinding.searchBar.setOnLongClickListener(v -> {
+            onSearchCurrentSite();
+            return true;
+        });
+        mBinding.searchHistory.setOnClickListener(v -> HistoryActivity.start(requireActivity()));
+        mBinding.searchDice.setOnClickListener(v -> DiceActivity.start(requireActivity()));
+        mBinding.searchDice.setVisibility(Setting.isDiceEntry() ? View.VISIBLE : View.GONE);
+        mBinding.searchMore.setOnClickListener(this::onSearchMore);
+        mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+        mBinding.toolbar.post(this::setSearchLongClick);
+        mBinding.appBar.addOnOffsetChangedListener((appBarLayout, verticalOffset) -> {
+            int range = appBarLayout.getTotalScrollRange();
+            if (range <= 0) return;
+            float factor = Math.abs(verticalOffset * 1f / range);
+            int padding = (int) (ResUtil.dp2px(12) * factor);
+            if (mBinding.type.getPaddingTop() == padding) return;
+            mBinding.type.setPadding(mBinding.type.getPaddingStart(), padding, mBinding.type.getPaddingEnd(), mBinding.type.getPaddingBottom());
+        });
+        mBinding.pager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
+            @Override
+            public void onPageSelected(int position) {
+                mBinding.type.smoothScrollToPosition(position);
+                mAdapter.setSelected(position);
+                setFabVisible(position);
+            }
+        });
+    }
+
+    private void setRecyclerView() {
+        mBinding.type.setHasFixedSize(true);
+        mBinding.type.setItemAnimator(null);
+        mBinding.type.setAdapter(mAdapter = new TypeAdapter(this));
+        mBinding.pager.setAdapter(new PageAdapter(getChildFragmentManager()));
+    }
+
+    /**
+     * 首页轮播横幅（B1）：ViewPager2，横向滑动 + 4 秒自动轮播。
+     * 数据来自当前站首页推荐（SiteApi.homeContent 的 homeVideoContent，
+     * 即 Result.getList()）；无数据时整个横幅隐藏。
+     */
+    private void setBannerView() {
+        mBannerAdapter = new BannerAdapter(this::onBannerClick);
+        mBinding.banner.setOrientation(ViewPager2.ORIENTATION_HORIZONTAL);
+        mBinding.banner.setAdapter(mBannerAdapter);
+        mBinding.banner.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageScrollStateChanged(int state) {
+                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
+                    mBannerUserDragging = true;
+                } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                    mBannerUserDragging = false;
+                    startBannerAutoScroll();
+                }
+            }
+        });
+    }
+
+    /** 横幅数据：有推荐就显示，无推荐就隐藏（B1 要求）。 */
+    private void setBanner(List<Vod> list) {
+        if (mBannerAdapter == null) return;
+        mBannerAdapter.submit(list);
+        if (mBannerAdapter.getItemCount() > 0) mBinding.banner.setCurrentItem(0, false);
+        updateBannerVisibility();
+    }
+
+    /** 横幅可见的唯一判据：有数据、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateBannerVisibility() {
+        boolean show = mBannerAdapter != null && mBannerAdapter.getItemCount() > 0
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.banner.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) startBannerAutoScroll();
+        else stopBannerAutoScroll();
+    }
+
+    private void startBannerAutoScroll() {
+        if (mBannerAutoScrollScheduled) return;
+        if (mBannerAdapter == null || mBannerAdapter.getItemCount() <= 1) return;
+        mBannerAutoScrollEnabled = true;
+        mBannerAutoScrollScheduled = true;
+        App.post(mBannerAutoScroll, 4000);
+    }
+
+    private void stopBannerAutoScroll() {
+        mBannerAutoScrollEnabled = false;
+        mBannerAutoScrollScheduled = false;
+    }
+
+    /** 横幅点进详情：与 TypeFragment 的点播行为一致（索引站进搜索，其余进详情/播放）。 */
+    private void onBannerClick(Vod item) {
+        if (item.isAction()) {
+            com.github.aiyingshi.osc.tv.content.ActionCardHelper.handleAction(requireActivity(), getHome().getKey(), item.getAction());
+        } else if (getHome().isIndex()) {
+            SearchActivity.start(requireActivity(), item.getName());
+        } else {
+            VideoActivity.start(requireActivity(), getHome().getKey(), item.getId(), item.getName(), item.getPic(), null);
+        }
+    }
+
+    /**
+     * 首页“继续观看”（B2）：横向滑动行，读观看历史。
+     * 只显示未看完的（duration > 0 且 position < duration），最近 10 条；没有就隐藏整行。
+     */
+    private void setContinueView() {
+        mContinueAdapter = new ContinueAdapter(this::onContinueClick);
+        mBinding.continueList.setHasFixedSize(true);
+        mBinding.continueList.setItemAnimator(null);
+        mBinding.continueList.setAdapter(mContinueAdapter);
+        refreshContinue();
+    }
+
+    private void refreshContinue() {
+        if (mContinueAdapter == null) return;
+        List<History> items = new ArrayList<>();
+        for (History item : History.getForDisplay()) {
+            if (item.getDuration() > 0 && item.getPosition() < item.getDuration()) items.add(item);
+            if (items.size() >= 10) break;
+        }
+        mContinueAdapter.submit(items);
+        updateContinueVisibility();
+    }
+
+    /** “继续观看”可见的唯一判据：有未看完内容、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateContinueVisibility() {
+        boolean show = mContinueAdapter != null && mContinueAdapter.getItemCount() > 0
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.continueSection.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** “继续观看”点进续播：与历史页点播行为一致。 */
+    private void onContinueClick(History item) {
+        HistoryResumeCoordinator.open(requireActivity(), item);
+    }
+
+    /**
+     * 首页组件区（B5）：开关开时加载各组件的首页行（先贴缓存、再后台刷新），
+     * 开关关时整区隐藏、已有行清掉。WidgetManager 自带会话内节流，
+     * setAdapter/onResume 反复调也不会重复发请求。
+     */
+    private void refreshWidgets() {
+        if (!Setting.isHomeWidget()) {
+            mWidgetSections.clear();
+            mWidgetAdapters.clear();
+            mBinding.widgetSections.removeAllViews();
+            mBinding.widgetSections.setVisibility(View.GONE);
+            return;
+        }
+        if (mWidgetManager == null) mWidgetManager = new WidgetManager();
+        mWidgetManager.loadHome(new WidgetManager.Listener() {
+            @Override
+            public void onSection(WidgetManager.Section section) {
+                // 回调可能晚于开关关闭到达：开关关时不加行。
+                if (mBinding == null || !isAdded() || !Setting.isHomeWidget()) return;
+                addWidgetSection(section);
+            }
+
+            @Override
+            public void onSectionFailed(String widgetId) {
+                if (mBinding == null || !isAdded()) return;
+                removeWidgetSection(widgetId);
+            }
+        });
+    }
+
+    private void addWidgetSection(WidgetManager.Section section) {
+        String widgetId = section.metadata.getId();
+        AdapterWidgetSectionBinding binding = mWidgetSections.get(widgetId);
+        if (binding == null) {
+            binding = AdapterWidgetSectionBinding.inflate(LayoutInflater.from(requireContext()), mBinding.widgetSections, false);
+            binding.widgetTitle.setText(section.title());
+            binding.getRoot().setTag(widgetId);
+            binding.widgetMore.setOnClickListener(v -> WidgetBrowseActivity.start(requireActivity(), widgetId));
+            WidgetSectionAdapter adapter = new WidgetSectionAdapter(this::onWidgetItemClick);
+            binding.widgetList.setHasFixedSize(true);
+            binding.widgetList.setItemAnimator(null);
+            binding.widgetList.setAdapter(adapter);
+            mWidgetSections.put(widgetId, binding);
+            mWidgetAdapters.put(widgetId, adapter);
+            mBinding.widgetSections.addView(binding.getRoot(), widgetInsertIndex(widgetId));
+        } else {
+            binding.widgetTitle.setText(section.title());
+        }
+        WidgetSectionAdapter adapter = mWidgetAdapters.get(widgetId);
+        if (adapter != null) adapter.submit(section.items);
+        updateWidgetVisibility();
+    }
+
+    private void removeWidgetSection(String widgetId) {
+        AdapterWidgetSectionBinding binding = mWidgetSections.remove(widgetId);
+        mWidgetAdapters.remove(widgetId);
+        if (binding != null) mBinding.widgetSections.removeView(binding.getRoot());
+        updateWidgetVisibility();
+    }
+
+    /** 行按内置组件顺序（Bangumi → 豆瓣 → Mikan → TMDB）排，不随加载完成先后乱序。 */
+    private int widgetInsertIndex(String widgetId) {
+        int order = WidgetManager.builtinOrder(widgetId);
+        int index = 0;
+        for (int i = 0; i < mBinding.widgetSections.getChildCount(); i++) {
+            Object tag = mBinding.widgetSections.getChildAt(i).getTag();
+            int childOrder = tag instanceof String ? WidgetManager.builtinOrder((String) tag) : Integer.MAX_VALUE;
+            if (childOrder < order) index++;
+        }
+        return index;
+    }
+
+    /** 组件区可见的唯一判据：至少有一行、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateWidgetVisibility() {
+        boolean show = !mWidgetSections.isEmpty()
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.widgetSections.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** 组件条目点进：在当前资源里搜片名（与 B1 横幅的索引站行为一致）。 */
+    private void onWidgetItemClick(WidgetItem item) {
+        if (item == null || item.getTitle() == null || item.getTitle().isEmpty()) return;
+        SearchActivity.start(requireActivity(), item.getTitle());
+    }
+
+    private void setWebView() {
+        mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
+        // 网页首页模式的竖向滚动源：WebView（minSdk 24，setOnScrollChangeListener 需 API 23+）。
+        // HomeWebController 没占这个监听，直接挂；只有网页首页可见时才上报。
+        mBinding.homeWeb.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (mWeb == null || !mWeb.isVisible()) return;
+            if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).onContentScrolled(scrollY - oldScrollY, scrollY == 0);
+        });
+        syncWebHomeChrome();
+    }
+
+    private void setViewModel() {
+        mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
+        mViewModel.getResult().observe(getViewLifecycleOwner(), this::setAdapter);
+    }
+
+    private void setAdapter(Result result) {
+        if (mWeb != null && mWeb.isVisible()) return;
+        mAdapter.addAll(mResult = result);
+        setBanner(result.getList());
+        refreshContinue();
+        refreshWidgets();
+        notifyPagerAdapter();
+        setFabVisible(0);
+        updateToolbarMenu();
+        hideProgress();
+        showContent();
+    }
+
+    private void setFabVisible(int position) {
+        if (isNativeChromeHidden()) {
+            mBinding.top.setVisibility(View.GONE);
+            mBinding.link.setVisibility(View.GONE);
+            mBinding.browse.setVisibility(View.GONE);
+            return;
+        }
+        mBinding.top.setVisibility(View.INVISIBLE);
+        if (mAdapter.getItemCount() == 0) {
+            mBinding.browse.setVisibility(View.GONE);
+            mBinding.link.setVisibility(View.VISIBLE);
+        } else {
+            mBinding.browse.show();
+            mBinding.link.setVisibility(View.GONE);
+        }
+    }
+
+    private void setTitle() {
+        String name = AppBranding.getDisplayName(requireContext(), getHome().getDisplayName(), getConfig().getName());
+        mBinding.title.setText(name);
+    }
+
+    private void onTop(View view) {
+        getFragment().scrollToTop();
+        mBinding.top.setVisibility(View.INVISIBLE);
+        if (mBinding.browse.getVisibility() == View.INVISIBLE) mBinding.browse.show();
+        else if (mBinding.link.getVisibility() == View.INVISIBLE) mBinding.link.show();
+    }
+
+    private boolean onLink(View view) {
+        LinkDialog.show(this);
+        return true;
+    }
+
+    /** 右下角浏览悬浮按钮：打开“全部分类 + 筛选”合成面板。 */
+    private void onBrowse(View view) {
+        if (mAdapter.getItemCount() > 0) TypeFilterDialog.create().items(mAdapter.getItems()).filter(getFiltersForPosition(mBinding.pager.getCurrentItem())).filterProvider(this::getFiltersForPosition).show(this);
+    }
+
+    private List<Filter> getFiltersForPosition(int position) {
+        if (mAdapter == null || position < 0 || position >= mAdapter.getItemCount()) return Collections.emptyList();
+        return mAdapter.get(position).getFilters();
+    }
+
+    private void onLogo(View view) {
+        HistoryDialog.create().vod().readOnly().show(this);
+    }
+
+    private void onSearchClick() {
+        SearchActivity.start(requireActivity());
+    }
+
+    /** 长按搜索条（搜本站）。 */
+    private void onSearchCurrentSite() {
+        SearchActivity.start(requireActivity(), "", getHome().getKey());
+    }
+
+    private void onSite(View view) {
+        SiteDialog.create().change().show(this);
+    }
+
+    private boolean reloadConfig(View view) {
+        VodConfig.get().clear("mobile-vod-reload").config(getConfig()).load(new Callback() {
+            @Override
+            public void start() {
+                showProgress();
+                hideContent();
+            }
+
+            @Override
+            public void success() {
+                hideProgress();
+                showContent();
+            }
+
+            @Override
+            public void error(String msg) {
+                Notify.dismiss();
+                Notify.show(msg);
+                hideProgress();
+                showContent();
+            }
+        });
+        return true;
+    }
+
+    /** 搜索条右侧 ⋮：弹原工具栏溢出菜单（刷新/追更/一键同步/推送/增强设置），id 与行为不变。 */
+    private void onSearchMore(View view) {
+        PopupMenu popup = new PopupMenu(requireContext(), view);
+        popup.getMenuInflater().inflate(R.menu.menu_vod_more, popup.getMenu());
+        popup.setOnMenuItemClickListener(this::onMenuItemClick);
+        popup.show();
+    }
+
+    private boolean onMenuItemClick(MenuItem item) {
+        if (item.getItemId() == R.id.refresh) {
+            if (mWeb != null && mWeb.isVisible()) mWeb.reload();
+            else homeContent();
+        } else if (item.getItemId() == R.id.keep) KeepActivity.start(requireActivity());
+        else if (item.getItemId() == R.id.search) onSearchClick();
+        else if (item.getItemId() == R.id.sync) OneKeySyncDialog.create().show(requireActivity());
+        else if (item.getItemId() == R.id.push_apk) ApkPushDialog.create().listener(this::onApkDeviceSelected).show(requireActivity());
+        else if (item.getItemId() == R.id.push_play) PushPlayDialog.create().listener(this::onPushPlayDeviceSelected).show(requireActivity());
+        else if (item.getItemId() == R.id.enhance && homeActivity() != null) homeActivity().openEnhanceFromVod();
+        else if (item.getItemId() == R.id.web_home_fullscreen) onWebHomeFullscreen();
+        else return false;
+        return true;
+    }
+
+    private void onApkSelected(Uri uri) {
+        Device device = pendingApkDevice;
+        pendingApkDevice = null;
+        if (uri != null && device != null) ApkPushDialog.create(device, uri).show(requireActivity());
+    }
+
+    private void onApkDeviceSelected(Device device) {
+        App.post(() -> {
+            if (!isAdded()) return;
+            ApkPushMethodDialog.create(device).listener(new ApkPushMethodDialog.Listener() {
+                @Override
+                public void onLocal(Device device) {
+                    selectLocalApk(device);
+                }
+
+                @Override
+                public void onLink(Device device) {
+                    ApkPushUrlDialog.create(device).show(requireActivity());
+                }
+            }).show(requireActivity());
+        });
+    }
+
+    private void selectLocalApk(Device device) {
+        pendingApkDevice = device;
+        App.post(() -> {
+            if (isAdded()) apkLauncher.launch(new String[]{"application/vnd.android.package-archive", "application/octet-stream"});
+        });
+    }
+
+    private void onPushPlayDeviceSelected(Device device) {
+        App.post(() -> {
+            if (isAdded()) PushPlayUrlDialog.create(device).show(requireActivity());
+        });
+    }
+
+    private void onWebHomeFullscreen() {
+        if (!Setting.isWebHomeFullscreen()) return;
+        if (mWeb == null || !mWeb.isVisible()) return;
+        JsonObject payload = new JsonObject();
+        payload.addProperty("mode", WebHomeChrome.EDGE);
+        setChrome(payload);
+    }
+
+    private void updateToolbarMenu() {
+        Menu menu = mBinding.toolbar.getMenu();
+        MenuItem fullscreen = menu.findItem(R.id.web_home_fullscreen);
+        if (fullscreen != null) fullscreen.setVisible(Setting.isWebHomeFullscreen() && mWeb != null && mWeb.isVisible());
+    }
+
+    private void setSearchLongClick() {
+        View search = mBinding.toolbar.findViewById(R.id.search);
+        if (search == null) return;
+        search.setOnLongClickListener(view -> {
+            onSearchCurrentSite();
+            return true;
+        });
+    }
+
+    private void showProgress() {
+        mBinding.progress.getRoot().setVisibility(View.VISIBLE);
+    }
+
+    private void hideProgress() {
+        mBinding.progress.getRoot().setVisibility(View.GONE);
+    }
+
+    private void hideContent() {
+        mBinding.type.setVisibility(View.INVISIBLE);
+        mBinding.pager.setVisibility(View.INVISIBLE);
+    }
+
+    private void showContent() {
+        mBinding.type.setVisibility(View.VISIBLE);
+        mBinding.pager.setVisibility(View.VISIBLE);
+    }
+
+    private void homeContent() {
+        requestNormalChrome();
+        showProgress();
+        if (mWeb != null) mWeb.hide();
+        updateToolbarMenu();
+        clearPagerTypes();
+        mBinding.pager.setAdapter(new PageAdapter(getChildFragmentManager()));
+        setFabVisible(0);
+        mViewModel.homeContent();
+    }
+
+    private void loadHome() {
+        Site home = getHome();
+        WebHomeChromeStartup.remember(getConfig(), home);
+        setTitle();
+        if (mWeb != null && mWeb.load(home)) {
+            clearPagerTypes();
+            hideProgress();
+            hideNativeContent();
+        } else {
+            showNativeContent();
+            homeContent();
+        }
+    }
+
+    private void clearPagerTypes() {
+        mAdapter.clear();
+        notifyPagerAdapter();
+    }
+
+    private void notifyPagerAdapter() {
+        PagerAdapter adapter = mBinding.pager.getAdapter();
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    public Result getResult() {
+        return mResult == null ? new Result() : mResult;
+    }
+
+    private void setLogo() {
+        AppBranding.applyLogo(mBinding.logo);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onConfigEvent(ConfigEvent event) {
+        if (event.type() == ConfigEvent.Type.VOD) setLogo();
+    }
+
+    /**
+     * 状态浮层只能被「又一次启动 / 点重试」收掉，而配置可能在别的路径上变得可用：
+     * 恢复备份、远程指令切换接口、设置页切换接口、接收推送接口。这些路径发的是
+     * {@link RefreshEvent#home()} 而不是 StateEvent，于是用户在这些页面上操作完回到首页，
+     * 首页仍顶着那张状态卡，**必须杀进程冷启动才恢复**（用户反馈的"杀进程后重进才行"）。
+     *
+     * <p>这里把「配置真的可用了」当成收卡的唯一判据：HOME 刷新意味着本 Fragment 马上会
+     * 重新加载首页内容，此时若还处在空态/错误态就直接收起，不依赖任何调用方记得收。
+     */
+    private void dismissStateIfConfigured() {
+        if (mBinding.state.getVisibility() != View.VISIBLE) return;
+        if (VodConfig.get().getSites().isEmpty()) return;
+        hideState();
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onRefreshEvent(RefreshEvent event) {
+        switch (event.getType()) {
+            case HOME:
+                dismissStateIfConfigured();
+                if (mWeb != null && mWeb.isVisible()) {
+                    Site home = getHome();
+                    WebHomeChromeStartup.remember(getConfig(), home);
+                    requestNormalChrome();
+                    setTitle();
+                    if (!mWeb.load(home, true)) {
+                        showNativeContent();
+                        homeContent();
+                    }
+                } else {
+                    loadHome();
+                }
+                break;
+            case SIZE:
+                if (mWeb != null && mWeb.isVisible()) return;
+                homeContent();
+                break;
+            case CATEGORY:
+                if (mWeb != null && mWeb.isVisible()) return;
+                getFragment().onRefresh();
+                break;
+            case HISTORY:
+                if (mWeb != null && mWeb.isVisible()) return;
+                refreshContinue();
+                break;
+        }
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onStateEvent(StateEvent event) {
+        switch (event.type()) {
+            case EMPTY:
+                // 空态：确实没有内容（与"加载失败"是两件事）。
+                // 改动前这里只 hideProgress()，于是首页同样是一片空白。
+                hideProgress();
+                showEmpty();
+                break;
+            case PROGRESS:
+                hideState();
+                showProgress();
+                break;
+            case CONTENT:
+                hideState();
+                break;
+            case ERROR:
+                // 失败不接管整屏：全屏错误态会把顶栏（含内容源切换）一起盖掉，用户既切不了源
+                // 也进不去设置，而吐司几秒后消失，页面上没有任何恢复入口。这里只收起转圈与
+                // 浮层、回到原生首页，失败原因由吐司提示。
+                hideProgress();
+                hideState();
+                showNativeContent();
+                break;
+            case NO_CONFIG:
+                // 还没配接口：不是失败，所以不给"重试"（它永远不会成功），也不接管首页——
+                // 收起状态浮层回到原生内容态，底部导航照常可用；添加接口走既有的
+                // 「设置 → 点播」管理面板。
+                hideProgress();
+                showNoConfig();
+                break;
+        }
+    }
+
+    /**
+     * 显示空态：设计文档 §9.9 要求「标题 + 解释 + 一个主动作」。
+     *
+     * <p>它表达的是"确实没有内容"：标题不用错误色，也没有失败原因。主动作复用
+     * {@link #homeContent()}。
+     */
+    private void showEmpty() {
+        mBinding.state.setVisibility(View.VISIBLE);
+        mBinding.state.setEmptyContent(
+                R.string.home_empty_title,
+                R.string.home_empty_description,
+                R.string.home_empty_action,
+                view -> homeContent());
+        mBinding.state.showEmpty();
+    }
+
+    /**
+     * 还没配接口：这不是失败，也不该由本 Fragment 独占整屏。
+     *
+     * <p>配置为空时首页仍然是"正常首页"：底部导航（点播/设置）照常可用，只是没有内容。
+     * 状态浮层只留给"确实没有内容"（EMPTY），不用来接管配置加载失败。
+     */
+    private void showNoConfig() {
+        hideState();
+        showNativeContent();
+    }
+
+    /** 收起状态浮层，回到正常内容。 */
+    private void hideState() {
+        mBinding.state.setVisibility(View.GONE);
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onCastEvent(CastEvent event) {
+        ReceiveDialog.create().event(event).show(this);
+    }
+
+    @Override
+    public void setConfig(Config config) {
+        VodConfig.load(config, new Callback() {
+            @Override
+            public void start() {
+                showProgress();
+                hideContent();
+                setTitle();
+                setLogo();
+            }
+
+            @Override
+            public void error(String msg) {
+                Notify.dismiss();
+                Notify.show(msg);
+                showContent();
+            }
+        });
+    }
+
+    @Override
+    public void setSite(Site item) {
+        VodConfig.get().setHome(item);
+    }
+
+    @Override
+    public void onItemClick(int position, Class item) {
+        mBinding.pager.setCurrentItem(position);
+        mAdapter.setSelected(position);
+    }
+
+    @Override
+    public void setFilter(String key, Value value) {
+        getFragment().setFilter(key, value);
+    }
+
+    @Override
+    public boolean canBack() {
+        if (mWeb != null && mWeb.handleBack()) return false;
+        if (isNativeChromeHidden()) {
+            requestNormalChrome();
+            return false;
+        }
+        if (mBinding.pager.getAdapter() == null || mBinding.pager.getAdapter().getCount() == 0) return true;
+        if (!getFragment().canBack()) return true;
+        getFragment().goBack();
+        return false;
+    }
+
+    @Override
+    public void onDestroyView() {
+        stopBannerAutoScroll();
+        if (mWidgetManager != null) mWidgetManager.destroy();
+        requestNormalChrome();
+        if (mWeb != null) mWeb.destroy();
+        EventBus.getDefault().unregister(this);
+        super.onDestroyView();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mWeb != null) mWeb.onResume();
+        if (mBinding == null) return;
+        mBinding.searchDice.setVisibility(Setting.isDiceEntry() ? View.VISIBLE : View.GONE);
+        refreshContinue();
+        refreshWidgets();
+        if (mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();
+    }
+
+    @Override
+    public void onPause() {
+        stopBannerAutoScroll();
+        if (mWeb != null) mWeb.onPause();
+        super.onPause();
+    }
+
+    @Override
+    public void onWebLoading() {
+        showProgress();
+    }
+
+    @Override
+    public void onWebReady() {
+        hideProgress();
+    }
+
+    @Override
+    public void onWebError() {
+        requestNormalChrome();
+        showNativeContent();
+        homeContent();
+    }
+
+    @Override
+    public void setToolbar(boolean visible) {
+        if (!Setting.isWebHomeFullscreen()) {
+            applyWebHomeChrome(WebHomeChrome.NORMAL);
+            return;
+        }
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.setWebHomeLegacyToolbar(visible);
+        else applyWebHomeChrome(visible ? WebHomeChrome.NORMAL : WebHomeChrome.IMMERSIVE);
+    }
+
+    @Override
+    public void applyDefaultChrome(Site site) {
+        if (!Setting.isWebHomeFullscreen()) {
+            applyWebHomeChrome(WebHomeChrome.NORMAL);
+            return;
+        }
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.applyWebHomeDefaultChrome(site);
+    }
+
+    @Override
+    public void setChrome(JsonObject payload) {
+        if (!Setting.isWebHomeFullscreen()) {
+            applyWebHomeChrome(WebHomeChrome.NORMAL);
+            return;
+        }
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.setWebHomeChrome(payload);
+    }
+
+    @Override
+    public void restoreChrome() {
+        if (!Setting.isWebHomeFullscreen()) {
+            applyWebHomeChrome(WebHomeChrome.NORMAL);
+            return;
+        }
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.restoreWebHomeChrome();
+    }
+
+    @Override
+    public WebHomeViewport getViewport() {
+        HomeActivity activity = homeActivity();
+        return activity == null ? WebHomeViewport.EMPTY : activity.getWebHomeViewport();
+    }
+
+    @Override
+    public void openVod() {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.openVod();
+    }
+
+    @Override
+    public void openSite() {
+        SiteDialog.create().change().show(this);
+    }
+
+    @Override
+    public void openSetting() {
+        if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).change(1);
+    }
+
+    private void hideNativeContent() {
+        mBinding.appBar.setExpanded(true, false);
+        boolean hidden = isNativeChromeHidden();
+        mBinding.appBar.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        setHomeWebTopMargin(hidden ? 0 : mHomeWebTopMargin);
+        mBinding.type.setVisibility(View.GONE);
+        mBinding.pager.setVisibility(View.GONE);
+        mBinding.banner.setVisibility(View.GONE);
+        stopBannerAutoScroll();
+        mBinding.continueSection.setVisibility(View.GONE);
+        mBinding.widgetSections.setVisibility(View.GONE);
+        mBinding.browse.setVisibility(View.GONE);
+        mBinding.link.setVisibility(View.GONE);
+        mBinding.top.setVisibility(View.GONE);
+        updateToolbarMenu();
+    }
+
+    private void showNativeContent() {
+        requestNormalChrome();
+        mBinding.type.setVisibility(View.VISIBLE);
+        mBinding.pager.setVisibility(View.VISIBLE);
+        updateBannerVisibility();
+        updateContinueVisibility();
+        updateWidgetVisibility();
+        if (mWeb != null) mWeb.hide();
+        updateToolbarMenu();
+    }
+
+    public void applyWebHomeChrome(String mode) {
+        mChromeMode = WebHomeChrome.normalize(mode, WebHomeChrome.NORMAL);
+        boolean hidden = isNativeChromeHidden();
+        mBinding.appBar.setExpanded(true, false);
+        mBinding.appBar.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        setHomeWebTopMargin(hidden ? 0 : mHomeWebTopMargin);
+        updateToolbarMenu();
+        if (hidden) {
+            mBinding.type.setVisibility(View.GONE);
+            mBinding.pager.setVisibility(View.GONE);
+            mBinding.banner.setVisibility(View.GONE);
+            stopBannerAutoScroll();
+            mBinding.continueSection.setVisibility(View.GONE);
+            mBinding.widgetSections.setVisibility(View.GONE);
+            mBinding.browse.setVisibility(View.GONE);
+            mBinding.link.setVisibility(View.GONE);
+            mBinding.top.setVisibility(View.GONE);
+        }
+    }
+
+    public void applyWebHomeViewport(WebHomeViewport viewport) {
+        if (mWeb != null) mWeb.setViewport(viewport);
+    }
+
+    public void openVodHome() {
+        homeContent();
+    }
+
+    private void setHomeWebTopMargin(int margin) {
+        if (mWeb != null) mWeb.setTopMargin(margin);
+    }
+
+    private void requestNormalChrome() {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.setWebHomeLegacyToolbar(true);
+        else applyWebHomeChrome(WebHomeChrome.NORMAL);
+    }
+
+    private boolean isNativeChromeHidden() {
+        return WebHomeChrome.hidesNativeChrome(mChromeMode);
+    }
+
+    private void syncWebHomeChrome() {
+        HomeActivity activity = homeActivity();
+        if (activity == null) return;
+        applyWebHomeChrome(activity.getWebHomeChromeMode());
+        applyWebHomeViewport(activity.getWebHomeViewport());
+    }
+
+    private HomeActivity homeActivity() {
+        return getActivity() instanceof HomeActivity ? (HomeActivity) getActivity() : null;
+    }
+
+
+    class PageAdapter extends FragmentStatePagerAdapter {
+
+        public PageAdapter(@NonNull FragmentManager fm) {
+            super(fm);
+        }
+
+        @NonNull
+        @Override
+        public Fragment getItem(int position) {
+            Class type = mAdapter.get(position);
+            return FolderFragment.newInstance(getHome().getKey(), type, 4);
+        }
+
+        @Override
+        public int getCount() {
+            return mAdapter.getItemCount();
+        }
+
+        @Override
+        public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
+        }
+    }
+}

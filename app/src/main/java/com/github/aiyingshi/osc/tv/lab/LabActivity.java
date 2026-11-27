@@ -1,0 +1,948 @@
+package com.github.aiyingshi.osc.tv.lab;
+
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Color;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.OpenableColumns;
+import android.text.TextUtils;
+import android.util.Base64;
+import android.view.KeyEvent;
+import android.view.GestureDetector;
+import android.view.LayoutInflater;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewConfiguration;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatEditText;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.github.aiyingshi.osc.tv.App;
+import com.github.aiyingshi.osc.tv.api.config.VodConfig;
+import com.github.aiyingshi.osc.tv.bean.Config;
+import com.github.aiyingshi.osc.tv.bean.Site;
+import com.github.aiyingshi.osc.tv.event.ConfigEvent;
+import com.github.aiyingshi.osc.tv.impl.Callback;
+import com.github.aiyingshi.osc.tv.ui.adapter.LocalSourceAdapter;
+import com.github.aiyingshi.osc.tv.utils.FileChooser;
+import com.github.aiyingshi.osc.tv.utils.LocalSource;
+import com.github.aiyingshi.osc.tv.R;
+import com.github.aiyingshi.osc.tv.databinding.ActivityLabBinding;
+import com.github.aiyingshi.osc.tv.databinding.AdapterLabLocalSourceEntryBinding;
+import com.github.aiyingshi.osc.tv.setting.Setting;
+import com.github.aiyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
+import com.github.aiyingshi.osc.tv.utils.Notify;
+import com.github.aiyingshi.osc.tv.utils.PermissionUtil;
+import com.github.aiyingshi.osc.tv.utils.Util;
+import com.github.catvod.utils.Path;
+import com.google.android.material.materialswitch.MaterialSwitch;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.IntConsumer;
+
+public class LabActivity extends AppCompatActivity implements LabPackageAdapter.Listener, LabGroupAdapter.Listener, LocalSourceAdapter.OnClickListener {
+
+    private static final int REQUEST_IMPORT = 1001;
+    private static final int REQUEST_LOCAL_CONFIG = 1002;
+    private static final String GROUP_ALL = "all";
+    /** 本地源分组 id：下划线前缀，避免与 lab.json 里的分组 id 撞上。 */
+    private static final String GROUP_LOCAL_SOURCE = "__local_source__";
+    private static final int[] SOURCE_MODES = {LabConfig.SOURCE_LOCAL, LabConfig.SOURCE_URL};
+    public static final String EXTRA_SHOW_RUNNING = "show_running";
+
+    private ActivityLabBinding mBinding;
+    private LabGroupAdapter groupAdapter;
+    private LabPackageAdapter packageAdapter;
+    private String currentGroup = GROUP_ALL;
+    /** 分组 id 顺序，与顶部标签一致；左右滑动切分组就按这个走（含本地源分组）。 */
+    private final List<String> groupIds = new ArrayList<>();
+    /** render() 拼出的全部分组（含名字），供悬浮按钮的底部面板用；与 groupIds 同源同顺序。 */
+    private final List<LabGroupAdapter.Row> groupRows = new ArrayList<>();
+    /** 内容区横向滑动手势：只观察事件，不拦截，纵向滚动与点卡片原样不动。 */
+    private GestureDetector groupSwipeDetector;
+    /** 拖动跟手的状态：手势起始时的 translationX、方向锁定、待结算的 fling 方向（+1 下一组、-1 上一组、0 无）。 */
+    private float swipeDragBaseX;
+    private boolean swipeHorizontal;
+    private boolean swipeVertical;
+    private int swipeFlingDelta;
+    /** 结算动画的代次：新开手势或重渲染时 +1，旧动画的结束回调凭它认出自己已过期，不再切分组。 */
+    private int swipeSettleToken;
+    private final Set<String> autoInstallAttempted = new HashSet<>();
+    private AlertDialog settingsDialog;
+    /** 实验室里嵌的本地源列表：复用弹窗那套适配器（点源切换、行末删除），多选框关掉。 */
+    private LocalSourceAdapter localSourceAdapter;
+    /** 本地源弹窗模式的单行入口：只显示“本地源 + 文件数”，点它开弹窗。 */
+    private LabLocalSourceEntryAdapter localSourceEntryAdapter;
+    private boolean localSourceScanning;
+
+    /** 选本地源扫描目录：SAF 目录选择器自己授权，不用先要文件权限（与弹窗一致）。 */
+    private final ActivityResultLauncher<Intent> localSourceLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        if (result.getData() == null || result.getData().getData() == null) return;
+        String path = FileChooser.getPersistentPathFromUri(result.getData().getData());
+        if (TextUtils.isEmpty(path)) return;
+        LocalSource.setScanDir(path);
+        scanLocalDir(new File(path));
+    });
+
+    public static void start(Context context) {
+        context.startActivity(new Intent(context, LabActivity.class));
+    }
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(Setting.wrapDisplay(newBase));
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mBinding = ActivityLabBinding.inflate(getLayoutInflater());
+        setContentView(mBinding.getRoot());
+        mBinding.toolbar.setTitleTextColor(Color.WHITE);
+        mBinding.toolbar.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.help) {
+                showAbout();
+                return true;
+            }
+            if (id == R.id.import_pkg) {
+                // + 按当前分组走不同功能：本地源分组开本地源弹窗（搜索、分类、更多操作都在里面），
+                // 全部及其它分组保持原来的“导入包”。
+                if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
+                    openLocalSourceDialog();
+                    return true;
+                }
+                showImportDialog();
+                return true;
+            }
+            if (id == R.id.setting) {
+                showSettings();
+                return true;
+            }
+            if (id == R.id.scan_local_dir) {
+                pickLocalSourceDir();
+                return true;
+            }
+            return false;
+        });
+        mBinding.groupRecycler.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        groupAdapter = new LabGroupAdapter(this);
+        mBinding.groupRecycler.setAdapter(groupAdapter);
+        mBinding.recycler.setLayoutManager(new LinearLayoutManager(this));
+        packageAdapter = new LabPackageAdapter(this, this);
+        mBinding.recycler.setAdapter(packageAdapter);
+        mBinding.swipeRefresh.setColorSchemeColors(getColor(R.color.accent));
+        mBinding.swipeRefresh.setOnRefreshListener(this::onRefresh);
+        // 内容区左右滑动切分组：TV 没有触摸滑动，只在手机端挂手势，TV 上零影响。
+        // OnTouchListener 只观察、不消费事件，纵向滚动、下拉刷新、点卡片都走原来的路。
+        if (!Util.isLeanback()) {
+            groupSwipeDetector = new GestureDetector(this, new GroupSwipeListener());
+            mBinding.recycler.setOnTouchListener((v, event) -> onSwipeTouch(event));
+            // 空态时列表是隐藏的，手势挂到空态视图上，左右滑动一样能切分组。
+            mBinding.empty.getRoot().setOnTouchListener((v, event) -> onSwipeTouch(event));
+            // 悬浮 tune 按钮：底部面板列出全部分组，点哪个切哪个分组；TV 没有触摸滑动，不显示。
+            mBinding.fabGroup.setVisibility(View.VISIBLE);
+            mBinding.fabGroup.setOnClickListener(v -> showGroupSheet());
+        }
+        mBinding.empty.getRoot().setVisibility(View.GONE);
+        mBinding.progress.setVisibility(View.VISIBLE);
+        reload();
+        handleShowRunning(getIntent());
+        App.post(this::requestNotifyPermission, 300);
+    }
+
+    private void requestNotifyPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 2001);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 2001 && grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (LabConfig.get().getForeground()) LabProcManager.updateService();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleShowRunning(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    private void handleShowRunning(Intent intent) {
+        if (intent != null && intent.getBooleanExtra(EXTRA_SHOW_RUNNING, false)) {
+            intent.removeExtra(EXTRA_SHOW_RUNNING);
+            App.post(() -> LabRunningDialog.show(this), 400);
+        }
+    }
+
+    private void reload() {
+        mBinding.progress.setVisibility(View.VISIBLE);
+        LabEnv.syncVodPlusAssets(this);
+        LabConfig.get().reload(new LabConfig.LoadCallback() {
+            @Override
+            public void onLoaded(LabModels.LabRoot root) {
+                mBinding.progress.setVisibility(View.GONE);
+                mBinding.swipeRefresh.setRefreshing(false);
+                render(root);
+                autoInstall(root);
+            }
+
+            @Override
+            public void onError(String message) {
+                mBinding.progress.setVisibility(View.GONE);
+                mBinding.swipeRefresh.setRefreshing(false);
+                Notify.show("实验室: " + message);
+                render(null);
+            }
+        });
+    }
+
+    private void render(LabModels.LabRoot root) {
+        // 内容换掉时 translationX 必须归零：新内容不能带着拖动偏移显示；正在跑的结算动画也一并作废（代次 +1 让它的结束回调不再切分组）。
+        swipeSettleToken++;
+        mBinding.recycler.animate().cancel();
+        mBinding.recycler.setTranslationX(0);
+        List<LabGroupAdapter.Row> groups = new ArrayList<>();
+        groups.add(new LabGroupAdapter.Row(GROUP_ALL, "全部"));
+        // 本地源分组只在手机端出现：实验室页手机 TV 共用，本地源是手机独占功能，TV 上不显示。
+        if (!Util.isLeanback()) groups.add(new LabGroupAdapter.Row(GROUP_LOCAL_SOURCE, getString(R.string.setting_local_source)));
+        List<LabModels.Item> all = new ArrayList<>();
+        if (root != null && root.lists != null) {
+            if (root.groups != null) {
+                for (LabModels.Group group : root.groups) groups.add(new LabGroupAdapter.Row(group.id, group.name));
+            }
+            all.addAll(root.lists);
+        }
+        groupAdapter.setRows(groups);
+        if (currentGroup == null || !containsGroup(groups, currentGroup)) currentGroup = GROUP_ALL;
+        groupIds.clear();
+        for (LabGroupAdapter.Row row : groups) groupIds.add(row.id);
+        groupRows.clear();
+        groupRows.addAll(groups);
+        int selectedIndex = indexOfGroup(groups, currentGroup);
+        groupAdapter.select(selectedIndex);
+        if (GROUP_LOCAL_SOURCE.equals(currentGroup)) {
+            if (Setting.isLocalSourceDialog()) showLocalSourceEntry();
+            else showLocalSources();
+            return;
+        }
+        setScanMenuVisible(false);
+        mBinding.empty.text.setText(R.string.lab_empty_no_source);
+        if (mBinding.recycler.getAdapter() != packageAdapter) mBinding.recycler.setAdapter(packageAdapter);
+        List<LabModels.Item> packages = new ArrayList<>();
+        for (LabModels.Item item : all) {
+            if (!item.show) continue;
+            if (GROUP_ALL.equals(currentGroup) || currentGroup.equals(item.group == null ? "" : item.group)) {
+                packages.add(item);
+            }
+        }
+        packageAdapter.setRows(packages);
+        mBinding.empty.getRoot().setVisibility(packages.isEmpty() ? View.VISIBLE : View.GONE);
+        mBinding.recycler.setVisibility(packages.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private boolean containsGroup(List<LabGroupAdapter.Row> groups, String id) {
+        for (LabGroupAdapter.Row row : groups) {
+            if (row.id.equals(id)) return true;
+        }
+        return false;
+    }
+
+    private int indexOfGroup(List<LabGroupAdapter.Row> groups, String id) {
+        for (int i = 0; i < groups.size(); i++) {
+            if (groups.get(i).id.equals(id)) return i;
+        }
+        return 0;
+    }
+
+    private void autoInstall(LabModels.LabRoot root) {
+        if (root == null || root.lists == null) return;
+        for (LabModels.Item item : root.lists) {
+            if (!item.auto_install || !item.available) continue;
+            if (autoInstallAttempted.contains(item.name)) continue;
+            autoInstallAttempted.add(item.name);
+            if (LabEnv.installed(this, item)) continue;
+            LabActions.install(this, item, () -> packageAdapter.notifyDataSetChanged());
+        }
+    }
+
+    @Override
+    public void onGroup(String id) {
+        currentGroup = id;
+        LabModels.LabRoot root = LabConfig.get().getLabRoot();
+        render(root);
+    }
+
+    /** 悬浮 tune 按钮：底部面板列出全部分组 chips，点哪个切到哪个分组（和点顶部标签栏同一个 onGroup）。 */
+    private void showGroupSheet() {
+        if (groupRows.isEmpty()) return;
+        LabGroupSheetDialog.create(new ArrayList<>(groupRows), currentGroup, this::onGroup)
+                .show(getSupportFragmentManager());
+    }
+
+    /** 本地源分组：+ 打开本地源弹窗；弹窗是 mobile 专属的 DialogFragment（main 源集不能直接引用），走透明宿主 Activity + 隐式 intent。 */
+    private void openLocalSourceDialog() {
+        Intent intent = new Intent(App.get().getPackageName() + ".local_source_dialog");
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+        if (intent.resolveActivity(getPackageManager()) != null) startActivity(intent);
+    }
+
+    /** 左滑下一个分组、右滑上一个；滑到头不动，不越界。 */
+    private void switchGroup(int delta) {
+        if (groupIds.isEmpty()) return;
+        int index = groupIds.indexOf(currentGroup);
+        if (index < 0) index = 0;
+        int next = index + delta;
+        if (next < 0 || next >= groupIds.size()) return;
+        onGroup(groupIds.get(next));
+    }
+
+    /** 内容区触摸入口（列表与空态视图共用）：先喂手势识别器，再在松手时结算；始终不消费事件，纵向滚动、下拉刷新、点卡片原样走原来的路。 */
+    private boolean onSwipeTouch(MotionEvent event) {
+        groupSwipeDetector.onTouchEvent(event);
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_UP) settleSwipe();
+        else if (action == MotionEvent.ACTION_CANCEL) bounceSwipeBack();
+        return false;
+    }
+
+    /** 该方向有没有分组可切（+1 下一组，-1 上一组）。 */
+    private boolean hasGroup(int delta) {
+        if (groupIds.isEmpty()) return false;
+        int index = groupIds.indexOf(currentGroup);
+        if (index < 0) index = 0;
+        int next = index + delta;
+        return next >= 0 && next < groupIds.size();
+    }
+
+    /** 松手结算：fling 优先，其次看位移是否过阈值（120dp 与 1/4 屏宽取大者）。 */
+    private void settleSwipe() {
+        int delta = swipeFlingDelta;
+        swipeFlingDelta = 0;
+        if (delta == 0) {
+            float tx = mBinding.recycler.getTranslationX();
+            float threshold = Math.max(120 * getResources().getDisplayMetrics().density,
+                    getResources().getDisplayMetrics().widthPixels / 4f);
+            if (tx < -threshold) delta = 1;
+            else if (tx > threshold) delta = -1;
+        }
+        if (delta == 0 || !hasGroup(delta)) {
+            bounceSwipeBack();
+            return;
+        }
+        // 过阈值：直接切分组，不再把旧内容先滑出屏——那段“滑出→空白→滑入”是拖起来不跟手、
+        // 看起来一顿一顿的来源。新内容从手势方向外侧一次滑进来（约 220ms），方向和手指一致。
+        float width = getResources().getDisplayMetrics().widthPixels;
+        float enterX = delta > 0 ? width : -width;
+        switchGroup(delta);
+        mBinding.recycler.setTranslationX(enterX);
+        mBinding.recycler.animate().translationX(0).setDuration(220)
+                .setInterpolator(new DecelerateInterpolator())
+                .setListener(null);
+    }
+
+    /** 不到阈值或滑到头：弹回原位（约 180ms）。 */
+    private void bounceSwipeBack() {
+        swipeFlingDelta = 0;
+        mBinding.recycler.animate().translationX(0).setDuration(180)
+                .setInterpolator(new DecelerateInterpolator())
+                .setListener(null);
+    }
+
+    @Override
+    public void onOpen(LabModels.Item item) {
+        LabDetailActivity.start(this, item.name);
+    }
+
+    @Override
+    public void onLongPress(LabModels.Item item) {
+        LabDetailActivity.start(this, item.name);
+    }
+
+    /** 下拉刷新：本地源分组时重扫上次的扫描目录（弹窗“扫描全部”的行为），否则重载实验室配置。 */
+    private void onRefresh() {
+        if (GROUP_LOCAL_SOURCE.equals(currentGroup)) scanLocalSourceDir();
+        else reload();
+    }
+
+    /** 本地源分组（弹窗模式）：页内只留一行入口（本地源 + 文件数），点它开本地源弹窗；文件列表、点源切站、行末删除都在弹窗里（与工具栏 + 一致）。 */
+    private void showLocalSourceEntry() {
+        if (localSourceEntryAdapter == null) {
+            localSourceEntryAdapter = new LabLocalSourceEntryAdapter(this, this::openLocalSourceDialog);
+        }
+        if (mBinding.recycler.getAdapter() != localSourceEntryAdapter) mBinding.recycler.setAdapter(localSourceEntryAdapter);
+        localSourceEntryAdapter.setCount(LocalSource.getSites().size());
+        mBinding.empty.getRoot().setVisibility(View.GONE);
+        mBinding.recycler.setVisibility(View.VISIBLE);
+        setScanMenuVisible(true);
+        mBinding.progress.setVisibility(View.GONE);
+        mBinding.swipeRefresh.setRefreshing(false);
+    }
+
+    /** 本地源分组当前视图（弹窗入口 / 页内列表二选一）：下拉重扫与行末删除后都走这里刷新。 */
+    private void refreshLocalSourceGroup() {
+        if (Setting.isLocalSourceDialog()) showLocalSourceEntry();
+        else showLocalSources();
+    }
+
+    /** 本地源分组的列表：复用弹窗的适配器 + 注册表，点一条切站源（与弹窗一致）。 */
+    private void showLocalSources() {
+        if (localSourceAdapter == null) {
+            localSourceAdapter = new LocalSourceAdapter(this);
+            localSourceAdapter.setCheckable(false).setCardBackground(true);
+        }
+        if (mBinding.recycler.getAdapter() != localSourceAdapter) mBinding.recycler.setAdapter(localSourceAdapter);
+        List<Site> sites = new ArrayList<>(LocalSource.getSites());
+        localSourceAdapter.setItems(sites);
+        boolean empty = sites.isEmpty();
+        mBinding.empty.getRoot().setVisibility(empty ? View.VISIBLE : View.GONE);
+        mBinding.recycler.setVisibility(empty ? View.GONE : View.VISIBLE);
+        mBinding.empty.text.setText(R.string.lab_local_source_empty);
+        setScanMenuVisible(true);
+        mBinding.progress.setVisibility(View.GONE);
+        mBinding.swipeRefresh.setRefreshing(false);
+    }
+
+    private void setScanMenuVisible(boolean visible) {
+        if (mBinding.toolbar.getMenu() == null) return;
+        MenuItem item = mBinding.toolbar.getMenu().findItem(R.id.scan_local_dir);
+        if (item != null) item.setVisible(visible);
+    }
+
+    /** 重扫上次的扫描目录（未选过就从存储根目录扫），与弹窗“扫描全部”同款。 */
+    private void scanLocalSourceDir() {
+        String dir = LocalSource.getScanDir();
+        scanLocalDir(TextUtils.isEmpty(dir) ? Path.root() : new File(dir));
+    }
+
+    private void scanLocalDir(File dir) {
+        if (localSourceScanning || dir == null) return;
+        localSourceScanning = true;
+        mBinding.swipeRefresh.setRefreshing(true);
+        new Thread(() -> {
+            int count = LocalSource.scan(dir);
+            App.post(() -> {
+                localSourceScanning = false;
+                mBinding.swipeRefresh.setRefreshing(false);
+                LocalSource.invalidate();
+                boolean skippedLarge = LocalSource.takeSkippedLargeDir();
+                int pruned = LocalSource.takePrunedCount();
+                refreshLocalSourceGroup();
+                // 有文件夹因文件过多被跳过：只提示这句，不再报导入数（与弹窗一致）。
+                if (skippedLarge) Notify.show(R.string.lab_local_source_too_many_files);
+                else Notify.show(getString(R.string.lab_local_source_imported, count));
+                if (pruned > 0) Notify.show(getString(R.string.lab_local_source_pruned, pruned));
+                // 有新源或清掉了失效条目都要重载，配置里的站点列表才跟得上。
+                if (count > 0 || pruned > 0) reloadLocalConfig();
+            });
+        }).start();
+    }
+
+    /** 重新加载当前点播配置，让新扫到的本地源出现在首页站点列表里（与弹窗一致）。 */
+    private void reloadLocalConfig() {
+        VodConfig.load(Config.vod(), new Callback() {
+            @Override
+            public void success() {
+                ConfigEvent.vod();
+            }
+        });
+    }
+
+    /** 工具栏“扫描目录”：选个文件夹当扫描目录并重扫（与弹窗“选择文件夹”一致）。 */
+    private void pickLocalSourceDir() {
+        FileChooser.from(localSourceLauncher).showDirectory();
+    }
+
+    /** 点一条本地源：设为当前站源并回首页（与弹窗一致；首页在后台已收到事件刷新）。 */
+    @Override
+    public void onItemClick(Site item) {
+        VodConfig.get().setHome(item);
+        ConfigEvent.vod();
+        finish();
+    }
+
+    /** 行末删除按钮：只删这一条，删完刷新列表并重载配置（与弹窗一致）。 */
+    @Override
+    public void onDeleteClick(Site item) {
+        LocalSource.removeByKeys(List.of(item.getKey()));
+        refreshLocalSourceGroup();
+        Notify.show(getString(R.string.lab_local_source_deleted, 1));
+        reloadLocalConfig();
+    }
+
+    @Override
+    public void onSelectionChanged() {
+        // 实验室里多选框是关掉的，不会有选中变化。
+    }
+
+    private void showAbout() {
+        new WebHtvAlertDialogBuilder(this, R.style.Theme_App_Lab_DayNight_Dialog)
+                .setTitle(R.string.lab_about_title)
+                .setMessage(R.string.lab_about_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void pickImport() {
+        PermissionUtil.requestFile(this, granted -> {
+            if (!granted) {
+                Notify.show(R.string.setting_custom_csp_permission_required);
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent, REQUEST_IMPORT);
+        });
+    }
+
+    private void showImportDialog() {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(pad, pad, pad, 0);
+        EditText edit = new LabPasteEditText(new ContextThemeWrapper(this, R.style.Theme_App_Lab_DayNight_Dialog));
+        edit.setHint(R.string.lab_import_placeholder);
+        edit.setMinLines(4);
+        edit.setMaxLines(8);
+        edit.setTypeface(android.graphics.Typeface.MONOSPACE);
+        edit.setTextColor(getColor(R.color.lab_text_primary));
+        edit.setHintTextColor(getColor(R.color.lab_text_secondary));
+        container.addView(edit);
+        TextView select = new TextView(this);
+        select.setText(R.string.lab_import_select_file);
+        select.setTextColor(getColor(R.color.webhtv_color_primary));
+        select.setPadding(0, pad, 0, 0);
+        select.setClickable(true);
+        select.setFocusable(true);
+        select.setBackgroundResource(R.drawable.selector_lab_link);
+        // 链接的几何上方就是粘贴框，但实测在对话框里按 UP 到不了（焦点搜索没把它算进来），
+        // 显式连线后遥控器才能同时到达粘贴框与链接；粘贴框的 DOWN 由 LabPasteEditText 放行。
+        edit.setId(View.generateViewId());
+        select.setNextFocusUpId(edit.getId());
+        container.addView(select);
+        AlertDialog dialog = new WebHtvAlertDialogBuilder(this, R.style.Theme_App_Lab_DayNight_Dialog)
+                .setTitle(R.string.lab_import_title)
+                .setView(container)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.lab_import, null)
+                .create();
+        select.setOnClickListener(v -> {
+            dialog.dismiss();
+            pickImport();
+        });
+        dialog.setOnShowListener(d -> {
+            // 弹窗默认把焦点交给第一个可聚焦控件（多行粘贴框）。实测遥控 DOWN / UP / RIGHT 在
+            // 可编辑文本里都不移动焦点（被当成光标键吃掉），只有 TAB 能跳到链接和按钮，
+            // 而电视遥控器没有 TAB —— 用户打开「导入包」后什么都按不动。
+            // 把初始焦点锚到真正可执行的动作上，方向键从这里就能到取消/导入。
+            select.requestFocus();
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String text = edit.getText() == null ? "" : edit.getText().toString().trim();
+                String json = decodeImport(text);
+                if (json == null || json.isEmpty()) {
+                    Toast.makeText(this, "无效的导入数据", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                LabConfig.get().saveImported(json);
+                dialog.dismiss();
+                Notify.show(R.string.lab_import_success);
+                reload();
+            });
+        });
+        dialog.show();
+    }
+
+    private String decodeImport(String text) {
+        if (text == null || text.isEmpty()) return null;
+        if (text.startsWith("VodPlusLabConfig://")) {
+            try {
+                return new String(Base64.decode(text.substring("VodPlusLabConfig://".length()), Base64.DEFAULT), "UTF-8");
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return text;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_IMPORT && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            importArchive(data.getData());
+        } else if (requestCode == REQUEST_LOCAL_CONFIG && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri uri = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                LabConfig.get().setLocalPath(uri.toString());
+            } catch (Exception e) {
+                try {
+                    File local = new File(getFilesDir(), "lab_local_config.json");
+                    try (InputStream in = getContentResolver().openInputStream(uri); FileOutputStream out = new FileOutputStream(local)) {
+                        byte[] buf = new byte[16384];
+                        int len;
+                        while ((len = in.read(buf)) != -1) out.write(buf, 0, len);
+                    }
+                    LabConfig.get().setLocalPath(local.getAbsolutePath());
+                } catch (Exception ignored) {
+                    Notify.show("无法读取所选文件");
+                    return;
+                }
+            }
+            LabConfig.get().setSource(LabConfig.SOURCE_LOCAL);
+            if (settingsDialog != null && settingsDialog.isShowing()) settingsDialog.dismiss();
+            Notify.show("已选择本地配置");
+            reload();
+        }
+    }
+
+    private void importArchive(Uri uri) {
+        Toast.makeText(this, "导入中…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                File cache = new File(getCacheDir(), "import_" + System.currentTimeMillis() + ".lab.7z");
+                try (InputStream in = getContentResolver().openInputStream(uri); FileOutputStream out = new FileOutputStream(cache)) {
+                    byte[] buf = new byte[16384];
+                    int len;
+                    while ((len = in.read(buf)) != -1) out.write(buf, 0, len);
+                }
+                boolean ok = LabEnv.importPackage(this, cache);
+                cache.delete();
+                App.post(() -> {
+                    Notify.show(ok ? R.string.lab_import_success : R.string.lab_import_error_short);
+                    reload();
+                });
+            } catch (Exception e) {
+                App.post(() -> Notify.show("导入失败: " + e.getMessage()));
+            }
+        }).start();
+    }
+
+    private void showSettings() {
+        // 内容必须用「弹窗自己的主题」inflate，而不是 Activity 的 LayoutInflater。
+        //
+        // dialog_lab_settings.xml 里的 ?attr/colorOnSurface / colorOnSurfaceVariant / colorPrimary
+        // 是编译期解析的：用 Activity 主题（Theme.App.Lab，固定深色、白字）inflate 时，
+        // 正文永远是 #FFFFFF，而弹窗面板来自 ThemeOverlay.WebHTV.Dialog 的日/夜双表，
+        // 浅色系统下就是「白字 + 浅色面板」≈1.05:1，默认主题直接看不清。
+        //
+        // 换成弹窗主题上下文后，内容与面板同源，深浅两套表都可读；
+        // 且这些颜色精确等于冻结基线角色值，ThemeController.bindDialog 能把它们改写成当前主题 token，
+        // 用户的主题色才会真正作用到这个设置页。
+        Context dialogContext = new ContextThemeWrapper(this, R.style.Theme_App_Lab_DayNight_Dialog);
+        View root = LayoutInflater.from(dialogContext).inflate(R.layout.dialog_lab_settings, null);
+        AutoCompleteTextView dropdown = root.findViewById(R.id.sourceDropdown);
+        EditText input = root.findViewById(R.id.input);
+        EditText rootInput = root.findViewById(R.id.rootInput);
+        View folder = root.findViewById(R.id.folder);
+        MaterialSwitch foreground = root.findViewById(R.id.foregroundSwitch);
+        MaterialSwitch battery = root.findViewById(R.id.batterySwitch);
+        MaterialSwitch proxy = root.findViewById(R.id.proxySwitch);
+        EditText proxyPort = root.findViewById(R.id.proxyPort);
+        EditText proxyNoProxy = root.findViewById(R.id.proxyNoProxy);
+        String[] items = {getString(R.string.lab_source_local), getString(R.string.lab_source_url)};
+        // 适配器必须用弹窗主题上下文：ArrayAdapter 用自身 context 解析 item 布局，
+        // 用 Activity 上下文（Theme.App.Lab，固定深色）会让下拉项永远是白字，
+        // 而弹出面板跟着日/夜表走 —— 浅色系统下就是白字浅底，看不见。
+        dropdown.setAdapter(new ArrayAdapter<>(dialogContext, R.layout.item_lab_dropdown, items));
+        int source = LabConfig.get().getSource();
+        dropdown.setText(items[indexOfSource(source)], false);
+        applySourceFields(input, folder, source);
+        // 触摸点选时 Material 自己更新文本；遥控确认走 escapeVerticalKeys 的落选分支，
+        // 需要自己把文本与可见字段一起切过去，所以两条路径共用同一段逻辑。
+        IntConsumer pick = position -> {
+            dropdown.setText(items[position], false);
+            applySourceFields(input, folder, SOURCE_MODES[position]);
+        };
+        dropdown.setOnItemClickListener((parent, view, position, id) -> pick.accept(position));
+        // 遥控确认键：下拉列表在电视上不可用（见 escapeVerticalKeys 注释），改为直接切换选项。
+        Runnable cycle = () -> pick.accept((Math.max(0, indexOf(items,
+                dropdown.getText() == null ? "" : dropdown.getText().toString())) + 1) % items.length);
+        escapeVerticalKeys(cycle, dropdown, input, rootInput, proxyPort, proxyNoProxy);
+        folder.setOnClickListener(v -> openLocalPicker());
+        rootInput.setText(LabConfig.get().getRootOverride());
+        foreground.setChecked(LabConfig.get().getForeground());
+        battery.setChecked(LabConfig.get().getBattery());
+        proxy.setChecked(LabConfig.get().getGlobalProxy());
+        proxyPort.setText(String.valueOf(LabConfig.get().getGlobalProxyPort()));
+        proxyNoProxy.setText(LabConfig.get().getGlobalProxyNoProxy());
+        settingsDialog = new WebHtvAlertDialogBuilder(this, R.style.Theme_App_Lab_DayNight_Dialog)
+                .setTitle(R.string.lab_source_title)
+                .setView(root)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, null)
+                .create();
+        settingsDialog.setOnShowListener(d -> settingsDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                    int selected = dropdown.getText() == null ? LabConfig.SOURCE_LOCAL : SOURCE_MODES[Math.max(0, indexOf(items, dropdown.getText().toString()))];
+                    LabConfig.get().setSource(selected);
+                    if (selected == LabConfig.SOURCE_LOCAL && TextUtils.isEmpty(LabConfig.get().getLocalPath())) {
+                        Toast.makeText(this, "未选择文件，将自动搜索手机常见目录", Toast.LENGTH_SHORT).show();
+                    }
+                    if (selected == LabConfig.SOURCE_URL) {
+                        String url = input.getText() == null ? "" : input.getText().toString().trim();
+                        if (!url.isEmpty()) LabConfig.get().setUrl(url);
+                    }
+                    String rootText = rootInput.getText() == null ? "" : rootInput.getText().toString().trim();
+                    LabConfig.get().setRoot(rootText);
+                    LabConfig.get().setForeground(foreground.isChecked());
+                    LabConfig.get().setBattery(battery.isChecked());
+                    LabConfig.get().setGlobalProxy(proxy.isChecked());
+                    int port = 7890;
+                    if (proxyPort.getText() != null) {
+                        try {
+                            port = Integer.parseInt(proxyPort.getText().toString().trim());
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                    LabConfig.get().setGlobalProxyPort(port > 0 ? port : 7890);
+                    LabConfig.get().setGlobalProxyNoProxy(proxyNoProxy.getText() == null ? "" : proxyNoProxy.getText().toString().trim());
+                    if (foreground.isChecked()) requestNotifyPermission();
+                    if (battery.isChecked()) {
+                        try {
+                            startActivity(new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName())));
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    settingsDialog.dismiss();
+                    LabProcManager.updateService();
+                    reload();
+                }));
+        settingsDialog.show();
+    }
+
+    private void openLocalPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent, REQUEST_LOCAL_CONFIG);
+        } catch (Exception e) {
+            Notify.show("无法打开文件选择器: " + e.getMessage());
+        }
+    }
+
+    private int indexOf(String[] items, String value) {
+        for (int i = 0; i < items.length; i++) {
+            if (items[i].equals(value)) return i;
+        }
+        return -1;
+    }
+
+    private int indexOfSource(int source) {
+        for (int i = 0; i < SOURCE_MODES.length; i++) {
+            if (SOURCE_MODES[i] == source) return i;
+        }
+        return 0;
+    }
+
+    /** 本地配置用文件选择器填路径（只读输入框），网络 URL 用手输。 */
+    private void applySourceFields(EditText input, View folder, int source) {
+        boolean url = source == LabConfig.SOURCE_URL;
+        input.setVisibility(url ? View.VISIBLE : View.GONE);
+        folder.setVisibility(url ? View.GONE : View.VISIBLE);
+        input.setText(url ? LabConfig.get().getUrl() : LabConfig.get().getLocalPath());
+        input.setFocusable(url);
+        input.setFocusableInTouchMode(url);
+    }
+
+    /**
+     * 让实验室设置里的文本控件把上下方向键让给焦点搜索，并让配置源下拉能用遥控切换。
+     *
+     * <p>实测（leanback arm64 debug，1920x1080）：打开「实验室配置源」后焦点落在「配置源」下拉上，
+     * 遥控 DOWN / UP 全都不移动（被 AutoCompleteTextView / 可编辑文本当成光标键吃掉），
+     * 用户到不了文件夹图标、URL、根目录、开关和取消/确定；电视遥控器没有 TAB。
+     *
+     * <p>下拉列表本身在遥控下也不可用：Material 的列表能跟着上下键移动高亮，但确认键只关列表、
+     * 不回调选中项（`getListSelection()` 拿不到高亮项）；反过来由我们自己 `setListSelection()`
+     * 记录选择虽能落选，高亮却不跟随。所以遥控侧不走列表：按确认键直接在选项间切换，
+     * 下拉文本与可见字段同步变化，触摸点选仍走 Material 原本的列表。
+     */
+    private void escapeVerticalKeys(Runnable cycle, EditText... fields) {
+        for (EditText field : fields) {
+            if (field == null) continue;
+            field.setOnKeyListener((view, keyCode, event) -> {
+                if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                boolean confirm = keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                        || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    if (view instanceof AutoCompleteTextView dropdown) dropdown.dismissDropDown();
+                    View next = view.focusSearch(keyCode == KeyEvent.KEYCODE_DPAD_DOWN ? View.FOCUS_DOWN : View.FOCUS_UP);
+                    return next != null && next.requestFocus();
+                }
+                if (!confirm || !(view instanceof AutoCompleteTextView dropdown)) return false;
+                dropdown.dismissDropDown();
+                cycle.run();
+                return true;
+            });
+        }
+    }
+
+    /**
+     * 内容区横向拖动切分组（跟手）。
+     *
+     * <p>onScroll 里方向锁定后内容跟着手指平移（纵向占优时不跟，纵向滚动、下拉刷新、点卡片原样不动）；
+     * onFling 只记录方向不直接切组，松手时 onSwipeTouch 统一结算：fling 优先，其次看位移是否过阈值，
+     * 过阈值直接切分组、新内容从手势方向一次滑进来（不再先把旧内容滑出屏留一段空白），不到阈值或滑到头就弹回原位。
+     * 返回 true 只表示手势被认领，事件本身仍由 OnTouchListener 原样放行给列表。
+     */
+    private final class GroupSwipeListener extends GestureDetector.SimpleOnGestureListener {
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+            // 新手势打断正在跑的结算动画（代次 +1 让它的结束回调不再切分组），从当前偏移接着拖，不跳变。
+            swipeSettleToken++;
+            mBinding.recycler.animate().cancel();
+            swipeDragBaseX = mBinding.recycler.getTranslationX();
+            swipeHorizontal = false;
+            swipeVertical = false;
+            swipeFlingDelta = 0;
+            return true;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            if (e1 == null || e2 == null || swipeVertical) return false;
+            float dx = e2.getX() - e1.getX();
+            float dy = e2.getY() - e1.getY();
+            if (!swipeHorizontal) {
+                int slop = ViewConfiguration.get(LabActivity.this).getScaledTouchSlop();
+                if (Math.abs(dx) > slop && Math.abs(dx) > Math.abs(dy)) swipeHorizontal = true;
+                else if (Math.abs(dy) > slop && Math.abs(dy) > Math.abs(dx)) swipeVertical = true;
+                else return false;
+            }
+            if (!swipeHorizontal) return false;
+            // 跟手平移：滑到头（该方向没分组）时给 0.35 阻力，提示到头了但不越界。
+            float raw = swipeDragBaseX + dx;
+            float width = getResources().getDisplayMetrics().widthPixels;
+            float tx = raw;
+            if ((raw < 0 && !hasGroup(1)) || (raw > 0 && !hasGroup(-1))) {
+                tx = swipeDragBaseX + (raw - swipeDragBaseX) * 0.35f;
+            }
+            mBinding.recycler.setTranslationX(Math.max(-width, Math.min(width, tx)));
+            return true;
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            if (e1 == null || e2 == null) return false;
+            if (Math.abs(velocityX) < Math.abs(velocityY)) return false;
+            float dx = e2.getX() - e1.getX();
+            float minDistance = 50 * getResources().getDisplayMetrics().density;
+            if (dx < -minDistance) {
+                swipeFlingDelta = 1;
+                return true;
+            }
+            if (dx > minDistance) {
+                swipeFlingDelta = -1;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * 本地源弹窗模式的单行入口：标题 + 文件数，点整行开弹窗。
+     *
+     * <p>行用实验室卡片底（shape_lab_card，与包列表行同款），文案色走 Lab 主题的
+     * colorOnSurface / colorOnSurfaceVariant；行在实验室页内，不在弹窗里，
+     * 用 Activity 自身的上下文建视图是正确的。
+     */
+    private static final class LabLocalSourceEntryAdapter extends RecyclerView.Adapter<LabLocalSourceEntryAdapter.Holder> {
+
+        private final Context context;
+        private final Runnable onOpen;
+        private int count;
+
+        LabLocalSourceEntryAdapter(Context context, Runnable onOpen) {
+            this.context = context;
+            this.onOpen = onOpen;
+        }
+
+        void setCount(int count) {
+            this.count = count;
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            return new Holder(AdapterLabLocalSourceEntryBinding.inflate(LayoutInflater.from(context), parent, false));
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull Holder holder, int position) {
+            holder.binding.count.setText(context.getString(R.string.lab_local_source_count, count));
+            holder.binding.getRoot().setOnClickListener(v -> onOpen.run());
+        }
+
+        @Override
+        public int getItemCount() {
+            return 1;
+        }
+
+        static class Holder extends RecyclerView.ViewHolder {
+            final AdapterLabLocalSourceEntryBinding binding;
+
+            Holder(@NonNull AdapterLabLocalSourceEntryBinding binding) {
+                super(binding.getRoot());
+                this.binding = binding;
+            }
+        }
+    }
+
+    /**
+     * 「导入包」弹窗里的粘贴框。
+     *
+     * <p>可编辑文本会把方向键当光标键吃掉：实测遥控 DOWN / UP / RIGHT 在多行 EditText 里都不移动焦点
+     * （只有 TAB 能跳出去），电视遥控器没有 TAB，用户进得去出不来。这里只把上下键放行给焦点搜索，
+     * 左右键与输入行为保持不变；触摸端不受影响（移动端本来就不靠方向键）。
+     */
+    private static final class LabPasteEditText extends AppCompatEditText {
+
+        LabPasteEditText(Context context) {
+            super(context);
+        }
+
+        @Override
+        public boolean onKeyDown(int keyCode, KeyEvent event) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) return false;
+            return super.onKeyDown(keyCode, event);
+        }
+    }
+}

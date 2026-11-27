@@ -6,12 +6,12 @@
     android:layout_height="match_parent"
     android:tag="land">
 
-    <com.github.moyingshi.osc.tv.ui.custom.ProgressLayout
+    <com.github.aiyingshi.osc.tv.ui.custom.ProgressLayout
         android:id="@+id/progressLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <com.github.moyingshi.osc.tv.ui.custom.ContextWallImageView
+        <com.github.aiyingshi.osc.tv.ui.custom.ContextWallImageView
             android:id="@+id/contextWall"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -196,13 +196,13 @@
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <com.github.moyingshi.osc.tv.ui.custom.LyricsOverlayView
+                            <com.github.aiyingshi.osc.tv.ui.custom.LyricsOverlayView
                                 android:id="@+id/audioLyrics"
                                 android:layout_width="match_parent"
                                 android:layout_height="0dp"
                                 android:layout_weight="1" />
 
-                            <com.github.moyingshi.osc.tv.ui.custom.KaraokeStatusView
+                            <com.github.aiyingshi.osc.tv.ui.custom.KaraokeStatusView
                                 android:id="@+id/audioKaraoke"
                                 android:layout_width="match_parent"
                                 android:layout_height="96dp"
@@ -219,7 +219,7 @@
                         android:layout_marginTop="6dp"
                         android:orientation="vertical">
 
-                        <com.github.moyingshi.osc.tv.ui.custom.CustomSeekView
+                        <com.github.aiyingshi.osc.tv.ui.custom.CustomSeekView
                             android:id="@+id/audioSeek"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content" />
@@ -491,12 +491,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
-            <com.github.moyingshi.osc.tv.ui.custom.LyricsOverlayView
+            <com.github.aiyingshi.osc.tv.ui.custom.LyricsOverlayView
                 android:id="@+id/lyrics"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
-            <com.github.moyingshi.osc.tv.ui.custom.KaraokeStatusView
+            <com.github.aiyingshi.osc.tv.ui.custom.KaraokeStatusView
                 android:id="@+id/karaoke"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -642,7 +642,7 @@
             android:layout_height="match_parent"
             android:layout_below="@+id/video">
 
-            <com.github.moyingshi.osc.tv.ui.custom.FixedNestedScrollView
+            <com.github.aiyingshi.osc.tv.ui.custom.FixedNestedScrollView
                 android:id="@+id/scroll"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -902,7 +902,7 @@
                         tools:listitem="@layout/adapter_episode_group"
                         tools:visibility="visible" />
 
-                    <com.github.moyingshi.osc.tv.ui.custom.CustomRecyclerView
+                    <com.github.aiyingshi.osc.tv.ui.custom.CustomRecyclerView
                         android:id="@+id/episode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -936,7 +936,7 @@
                         tools:visibility="visible" />
 
                 </androidx.appcompat.widget.LinearLayoutCompat>
-            </com.github.moyingshi.osc.tv.ui.custom.FixedNestedScrollView>
+            </com.github.aiyingshi.osc.tv.ui.custom.FixedNestedScrollView>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-    </com.github.moyingshi.osc.tv.ui.custom.ProgressLayout>
+    </com.github.aiyingshi.osc.tv.ui.custom.ProgressLayout>
 </FrameLayout>
