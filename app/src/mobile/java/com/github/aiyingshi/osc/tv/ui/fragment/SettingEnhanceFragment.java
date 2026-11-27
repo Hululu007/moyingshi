@@ -13,6 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 import com.github.aiyingshi.osc.tv.R;
+import com.github.aiyingshi.osc.tv.bean.AiConfig;
 import com.github.aiyingshi.osc.tv.bean.AudioConfig;
 import com.github.aiyingshi.osc.tv.bean.ComicSourceConfig;
 import com.github.aiyingshi.osc.tv.bean.NovelSourceConfig;
@@ -102,6 +103,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.labNav.setOnClickListener(this::setLabNav);
         mBinding.localSourceDialog.setOnClickListener(this::setLocalSourceDialog);
         mBinding.diceEntry.setOnClickListener(this::setDiceEntry);
+        mBinding.aiEntry.setOnClickListener(this::openAiSettings);
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.siteName.setOnClickListener(this::setSiteName);
         mBinding.localReader.setOnClickListener(this::setLocalReader);
@@ -162,6 +164,7 @@ public class SettingEnhanceFragment extends BaseFragment {
                 mBinding.labNav,
                 mBinding.localSourceDialog,
                 mBinding.diceEntry,
+                mBinding.aiEntry,
                 mBinding.customCsp,
                 mBinding.webHomeExtension,
                 mBinding.gitCloud,
@@ -198,6 +201,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         safeSet("labNav", mBinding.labNavText, () -> getSwitch(Setting.isLabNav()));
         safeSet("localSourceDialog", mBinding.localSourceDialogText, () -> getSwitch(Setting.isLocalSourceDialog()));
         safeSet("diceEntry", mBinding.diceEntryText, () -> getSwitch(Setting.isDiceEntry()));
+        safeSet("aiEntry", mBinding.aiEntryText, this::getAiEntryText);
         safeSet("driveCheck", mBinding.driveCheckText, () -> getSwitch(Setting.isDriveCheck()));
         safeSet("siteName", mBinding.siteNameText, () -> getString(R.string.setting_site_name_summary, SiteNameStore.count()));
         safeSet("novelSource", mBinding.novelSourceText, () -> getSwitch(!NovelSourceConfig.get().getDisplayRules().isEmpty()));
@@ -345,6 +349,17 @@ public class SettingEnhanceFragment extends BaseFragment {
     private void setLocalSourceDialog(View view) {
         Setting.putLocalSourceDialog(!Setting.isLocalSourceDialog());
         setSummary(mBinding.localSourceDialogText, getSwitch(Setting.isLocalSourceDialog()));
+    }
+
+    /** AI 功能入口：进 AI 配置页（SettingAiFragment，第 8 页），总开关状态见该页首行。 */
+    private void openAiSettings(View view) {
+        if (requireActivity() instanceof HomeActivity activity) activity.change(8);
+    }
+
+    private String getAiEntryText() {
+        AiConfig config = AiConfig.objectFrom(Setting.getAiConfig());
+        if (!config.isEnabled()) return getSwitch(false);
+        return config.isReady() ? getString(R.string.setting_configured) : getString(R.string.setting_unconfigured);
     }
 
     /** 喜好选片入口开关：默认开；关则首页搜索条里的骰子按钮隐藏，开则恢复。 */

@@ -2389,6 +2389,7 @@
     <string name="dialog_ai_relay_over_limit_suffix"> (limit reached)</string>
     <string name="dialog_ai_relay_device_registered">Device: registered</string>
     <string name="dialog_ai_relay_device_unregistered">Device: not registered</string>
+    <string name="dialog_ai_relay_model">Relay model: %1$s</string>
     <string name="dialog_ai_relay_reset">Reset AI identity</string>
     <string name="dialog_ai_relay_reset_running">Resetting AI identity…</string>
     <string name="dialog_ai_relay_reset_success">AI identity reset. A new device token was registered.</string>

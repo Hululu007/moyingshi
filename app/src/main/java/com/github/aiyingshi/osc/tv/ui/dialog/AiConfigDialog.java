@@ -64,6 +64,7 @@ public class AiConfigDialog {
     private TextView relayStatus;
     private TextView relayUsage;
     private TextView relayDevice;
+    private TextView relayModel;
     private MaterialButton resetIdentity;
 
     public static AiConfigDialog create(FragmentActivity activity) {
@@ -100,6 +101,7 @@ public class AiConfigDialog {
         relayStatus = view.findViewById(R.id.relayStatus);
         relayUsage = view.findViewById(R.id.relayUsage);
         relayDevice = view.findViewById(R.id.relayDevice);
+        relayModel = view.findViewById(R.id.relayModel);
         resetIdentity = view.findViewById(R.id.resetIdentity);
         MaterialButton prompt = view.findViewById(R.id.prompt);
         MaterialButton test = view.findViewById(R.id.test);
@@ -121,6 +123,10 @@ public class AiConfigDialog {
         model.setText(config.getModel());
         userAgent.setText(config.getCustomUserAgent());
         relayUrl.setText(config.getRelayUrl());
+        // 中转模型只读显示：中转不支持 App 自选上游模型（Worker 按白名单校验后固定走
+        // Gemini，失败才切 Qwen），所以这里只展示，不给选择器；与 resolveEffectiveConfig
+        // 实际发请求的模型（AiConfig.DEFAULT_RELAY_MODEL）保持一致。
+        relayModel.setText(activity.getString(R.string.dialog_ai_relay_model, AiConfig.DEFAULT_RELAY_MODEL));
         enabled.setOnCheckedChangeListener((v, checked) -> { if (isRelayModeSelected()) refreshRelayStatus(); });
         resetIdentity.setOnClickListener(v -> resetIdentity(resetIdentity));
         prompt.setOnClickListener(v -> showPromptConfig());

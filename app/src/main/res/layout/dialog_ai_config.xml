@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/colorSurfaceContainerLow"
@@ -154,6 +155,16 @@
                     android:text="@string/dialog_ai_relay_device_unregistered"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="15sp" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/relayModel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="15sp"
+                    tools:text="中转模型：gemini-2.5-flash-lite" />
 
                 <com.google.android.material.button.MaterialButton
                     style="@style/Widget.WebHTV.Button.Outlined"

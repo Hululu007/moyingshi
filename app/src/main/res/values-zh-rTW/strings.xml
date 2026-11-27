@@ -2193,6 +2193,7 @@
     <string name="dialog_ai_relay_over_limit_suffix">（已用完）</string>
     <string name="dialog_ai_relay_device_registered">裝置：已註冊</string>
     <string name="dialog_ai_relay_device_unregistered">裝置：未註冊</string>
+    <string name="dialog_ai_relay_model">中轉模型：%1$s</string>
     <string name="dialog_ai_relay_reset">重置 AI 身份</string>
     <string name="dialog_ai_relay_reset_running">正在重置 AI 身份…</string>
     <string name="dialog_ai_relay_reset_success">AI 身份已重置，已重新註冊。</string>
