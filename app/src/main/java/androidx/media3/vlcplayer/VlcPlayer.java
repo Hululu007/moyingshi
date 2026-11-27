@@ -786,13 +786,40 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
             int selectedVideo = safeTrackId(() -> mediaPlayer.getVideoTrack());
             int selectedAudio = safeTrackId(() -> mediaPlayer.getAudioTrack());
             int selectedSpu = safeTrackId(() -> mediaPlayer.getSpuTrack());
-            addTrackGroup(groups, C.TRACK_TYPE_VIDEO, mediaPlayer.getVideoTracks(), selectedVideo);
+            MediaPlayer.TrackDescription[] videoTracks = mediaPlayer.getVideoTracks();
+            int firstVideoId = firstVideoTrackId(videoTracks);
+            if (firstVideoId >= 0 && !hasTrackId(videoTracks, selectedVideo)) {
+                // libvlc 没报出已选视频轨（getVideoTrack() 返回 -1 或与描述 id 对不上）时，
+                // 像 mpv/ijk 一样把第一条视频轨当作已选上报：只改上报给 Media3 的 Tracks，
+                // 不动 libvlc 实际选轨。否则 PlayerView 认为没有视频轨，会一直把海报
+                //（exo_artwork）盖在画面上，只剩声音和进度在走。
+                SpiderDebug.log(TAG, "video track unselected, fallback to first id=%d reported=%d", firstVideoId, selectedVideo);
+                selectedVideo = firstVideoId;
+            }
+            addTrackGroup(groups, C.TRACK_TYPE_VIDEO, videoTracks, selectedVideo);
             addTrackGroup(groups, C.TRACK_TYPE_AUDIO, mediaPlayer.getAudioTracks(), selectedAudio);
             addTrackGroup(groups, C.TRACK_TYPE_TEXT, mediaPlayer.getSpuTracks(), selectedSpu);
             currentTracks = groups.isEmpty() ? Tracks.EMPTY : new Tracks(groups);
         } catch (Throwable e) {
             SpiderDebug.log(TAG, "tracks refresh failed errorType=%s", e.getClass().getSimpleName());
         }
+    }
+
+    private static boolean hasTrackId(MediaPlayer.TrackDescription[] descriptions, int id) {
+        if (descriptions == null) return false;
+        for (MediaPlayer.TrackDescription description : descriptions) {
+            if (description != null && description.id == id) return true;
+        }
+        return false;
+    }
+
+    /** 返回第一条非空视频轨的 libvlc id，没有则返回 -1。 */
+    private static int firstVideoTrackId(MediaPlayer.TrackDescription[] descriptions) {
+        if (descriptions == null) return -1;
+        for (MediaPlayer.TrackDescription description : descriptions) {
+            if (description != null) return description.id;
+        }
+        return -1;
     }
 
     private int safeTrackId(TrackIdSupplier supplier) {
