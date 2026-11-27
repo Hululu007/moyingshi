@@ -1,8 +1,8 @@
-package com.fongmi.android.tv.remote;
+package com.github.moyingshi.osc.tv.remote;
 
-import com.fongmi.android.tv.remote.RemoteModels.RemoteDevice;
-import com.fongmi.android.tv.remote.RemoteModels.RemoteGroup;
-import com.fongmi.android.tv.remote.RemoteModels.RemoteProfile;
+import com.github.moyingshi.osc.tv.remote.RemoteModels.RemoteDevice;
+import com.github.moyingshi.osc.tv.remote.RemoteModels.RemoteGroup;
+import com.github.moyingshi.osc.tv.remote.RemoteModels.RemoteProfile;
 
 import org.junit.Test;
 

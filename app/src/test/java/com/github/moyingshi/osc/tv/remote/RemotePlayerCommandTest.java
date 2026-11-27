@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.remote;
+package com.github.moyingshi.osc.tv.remote;
 
 import com.google.gson.JsonObject;
 

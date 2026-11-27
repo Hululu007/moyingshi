@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.smb;
+package com.github.moyingshi.osc.tv.smb;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -10,7 +10,7 @@ import android.util.Base64;
 
 import androidx.annotation.Nullable;
 
-import com.fongmi.android.tv.App;
+import com.github.moyingshi.osc.tv.App;
 
 import java.io.File;
 import java.io.FileNotFoundException;
