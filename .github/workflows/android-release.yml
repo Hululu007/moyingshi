@@ -180,17 +180,17 @@ jobs:
           chmod +x ./gradlew
           ./gradlew \
             :app:testMobileArm64_v8aDebugUnitTest \
-            --tests 'com.github.moyingshi.osc.tv.player.danmaku.*' \
-            --tests 'com.github.moyingshi.osc.tv.utils.GithubProxyTest' \
-            --tests 'com.github.moyingshi.osc.tv.ui.dialog.AboutDialogLayoutTest' \
-            --tests 'com.github.moyingshi.osc.tv.ui.adapter.VodAdapterLayoutTest' \
-            --tests 'com.github.moyingshi.osc.tv.module.*' \
+            --tests 'com.github.aiyingshi.osc.tv.player.danmaku.*' \
+            --tests 'com.github.aiyingshi.osc.tv.utils.GithubProxyTest' \
+            --tests 'com.github.aiyingshi.osc.tv.ui.dialog.AboutDialogLayoutTest' \
+            --tests 'com.github.aiyingshi.osc.tv.ui.adapter.VodAdapterLayoutTest' \
+            --tests 'com.github.aiyingshi.osc.tv.module.*' \
             --no-daemon
           ./gradlew \
             :app:testLeanbackArm64_v8aDebugUnitTest \
-            --tests 'com.github.moyingshi.osc.tv.player.danmaku.*' \
-            --tests 'com.github.moyingshi.osc.tv.utils.GithubProxyTest' \
-            --tests 'com.github.moyingshi.osc.tv.module.*' \
+            --tests 'com.github.aiyingshi.osc.tv.player.danmaku.*' \
+            --tests 'com.github.aiyingshi.osc.tv.utils.GithubProxyTest' \
+            --tests 'com.github.aiyingshi.osc.tv.module.*' \
             --no-daemon
 
   build:
