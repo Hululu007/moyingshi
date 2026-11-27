@@ -122,7 +122,11 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         super(Looper.getMainLooper());
         this.decode = decode;
         // 关掉 libvlc 默认的片名 OSD，避免画面上多一行系统字幕条。
-        libVlc = new LibVLC(context.getApplicationContext(), List.of("--no-video-title-show"));
+        // 网络缓存从默认 1000ms 提到 5000ms：走本地代理的高码率流（4K）上游抖动大，
+        // 1s 缓存播几秒就断（黑屏转圈再续播），EXO/mpv 靠大缓存扛得住，VLC 扛不住。
+        // 只影响 VLC；多占几 MB 内存，不拖首帧（缓存是上限，不是预填目标）。
+        libVlc = new LibVLC(context.getApplicationContext(),
+                List.of("--no-video-title-show", "--network-caching=5000"));
         mediaPlayer = new MediaPlayer(libVlc);
         mediaPlayer.setEventListener(this::onVlcEvent);
         // 与 mpv/ijk 同款：本地代理只在头里有 libvlc 表达不了的项时才启用，
