@@ -6,6 +6,7 @@ import com.github.aiyingshi.osc.tv.player.PlayerHelper;
 import com.github.aiyingshi.osc.tv.subtitle.SubtitleUriFactory;
 import com.github.aiyingshi.osc.tv.subtitle.model.SubtitleAsset;
 import com.github.aiyingshi.osc.tv.utils.FileUtil;
+import com.github.aiyingshi.osc.tv.utils.SafeZip;
 import com.github.catvod.utils.Path;
 
 import java.io.File;
@@ -40,14 +41,14 @@ public final class SubtitleAssetStore {
     public File unzipAndPick(File archive, String provider, String candidateId) {
         File folder = null;
         try {
-            folder = SubtitleArchive.extract(archive, root());
+            folder = SafeZip.extract(archive, root());
             File subtitle = pickSubtitleFile(folder);
             if (subtitle == null) throw new IOException("Archive contains no supported subtitles");
             return subtitle;
         } catch (IOException | RuntimeException failure) {
             if (folder != null) {
                 try {
-                    SubtitleArchive.discard(folder);
+                    SafeZip.discard(folder);
                 } catch (IOException cleanup) {
                     failure.addSuppressed(cleanup);
                 }

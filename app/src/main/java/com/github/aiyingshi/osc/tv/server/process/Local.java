@@ -8,6 +8,7 @@ import com.github.aiyingshi.osc.tv.server.Nano;
 import com.github.aiyingshi.osc.tv.server.impl.Process;
 import com.github.aiyingshi.osc.tv.utils.FileUtil;
 import com.github.aiyingshi.osc.tv.utils.Formatters;
+import com.github.aiyingshi.osc.tv.utils.SafeZip;
 import com.github.catvod.utils.Path;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -66,7 +67,7 @@ public class Local implements Process {
             for (String k : files.keySet()) {
                 File target = contained(folder, params.get(k), "file name");
                 File temp = new File(files.get(k));
-                if (target.getName().toLowerCase().endsWith(".zip")) FileUtil.zipDecompress(temp, folder);
+                if (target.getName().toLowerCase().endsWith(".zip")) SafeZip.extractInto(temp, folder);
                 else Path.copy(temp, target);
             }
             return Nano.ok();
