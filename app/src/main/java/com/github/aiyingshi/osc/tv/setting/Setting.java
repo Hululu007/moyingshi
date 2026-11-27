@@ -25,6 +25,7 @@ import com.github.aiyingshi.osc.tv.bean.ShortDramaConfig;
 import com.github.aiyingshi.osc.tv.bean.TmdbConfig;
 import com.github.aiyingshi.osc.tv.bean.TmdbMatchCache;
 import com.github.aiyingshi.osc.tv.bean.TmdbSeasonMatchCache;
+import com.github.aiyingshi.osc.tv.service.AiKeyStore;
 import com.github.aiyingshi.osc.tv.utils.AppCache;
 import com.github.aiyingshi.osc.tv.utils.GithubProxy;
 import com.github.aiyingshi.osc.tv.utils.WebViewUtil;
@@ -33,7 +34,9 @@ import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.utils.Trans;
 import com.github.catvod.utils.Prefers;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
@@ -1100,12 +1103,74 @@ public class Setting {
         return com.github.aiyingshi.osc.tv.bean.TmdbConfig.objectFrom(getTmdbConfig()).isSiteEnabled(key, name);
     }
 
+    /** 上次读 ai_config 时密文解不开（换了手机/清了 Keystore）：弹窗打开时提示重填一次。 */
+    private static volatile boolean aiKeyInvalid;
+
+    /**
+     * 读出的 JSON 里 apiKey 永远是明文（内存态）：存的是 {@code enc-v1:}/{@code local-v1:} 密文
+     * 就地解密返回；老版本留下的明文立即加密回写，一次性迁移；解不开返回空 key，不崩溃。
+     * 落盘形态只由 {@link #putAiConfig(String)} 决定。
+     */
     public static String getAiConfig() {
-        return Prefers.getString("ai_config");
+        String raw = Prefers.getString("ai_config");
+        String storedKey = storedAiApiKey(raw);
+        if (storedKey.isEmpty()) return raw;
+        if (AiKeyStore.isEncrypted(storedKey)) {
+            String plain = "";
+            try {
+                plain = AiKeyStore.decrypt(storedKey);
+            } catch (Throwable ignored) {
+                plain = "";
+            }
+            if (plain.isEmpty()) aiKeyInvalid = true;
+            return withAiApiKey(raw, plain);
+        }
+        // 老版本留下的明文：读出来后立即加密回写，一次性迁移，用户无感。
+        putAiConfig(raw);
+        return raw;
     }
 
+    /** 写之前先把明文 apiKey 加密成带前缀的密文再落盘；已是密文的不重复加密。 */
     public static void putAiConfig(String value) {
+        String storedKey = storedAiApiKey(value);
+        if (!storedKey.isEmpty() && !AiKeyStore.isEncrypted(storedKey)) {
+            try {
+                value = withAiApiKey(value, AiKeyStore.encrypt(storedKey));
+            } catch (Throwable ignored) {
+                // Keystore 与本地文件密钥都不可用时保留明文，保证功能可用；
+                // 下次读取时仍会尝试迁移。不要因此丢掉用户刚填的 key。
+            }
+        }
         Prefers.put("ai_config", value);
+    }
+
+    /** 取出并消费一次“key 已失效”标记：只在配置弹窗打开时提示一次，不在后台重复弹。 */
+    public static boolean consumeAiKeyInvalid() {
+        boolean invalid = aiKeyInvalid;
+        aiKeyInvalid = false;
+        return invalid;
+    }
+
+    /** 从 ai_config JSON 里原样取出 apiKey 字段；解析失败或无此字段返回空串。 */
+    private static String storedAiApiKey(String json) {
+        if (json == null || json.isEmpty()) return "";
+        try {
+            JsonElement element = JsonParser.parseString(json).getAsJsonObject().get("apiKey");
+            return element != null && element.isJsonPrimitive() ? element.getAsString() : "";
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    /** 返回一份仅 apiKey 字段被替换的 ai_config JSON；替换失败返回原串。 */
+    private static String withAiApiKey(String json, String apiKey) {
+        try {
+            AiConfig config = AiConfig.objectFrom(json);
+            config.setApiKey(apiKey);
+            return config.toJson();
+        } catch (Throwable ignored) {
+            return json;
+        }
     }
 
     public static boolean isAiConfigReady() {

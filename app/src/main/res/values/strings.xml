@@ -2350,6 +2350,7 @@
     <string name="dialog_ai_endpoint_hint">https://api.openai.com/v1/responses</string>
     <string name="dialog_ai_api_key_label">API key</string>
     <string name="dialog_ai_api_key_hint">sk-...</string>
+    <string name="dialog_ai_key_invalid">Saved AI key is no longer readable, please enter it again</string>
     <string name="dialog_ai_model_label">Model</string>
     <string name="dialog_ai_model_hint">gpt-4.1-mini</string>
     <string name="dialog_ai_fetch_models">Fetch</string>

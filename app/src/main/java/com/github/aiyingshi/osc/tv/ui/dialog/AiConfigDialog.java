@@ -80,6 +80,7 @@ public class AiConfigDialog {
         MaterialButton test = view.findViewById(R.id.test);
 
         config = AiConfig.objectFrom(Setting.getAiConfig());
+        if (Setting.consumeAiKeyInvalid()) Notify.show(R.string.dialog_ai_key_invalid);
         setupProtocolDropdown();
         setupModelDropdown(new ArrayList<>());
         enabled.setChecked(config.isEnabled());

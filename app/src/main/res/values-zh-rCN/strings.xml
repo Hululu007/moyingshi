@@ -2298,6 +2298,7 @@
     <string name="dialog_ai_endpoint_hint">https://api.openai.com/v1/responses</string>
     <string name="dialog_ai_api_key_label">API key</string>
     <string name="dialog_ai_api_key_hint">sk-...</string>
+    <string name="dialog_ai_key_invalid">保存的 AI key 已失效，请重新填写</string>
     <string name="dialog_ai_model_label">模型</string>
     <string name="dialog_ai_model_hint">gpt-4.1-mini</string>
     <string name="dialog_ai_fetch_models">获取模型</string>
