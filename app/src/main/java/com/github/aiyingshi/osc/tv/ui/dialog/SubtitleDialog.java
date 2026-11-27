@@ -30,6 +30,7 @@ public final class SubtitleDialog extends BaseBottomSheetDialog {
     private DialogSubtitleBinding binding;
     private SubtitleView subtitleView;
     private Runnable searchAction;
+    private Runnable translateAction;
     private PlayerManager player;
 
     public static SubtitleDialog create() {
@@ -43,6 +44,12 @@ public final class SubtitleDialog extends BaseBottomSheetDialog {
 
     public SubtitleDialog search(Runnable searchAction) {
         this.searchAction = searchAction;
+        return this;
+    }
+
+    /** 播放器字幕菜单“AI 翻译本集字幕”（P0 功能 5）：未设置时该图标隐藏。 */
+    public SubtitleDialog translate(Runnable translateAction) {
+        this.translateAction = translateAction;
         return this;
     }
 
@@ -75,6 +82,7 @@ public final class SubtitleDialog extends BaseBottomSheetDialog {
         int count = binding.getRoot().getChildCount();
         if (isFull()) for (int i = 0; i < count; i++) ((ImageView) binding.getRoot().getChildAt(i)).getDrawable().setTint(MDColor.WHITE);
         binding.search.setVisibility(searchAction == null ? View.GONE : View.VISIBLE);
+        binding.aiTranslate.setVisibility(translateAction == null ? View.GONE : View.VISIBLE);
     }
 
     @Override
@@ -85,6 +93,7 @@ public final class SubtitleDialog extends BaseBottomSheetDialog {
         binding.small.setOnClickListener(this::onSmall);
         binding.reset.setOnClickListener(this::onReset);
         binding.search.setOnClickListener(this::onSearch);
+        binding.aiTranslate.setOnClickListener(this::onTranslate);
     }
 
     private void onUp(View view) {
@@ -162,6 +171,12 @@ public final class SubtitleDialog extends BaseBottomSheetDialog {
         if (searchAction == null) return;
         dismiss();
         App.post(searchAction::run, 100);
+    }
+
+    private void onTranslate(View view) {
+        if (translateAction == null) return;
+        dismiss();
+        App.post(translateAction::run, 100);
     }
 
     @Override

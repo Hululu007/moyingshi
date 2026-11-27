@@ -169,6 +169,8 @@ public final class SettingSearchIndex {
         entries.add(sub(R.string.player_subtitle_auto_match, R.string.setting_subtitle, 6));
         entries.add(sub(R.string.player_subtitle_language, R.string.setting_subtitle, 6));
         entries.add(sub(R.string.player_subtitle_source, R.string.setting_subtitle, 6));
+        entries.add(sub(R.string.setting_ai_subtitle_translate, R.string.setting_subtitle, 6));
+        entries.add(sub(R.string.subtitle_ai_translate_target_language, R.string.setting_subtitle, 6));
         // TMDB page (7).
         entries.add(sub(R.string.setting_tmdb_source, R.string.setting_tmdb, 7));
         entries.add(sub(R.string.setting_detail_open_mode, R.string.setting_tmdb, 7));
@@ -183,6 +185,11 @@ public final class SettingSearchIndex {
         entries.add(sub(R.string.player_subtitle_realtime_model, R.string.setting_ai, 8));
         entries.add(sub(R.string.player_subtitle_ai_chunk_count, R.string.setting_ai, 8));
         entries.add(sub(R.string.player_subtitle_ai_max_concurrency, R.string.setting_ai, 8));
+        entries.add(sub(R.string.setting_ai_home_recommend, R.string.setting_ai, 8));
+        entries.add(sub(R.string.setting_ai_dice_reason, R.string.setting_ai, 8));
+        entries.add(sub(R.string.setting_ai_viewing_report, R.string.setting_ai, 8));
+        entries.add(sub(R.string.setting_ai_search_suggest, R.string.setting_ai, 8));
+        entries.add(sub(R.string.setting_ai_subtitle_translate, R.string.setting_ai, 8));
         // Ad page (9).
         entries.add(sub(R.string.setting_ad_master, R.string.setting_ad, 9));
         entries.add(sub(R.string.setting_ai_ad_detection, R.string.setting_ad, 9));

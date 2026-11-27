@@ -54,15 +54,31 @@ public class SettingAiFragment extends BaseFragment {
         mBinding.aiRecommendation.setOnClickListener(this::setAiRecommendation);
         mBinding.personalRecommendation.setOnClickListener(this::setPersonalRecommendation);
         mBinding.recommendationFeedback.setOnClickListener(this::manageRecommendationFeedback);
+        mBinding.aiHomeRecommend.setOnClickListener(v -> toggleAiFeature(mBinding.aiHomeRecommendText, Setting.isAiHomeRecommend(), Setting::putAiHomeRecommend));
+        mBinding.aiDiceReason.setOnClickListener(v -> toggleAiFeature(mBinding.aiDiceReasonText, Setting.isAiDiceReason(), Setting::putAiDiceReason));
+        mBinding.aiViewingReport.setOnClickListener(v -> toggleAiFeature(mBinding.aiViewingReportText, Setting.isAiViewingReport(), Setting::putAiViewingReport));
+        mBinding.aiSearchSuggest.setOnClickListener(v -> toggleAiFeature(mBinding.aiSearchSuggestText, Setting.isAiSearchSuggest(), Setting::putAiSearchSuggest));
+        mBinding.aiSubtitleTranslate.setOnClickListener(v -> toggleAiFeature(mBinding.aiSubtitleTranslateText, Setting.isAiSubtitleTranslate(), Setting::putAiSubtitleTranslate));
         mBinding.subtitleRealtimeModel.setOnClickListener(this::onRealtimeModel);
         mBinding.subtitleAiMaxConcurrency.setOnClickListener(this::onSubtitleAiMaxConcurrency);
         mBinding.subtitleAiChunkCount.setOnClickListener(this::onSubtitleAiChunkCount);
+    }
+
+    /** P0 功能单独开关（默认关）：点一行切换开/关，只改开关本身，不碰总开关与配置。 */
+    private void toggleAiFeature(com.google.android.material.textview.MaterialTextView text, boolean current, java.util.function.Consumer<Boolean> setter) {
+        setter.accept(!current);
+        text.setText(getSwitch(!current));
     }
 
     private void setText() {
         if (mBinding == null) return;
         mBinding.aiRecommendationText.setText(getAiRecommendationText());
         mBinding.personalRecommendationText.setText(getSwitch(Setting.isPersonalRecommendation()));
+        mBinding.aiHomeRecommendText.setText(getSwitch(Setting.isAiHomeRecommend()));
+        mBinding.aiDiceReasonText.setText(getSwitch(Setting.isAiDiceReason()));
+        mBinding.aiViewingReportText.setText(getSwitch(Setting.isAiViewingReport()));
+        mBinding.aiSearchSuggestText.setText(getSwitch(Setting.isAiSearchSuggest()));
+        mBinding.aiSubtitleTranslateText.setText(getSwitch(Setting.isAiSubtitleTranslate()));
         int feedbackCount = RecommendationFeedbackStore.size();
         mBinding.recommendationFeedbackText.setText(feedbackCount == 0
                 ? getString(R.string.setting_recommendation_feedback_empty)

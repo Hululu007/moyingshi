@@ -26,6 +26,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.github.aiyingshi.osc.tv.App;
 import com.github.aiyingshi.osc.tv.R;
 import com.github.aiyingshi.osc.tv.api.config.VodConfig;
+import com.github.aiyingshi.osc.tv.bean.AiConfig;
 import com.github.aiyingshi.osc.tv.bean.Class;
 import com.github.aiyingshi.osc.tv.bean.Config;
 import com.github.aiyingshi.osc.tv.bean.Device;
@@ -33,6 +34,7 @@ import com.github.aiyingshi.osc.tv.bean.Filter;
 import com.github.aiyingshi.osc.tv.bean.History;
 import com.github.aiyingshi.osc.tv.bean.Result;
 import com.github.aiyingshi.osc.tv.bean.Site;
+import com.github.aiyingshi.osc.tv.bean.TmdbItem;
 import com.github.aiyingshi.osc.tv.bean.Value;
 import com.github.aiyingshi.osc.tv.bean.Vod;
 import com.github.aiyingshi.osc.tv.databinding.AdapterWidgetSectionBinding;
@@ -48,6 +50,8 @@ import com.github.aiyingshi.osc.tv.impl.ConfigListener;
 import com.github.aiyingshi.osc.tv.impl.FilterListener;
 import com.github.aiyingshi.osc.tv.impl.SiteListener;
 import com.github.aiyingshi.osc.tv.model.SiteViewModel;
+import com.github.aiyingshi.osc.tv.service.AiRecommendationService;
+import com.github.aiyingshi.osc.tv.service.PersonalRecommendationService;
 import com.github.aiyingshi.osc.tv.setting.Setting;
 import com.github.aiyingshi.osc.tv.setting.AppBranding;
 import com.github.aiyingshi.osc.tv.ui.activity.HomeActivity;
@@ -58,10 +62,12 @@ import com.github.aiyingshi.osc.tv.ui.activity.KeepActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.WidgetBrowseActivity;
+import com.github.aiyingshi.osc.tv.ui.adapter.AiRecommendAdapter;
 import com.github.aiyingshi.osc.tv.ui.adapter.BannerAdapter;
 import com.github.aiyingshi.osc.tv.ui.adapter.ContinueAdapter;
 import com.github.aiyingshi.osc.tv.ui.adapter.TypeAdapter;
 import com.github.aiyingshi.osc.tv.ui.adapter.WidgetSectionAdapter;
+import com.github.aiyingshi.osc.tv.ui.helper.TmdbNavigation;
 import com.github.aiyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.aiyingshi.osc.tv.ui.dialog.ApkPushDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.ApkPushMethodDialog;
@@ -114,6 +120,10 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     // 首页“继续观看”（B2）：横向滑动行，读观看历史。
     private ContinueAdapter mContinueAdapter;
+
+    // 首页“为你推荐”（P0 功能 1）：横向滑动行，读 AiRecommendationService；开关默认关。
+    private AiRecommendAdapter mAiRecommendAdapter;
+    private boolean mAiRecommendLoading;
 
     // 首页组件区（B5）：Bangumi/豆瓣/Mikan/TMDB 推荐行；开关默认关。
     private WidgetManager mWidgetManager;
@@ -179,6 +189,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         setRecyclerView();
         setBannerView();
         setContinueView();
+        setAiRecommendView();
         setWebView();
         setViewModel();
         showProgress();
@@ -343,6 +354,81 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     /** “继续观看”点进续播：与历史页点播行为一致。 */
     private void onContinueClick(History item) {
         HistoryResumeCoordinator.open(requireActivity(), item);
+    }
+
+    /**
+     * 首页“为你推荐”（P0 功能 1）：横向滑动行，数据来自 AiRecommendationService
+     *（PersonalRecommendationService.loadAiPage，当前片为空、以播放历史为种子）。
+     * 先贴缓存、再后台刷新；开关关、AI 未配置或失败时静默降级（整行隐藏，不弹提示）。
+     */
+    private void setAiRecommendView() {
+        mAiRecommendAdapter = new AiRecommendAdapter(this::onAiRecommendClick);
+        mBinding.aiRecommendList.setHasFixedSize(true);
+        mBinding.aiRecommendList.setItemAnimator(null);
+        mBinding.aiRecommendList.setAdapter(mAiRecommendAdapter);
+        refreshAiRecommend();
+    }
+
+    private void refreshAiRecommend() {
+        if (mAiRecommendAdapter == null) return;
+        if (!Setting.isAiHomeRecommend() || !AiConfig.objectFrom(Setting.getAiConfig()).isReady()) {
+            mAiRecommendAdapter.submit(null);
+            updateAiRecommendVisibility();
+            return;
+        }
+        if (mAiRecommendLoading || mAiRecommendAdapter.getItemCount() > 0) {
+            updateAiRecommendVisibility();
+            return;
+        }
+        mAiRecommendLoading = true;
+        new Thread(() -> {
+            try {
+                PersonalRecommendationService service = new PersonalRecommendationService();
+                AiRecommendationService.CachedPage cached = service.loadCachedAiPage(null, null, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+                final List<TmdbItem> cachedItems = cached.hasItems() ? cached.getPage().getItems() : null;
+                App.post(() -> {
+                    if (mBinding == null || !isAdded()) return;
+                    if (cachedItems != null && !cachedItems.isEmpty()) {
+                        mAiRecommendAdapter.submit(cachedItems);
+                        updateAiRecommendVisibility();
+                    }
+                });
+                PersonalRecommendationService.RecommendationPage page = cached.getPage();
+                if (!cached.hasItems() || !cached.isExact() || !cached.isResolved()) {
+                    page = cached.isExact()
+                            ? service.resolveCachedAiPage(null, null, PersonalRecommendationService.DEFAULT_PAGE_SIZE)
+                            : service.refreshAiPage(null, null, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+                }
+                final List<TmdbItem> items = page == null ? null : page.getItems();
+                App.post(() -> {
+                    mAiRecommendLoading = false;
+                    if (mBinding == null || !isAdded()) return;
+                    if (items != null && !items.isEmpty()) mAiRecommendAdapter.submit(items);
+                    updateAiRecommendVisibility();
+                });
+            } catch (Throwable ignored) {
+                // 失败静默降级：旧缓存留着，没有就整行隐藏，不弹提示、不崩溃。
+                App.post(() -> {
+                    mAiRecommendLoading = false;
+                    if (mBinding == null) return;
+                    updateAiRecommendVisibility();
+                });
+            }
+        }).start();
+    }
+
+    /** “为你推荐”可见的唯一判据：有推荐内容、原生内容在显示（不是网页首页/沉浸模式）。 */
+    private void updateAiRecommendVisibility() {
+        if (mBinding == null) return;
+        boolean show = mAiRecommendAdapter != null && mAiRecommendAdapter.getItemCount() > 0
+                && !isNativeChromeHidden()
+                && (mWeb == null || !mWeb.isVisible());
+        mBinding.aiRecommendSection.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    /** “为你推荐”点片进详情：与详情页“猜你喜欢”卡片同一条 TmdbNavigation.open。 */
+    private void onAiRecommendClick(TmdbItem item) {
+        TmdbNavigation.open(requireActivity(), item, getHome());
     }
 
     /**
@@ -879,6 +965,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         if (mBinding == null) return;
         mBinding.searchDice.setVisibility(Setting.isDiceEntry() ? View.VISIBLE : View.GONE);
         refreshContinue();
+        refreshAiRecommend();
         refreshWidgets();
         if (mBinding.banner.getVisibility() == View.VISIBLE) startBannerAutoScroll();
     }
@@ -980,6 +1067,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.banner.setVisibility(View.GONE);
         stopBannerAutoScroll();
         mBinding.continueSection.setVisibility(View.GONE);
+        mBinding.aiRecommendSection.setVisibility(View.GONE);
         mBinding.widgetSections.setVisibility(View.GONE);
         mBinding.browse.setVisibility(View.GONE);
         mBinding.link.setVisibility(View.GONE);
@@ -993,6 +1081,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.pager.setVisibility(View.VISIBLE);
         updateBannerVisibility();
         updateContinueVisibility();
+        updateAiRecommendVisibility();
         updateWidgetVisibility();
         if (mWeb != null) mWeb.hide();
         updateToolbarMenu();
@@ -1011,6 +1100,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             mBinding.banner.setVisibility(View.GONE);
             stopBannerAutoScroll();
             mBinding.continueSection.setVisibility(View.GONE);
+            mBinding.aiRecommendSection.setVisibility(View.GONE);
             mBinding.widgetSections.setVisibility(View.GONE);
             mBinding.browse.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);

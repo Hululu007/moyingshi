@@ -103,6 +103,8 @@ public final class SubtitlePlaybackSession {
     private SubtitleRequest currentRequest;
     private String currentEpisodeMarker;
     private boolean active;
+    /** 最近一次匹配到的字幕（自动匹配或手动解析，含本集字幕）；供“AI 翻译本集字幕”入口用。 */
+    private SubtitleMatchResult lastMatchedResult;
 
     public SubtitlePlaybackSession(Host host) {
         this(host, new DefaultController(), new SubtitleRequestFactory(), new SubtitleInjector(), DefaultResultApplier.INSTANCE, DefaultResultNotifier.INSTANCE);
@@ -152,8 +154,19 @@ public final class SubtitlePlaybackSession {
     public void stop(Host host) {
         active = false;
         currentRequest = null;
+        lastMatchedResult = null;
         currentEpisodeMarker = "";
         if (host != null && !SubtitleStrings.isEmpty(host.getSubtitlePlaybackKey())) controller.onStop(host.getSubtitlePlaybackKey());
+    }
+
+    /** 当前在播请求；未在播返回 null。 */
+    public SubtitleRequest getCurrentRequest() {
+        return currentRequest;
+    }
+
+    /** 最近一次匹配到的字幕结果；从未匹配到（或源站自带字幕）返回 null。 */
+    public SubtitleMatchResult getLastMatchedResult() {
+        return lastMatchedResult;
     }
 
     public void manualSearch(Host host, ManualCallback callback) {
@@ -187,6 +200,9 @@ public final class SubtitlePlaybackSession {
         controller.resolve(request, candidate, (current, result) -> {
             if (request != currentRequest || !isActive(host)) return;
             boolean applied = applyMatchedSubtitle(host, result);
+            if (result != null && result.getStatus() == SubtitleMatchStatus.MATCHED && result.getAsset() != null) {
+                lastMatchedResult = result;
+            }
             callback.onSubtitleResult(current, result, applied);
         });
     }
@@ -205,6 +221,7 @@ public final class SubtitlePlaybackSession {
             return;
         }
 
+        lastMatchedResult = result;
         applyAutoMatchedSubtitle(host, request, result);
     }
 

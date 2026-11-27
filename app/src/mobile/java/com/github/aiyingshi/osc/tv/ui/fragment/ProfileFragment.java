@@ -31,6 +31,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.github.catvod.utils.Prefers;
 import com.github.aiyingshi.osc.tv.App;
 import com.github.aiyingshi.osc.tv.R;
+import com.github.aiyingshi.osc.tv.bean.AiConfig;
 import com.github.aiyingshi.osc.tv.bean.History;
 import com.github.aiyingshi.osc.tv.databinding.FragmentProfileBinding;
 import com.github.aiyingshi.osc.tv.databinding.ItemProfileCardBinding;
@@ -39,10 +40,15 @@ import com.github.aiyingshi.osc.tv.following.FollowingAgenda;
 import com.github.aiyingshi.osc.tv.profile.ProfileCard;
 import com.github.aiyingshi.osc.tv.profile.ProfileLayout;
 import com.github.aiyingshi.osc.tv.profile.ProfileStats;
+import com.github.aiyingshi.osc.tv.setting.Setting;
+import com.github.aiyingshi.osc.tv.theme.WebHtvAlertDialogBuilder;
 import com.github.aiyingshi.osc.tv.ui.activity.FollowingActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.HistoryActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
 import com.github.aiyingshi.osc.tv.ui.activity.KeepActivity;
+import com.github.aiyingshi.osc.tv.ui.activity.ViewingReportActivity;
+import com.github.aiyingshi.osc.tv.utils.Notify;
+import com.github.aiyingshi.osc.tv.viewing.ViewingReportRange;
 import com.github.aiyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.aiyingshi.osc.tv.ui.custom.ProfileBarsChartView;
 import com.github.aiyingshi.osc.tv.ui.custom.ProfileContributionView;
@@ -54,6 +60,7 @@ import com.github.aiyingshi.osc.tv.ui.dialog.ProfileCalendarSheetDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.ProfileEditorDialog;
 import com.github.aiyingshi.osc.tv.utils.ImgUtil;
 import com.github.aiyingshi.osc.tv.utils.Task;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
 import java.time.Instant;
@@ -183,6 +190,7 @@ public class ProfileFragment extends BaseFragment {
                     cardBinding.cardTitle.setText(card.titleRes);
                     cardBinding.cardHeader.setVisibility(View.GONE);
                     ViewPager2 pager = fillOverview(cardBinding.cardContent, stats);
+                    addAiReportButton(cardBinding.cardContent, stats);
                     mBinding.cardContainer.addView(cardBinding.getRoot());
                     mBinding.cardContainer.addView(buildOverviewDots(pager));
                     break;
@@ -494,6 +502,55 @@ public class ProfileFragment extends BaseFragment {
         pager.setAdapter(new PagerAdapter(pages));
         content.addView(pager);
         return pager;
+    }
+
+    /**
+     * “观看概览”卡片内的“生成 AI 报告”按钮（P0 功能 3）。
+     * 功能开关关着时不显示；点按后先弹确认框，列出将发送的数据摘要（只发聚合统计，
+     * 不含具体哪天几点看了哪集），确认后进已有的 ViewingReportActivity 生成报告。
+     */
+    private void addAiReportButton(LinearLayout content, ProfileStats stats) {
+        if (!Setting.isAiViewingReport()) return;
+        MaterialButton button = new MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+        button.setText(R.string.ai_report_generate);
+        button.setOnClickListener(v -> onGenerateAiReport(stats));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, dp(8), 0, 0);
+        content.addView(button, params);
+    }
+
+    private void onGenerateAiReport(ProfileStats stats) {
+        if (!Setting.isAiViewingReport()) return;
+        if (!AiConfig.objectFrom(Setting.getAiConfig()).isReady()) {
+            Notify.show(R.string.ai_report_not_ready);
+            return;
+        }
+        new WebHtvAlertDialogBuilder(requireContext())
+                .setTitle(R.string.ai_report_confirm_title)
+                .setMessage(getString(R.string.ai_report_confirm_message, buildAiReportSummary(stats)))
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) ->
+                        ViewingReportActivity.start(requireActivity(), ViewingReportRange.ALL))
+                .show();
+    }
+
+    /** 确认框里的数据摘要：只含合计与分布，不含任何单条观看记录的时间与集数。 */
+    private String buildAiReportSummary(ProfileStats stats) {
+        if (stats == null) return "";
+        StringBuilder summary = new StringBuilder();
+        summary.append(String.format(Locale.getDefault(), "本月 %.1f 小时 · 电影 %d 部 · 剧集 %d 部 · 历史记录 %d 条",
+                stats.monthHours, stats.monthMovies, stats.monthSeries, stats.historyCount));
+        if (stats.genreHours != null && !stats.genreHours.isEmpty()) {
+            List<String> top = new ArrayList<>();
+            for (int i = 0; i < Math.min(3, stats.genreHours.size()); i++) {
+                if (stats.genreHours.get(i) != null && !TextUtils.isEmpty(stats.genreHours.get(i).name)) {
+                    top.add(stats.genreHours.get(i).name);
+                }
+            }
+            if (!top.isEmpty()) summary.append("\n题材前三：").append(TextUtils.join("、", top));
+        }
+        return summary.toString();
     }
 
     /** 圆点指示器在卡片外面、卡片下方；选中是深色，未选中是描边灰。 */

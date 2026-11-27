@@ -156,6 +156,50 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
+        <!-- 老虎机每列下方 AI 理由（P0 功能 2）：与片名一一对应，无理由时隐藏；开关关时整行留空。 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/slotReason0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="#B3FFFFFF"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/slotReason1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="#B3FFFFFF"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/slotReason2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="#B3FFFFFF"
+                android:textSize="11sp"
+                android:visibility="gone" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
         <!-- 池子行：4 个池药丸，整行横向滚动（摇一摇已挪到下方通栏按钮） -->
         <HorizontalScrollView
             android:layout_width="match_parent"

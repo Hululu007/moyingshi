@@ -8460,7 +8460,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
 
     @Override
     public void onSubtitleClick() {
-        SubtitleDialog.create().view(mBinding.exo.getSubtitleView()).player(player()).search(() -> SubtitleManualSearchDialog.show(this, subtitlePlaybackSession, this)).show(this);
+        SubtitleDialog.create().view(mBinding.exo.getSubtitleView()).player(player()).search(() -> SubtitleManualSearchDialog.show(this, subtitlePlaybackSession, this)).translate(() -> SubtitleManualSearchDialog.translateCurrent(this, subtitlePlaybackSession, this)).show(this);
         hideControl();
     }
 

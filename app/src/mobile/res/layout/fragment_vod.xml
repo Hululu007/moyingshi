@@ -162,6 +162,39 @@
 
         </androidx.appcompat.widget.LinearLayoutCompat>
 
+        <!-- 首页“为你推荐”（P0 功能 1）：AI 个性化推荐行，读 AiRecommendationService；开关关或无数据时隐藏。 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/aiRecommendSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:visibility="gone"
+            app:layout_scrollFlags="scroll">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/aiRecommendTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/home_ai_recommend"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/aiRecommendList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="16dp"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
         <!-- 首页组件区（B5）：Bangumi/豆瓣/Mikan/TMDB 推荐行，由 VodFragment 按组件动态添加；开关默认关，无数据时隐藏。 -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/widgetSections"

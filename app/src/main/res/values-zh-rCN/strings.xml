@@ -202,6 +202,11 @@
     <string name="setting_ai_group_recommendation">推荐</string>
     <string name="setting_ai_group_detection">内容识别</string>
     <string name="setting_ai_group_subtitle">字幕</string>
+    <string name="setting_ai_home_recommend">首页“为你推荐”</string>
+    <string name="setting_ai_dice_reason">喜好摇片 AI 理由与找相似</string>
+    <string name="setting_ai_viewing_report">“我的”页 AI 观影报告</string>
+    <string name="setting_ai_search_suggest">搜索 AI 建议</string>
+    <string name="setting_ai_subtitle_translate">AI 字幕翻译</string>
     <string name="setting_personal">个性设置</string>
     <string name="setting_group_rule">分组规则</string>
     <string name="setting_group_rule_summary">已启用 %1$d / %2$d</string>
@@ -1603,6 +1608,9 @@
     <string name="subtitle_realtime_model_memory_available_low">当前可用内存不足，请关闭后台应用后重试</string>
     <string name="subtitle_realtime_model_storage_low">至少需要 %1$d MB 可用存储空间</string>
     <string name="subtitle_ai_translate_title">AI 字幕翻译</string>
+    <string name="subtitle_ai_translate_episode">AI 翻译本集字幕</string>
+    <string name="subtitle_ai_translate_target_language">翻译目标语言</string>
+    <string name="subtitle_ai_translate_no_subtitle">当前没有可翻译的字幕，请先搜索字幕</string>
     <string name="subtitle_ai_translate_message">使用当前 AI 配置将该字幕翻译为中文字幕？</string>
     <string name="subtitle_ai_translate_action">AI 翻译为中文</string>
     <string name="subtitle_ai_regenerate_action">重新生成 AI 字幕</string>
@@ -1690,6 +1698,8 @@
     <string name="site_group_sort_cancelled">已取消分组排序</string>
     <string name="search_record">历史</string>
     <string name="search_suggest">建议</string>
+    <string name="ai_search_suggest_title">AI 建议</string>
+    <string name="ai_search_suggestion">AI 建议：%1$s</string>
     <string name="search_hot">热搜</string>
     <string name="search_hot_tv">电视榜</string>
     <string name="search_hot_movie">电影榜</string>
@@ -1736,6 +1746,7 @@
     <string name="home_empty_description">内容源没有返回可显示的内容。</string>
     <string name="home_empty_action">重新加载</string>
     <string name="home_continue_watching">继续观看</string>
+    <string name="home_ai_recommend">为你推荐</string>
     <string name="home_filter_title">筛选</string>
     <!--
         「还没配接口」空态：重置应用、重装或恢复出厂后的首次启动就是这个状态。
@@ -2479,6 +2490,10 @@
 
     <string name="menu_viewing_report">观影报告</string>
     <string name="viewing_report_title">观影报告</string>
+    <string name="ai_report_generate">生成 AI 报告</string>
+    <string name="ai_report_confirm_title">生成 AI 观影报告</string>
+    <string name="ai_report_confirm_message">将把以下聚合统计发给 AI 生成报告（只发合计与分布，不含具体哪天几点看了哪集）：\n%1$s</string>
+    <string name="ai_report_not_ready">请先在 AI 功能里启用并配置 AI</string>
     <string name="viewing_report_select_range">选择报告时间范围</string>
     <string name="viewing_report_generate">生成报告</string>
     <string name="viewing_report_refresh">刷新</string>

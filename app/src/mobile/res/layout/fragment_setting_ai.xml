@@ -209,7 +209,227 @@
 
 
 
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/aiHomeRecommend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_ai"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/setting_ai_home_recommend"
+                    android:textColor="@color/setting_card_title"
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/aiHomeRecommendText"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/setting_card_value"
+                    android:textSize="16sp"
+                    tools:text="Off"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/aiDiceReason"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_ai"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/setting_ai_dice_reason"
+                    android:textColor="@color/setting_card_title"
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/aiDiceReasonText"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/setting_card_value"
+                    android:textSize="16sp"
+                    tools:text="Off"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/aiViewingReport"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_ai"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/setting_ai_viewing_report"
+                    android:textColor="@color/setting_card_title"
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/aiViewingReportText"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/setting_card_value"
+                    android:textSize="16sp"
+                    tools:text="Off"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/aiSearchSuggest"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_ai"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/setting_ai_search_suggest"
+                    android:textColor="@color/setting_card_title"
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/aiSearchSuggestText"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/setting_card_value"
+                    android:textSize="16sp"
+                    tools:text="Off"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
             <com.google.android.material.textview.MaterialTextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:layout_marginBottom="4dp" android:text="@string/setting_ai_group_subtitle" android:textColor="?attr/webhtvColorOnWallpaper" android:textSize="16sp" android:textStyle="bold" />
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/aiSubtitleTranslate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/shape_setting_circle_purple">
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_setting_ai"
+                        android:tint="@android:color/white" />
+                </FrameLayout>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/setting_ai_subtitle_translate"
+                    android:textColor="@color/setting_card_title"
+                    android:textSize="16sp"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/aiSubtitleTranslateText"
+                    android:layout_width="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textColor="@color/setting_card_value"
+                    android:textSize="16sp"
+                    tools:text="Off"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/subtitleRealtimeModel"
                 android:layout_width="match_parent"

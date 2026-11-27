@@ -21,16 +21,21 @@ import com.github.aiyingshi.osc.tv.R;
 import com.github.aiyingshi.osc.tv.api.DiceEngine;
 import com.github.aiyingshi.osc.tv.api.SiteApi;
 import com.github.aiyingshi.osc.tv.api.config.VodConfig;
+import com.github.aiyingshi.osc.tv.bean.AiConfig;
 import com.github.aiyingshi.osc.tv.bean.Filter;
 import com.github.aiyingshi.osc.tv.bean.Keep;
 import com.github.aiyingshi.osc.tv.bean.Result;
 import com.github.aiyingshi.osc.tv.bean.Site;
+import com.github.aiyingshi.osc.tv.bean.TmdbItem;
 import com.github.aiyingshi.osc.tv.bean.Value;
 import com.github.aiyingshi.osc.tv.bean.Vod;
 import com.github.aiyingshi.osc.tv.bean.Want;
 import com.github.aiyingshi.osc.tv.databinding.FragmentDiceBinding;
 import com.github.aiyingshi.osc.tv.db.AppDatabase;
+import com.github.aiyingshi.osc.tv.service.AiCompletionClient;
+import com.github.aiyingshi.osc.tv.service.PersonalRecommendationService;
 import com.github.aiyingshi.osc.tv.setting.DiceSetting;
+import com.github.aiyingshi.osc.tv.setting.Setting;
 import com.github.aiyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.aiyingshi.osc.tv.ui.adapter.DiceHistoryAdapter;
@@ -46,6 +51,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import okhttp3.Request;
+import okhttp3.Response;
 
 /**
  * 喜好选片页：老虎机摇片 + 4 个池 + 心情 / 类型 / 时长筛选 + 不重复 / 避雷 / 题材屏蔽
@@ -123,6 +137,10 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
     private boolean mPrefetchEmptyToastShown;
     /** 本轮摇出的片：onSuccess 存下，停转回调时展示并追加历史。 */
     private List<Vod> mPendingResults;
+    /** 老虎机每列下方 AI 理由（P0 功能 2）：与 mPendingResults 按列一一对应。 */
+    private final String[] mSlotReasons = new String[]{"", "", ""};
+    /** 理由取数代次：摇片或找相似让进行中的旧请求作废，旧回调到时不再写理由行。 */
+    private int mReasonGen;
     /** 类型取数代次：迟到的 homeContent 回调不许盖掉新站源的结果。 */
     private int mTypeGen;
     /** 已加载类型 chips 的站源 key；切站后重取。 */
@@ -198,6 +216,7 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         if (mShaking || mBinding.slotMachine.isSpinning()) return;
         // 进行中的预取作废：迟到的预填回调不许盖掉本轮摇出的结果。
         mPrefetchGen++;
+        clearSlotReasons();
         mShaking = true;
         mBinding.shakeButton.setEnabled(false);
         mBinding.shakeButton.setText(R.string.dice_shaking);
@@ -235,6 +254,7 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         List<Vod> results = mPendingResults == null ? Collections.emptyList() : new ArrayList<>(mPendingResults);
         appendHistory(results);
         refreshHistory();
+        requestSlotReasons(results);
     }
 
     /** 老虎机下方每列片名：取当前每列正中可见格的片名（停下后是结果片，进页未摇时是预取候选片）。 */
@@ -244,6 +264,124 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         mBinding.slotName0.setText(names.size() > 0 ? names.get(0) : "");
         mBinding.slotName1.setText(names.size() > 1 ? names.get(1) : "");
         mBinding.slotName2.setText(names.size() > 2 ? names.get(2) : "");
+    }
+
+    /** 老虎机每列下方 AI 理由行：与片名一一对应，空理由隐藏该列。 */
+    private void updateSlotReasons() {
+        if (mBinding == null) return;
+        setSlotReason(mBinding.slotReason0, mSlotReasons[0]);
+        setSlotReason(mBinding.slotReason1, mSlotReasons[1]);
+        setSlotReason(mBinding.slotReason2, mSlotReasons[2]);
+    }
+
+    private void setSlotReason(com.google.android.material.textview.MaterialTextView view, String reason) {
+        if (view == null) return;
+        if (reason == null || reason.isEmpty()) {
+            view.setVisibility(View.GONE);
+            view.setText("");
+        } else {
+            view.setVisibility(View.VISIBLE);
+            view.setText(reason);
+        }
+    }
+
+    private void clearSlotReasons() {
+        mReasonGen++;
+        mSlotReasons[0] = "";
+        mSlotReasons[1] = "";
+        mSlotReasons[2] = "";
+        updateSlotReasons();
+    }
+
+    /**
+     * 摇片理由（P0 功能 2）：停转后为本轮 3 部片各要一句 AI 理由。
+     * 只发 3 个片名 + 用户主动选的心情词；开关关、AI 未配置或失败时理由行留空，不弹提示。
+     * 一次请求只发一次（不在输入时发），走 resolveEffectiveConfig 的中转降级。
+     */
+    private void requestSlotReasons(List<Vod> results) {
+        clearSlotReasons();
+        final int gen = mReasonGen;
+        if (!Setting.isAiDiceReason() || results == null || results.isEmpty()) return;
+        if (!AiConfig.objectFrom(Setting.getAiConfig()).isReady()) return;
+        final List<String> titles = new ArrayList<>();
+        for (Vod item : results) {
+            if (item != null && !TextUtils.isEmpty(item.getName())) titles.add(item.getName());
+        }
+        if (titles.isEmpty()) return;
+        final List<String> moods = DiceSetting.getMoods();
+        new Thread(() -> {
+            List<String> reasons = fetchSlotReasons(titles, moods);
+            App.post(() -> {
+                if (gen != mReasonGen || !isAdded() || mBinding == null) return;
+                for (int i = 0; i < Math.min(3, reasons.size()); i++) mSlotReasons[i] = reasons.get(i);
+                updateSlotReasons();
+            });
+        }).start();
+    }
+
+    private List<String> fetchSlotReasons(List<String> titles, List<String> moods) {
+        List<String> empty = Arrays.asList("", "", "");
+        AiConfig config = AiConfig.objectFrom(Setting.getAiConfig());
+        try {
+            StringBuilder prompt = new StringBuilder("你是影视推荐助手。用户刚摇到以下 3 部影片：");
+            for (int i = 0; i < titles.size(); i++) prompt.append(i + 1).append(".《").append(titles.get(i)).append("》");
+            if (moods != null && !moods.isEmpty()) prompt.append("。用户当前心情/偏好：").append(TextUtils.join("、", moods));
+            prompt.append("。请为每部片写一句 20 字以内的推荐理由，说明它为什么适合这位用户。"
+                    + "只返回严格 JSON，不要解释、不要 Markdown，格式为{\"reasons\":[{\"title\":\"片名\",\"reason\":\"一句理由\"}]}，顺序与给出的片名一致。");
+            AiCompletionClient.RequestSpec spec = AiCompletionClient.requestSpec(config, prompt.toString());
+            Request request = AiCompletionClient.buildRequest(spec);
+            try (Response response = aiClient().newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
+                    return empty;
+                }
+                String body = response.body() == null ? "" : response.body().string();
+                return parseSlotReasons(AiCompletionClient.extractCompletionText(body, config), titles);
+            }
+        } catch (Throwable ignored) {
+            // 中转未配置、设备注册失败、网络失败：理由行留空，不抛错。
+            return empty;
+        }
+    }
+
+    /** 按输入片名顺序对齐理由；解析失败或某部没给理由时该列留空。 */
+    private List<String> parseSlotReasons(String text, List<String> titles) {
+        List<String> result = new ArrayList<>(Arrays.asList("", "", ""));
+        if (TextUtils.isEmpty(text)) return result;
+        try {
+            String json = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+            JsonElement element = JsonParser.parseString(json);
+            if (element == null || !element.isJsonObject()) return result;
+            JsonArray reasons = element.getAsJsonObject().has("reasons")
+                    && element.getAsJsonObject().get("reasons").isJsonArray()
+                    ? element.getAsJsonObject().getAsJsonArray("reasons") : null;
+            if (reasons == null) return result;
+            for (JsonElement item : reasons) {
+                if (item == null || !item.isJsonObject()) continue;
+                JsonObject object = item.getAsJsonObject();
+                String title = object.has("title") && !object.get("title").isJsonNull() ? object.get("title").getAsString() : "";
+                String reason = object.has("reason") && !object.get("reason").isJsonNull() ? object.get("reason").getAsString() : "";
+                if (TextUtils.isEmpty(title) || TextUtils.isEmpty(reason)) continue;
+                String normalized = PersonalRecommendationService.normalizeTitle(title);
+                for (int i = 0; i < titles.size() && i < 3; i++) {
+                    if (normalized.equals(PersonalRecommendationService.normalizeTitle(titles.get(i)))) {
+                        result.set(i, reason.trim());
+                        break;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // 解析失败：理由行留空。
+        }
+        return result;
+    }
+
+    private static okhttp3.OkHttpClient aiClient() {
+        return com.github.catvod.net.OkHttp.client().newBuilder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .callTimeout(75, TimeUnit.SECONDS)
+                .build();
     }
 
     /** 进页 / 切池后预拉一波候选海报填进老虎机；失败只留素色占位并提示一次。 */
@@ -261,6 +399,7 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
             }
             mBinding.slotMachine.setItems(Collections.<Vod>emptyList(), candidates);
             updateSlotNames();
+            clearSlotReasons();
         });
     }
 
@@ -277,17 +416,96 @@ public class DiceFragment extends BaseFragment implements DiceHistoryAdapter.OnH
         onShake();
     }
 
-    /** 长按老虎机海报：弹避雷 / 收藏二选一（与历史卡片同一套 onBlock/onKeep；避雷进屏蔽名单，下次摇不再出，默认开着“避雷影片”开关时生效）。 */
+    /** 长按老虎机海报：弹避雷 / 收藏二选一（与历史卡片同一套 onBlock/onKeep；避雷进屏蔽名单，下次摇不再出，默认开着“避雷影片”开关时生效）。本轮已摇出的片再加“找相似”一项（P0 功能 2）。 */
     private void showSlotItemMenu(Vod item) {
         if (item == null || !isAdded()) return;
+        List<CharSequence> options = new ArrayList<>();
+        options.add(getString(R.string.dice_block));
+        options.add(getString(R.string.dice_pool_keep));
+        boolean canSimilar = indexOfPending(item) >= 0;
+        if (canSimilar) options.add(getString(R.string.dice_similar));
         new AlertDialog.Builder(requireContext())
                 .setTitle(item.getName())
-                .setItems(new CharSequence[]{
-                        getString(R.string.dice_block),
-                        getString(R.string.dice_pool_keep)}, (dialog, which) -> {
+                .setItems(options.toArray(new CharSequence[0]), (dialog, which) -> {
                     if (which == 0) onBlock(item);
-                    else onKeep(item);
+                    else if (which == 1) onKeep(item);
+                    else if (which == 2) onFindSimilar(item);
                 }).show();
+    }
+
+    private int indexOfPending(Vod item) {
+        if (item == null || mPendingResults == null) return -1;
+        for (int i = 0; i < mPendingResults.size(); i++) {
+            Vod candidate = mPendingResults.get(i);
+            if (candidate != null && TextUtils.equals(candidate.getName(), item.getName())) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * “找相似”（P0 功能 2）：以长按的那部片为种子，用 AiRecommendationService
+     *（PersonalRecommendationService.loadAiPage）再摇一部像它的，替换掉老虎机里
+     * 对应那一列并重新转一次；新片的理由由停转后的 requestSlotReasons 补上。
+     * 种子只发片名；找不到、开关关或 AI 未配置时原样不动，只提示一次。
+     */
+    private void onFindSimilar(Vod item) {
+        if (item == null || !isAdded() || mBinding == null) return;
+        if (!Setting.isAiDiceReason() || !AiConfig.objectFrom(Setting.getAiConfig()).isReady()) {
+            Notify.show(R.string.subtitle_ai_config_required);
+            return;
+        }
+        if (mShaking || mBinding.slotMachine.isSpinning()) return;
+        final int targetIndex = indexOfPending(item);
+        if (targetIndex < 0) return;
+        Notify.show(R.string.dice_similar_searching);
+        new Thread(() -> {
+            final Vod similar = findSimilar(item);
+            App.post(() -> {
+                if (!isAdded() || mBinding == null) return;
+                if (similar == null) {
+                    Notify.show(R.string.dice_similar_not_found);
+                    return;
+                }
+                List<Vod> updated = new ArrayList<>(mPendingResults);
+                while (updated.size() <= targetIndex) updated.add(null);
+                updated.set(targetIndex, similar);
+                mPendingResults = updated;
+                mPrefetchGen++;
+                clearSlotReasons();
+                mShaking = true;
+                mBinding.shakeButton.setEnabled(false);
+                mBinding.shakeButton.setText(R.string.dice_shaking);
+                mBinding.slotMachine.setItems(updated, new ArrayList<>(updated));
+                mBinding.slotMachine.spin();
+            });
+        }).start();
+    }
+
+    /** 取 AI 推荐里第一部既不在屏蔽名单、也不在本轮三部里的片；无合适结果返回 null。 */
+    private Vod findSimilar(Vod seed) {
+        try {
+            PersonalRecommendationService service = new PersonalRecommendationService();
+            PersonalRecommendationService.RecommendationPage page = service.loadAiPage(seed, null, 8);
+            if (page == null || page.getItems().isEmpty()) return null;
+            List<String> blocked = DiceSetting.getBlockedNames();
+            List<String> shown = new ArrayList<>();
+            if (mPendingResults != null) {
+                for (Vod shownItem : mPendingResults) {
+                    if (shownItem != null && !TextUtils.isEmpty(shownItem.getName())) shown.add(shownItem.getName());
+                }
+            }
+            for (TmdbItem candidate : page.getItems()) {
+                if (candidate == null || TextUtils.isEmpty(candidate.getTitle())) continue;
+                if (blocked.contains(candidate.getTitle()) || shown.contains(candidate.getTitle())) continue;
+                Vod vod = new Vod();
+                vod.setName(candidate.getTitle());
+                vod.setPic(candidate.getPosterUrl());
+                return vod;
+            }
+        } catch (Throwable ignored) {
+            // AI 失败：原样不动，调用方只提示一次。
+        }
+        return null;
     }
 
     /** 点老虎机海报直接播那部片：有站源调 startDirect 从头播第一集；豆瓣片无站源时后台按片名搜一次，取第一个有站源的结果直接播，搜不到回落搜索页并提示。 */

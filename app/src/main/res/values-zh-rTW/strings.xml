@@ -202,6 +202,11 @@
     <string name="setting_ai_group_recommendation">推薦</string>
     <string name="setting_ai_group_detection">內容識別</string>
     <string name="setting_ai_group_subtitle">字幕</string>
+    <string name="setting_ai_home_recommend">首頁「為你推薦」</string>
+    <string name="setting_ai_dice_reason">喜好搖片 AI 理由與找相似</string>
+    <string name="setting_ai_viewing_report">「我的」頁 AI 觀影報告</string>
+    <string name="setting_ai_search_suggest">搜尋 AI 建議</string>
+    <string name="setting_ai_subtitle_translate">AI 字幕翻譯</string>
     <string name="setting_search_thread">搜尋線程</string>
     <string name="setting_personal">個性設定</string>
     <string name="setting_group_rule">分組規則</string>
@@ -1555,6 +1560,9 @@
     <string name="subtitle_realtime_model_memory_available_low">目前可用記憶體不足，請關閉背景應用程式後重試</string>
     <string name="subtitle_realtime_model_storage_low">至少需要 %1$d MB 可用儲存空間</string>
     <string name="subtitle_ai_translate_title">AI 字幕翻譯</string>
+    <string name="subtitle_ai_translate_episode">AI 翻譯本集字幕</string>
+    <string name="subtitle_ai_translate_target_language">翻譯目標語言</string>
+    <string name="subtitle_ai_translate_no_subtitle">目前沒有可翻譯的字幕，請先搜尋字幕</string>
     <string name="subtitle_ai_translate_message">使用目前 AI 配置將該字幕翻譯為中文字幕？</string>
     <string name="subtitle_ai_translate_action">AI 翻譯為中文</string>
     <string name="subtitle_ai_regenerate_action">重新產生 AI 字幕</string>
@@ -1642,6 +1650,8 @@
     <string name="site_group_sort_cancelled">已取消分組排序</string>
     <string name="search_record">歷史</string>
     <string name="search_suggest">建議</string>
+    <string name="ai_search_suggest_title">AI 建議</string>
+    <string name="ai_search_suggestion">AI 建議：%1$s</string>
     <string name="search_hot">熱搜</string>
     <string name="search_hot_tv">電視榜</string>
     <string name="search_hot_movie">電影榜</string>
@@ -1688,6 +1698,7 @@
     <string name="home_empty_description">內容源沒有回傳可顯示的內容。</string>
     <string name="home_empty_action">重新載入</string>
     <string name="home_continue_watching">繼續觀看</string>
+    <string name="home_ai_recommend">為你推薦</string>
     <string name="home_filter_title">篩選</string>
     <!--
         「還沒設定接口」空態：重置應用、重新安裝或恢復出廠後首次啟動就是這個狀態。
@@ -2357,6 +2368,10 @@
 
     <string name="menu_viewing_report">觀影報告</string>
     <string name="viewing_report_title">觀影報告</string>
+    <string name="ai_report_generate">產生 AI 報告</string>
+    <string name="ai_report_confirm_title">產生 AI 觀影報告</string>
+    <string name="ai_report_confirm_message">將把以下聚合統計發給 AI 產生報告（只發合計與分佈，不含具體哪天幾點看了哪集）：\n%1$s</string>
+    <string name="ai_report_not_ready">請先在 AI 功能裡啟用並設定 AI</string>
     <string name="viewing_report_select_range">選擇報告時間範圍</string>
     <string name="viewing_report_generate">生成報告</string>
     <string name="viewing_report_refresh">重新整理</string>

@@ -11756,7 +11756,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     public void onSubtitleClick() {
-        SubtitleDialog.create().view(binding.exo.getSubtitleView()).player(player()).search(this::showSubtitleSearch).show(this);
+        SubtitleDialog.create().view(binding.exo.getSubtitleView()).player(player()).search(this::showSubtitleSearch).translate(() -> SubtitleManualSearchDialog.translateCurrent(this, subtitlePlaybackSession, this)).show(this);
     }
 
     private void showSubtitleSearch() {

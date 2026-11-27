@@ -99,6 +99,20 @@
                 tools:itemCount="5"
                 tools:listitem="@layout/adapter_search_word" />
 
+            <!-- AI 建议（P0 功能 4）：输入停顿后才出现的一行，点它直接搜；开关关时不出现，仍走爱奇艺/腾讯联想词。 -->
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/aiSuggest"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/shape_setting_row_card"
+                android:padding="12dp"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:visibility="gone" />
+
             <androidx.appcompat.widget.LinearLayoutCompat
                 android:id="@+id/hotGroup"
                 android:layout_width="match_parent"

@@ -1327,6 +1327,61 @@ public class Setting {
         putPersonalRecommendation(enabled);
     }
 
+    /**
+     * P0 AI 功能单独开关：默认全部关。总开关（AiConfig.enabled）关着或中转未配置时，
+     * 各入口也不发请求（见 AiCompletionClient.resolveEffectiveConfig 的降级）。
+     * 开关统一放在“增强设置 → AI 功能”页。
+     */
+    public static boolean isAiHomeRecommend() {
+        return Prefers.getBoolean("ai_home_recommend", false);
+    }
+
+    public static void putAiHomeRecommend(boolean enabled) {
+        Prefers.put("ai_home_recommend", enabled);
+    }
+
+    public static boolean isAiDiceReason() {
+        return Prefers.getBoolean("ai_dice_reason", false);
+    }
+
+    public static void putAiDiceReason(boolean enabled) {
+        Prefers.put("ai_dice_reason", enabled);
+    }
+
+    public static boolean isAiViewingReport() {
+        return Prefers.getBoolean("ai_viewing_report", false);
+    }
+
+    public static void putAiViewingReport(boolean enabled) {
+        Prefers.put("ai_viewing_report", enabled);
+    }
+
+    public static boolean isAiSearchSuggest() {
+        return Prefers.getBoolean("ai_search_suggest", false);
+    }
+
+    public static void putAiSearchSuggest(boolean enabled) {
+        Prefers.put("ai_search_suggest", enabled);
+    }
+
+    public static boolean isAiSubtitleTranslate() {
+        return Prefers.getBoolean("ai_subtitle_translate", false);
+    }
+
+    public static void putAiSubtitleTranslate(boolean enabled) {
+        Prefers.put("ai_subtitle_translate", enabled);
+    }
+
+    /** AI 字幕翻译目标语言（BCP-47，如 zh-Hans / zh-Hant / en），默认简体中文。 */
+    public static String getAiSubtitleTargetLanguage() {
+        String value = Prefers.getString("ai_subtitle_target_lang", "zh-Hans");
+        return value == null || value.trim().isEmpty() ? "zh-Hans" : value.trim();
+    }
+
+    public static void putAiSubtitleTargetLanguage(String value) {
+        Prefers.put("ai_subtitle_target_lang", value == null || value.trim().isEmpty() ? "zh-Hans" : value.trim());
+    }
+
     private static int clampTmdbMatchMode(int mode) {
         if (mode == TMDB_MATCH_STRICT || mode == TMDB_MATCH_SMART || mode == TMDB_MATCH_STRICT_DIALOG || mode == TMDB_MATCH_SMART_DIALOG) return mode;
         return TMDB_MATCH_SMART;

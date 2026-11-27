@@ -50,6 +50,45 @@ public final class SubtitleManualSearchDialog {
         showKeywordDialog(activity, session, host, session.getManualSearchKeyword(host));
     }
 
+    /**
+     * 播放器字幕菜单“AI 翻译本集字幕”（P0 功能 5）：翻译当前已匹配的本集字幕。
+     * 开关关或 AI 未配置时只提示，不发请求；当前没有可翻译的字幕时打开手动搜索，
+     * 让用户先选一条（选好后按规则提示翻译）。
+     */
+    public static void translateCurrent(FragmentActivity activity, SubtitlePlaybackSession session, SubtitlePlaybackSession.Host host) {
+        if (activity == null || session == null || host == null) return;
+        if (!Setting.isAiSubtitleTranslate()) {
+            Notify.show(R.string.subtitle_ai_config_required);
+            return;
+        }
+        AiConfig config = AiConfig.objectFrom(Setting.getAiConfig());
+        if (!config.isReady()) {
+            Notify.show(R.string.subtitle_ai_config_required);
+            return;
+        }
+        SubtitleMatchResult last = session.getLastMatchedResult();
+        SubtitleRequest request = session.getCurrentRequest();
+        if (last == null || last.getAsset() == null || request == null) {
+            Notify.show(R.string.subtitle_ai_translate_no_subtitle);
+            show(activity, session, host);
+            return;
+        }
+        String target = Setting.getAiSubtitleTargetLanguage();
+        new WebHtvAlertDialogBuilder(activity, R.style.Theme_WebHTV_Dialog)
+                .setTitle(R.string.subtitle_ai_translate_title)
+                .setMessage("使用当前 AI 配置将本集字幕翻译为" + targetLanguageLabel(target) + "？")
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.subtitle_ai_translate_action, (dialog, which) ->
+                        translate(activity, session, host, request, last, null, null))
+                .show();
+    }
+
+    private static String targetLanguageLabel(String target) {
+        if ("zh-Hant".equals(target)) return "繁體中文";
+        if ("en".equals(target)) return "English";
+        return "简体中文";
+    }
+
     private static void showKeywordDialog(FragmentActivity activity, SubtitlePlaybackSession session, SubtitlePlaybackSession.Host host, String defaultKeyword) {
         TextInputEditText input = new TextInputEditText(activity);
         input.setSingleLine(true);
@@ -138,6 +177,7 @@ public final class SubtitleManualSearchDialog {
             if (!isAlive(activity)) return;
             if (result != null && result.getStatus() == SubtitleMatchStatus.MATCHED && applied) {
                 Notify.show(ResUtil.getString(R.string.subtitle_manual_applied, displayName(candidate)));
+                maybeOfferAiTranslate(activity, session, host, request, result, candidate, candidates);
             } else if (result != null && result.getStatus() == SubtitleMatchStatus.MATCHED) {
                 Notify.show(R.string.subtitle_manual_apply_failed);
             } else {
@@ -158,6 +198,7 @@ public final class SubtitleManualSearchDialog {
     }
 
     private static void maybeOfferAiTranslate(FragmentActivity activity, SubtitlePlaybackSession session, SubtitlePlaybackSession.Host host, SubtitleRequest request, SubtitleMatchResult result, SubtitleCandidate candidate, List<SubtitleCandidate> candidates) {
+        if (!Setting.isAiSubtitleTranslate()) return;
         if (!shouldOfferAiTranslate(result, candidate)) return;
         AlertDialog dialog = new WebHtvAlertDialogBuilder(activity, R.style.Theme_WebHTV_Dialog)
                 .setTitle(R.string.subtitle_ai_translate_title)
@@ -169,6 +210,10 @@ public final class SubtitleManualSearchDialog {
     }
 
     private static void translate(FragmentActivity activity, SubtitlePlaybackSession session, SubtitlePlaybackSession.Host host, SubtitleRequest request, SubtitleMatchResult matchResult, SubtitleCandidate candidate, List<SubtitleCandidate> candidates) {
+        if (!Setting.isAiSubtitleTranslate()) {
+            Notify.show(R.string.subtitle_ai_config_required);
+            return;
+        }
         AiConfig config = AiConfig.objectFrom(Setting.getAiConfig());
         if (!config.isReady()) {
             Notify.show(R.string.subtitle_ai_config_required);
@@ -179,8 +224,9 @@ public final class SubtitleManualSearchDialog {
                 .playbackKey(request == null ? "" : request.getPlaybackKey())
                 .subtitleRequest(request)
                 .sourceAsset(matchResult.getAsset())
-                .sourceLanguage(candidate == null ? "" : candidate.getLanguage())
-                .targetLanguage("zh-Hans")
+                .sourceLanguage(candidate != null ? candidate.getLanguage()
+                        : (matchResult.getAsset() == null ? "" : matchResult.getAsset().getLanguage()))
+                .targetLanguage(Setting.getAiSubtitleTargetLanguage())
                 .mode(SubtitleTranslationRequest.MODE_TRANSLATED)
                 .trigger(SubtitleTranslationRequest.TRIGGER_MANUAL)
                 .build();

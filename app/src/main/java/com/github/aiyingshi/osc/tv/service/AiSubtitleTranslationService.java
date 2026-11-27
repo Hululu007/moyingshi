@@ -242,9 +242,19 @@ public final class AiSubtitleTranslationService {
         return ranges;
     }
 
+    /** 中转单请求 3 万字符上限：按字幕文本量再拆分，保证每批提示词（含上下文与 JSON）远小于上限。 */
+    private static final int MAX_CHUNK_CHARS = 20000;
+
     private int effectiveChunkCount(List<SubtitleCue> sourceCues) {
         if (sourceCues == null || sourceCues.isEmpty()) return 1;
-        return clamp(targetChunkCount, 1, sourceCues.size());
+        int count = clamp(targetChunkCount, 1, sourceCues.size());
+        int totalChars = 0;
+        for (SubtitleCue cue : sourceCues) {
+            if (cue == null || cue.getTextLines() == null) continue;
+            for (String line : cue.getTextLines()) if (line != null) totalChars += line.length();
+        }
+        int byChars = (int) Math.ceil(totalChars / (double) MAX_CHUNK_CHARS);
+        return clamp(Math.max(count, byChars), 1, sourceCues.size());
     }
 
     private ChunkAttempt translateChunk(SubtitleTranslationRequest request, List<SubtitleCue> sourceCues, int offset, int end, int chunk) throws Exception {

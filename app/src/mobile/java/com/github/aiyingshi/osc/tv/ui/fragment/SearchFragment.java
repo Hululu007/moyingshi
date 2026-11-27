@@ -47,6 +47,7 @@ import com.github.aiyingshi.osc.tv.ui.adapter.WordAdapter;
 import com.github.aiyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.aiyingshi.osc.tv.ui.custom.CustomTextListener;
 import com.github.aiyingshi.osc.tv.ui.dialog.SiteDialog;
+import com.github.aiyingshi.osc.tv.utils.AiSearchSuggest;
 import com.github.aiyingshi.osc.tv.utils.Notify;
 import com.github.aiyingshi.osc.tv.utils.ResUtil;
 import com.github.aiyingshi.osc.tv.utils.SearchSuggest;
@@ -87,6 +88,9 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     private List<Word.Data> mIqiyiWords = new ArrayList<>();
     private List<Word.Data> mTencentWords = new ArrayList<>();
     private int mSuggestSeq;
+    /** AI 建议行防抖代次与当前展示的首选建议（P0 功能 4）。 */
+    private int mAiSuggestSeq;
+    private String mAiSuggestKeyword = "";
 
     public static SearchFragment newInstance(String keyword) {
         return newInstance(keyword, null);
@@ -197,6 +201,12 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
                 getWord(s.toString());
             }
         });
+        mBinding.aiSuggest.setOnClickListener(v -> {
+            if (!mAiSuggestKeyword.isEmpty()) {
+                setKeyword(mAiSuggestKeyword);
+                search();
+            }
+        });
         getParentFragmentManager().setFragmentResultListener("result", getViewLifecycleOwner(), (requestKey, bundle) -> {
             if (bundle.getBoolean("edit", false)) Util.showKeyboard(mBinding.keyword);
         });
@@ -243,8 +253,10 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     }
 
     private void getWord(String text) {
-        if (text.isEmpty()) getHot();
-        else getSuggest(text);
+        if (text.isEmpty()) {
+            showAiSuggest(new ArrayList<>());
+            getHot();
+        } else getSuggest(text);
     }
 
     private void getHot() {
@@ -266,6 +278,45 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         mTencentWords = new ArrayList<>();
         OkHttp.newCall(SearchSuggest.iqiyiUrl(text)).enqueue(getSuggestCallback(seq, false));
         OkHttp.newCall(SearchSuggest.tencentUrl(text)).enqueue(getSuggestCallback(seq, true));
+        scheduleAiSuggest(text);
+    }
+
+    /**
+     * AI 建议行（P0 功能 4）：输入停顿 600ms 后发一次（只发关键词本身），点行直接搜首选建议。
+     * 开关关、AI 未配置或请求失败时行隐藏，联想词仍走爱奇艺/腾讯。
+     */
+    private void scheduleAiSuggest(String text) {
+        final int seq = ++mAiSuggestSeq;
+        if (!AiSearchSuggest.isEnabled()) {
+            showAiSuggest(new ArrayList<>());
+            return;
+        }
+        final String keyword = text == null ? "" : text.trim();
+        if (keyword.isEmpty()) {
+            showAiSuggest(new ArrayList<>());
+            return;
+        }
+        App.post(() -> {
+            if (seq != mAiSuggestSeq || !isAdded() || mBinding == null) return;
+            if (!keyword.equals(mBinding.keyword.getText().toString().trim())) return;
+            AiSearchSuggest.suggest(keyword, suggestions -> {
+                if (seq != mAiSuggestSeq || !isAdded() || mBinding == null) return;
+                if (!keyword.equals(mBinding.keyword.getText().toString().trim())) return;
+                showAiSuggest(suggestions);
+            });
+        }, 600);
+    }
+
+    private void showAiSuggest(List<String> suggestions) {
+        if (mBinding == null) return;
+        if (suggestions == null || suggestions.isEmpty()) {
+            mAiSuggestKeyword = "";
+            mBinding.aiSuggest.setVisibility(View.GONE);
+            return;
+        }
+        mAiSuggestKeyword = suggestions.get(0);
+        mBinding.aiSuggest.setText(getString(R.string.ai_search_suggest_title) + "：" + TextUtils.join(" · ", suggestions));
+        mBinding.aiSuggest.setVisibility(View.VISIBLE);
     }
 
     private String rankUrl(int cat) {

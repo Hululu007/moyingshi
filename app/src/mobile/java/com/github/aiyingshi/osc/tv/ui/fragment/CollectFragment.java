@@ -47,12 +47,14 @@ import com.github.aiyingshi.osc.tv.setting.SiteGroupOrderStore;
 import com.github.aiyingshi.osc.tv.setting.SiteHealthStore;
 import com.github.aiyingshi.osc.tv.ui.activity.FolderActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.HistoryResumeCoordinator;
+import com.github.aiyingshi.osc.tv.ui.activity.SearchActivity;
 import com.github.aiyingshi.osc.tv.ui.activity.VideoActivity;
 import com.github.aiyingshi.osc.tv.ui.adapter.CollectAdapter;
 import com.github.aiyingshi.osc.tv.ui.adapter.SearchAdapter;
 import com.github.aiyingshi.osc.tv.ui.base.BaseFragment;
 import com.github.aiyingshi.osc.tv.ui.custom.CustomScroller;
 import com.github.aiyingshi.osc.tv.ui.dialog.SliderNumberDialog;
+import com.github.aiyingshi.osc.tv.utils.AiSearchSuggest;
 import com.github.aiyingshi.osc.tv.utils.ResUtil;
 import com.github.aiyingshi.osc.tv.utils.SearchGridLayout;
 import com.github.aiyingshi.osc.tv.utils.SearchPageState;
@@ -89,6 +91,10 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private int mSimilarity;
     private boolean mSearchCompleted;
     private final SearchPageState mPaging;
+    /** 无结果页 AI 改写建议（P0 功能 4）：同一关键词只请求一次，点建议直接搜它。 */
+    private String mAiNoResultKeyword = "";
+    private boolean mAiNoResultDone;
+    private List<String> mAiNoResultSuggestions = new ArrayList<>();
     private PopupWindow groupPopup;
     private int collectWidth;
 
@@ -215,6 +221,11 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
             result.putBoolean("edit", true);
             getParentFragmentManager().setFragmentResult("result", result);
             getParentFragmentManager().popBackStack();
+        });
+        mBinding.empty.setOnClickListener(v -> {
+            if (!mAiNoResultSuggestions.isEmpty()) {
+                SearchActivity.start(requireActivity(), mAiNoResultSuggestions.get(0));
+            }
         });
     }
 
@@ -572,8 +583,47 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
         if (show) {
             String text = mSimilarity == 100 ? getString(R.string.search_filter_empty_exact) : getString(R.string.search_filter_empty, mSimilarity);
             mBinding.empty.setText(text);
+            mBinding.empty.setVisibility(View.VISIBLE);
+            return;
         }
-        mBinding.empty.setVisibility(show ? View.VISIBLE : View.GONE);
+        // 真无结果（各站都没返回）：显示 AI 改写建议（P0 功能 4），点建议直接搜它。
+        if (mSearchCompleted && !loading && activated.getList().isEmpty() && !hasRawResults(siteKey)) {
+            requestAiNoResultSuggestion();
+            return;
+        }
+        mBinding.empty.setVisibility(View.GONE);
+    }
+
+    /** 无结果时发一次 AI 建议（只发关键词本身）；同一关键词不重复请求，失败时空行隐藏。 */
+    private void requestAiNoResultSuggestion() {
+        final String keyword = getKeyword();
+        if (!AiSearchSuggest.isEnabled() || TextUtils.isEmpty(keyword)) {
+            mBinding.empty.setVisibility(View.GONE);
+            return;
+        }
+        if (mAiNoResultDone && keyword.equals(mAiNoResultKeyword)) {
+            applyAiNoResultSuggestion();
+            return;
+        }
+        mAiNoResultKeyword = keyword;
+        mAiNoResultDone = false;
+        mBinding.empty.setVisibility(View.GONE);
+        AiSearchSuggest.suggest(keyword, suggestions -> {
+            if (!isAdded() || mBinding == null) return;
+            if (!keyword.equals(getKeyword())) return;
+            mAiNoResultDone = true;
+            mAiNoResultSuggestions = suggestions == null ? new ArrayList<>() : new ArrayList<>(suggestions);
+            applyAiNoResultSuggestion();
+        });
+    }
+
+    private void applyAiNoResultSuggestion() {
+        if (!mAiNoResultDone || mAiNoResultSuggestions.isEmpty()) {
+            mBinding.empty.setVisibility(View.GONE);
+            return;
+        }
+        mBinding.empty.setText(getString(R.string.ai_search_suggestion, TextUtils.join(" · ", mAiNoResultSuggestions)));
+        mBinding.empty.setVisibility(View.VISIBLE);
     }
 
     private void restoreScroller(String siteKey) {
