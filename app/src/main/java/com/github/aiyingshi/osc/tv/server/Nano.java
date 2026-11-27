@@ -13,6 +13,7 @@ import com.github.aiyingshi.osc.tv.server.process.Manage;
 import com.github.aiyingshi.osc.tv.server.process.Media;
 import com.github.aiyingshi.osc.tv.server.process.Parse;
 import com.github.aiyingshi.osc.tv.server.process.PlaybackHistoryApi;
+import com.github.aiyingshi.osc.tv.server.process.LanPairingApi;
 import com.github.aiyingshi.osc.tv.server.process.PlaybackProgressApi;
 import com.github.aiyingshi.osc.tv.server.process.PlaybackRecordApi;
 import com.github.aiyingshi.osc.tv.server.process.Proxy;
@@ -47,6 +48,7 @@ public class Nano extends NanoHTTPD {
     private void addProcess() {
         process = new ArrayList<>();
         process.add(new Action());
+        process.add(new LanPairingApi());
         process.add(new Cache());
         process.add(new DebugLogs());
         process.add(new DriveCheck());
