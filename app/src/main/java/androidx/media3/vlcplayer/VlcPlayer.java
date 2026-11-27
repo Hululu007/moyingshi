@@ -125,8 +125,12 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         // 网络缓存从默认 1000ms 提到 5000ms：走本地代理的高码率流（4K）上游抖动大，
         // 1s 缓存播几秒就断（黑屏转圈再续播），EXO/mpv 靠大缓存扛得住，VLC 扛不住。
         // 只影响 VLC；多占几 MB 内存，不拖首帧（缓存是上限，不是预填目标）。
+        // 注意：List.of() 是不可变列表，LibVLC 构造时会在传进来的 options 上直接
+        // add 默认项（3.7.8 字节码核对：构造里对入参调了 4 次 List.add，从不拷贝），
+        // 传不可变列表会抛无消息的 UnsupportedOperationException，表现为 VLC
+        // “根没启动”、马上回 EXO。必须传可变列表。
         libVlc = new LibVLC(context.getApplicationContext(),
-                List.of("--no-video-title-show", "--network-caching=5000"));
+                new ArrayList<>(List.of("--no-video-title-show", "--network-caching=5000")));
         mediaPlayer = new MediaPlayer(libVlc);
         mediaPlayer.setEventListener(this::onVlcEvent);
         // 与 mpv/ijk 同款：本地代理只在头里有 libvlc 表达不了的项时才启用，
