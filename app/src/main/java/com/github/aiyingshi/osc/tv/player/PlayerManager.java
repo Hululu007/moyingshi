@@ -19,6 +19,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaEdition;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
@@ -135,6 +136,8 @@ import com.github.aiyingshi.osc.tv.utils.Notify;
 import com.github.aiyingshi.osc.tv.utils.ResUtil;
 import com.github.aiyingshi.osc.tv.utils.Task;
 import com.github.aiyingshi.osc.tv.utils.Util;
+import com.github.aiyingshi.osc.tv.player.exo.ass.AssInput;
+import com.github.aiyingshi.osc.tv.utils.UrlUtil;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.google.common.net.HttpHeaders;
@@ -640,7 +643,35 @@ public class PlayerManager implements ParseCallback {
     }
 
     public Sub getSelectedSubtitleSub() {
-        return spec == null ? null : findSelectedSubtitleSub(spec.getSubs(), getCurrentTracks());
+        if (spec == null) return null;
+        List<Sub> subs = spec.getSubs();
+        Tracks tracks = getCurrentTracks();
+        if (isExo() && !com.github.aiyingshi.osc.tv.player.exo.MediaSourceFactory.isConcatenatingUrl(spec.getUrl())) {
+            Format selected = getSelectedFormat(tracks, C.TRACK_TYPE_TEXT);
+            if (selected != null) {
+                int offset = AssInput.externalIdOffset(selected.id);
+                if (offset >= 0) return findExternalAssSub(spec, getCurrentMediaItem(), selected.id.substring(offset));
+                if (MimeTypes.TEXT_SSA.equals(selected.sampleMimeType)) return null;
+            }
+        }
+        return findSelectedSubtitleSub(subs, tracks);
+    }
+
+    private static Sub findExternalAssSub(PlaySpec spec, MediaItem item, String id) {
+        List<Sub> subs = spec.getSubs();
+        if (subs == null || item == null || item.localConfiguration == null || TextUtils.isEmpty(spec.getUrl())
+                || !spec.getUri().equals(item.requestMetadata.mediaUri)) return null;
+        for (MediaItem.SubtitleConfiguration subtitle : item.localConfiguration.subtitleConfigurations) {
+            if (!id.equals(subtitle.id) || !MimeTypes.TEXT_SSA.equals(subtitle.mimeType)) continue;
+            Sub match = null;
+            for (Sub sub : subs) {
+                if (sub == null || sub.getUrl().isEmpty() || !subtitle.uri.equals(Uri.parse(UrlUtil.convert(sub.getUrl())))) continue;
+                if (match != null) return null;
+                match = sub;
+            }
+            return match;
+        }
+        return null;
     }
 
     public List<Sub> getSubtitleSubs() {
