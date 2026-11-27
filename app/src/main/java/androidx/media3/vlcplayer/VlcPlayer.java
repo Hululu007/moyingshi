@@ -35,6 +35,7 @@ import com.github.catvod.crawler.SpiderDebug;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
@@ -46,6 +47,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * VLC 内核的 Media3 适配器：把 libvlc 的 {@link MediaPlayer} 包成
@@ -213,12 +216,11 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
     @Override
     protected ListenableFuture<?> handleSetMediaItems(List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
         // 换片先停掉旧媒体，避免 setMedia 之前旧片继续出声。
+        // 停是异步的：返回的 future 在 native stop 完成后才完成，Media3 会等它再跑
+        // prepare，旧流一定先停干净。
+        ListenableFuture<?> stopFuture = Futures.immediateVoidFuture();
         if (mediaSet) {
-            try {
-                mediaPlayer.stop();
-            } catch (Throwable ignored) {
-            }
-            mediaSet = false;
+            stopFuture = stopAsync(false);
         }
         mediaItem = mediaItems.isEmpty() ? null : mediaItems.get(0);
         pendingSeekPositionMs = mediaItem != null && startPositionMs > 0 ? startPositionMs : C.TIME_UNSET;
@@ -234,7 +236,7 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         renderedFirstFrameSeen = false;
         currentPlayableUrl = null;
         resourceClassification = null;
-        return Futures.immediateVoidFuture();
+        return stopFuture;
     }
 
     @Override
@@ -246,9 +248,10 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
     @Override
     protected ListenableFuture<?> handleReplaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
         if (mediaItems.isEmpty()) {
-            stopInternal();
+            ListenableFuture<?> stopFuture = stopAsync(false);
             mediaItem = null;
             invalidateState();
+            return stopFuture;
         } else {
             mediaItem = mediaItems.get(0);
         }
@@ -257,11 +260,12 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
 
     @Override
     protected ListenableFuture<?> handleRemoveMediaItems(int fromIndex, int toIndex) {
-        stopInternal();
+        ListenableFuture<?> stopFuture = stopAsync(false);
         mediaItem = null;
         playbackState = Player.STATE_IDLE;
         loading = false;
-        return Futures.immediateVoidFuture();
+        invalidateState();
+        return stopFuture;
     }
 
     @Override
@@ -293,29 +297,36 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
 
     @Override
     protected ListenableFuture<?> handleStop() {
-        stopInternal();
-        return Futures.immediateVoidFuture();
+        return stopAsync(true);
     }
 
     @Override
     protected ListenableFuture<?> handleRelease() {
         released = true;
         stopStateRefresh();
-        stopInternal(false);
-        detachVideoOutput();
-        try {
-            mediaPlayer.release();
-        } catch (Throwable ignored) {
-        }
-        try {
-            hlsProxy.release();
-        } catch (Throwable ignored) {
-        }
-        try {
-            libVlc.release();
-        } catch (Throwable ignored) {
-        }
-        return Futures.immediateVoidFuture();
+        boolean hadMedia = mediaSet;
+        resetStopState(false);
+        // 释放全套放后台：native stop 会等 input 线程退出，卡在缓冲读流时能拖很久，
+        // 在主线程做就是这次的 ANR；detach/release/proxy/libVlc 顺序不变，只换线程。
+        SettableFuture<Void> future = SettableFuture.create();
+        STOP_EXECUTOR.execute(() -> {
+            if (hadMedia) nativeStop();
+            detachVideoOutput();
+            try {
+                mediaPlayer.release();
+            } catch (Throwable ignored) {
+            }
+            try {
+                hlsProxy.release();
+            } catch (Throwable ignored) {
+            }
+            try {
+                libVlc.release();
+            } catch (Throwable ignored) {
+            }
+            future.set(null);
+        });
+        return future;
     }
 
     @Override
@@ -664,11 +675,21 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         return lower.contains(".mpd") || lower.contains("type=mpd") || lower.contains("format=mpd");
     }
 
-    private void stopInternal(boolean notifyState) {
-        try {
-            if (mediaSet) mediaPlayer.stop();
-        } catch (Throwable ignored) {
-        }
+    /**
+     * 停 native 播放器的专用单线程：libvlc_media_player_stop 是同步调用，会等 input
+     * 线程退出才返回；VLC 卡在缓冲读流时这一步能拖几秒甚至更久，在主线程调就是 ANR
+     *（v89 实测：主线程 vlc_cond_wait → libvlc_media_player_stop，Input dispatching
+     * timed out）。状态复位仍在主线程立即做，只把阻塞调用挪走；返回的 future 在
+     * native stop 完成后才完成，Media3 会等它再跑下一个操作。
+     */
+    private static final ExecutorService STOP_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "vlc-stop");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    /** 主线程上立即做的状态复位（不含阻塞调用）。 */
+    private void resetStopState(boolean notifyState) {
         mediaSet = false;
         prepared = false;
         loading = false;
@@ -677,8 +698,25 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         if (notifyState) invalidateState();
     }
 
-    private void stopInternal() {
-        stopInternal(true);
+    /** 只调阻塞的 native stop，必须在 STOP_EXECUTOR 上跑，绝不在主线程调。 */
+    private void nativeStop() {
+        try {
+            mediaPlayer.stop();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** 异步停播：状态立即复位，native stop 放后台，future 在 stop 完成后才完成。 */
+    private ListenableFuture<?> stopAsync(boolean notifyState) {
+        boolean hadMedia = mediaSet;
+        resetStopState(notifyState);
+        if (!hadMedia) return Futures.immediateVoidFuture();
+        SettableFuture<Void> future = SettableFuture.create();
+        STOP_EXECUTOR.execute(() -> {
+            nativeStop();
+            future.set(null);
+        });
+        return future;
     }
 
     private void startStateRefresh() {
