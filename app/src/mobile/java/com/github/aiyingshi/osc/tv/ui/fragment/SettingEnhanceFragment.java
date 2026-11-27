@@ -44,6 +44,8 @@ import com.github.aiyingshi.osc.tv.ui.dialog.CustomCspDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.DebugLogDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.GitCloudDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.LoginStateLearnDialog;
+import com.github.aiyingshi.osc.tv.server.LanPeers;
+import com.github.aiyingshi.osc.tv.ui.dialog.LanPairingDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.ManagePageDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.OneKeySyncDialog;
 import com.github.aiyingshi.osc.tv.ui.dialog.RemoteTrustDialog;
@@ -155,6 +157,7 @@ public class SettingEnhanceFragment extends BaseFragment {
             setText();
             return true;
         });
+        mBinding.lanPairing.setOnClickListener(view -> LanPairingDialog.show(this));
     }
 
     private void reorderItems() {
@@ -223,6 +226,9 @@ public class SettingEnhanceFragment extends BaseFragment {
         safeSet("playbackWebhook", mBinding.playbackWebhookText, () -> ViewingRecordSyncStore.summary(requireContext()));
         safeSet("managePage", mBinding.managePageText, () -> getString(R.string.manage_page_web));
         safeSet("smbBrowser", mBinding.smbBrowserText, () -> getString(Setting.isSmbBrowserEnabled() ? R.string.setting_enable : R.string.setting_disable));
+        safeSet("lanPairing", mBinding.lanPairingText, () -> LanPeers.get().isEnabled()
+                ? getString(R.string.lan_pairing_enabled, LanPeers.get().partners().size())
+                : getString(R.string.lan_pairing_disabled));
         safeSet("remoteTrust", mBinding.remoteTrustText, () -> RemoteStore.summary(requireContext()));
         safeSet("gitCloud", mBinding.gitCloudText, () -> getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         safeSet("pluginManager", mBinding.pluginManagerText, () -> getString(R.string.plugin_manager_entry_count, PluginSourceConfig.get().entries().size()));
