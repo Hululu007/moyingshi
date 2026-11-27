@@ -105,7 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           OLD_CLASS="com/fongmi/android/tv/player/iso/IsoSessionManager"
-          NEW_CLASS="com/github/moyingshi/osc/tv/player/iso/IsoSessionManager"
+          NEW_CLASS="com/github/aiyingshi/osc/tv/player/iso/IsoSessionManager"
           for abi in arm64-v8a armeabi-v7a; do
             so="build/mpv-native/output-jni/$abi/libplayer.so"
             test -s "$so" || { echo "::error title=Missing libplayer.so::No staged binary at $so"; exit 1; }
