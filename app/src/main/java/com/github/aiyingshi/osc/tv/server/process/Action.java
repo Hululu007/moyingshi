@@ -23,6 +23,7 @@ import com.github.aiyingshi.osc.tv.server.LanActionGate;
 import com.github.aiyingshi.osc.tv.server.LanActionGate.Verdict;
 import com.github.aiyingshi.osc.tv.server.LanPairingController;
 import com.github.aiyingshi.osc.tv.server.LanPeers;
+import com.github.aiyingshi.osc.tv.server.LanPeerStore;
 import com.github.aiyingshi.osc.tv.server.Nano;
 import com.github.aiyingshi.osc.tv.server.Server;
 import com.github.aiyingshi.osc.tv.server.impl.Process;
@@ -38,7 +39,6 @@ import com.github.aiyingshi.osc.tv.utils.Task;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.utils.Path;
-import com.github.catvod.utils.Prefers;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -88,7 +88,7 @@ public class Action implements Process {
     }
 
     private static boolean isLocalWriteEnabled() {
-        return Prefers.getBoolean("lan_local_write", false);
+        return LanPeerStore.isLocalWriteEnabled();
     }
 
     private Response doJob(String param, Map<String, String> params, Map<String, String> files) {
