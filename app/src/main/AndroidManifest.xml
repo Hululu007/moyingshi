@@ -91,14 +91,14 @@
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="com.github.moyingshi.osc.tv.Startup"
+                android:name="com.github.aiyingshi.osc.tv.Startup"
                 android:value="androidx.startup" />
             <!-- Some TV firmware defaults the app to device-protected storage. -->
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
                 tools:node="remove" />
             <meta-data
-                android:name="com.github.moyingshi.osc.tv.following.FollowingWorkInitializer"
+                android:name="com.github.aiyingshi.osc.tv.following.FollowingWorkInitializer"
                 android:value="androidx.startup" />
         </provider>
 
