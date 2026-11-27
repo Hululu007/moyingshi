@@ -9,6 +9,7 @@ import android.os.Build;
 import android.text.TextUtils;
 
 import com.github.catvod.net.OkHttp;
+import com.github.catvod.utils.Prefers;
 import com.github.aiyingshi.osc.tv.BuildConfig;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
@@ -141,6 +142,21 @@ public final class ModuleManager {
 
     public boolean isInstalled(String moduleId) {
         return getStatus(moduleId) == ModuleStatus.INSTALLED;
+    }
+
+    /**
+     * 模块启用开关（默认开），存在 SharedPreferences，键 {@code module_enabled_<id>}。
+     * 关 = 当作未安装处理（内核选择、设置入口不再把它当可用项），文件保留在磁盘上，
+     * 再打开不用重新下载，直接恢复可用。未知 id 一律当作启用，不拦旧逻辑。
+     */
+    public boolean isEnabled(String moduleId) {
+        if (ModuleDefinition.byId(moduleId) == null) return true;
+        return Prefers.getBoolean("module_enabled_" + moduleId, true);
+    }
+
+    public void setEnabled(String moduleId, boolean enabled) {
+        if (ModuleDefinition.byId(moduleId) == null) return;
+        Prefers.put("module_enabled_" + moduleId, enabled);
     }
 
     /** 已安装模块占用的字节数（未安装返回 0）。 */

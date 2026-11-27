@@ -2409,7 +2409,7 @@ public void resetTrack(int type) {
     }
 
     public void togglePlayer() {
-        switchPlayerManually(PlayerSetting.nextPlayer(playerType));
+        switchPlayerManually(PlayerSetting.nextEnabledPlayer(playerType));
     }
 
     public void switchPlayer(int type) {

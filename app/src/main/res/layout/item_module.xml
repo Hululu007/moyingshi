@@ -42,4 +42,10 @@
         android:layout_marginStart="8dp"
         android:textSize="13sp" />
 
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/enableSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp" />
+
 </LinearLayout>

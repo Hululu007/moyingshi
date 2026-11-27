@@ -111,6 +111,8 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mpvRender = ResUtil.getStringArray(R.array.select_mpv_render);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         mBinding.lutText.setText(LutSetting.getSummary());
+        // LUT 模块开关关了：B6 画面调节的 LUT 行隐藏（包内只剩 1 个默认预设，行本身不留）。
+        mBinding.lut.setVisibility(ModuleManager.getInstance(requireContext()).isEnabled(ModuleDefinition.LUT.id) ? View.VISIBLE : View.GONE);
         setMpvRows();
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
@@ -233,7 +235,8 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     }
 
     private void setMpvRows() {
-        boolean visible = PlayerSetting.getPlayer() == PlayerSetting.MPV;
+        boolean visible = PlayerSetting.getPlayer() == PlayerSetting.MPV
+                && PlayerSetting.isKernelEnabled(PlayerSetting.MPV);
         mBinding.mpvConfig.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.mpvRender.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.blurayMenu.setVisibility(visible ? View.VISIBLE : View.GONE);
@@ -593,6 +596,13 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         PlaybackPerformanceSetting.markCustom();
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
         setPerformanceText();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 从模块页回来时刷新：LUT 开关可能刚被拨过，行显隐要当场跟上。
+        initView();
     }
 
     @Override

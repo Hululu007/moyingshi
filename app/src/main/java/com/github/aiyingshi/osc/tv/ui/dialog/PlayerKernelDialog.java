@@ -31,7 +31,7 @@ public final class PlayerKernelDialog {
         int current = PlayerSetting.sanitizePlayer(selected);
         String[] kernel = kernels(activity.getResources());
         String[] items = withExternal(kernel, external, activity.getString(R.string.player_kernel_external));
-        ChoiceDialog.showSingleNoCancel(activity, R.string.player_kernel, items, PlayerSetting.kernelRank(current), which -> notifySelected(kernel.length, current, which, listener, external));
+        ChoiceDialog.showSingleNoCancel(activity, R.string.player_kernel, items, PlayerSetting.enabledKernelRank(current), which -> notifySelected(kernel.length, current, which, listener, external));
     }
 
     public static void show(Fragment fragment, int selected, Listener listener) {
@@ -42,12 +42,12 @@ public final class PlayerKernelDialog {
         int current = PlayerSetting.sanitizePlayer(selected);
         String[] kernel = kernels(fragment.getResources());
         String[] items = withExternal(kernel, external, fragment.getString(R.string.player_kernel_external));
-        ChoiceDialog.showSingleNoCancel(fragment, R.string.player_kernel, items, PlayerSetting.kernelRank(current), which -> notifySelected(kernel.length, current, which, listener, external));
+        ChoiceDialog.showSingleNoCancel(fragment, R.string.player_kernel, items, PlayerSetting.enabledKernelRank(current), which -> notifySelected(kernel.length, current, which, listener, external));
     }
 
-    /** 内核标签，按 EXO → IJK → MPV → 系统 的优先级顺序排列。 */
+    /** 内核标签，按 EXO → IJK → MPV → 系统 的优先级顺序排列，只含已启用的内核。 */
     public static String[] kernels(Resources resources) {
-        return PlayerSetting.orderKernels(resources.getStringArray(R.array.select_player_kernel));
+        return PlayerSetting.orderEnabledKernels(resources.getStringArray(R.array.select_player_kernel));
     }
 
     private static String[] withExternal(String[] kernel, ExternalListener external, String label) {
@@ -62,7 +62,7 @@ public final class PlayerKernelDialog {
             external.onExternal();
             return;
         }
-        int target = PlayerSetting.kernelAt(selected);
+        int target = PlayerSetting.enabledKernelAt(selected);
         if (target != current && listener != null) listener.onSelected(target);
     }
 }

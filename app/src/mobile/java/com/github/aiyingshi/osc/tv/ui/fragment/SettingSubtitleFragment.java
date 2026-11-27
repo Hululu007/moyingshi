@@ -11,6 +11,8 @@ import androidx.viewbinding.ViewBinding;
 
 import com.github.aiyingshi.osc.tv.R;
 import com.github.aiyingshi.osc.tv.databinding.FragmentSettingSubtitleBinding;
+import com.github.aiyingshi.osc.tv.module.ModuleDefinition;
+import com.github.aiyingshi.osc.tv.module.ModuleManager;
 import com.github.aiyingshi.osc.tv.setting.Setting;
 import com.github.aiyingshi.osc.tv.subtitle.provider.SubtitleProviderRegistry;
 import com.github.aiyingshi.osc.tv.ui.base.BaseFragment;
@@ -46,6 +48,11 @@ public class SettingSubtitleFragment extends BaseFragment {
         mBinding.subtitleAutoMatchText.setText(getSwitch(Setting.isSubtitleAutoMatchEnabled()));
         mBinding.subtitleLanguageText.setText(getSubtitleLanguageText());
         mBinding.subtitleAssrtTokenText.setText(getSubtitleSourceText());
+        // 实时字幕模块开关关了：AI 翻译开关与目标语言行隐藏（同 SettingAiFragment 的处理）。
+        boolean sherpaEnabled = ModuleManager.getInstance(requireContext())
+                .isEnabled(ModuleDefinition.SHERPA.id);
+        mBinding.aiSubtitleTranslate.setVisibility(sherpaEnabled ? View.VISIBLE : View.GONE);
+        mBinding.aiSubtitleTargetLanguage.setVisibility(sherpaEnabled ? View.VISIBLE : View.GONE);
         mBinding.aiSubtitleTranslateText.setText(getSwitch(Setting.isAiSubtitleTranslate()));
         mBinding.aiSubtitleTargetLanguageText.setText(getAiSubtitleTargetLanguageText());
     }
@@ -107,6 +114,13 @@ public class SettingSubtitleFragment extends BaseFragment {
 
     private String getSubtitleSourceText() {
         return getString(R.string.player_subtitle_source_count, SubtitleProviderRegistry.get().providerNames().size());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 从模块页回来时刷新：Sherpa 开关可能刚被拨过，行显隐要当场跟上。
+        initView();
     }
 
     @Override

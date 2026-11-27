@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -159,7 +160,8 @@ public class ModuleActivity extends AppCompatActivity {
             Integer percent = downloading.get(definition.id);
             // 总包下载时进度记在 "all" 键上，各行都显示同一进度。
             if (percent == null) percent = downloading.get("all");
-            rows.add(new Row(definition, status, manifest, size, percent));
+            rows.add(new Row(definition, status, manifest, size, percent,
+                    modules.isEnabled(definition.id)));
         }
         return rows;
     }
@@ -170,14 +172,16 @@ public class ModuleActivity extends AppCompatActivity {
         final ModuleManifest manifest;
         final long sizeBytes;
         final Integer downloadingPercent;
+        final boolean enabled;
 
         Row(ModuleDefinition definition, ModuleStatus status, ModuleManifest manifest,
-            long sizeBytes, Integer downloadingPercent) {
+            long sizeBytes, Integer downloadingPercent, boolean enabled) {
             this.definition = definition;
             this.status = status;
             this.manifest = manifest;
             this.sizeBytes = sizeBytes;
             this.downloadingPercent = downloadingPercent;
+            this.enabled = enabled;
         }
     }
 
@@ -197,6 +201,10 @@ public class ModuleActivity extends AppCompatActivity {
     // ---------- 行操作 ----------
 
     private void onRowClick(Row row) {
+        if (!row.enabled) {
+            Notify.show(R.string.module_disabled_hint);
+            return;
+        }
         List<String> actions = new ArrayList<>();
         List<Runnable> handlers = new ArrayList<>();
         if (row.downloadingPercent != null) {
@@ -219,6 +227,15 @@ public class ModuleActivity extends AppCompatActivity {
                 .setTitle(row.definition.displayName)
                 .setItems(items, (dialog, which) -> handlers.get(which).run())
                 .show();
+    }
+
+    /**
+     * 启用开关：只改开关本身，不删文件、不动下载逻辑。关掉的内核下次播放由现有回落路径
+     * 回到 EXO（PlayerSetting.isPlayerAvailable），再打开直接恢复可用，不用重新下载。
+     */
+    private void onToggleEnabled(ModuleDefinition definition, boolean enabled) {
+        modules.setEnabled(definition.id, enabled);
+        refresh();
     }
 
     private void confirmDelete(ModuleDefinition definition) {
@@ -429,6 +446,17 @@ public class ModuleActivity extends AppCompatActivity {
             }
             holder.binding.subtitle.setText(subtitle);
             holder.binding.status.setText(statusText(row.status));
+            // 关了只留名字和开关：下载箭头、大小/版本、状态都藏起来，行点开也不再给下载/导入。
+            int restVisibility = row.enabled ? View.VISIBLE : View.GONE;
+            holder.binding.icon.setVisibility(restVisibility);
+            holder.binding.subtitle.setVisibility(restVisibility);
+            holder.binding.status.setVisibility(restVisibility);
+            // 先清监听再设选中态，避免复用时误触发；下载进行中不让拨开关。
+            holder.binding.enableSwitch.setOnCheckedChangeListener(null);
+            holder.binding.enableSwitch.setChecked(row.enabled);
+            holder.binding.enableSwitch.setEnabled(row.downloadingPercent == null);
+            holder.binding.enableSwitch.setOnCheckedChangeListener(
+                    (button, checked) -> onToggleEnabled(row.definition, checked));
             holder.binding.getRoot().setOnClickListener(v -> onRowClick(row));
         }
 

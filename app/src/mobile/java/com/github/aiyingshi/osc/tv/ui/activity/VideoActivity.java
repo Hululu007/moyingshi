@@ -5697,7 +5697,7 @@ private final Task.Scope mPersonalRecommendationTasks = new Task.Scope(Task.reco
         items[kernel.length] = getString(R.string.player_kernel_external);
         new WebHtvAlertDialogBuilder(this).setItems(items, (dialog, index) -> {
             if (index < kernel.length) {
-                int which = PlayerSetting.kernelAt(index);
+                int which = PlayerSetting.enabledKernelAt(index);
                 ModuleDefinition module = PlayerSetting.moduleForPlayer(which);
                 if (module != null && !PlayerSetting.isPlayerAvailable(which)) {
                     ModulePrompt.showMissingModule(this, module);

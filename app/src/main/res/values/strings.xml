@@ -3382,6 +3382,7 @@
     <string name="module_status_installed">Installed</string>
     <string name="module_status_outdated">Outdated</string>
     <string name="module_status_corrupt">Corrupted</string>
+    <string name="module_disabled_hint">Module is off. Turn the switch on to use it.</string>
     <string name="module_downloading">Downloading %1$d%%</string>
     <string name="module_mobile_confirm">You are on mobile data. Download about %1$s. Continue?</string>
     <string name="module_install_success">Module installed</string>

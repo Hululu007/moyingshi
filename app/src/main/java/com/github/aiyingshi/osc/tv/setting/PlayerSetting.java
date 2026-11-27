@@ -197,8 +197,8 @@ public class PlayerSetting {
     }
 
     /**
-     * 内核是否可用：EXO/系统内核随包走恒可用；IJK/MPV/VLC 是否装了对应模块。
-     * 模块未安装时切到该内核会走回落（resolveAvailablePlayer/resolveManualPlayer），
+     * 内核是否可用：EXO/系统内核随包走恒可用；IJK/MPV/VLC 既要装了对应模块，也要模块开关开着。
+     * 模块未安装或开关关掉时切到该内核会走回落（resolveAvailablePlayer/resolveManualPlayer），
      * 设置页与播放器内切内核的“请到模块里面下载”提示也在调用处判断它。
      * 注意：sanitizePlayer 只校验常量合法性，不查模块——设置页对话框要如实显示
      * 用户已存的选择，模块缺失的回落由播放侧负责。
@@ -212,16 +212,36 @@ public class PlayerSetting {
         };
     }
 
+    /**
+     * 内核的模块开关是否开着（默认开）：EXO/系统随包走恒开；IJK/MPV/VLC 读
+     * {@code module_enabled_<id>}。开关关掉只影响“可用”，不改已存的默认内核选择——
+     * 再打开就恢复，不用重新选；App 未初始化时按开处理，不改变旧行为。
+     */
+    public static boolean isKernelEnabled(int player) {
+        return switch (player) {
+            case IJK -> isModuleEnabled(ModuleDefinition.IJK.id);
+            case MPV -> isModuleEnabled(ModuleDefinition.MPV.id);
+            case VLC -> isModuleEnabled(ModuleDefinition.VLC.id);
+            default -> true;
+        };
+    }
+
+    private static boolean isModuleEnabled(String moduleId) {
+        App app = App.get();
+        if (app == null) return true;
+        return ModuleManager.getInstance(app).isEnabled(moduleId);
+    }
+
     public static boolean isIjkAvailable() {
-        return isModuleInstalled(ModuleDefinition.IJK.id);
+        return isKernelEnabled(IJK) && isModuleInstalled(ModuleDefinition.IJK.id);
     }
 
     public static boolean isMpvAvailable() {
-        return isModuleInstalled(ModuleDefinition.MPV.id);
+        return isKernelEnabled(MPV) && isModuleInstalled(ModuleDefinition.MPV.id);
     }
 
     public static boolean isVlcAvailable() {
-        return isModuleInstalled(ModuleDefinition.VLC.id);
+        return isKernelEnabled(VLC) && isModuleInstalled(ModuleDefinition.VLC.id);
     }
 
     private static boolean isModuleInstalled(String moduleId) {
@@ -277,9 +297,52 @@ public class PlayerSetting {
         return ordered;
     }
 
+    /** 按优先级顺序排列的已启用内核（内核选择对话框只显示这些；EXO/系统恒在内）。 */
+    public static int[] enabledKernelOrder() {
+        int count = 0;
+        for (int kernel : KERNEL_ORDER) if (isKernelEnabled(kernel)) count++;
+        int[] order = new int[count];
+        int index = 0;
+        for (int kernel : KERNEL_ORDER) if (isKernelEnabled(kernel)) order[index++] = kernel;
+        return order;
+    }
+
+    /** 内核在已启用顺序里的位次；当前内核被关掉时退回 EXO 的位次。 */
+    public static int enabledKernelRank(int player) {
+        int[] order = enabledKernelOrder();
+        int target = sanitizePlayer(player);
+        for (int i = 0; i < order.length; i++) if (order[i] == target) return i;
+        for (int i = 0; i < order.length; i++) if (order[i] == EXO) return i;
+        return 0;
+    }
+
+    /** 已启用顺序里的位次还原成内核常量，越界时退回 EXO。 */
+    public static int enabledKernelAt(int rank) {
+        int[] order = enabledKernelOrder();
+        return rank >= 0 && rank < order.length ? order[rank] : EXO;
+    }
+
+    /** 按优先级顺序把标签数组重排成菜单顺序，只含已启用的内核，入参下标是内核常量。 */
+    public static String[] orderEnabledKernels(String[] labels) {
+        if (labels == null) return new String[0];
+        int[] order = enabledKernelOrder();
+        String[] ordered = new String[order.length];
+        for (int i = 0; i < order.length; i++) {
+            int kernel = order[i];
+            ordered[i] = kernel < labels.length ? labels[kernel] : "";
+        }
+        return ordered;
+    }
+
     /** 手动轮换：沿优先级顺序取下一个，走到末尾回到开头。 */
     public static int nextPlayer(int player) {
         return kernelAt((kernelRank(player) + 1) % KERNEL_ORDER.length);
+    }
+
+    /** 手动轮换用：沿优先级顺序取下一个已启用的内核，跳过已关闭的。 */
+    public static int nextEnabledPlayer(int player) {
+        int[] order = enabledKernelOrder();
+        return order[(enabledKernelRank(player) + 1) % order.length];
     }
 
     /**

@@ -107,6 +107,8 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mpvRender = ResUtil.getStringArray(R.array.select_mpv_render);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         mBinding.lutText.setText(LutSetting.getSummary());
+        // LUT 模块开关关了：B6 画面调节的 LUT 行隐藏（与手机端 SettingPlayerFragment 同规则）。
+        mBinding.lut.setVisibility(ModuleManager.getInstance(this).isEnabled(ModuleDefinition.LUT.id) ? View.VISIBLE : View.GONE);
         setMpvRows();
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
@@ -182,6 +184,15 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         setPerformanceText();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从模块页回来时刷新：LUT/MPV 开关可能刚被拨过，行显隐要当场跟上；
+        // 只刷这两处，不重跑 initView，免得焦点跳回顶部。
+        mBinding.lut.setVisibility(ModuleManager.getInstance(this).isEnabled(ModuleDefinition.LUT.id) ? View.VISIBLE : View.GONE);
+        setMpvRows();
+    }
+
     private void setKernel(View view) {
         PlayerKernelDialog.show(this, PlayerSetting.getPlayer(), index -> {
             ModuleDefinition module = PlayerSetting.moduleForPlayer(index);
@@ -214,7 +225,8 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     }
 
     private void setMpvRows() {
-        boolean visible = PlayerSetting.getPlayer() == PlayerSetting.MPV;
+        boolean visible = PlayerSetting.getPlayer() == PlayerSetting.MPV
+                && PlayerSetting.isKernelEnabled(PlayerSetting.MPV);
         mBinding.mpvConfig.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.blurayMenu.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.mpvRender.setVisibility(visible ? View.VISIBLE : View.GONE);

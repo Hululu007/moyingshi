@@ -3374,6 +3374,7 @@
     <string name="module_status_installed">已安装</string>
     <string name="module_status_outdated">已过期</string>
     <string name="module_status_corrupt">已损坏</string>
+    <string name="module_disabled_hint">模块已关闭，打开开关后可用</string>
     <string name="module_downloading">下载中 %1$d%%</string>
     <string name="module_mobile_confirm">当前为移动网络，下载约 %1$s，继续吗？</string>
     <string name="module_install_success">模块安装成功</string>

@@ -11,6 +11,8 @@ import androidx.viewbinding.ViewBinding;
 import com.github.aiyingshi.osc.tv.R;
 import com.github.aiyingshi.osc.tv.bean.AiConfig;
 import com.github.aiyingshi.osc.tv.databinding.ActivitySettingAiBinding;
+import com.github.aiyingshi.osc.tv.module.ModuleDefinition;
+import com.github.aiyingshi.osc.tv.module.ModuleManager;
 import com.github.aiyingshi.osc.tv.service.RecommendationFeedbackStore;
 import com.github.aiyingshi.osc.tv.setting.Setting;
 import com.github.aiyingshi.osc.tv.subtitle.RealtimeSubtitleController;
@@ -60,6 +62,9 @@ public class SettingAiActivity extends BaseActivity {
     }
 
     private void setText() {
+        // 实时字幕模块开关关了：实时字幕模型行隐藏（与手机端 SettingAiFragment 同规则）。
+        boolean sherpaEnabled = ModuleManager.getInstance(this).isEnabled(ModuleDefinition.SHERPA.id);
+        mBinding.subtitleRealtimeModel.setVisibility(sherpaEnabled ? View.VISIBLE : View.GONE);
         mBinding.aiRecommendationText.setText(getAiRecommendationText());
         mBinding.personalRecommendationText.setText(getSwitch(Setting.isPersonalRecommendation()));
         int feedbackCount = RecommendationFeedbackStore.size();
@@ -173,7 +178,8 @@ public class SettingAiActivity extends BaseActivity {
     }
 
     private void setAiSubtitleSettings() {
-        boolean visible = Setting.isAiConfigReady();
+        boolean visible = Setting.isAiConfigReady()
+                && ModuleManager.getInstance(this).isEnabled(ModuleDefinition.SHERPA.id);
         mBinding.subtitleAiSettings.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.subtitleAiMaxConcurrencyText.setText(String.valueOf(Setting.getSubtitleAiMaxConcurrency()));
         mBinding.subtitleAiChunkCountText.setText(String.valueOf(Setting.getSubtitleAiChunkCount()));
