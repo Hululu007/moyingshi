@@ -61,6 +61,7 @@ public class ViewingReportAiAnalyzer {
                 long cost = System.currentTimeMillis() - start;
                 String body = response.body() == null ? "" : response.body().string();
                 if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
                     AiCompletionClient.logResponse("ai-report", "viewing-report", response.code(), cost, body, "success=false");
                     return false;
                 }

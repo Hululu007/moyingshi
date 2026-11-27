@@ -1,5 +1,7 @@
 package com.github.aiyingshi.osc.tv.bean;
 
+import com.github.aiyingshi.osc.tv.service.AiCompletionClient;
+
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -169,5 +171,67 @@ public class AiConfigTest {
         assertEquals(AiConfig.DEFAULT_GROUP_RULE_PROMPT, config.getGroupRulePrompt());
         assertEquals(AiConfig.DEFAULT_GROUP_RULE_PROMPT_VERSION, config.getGroupRulePromptVersion());
         assertFalse(config.isGroupRulePromptCustom());
+    }
+
+    @Test
+    public void objectFrom_newUserDefaultsToRelayMode() {
+        AiConfig config = AiConfig.objectFrom("{}");
+
+        assertEquals(AiConfig.MODE_RELAY, config.getMode());
+        assertTrue(config.isRelayMode());
+        assertEquals("", config.getRelayUrl());
+        assertFalse(config.isReady());
+    }
+
+    @Test
+    public void objectFrom_legacyEnabledConfigWithKeyStaysByok() {
+        AiConfig config = AiConfig.objectFrom("{\"enabled\":true,\"endpoint\":\"https://api.openai.com/v1/responses\",\"apiKey\":\"sk-test\",\"model\":\"gpt-4.1-mini\"}");
+
+        assertEquals(AiConfig.MODE_BYOK, config.getMode());
+        assertFalse(config.isRelayMode());
+        assertTrue(config.isReady());
+    }
+
+    @Test
+    public void objectFrom_legacyDisabledConfigWithKeyDefaultsToRelay() {
+        AiConfig config = AiConfig.objectFrom("{\"enabled\":false,\"apiKey\":\"sk-test\"}");
+
+        assertEquals(AiConfig.MODE_RELAY, config.getMode());
+    }
+
+    @Test
+    public void objectFrom_unknownModeFallsBackToRelay() {
+        AiConfig config = AiConfig.objectFrom("{\"mode\":\"unknown\",\"enabled\":true,\"relayUrl\":\"https://relay.example.com\"}");
+
+        assertEquals(AiConfig.MODE_RELAY, config.getMode());
+        assertTrue(config.isReady());
+    }
+
+    @Test
+    public void isReady_relayRequiresRelayUrl() {
+        AiConfig withoutUrl = AiConfig.objectFrom("{\"mode\":\"relay\",\"enabled\":true}");
+        AiConfig withUrl = AiConfig.objectFrom("{\"mode\":\"relay\",\"enabled\":true,\"relayUrl\":\"https://relay.example.com\"}");
+
+        assertFalse(withoutUrl.isReady());
+        assertTrue(withUrl.isReady());
+        assertFalse(withUrl.isModelFetchReady());
+    }
+
+    @Test
+    public void shouldRetryHttpStatus_relayNeverRetries429() {
+        AiConfig relay = AiConfig.objectFrom("{\"mode\":\"relay\",\"enabled\":true,\"relayUrl\":\"https://relay.example.com\"}");
+        AiConfig byok = AiConfig.objectFrom("{\"mode\":\"byok\",\"enabled\":true,\"endpoint\":\"https://api.example.com/v1\",\"apiKey\":\"sk-test\",\"model\":\"gpt-test\"}");
+
+        assertFalse(AiCompletionClient.shouldRetryHttpStatus(429, relay));
+        assertTrue(AiCompletionClient.shouldRetryHttpStatus(429, byok));
+        assertTrue(AiCompletionClient.shouldRetryHttpStatus(500, relay));
+        assertFalse(AiCompletionClient.shouldRetryHttpStatus(400, relay));
+    }
+
+    @Test
+    public void relayRateLimitMessage_translatesWorker429Codes() {
+        assertEquals("本月 AI 额度用完了", AiCompletionClient.relayRateLimitMessage(429, "{\"error\":{\"code\":\"quota_exceeded\"}}"));
+        assertEquals("请求太频繁，稍后再试", AiCompletionClient.relayRateLimitMessage(429, "{\"error\":{\"code\":\"rate_limited\"}}"));
+        assertEquals("", AiCompletionClient.relayRateLimitMessage(500, "{\"error\":{\"code\":\"quota_exceeded\"}}"));
     }
 }

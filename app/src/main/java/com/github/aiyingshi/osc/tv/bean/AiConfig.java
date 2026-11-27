@@ -11,6 +11,10 @@ public class AiConfig {
     public static final String PROTOCOL_ANTHROPIC_MESSAGES = "anthropic_messages";
     public static final String PROTOCOL_GEMINI_NATIVE = "gemini_native";
     public static final String DEFAULT_PROTOCOL = PROTOCOL_OPENAI_RESPONSES;
+    public static final String MODE_RELAY = "relay";
+    public static final String MODE_BYOK = "byok";
+    /** 中转默认模型：必须与 Worker 白名单一致（Worker 默认 GEMINI_MODEL）。 */
+    public static final String DEFAULT_RELAY_MODEL = "gemini-2.5-flash-lite";
     public static final String DEFAULT_ENDPOINT = "https://api.openai.com/v1/responses";
     public static final String DEFAULT_OPENAI_CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
     public static final String DEFAULT_ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
@@ -124,6 +128,10 @@ public class AiConfig {
 
     @SerializedName("enabled")
     private boolean enabled;
+    @SerializedName("mode")
+    private String mode;
+    @SerializedName("relayUrl")
+    private String relayUrl;
     @SerializedName(value = "protocol", alternate = {"apiFormat", "format"})
     private String protocol;
     @SerializedName("endpoint")
@@ -175,6 +183,14 @@ public class AiConfig {
     }
 
     public AiConfig sanitize() {
+        // mode 缺字段的老配置：已有 key 且已启用 → 保持 byok，别把正在用的用户强行切走；
+        // 其余（新用户、无 key、未启用）默认 relay。
+        if (mode == null) {
+            mode = (enabled && !isEmpty(apiKey)) ? MODE_BYOK : MODE_RELAY;
+        } else {
+            mode = MODE_BYOK.equals(mode.trim()) ? MODE_BYOK : MODE_RELAY;
+        }
+        relayUrl = trimOr(relayUrl, "");
         protocol = isSupportedProtocol(protocol) ? protocol.trim() : DEFAULT_PROTOCOL;
         endpoint = trimOr(endpoint, defaultEndpoint(protocol));
         apiKey = trimOr(apiKey, "");
@@ -190,12 +206,34 @@ public class AiConfig {
 
     public boolean isReady() {
         sanitize();
+        if (isRelayMode()) return enabled && !isEmpty(relayUrl);
         return enabled && !isEmpty(endpoint) && !isEmpty(apiKey) && !isEmpty(model);
     }
 
     public boolean isModelFetchReady() {
         sanitize();
+        if (isRelayMode()) return false;
         return !isEmpty(endpoint) && !isEmpty(apiKey);
+    }
+
+    public boolean isRelayMode() {
+        return MODE_RELAY.equals(mode);
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public void setMode(String mode) {
+        this.mode = mode;
+    }
+
+    public String getRelayUrl() {
+        return relayUrl;
+    }
+
+    public void setRelayUrl(String relayUrl) {
+        this.relayUrl = relayUrl;
     }
 
     public String toJson() {

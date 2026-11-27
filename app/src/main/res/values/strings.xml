@@ -2371,6 +2371,29 @@
     <string name="dialog_ai_test_running">Testing AI configuration...</string>
     <string name="dialog_ai_test_success">AI test passed: %1$s (time %2$s)</string>
     <string name="dialog_ai_test_failed">AI test failed: %1$s (time %2$s)</string>
+    <string name="dialog_ai_mode_label">AI service</string>
+    <string-array name="dialog_ai_mode_labels">
+        <item>Relay (recommended, no key needed)</item>
+        <item>My own key</item>
+    </string-array>
+    <string name="dialog_ai_relay_url_label">Relay address</string>
+    <string name="dialog_ai_relay_url_hint">https://ai-relay.&lt;subdomain&gt;.workers.dev</string>
+    <string name="dialog_ai_relay_status_label">Relay status</string>
+    <string name="dialog_ai_relay_connected">Relay: connected</string>
+    <string name="dialog_ai_relay_connecting">Relay: connecting…</string>
+    <string name="dialog_ai_relay_not_configured">Relay: not configured</string>
+    <string name="dialog_ai_relay_disabled">Relay: AI service is off</string>
+    <string name="dialog_ai_relay_unreachable">Relay: unreachable</string>
+    <string name="dialog_ai_relay_usage">Used this month: about %1$s</string>
+    <string name="dialog_ai_relay_usage_unknown">Used this month: —</string>
+    <string name="dialog_ai_relay_over_limit_suffix"> (limit reached)</string>
+    <string name="dialog_ai_relay_device_registered">Device: registered</string>
+    <string name="dialog_ai_relay_device_unregistered">Device: not registered</string>
+    <string name="dialog_ai_relay_reset">Reset AI identity</string>
+    <string name="dialog_ai_relay_reset_running">Resetting AI identity…</string>
+    <string name="dialog_ai_relay_reset_success">AI identity reset. A new device token was registered.</string>
+    <string name="dialog_ai_relay_reset_cleared">Local AI identity cleared. It will register again after AI is enabled.</string>
+    <string name="dialog_ai_relay_reset_failed">Failed to reset AI identity. Check the relay address and network, then try again.</string>
     <string name="ai_recommendation_info_title">Recommendation details</string>
     <string name="ai_recommendation_reason_label">Recommendation reason</string>
     <string name="recommendation_not_interested">Not interested</string>

@@ -49,7 +49,9 @@ public final class AiAdDetectionService {
                 long cost = System.currentTimeMillis() - start;
                 AiDebugLog.response("ai-ad-detection", "analyze", response.code(), cost, body, "success=" + response.isSuccessful());
                 if (!response.isSuccessful()) {
-                    return AdDetectionResult.error("AI 分析失败：HTTP " + response.code());
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
+                    String relayMessage = AiCompletionClient.relayRateLimitMessage(response.code(), body);
+                    return AdDetectionResult.error(relayMessage.isEmpty() ? "AI 分析失败：HTTP " + response.code() : relayMessage);
                 }
                 String text = AiCompletionClient.extractCompletionText(body, config);
                 return parseResult(text);

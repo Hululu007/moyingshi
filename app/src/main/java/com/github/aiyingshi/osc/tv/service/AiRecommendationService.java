@@ -312,9 +312,14 @@ public class AiRecommendationService {
     }
 
     static boolean shouldRetryRecommendationRequest(int code, boolean parseFailed, Throwable error) {
+        return shouldRetryRecommendationRequest(code, parseFailed, error, null);
+    }
+
+    static boolean shouldRetryRecommendationRequest(int code, boolean parseFailed, Throwable error, AiConfig config) {
         if (error != null) return !(error instanceof InterruptedException);
         if (parseFailed) return true;
-        return code == 408 || code == 409 || code == 425 || code == 429 || code >= 500;
+        // 中转返回 429 一律不重试（配额/限速，重试只会更糟）；BYOK 保持原有规则。
+        return AiCompletionClient.shouldRetryHttpStatus(code, config);
     }
 
     private List<AiRecommendation> requestRecommendations(Vod currentVod, String currentTitle) {
@@ -330,9 +335,11 @@ public class AiRecommendationService {
                     String body = response.body() == null ? "" : response.body().string();
                     long cost = System.currentTimeMillis() - start;
                     if (!response.isSuccessful()) {
+                        AiCompletionClient.noteRelayAuthFailure(config, response.code());
+                        String relayMessage = AiCompletionClient.relayRateLimitMessage(response.code(), body);
                         AiDebugLog.response("ai-rec", "recommendation", response.code(), cost, body, "attempt=" + attempt + "/" + MAX_RECOMMENDATION_ATTEMPTS + " success=false");
-                        SpiderDebug.log("ai-rec", "request failed attempt=%d/%d code=%d cost=%dms body=%s", attempt, MAX_RECOMMENDATION_ATTEMPTS, response.code(), cost, excerpt(body));
-                        if (!shouldRetryRecommendationRequest(response.code(), false, null)) break;
+                        SpiderDebug.log("ai-rec", "request failed attempt=%d/%d code=%d cost=%dms relay=%s body=%s", attempt, MAX_RECOMMENDATION_ATTEMPTS, response.code(), cost, relayMessage, excerpt(body));
+                        if (!shouldRetryRecommendationRequest(response.code(), false, null, config)) break;
                     } else {
                         List<AiRecommendation> recommendations = parseResponseRecommendations(body, config);
                         AiDebugLog.response("ai-rec", "recommendation", response.code(), cost, body, "attempt=" + attempt + "/" + MAX_RECOMMENDATION_ATTEMPTS + " parsed=" + recommendations.size());
@@ -341,14 +348,14 @@ public class AiRecommendationService {
                             return recommendations;
                         }
                         SpiderDebug.log("ai-rec", "request parse empty attempt=%d/%d cost=%dms body=%s", attempt, MAX_RECOMMENDATION_ATTEMPTS, cost, excerpt(body));
-                        if (!shouldRetryRecommendationRequest(response.code(), true, null)) break;
+                        if (!shouldRetryRecommendationRequest(response.code(), true, null, config)) break;
                         prompt = retryPrompt(basePrompt);
                     }
                 }
             } catch (Throwable e) {
                 AiDebugLog.error("ai-rec", "recommendation", 0, e, "attempt=" + attempt + "/" + MAX_RECOMMENDATION_ATTEMPTS);
                 SpiderDebug.log("ai-rec", "request failed attempt=%d/%d error=%s", attempt, MAX_RECOMMENDATION_ATTEMPTS, e.getMessage());
-                if (!shouldRetryRecommendationRequest(0, false, e)) break;
+                if (!shouldRetryRecommendationRequest(0, false, e, config)) break;
             }
             sleepBeforeRetry(attempt);
         }

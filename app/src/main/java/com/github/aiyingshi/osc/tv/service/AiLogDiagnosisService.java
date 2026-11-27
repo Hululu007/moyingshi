@@ -38,7 +38,11 @@ public final class AiLogDiagnosisService {
                 String body = response.body() == null ? "" : response.body().string();
                 long cost = System.currentTimeMillis() - start;
                 AiDebugLog.response("ai-diagnosis", "log-diagnosis", response.code(), cost, body, "success=" + response.isSuccessful());
-                if (!response.isSuccessful()) return "AI 诊断失败：HTTP " + response.code() + "\n" + excerpt(body);
+                if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
+                    String relayMessage = AiCompletionClient.relayRateLimitMessage(response.code(), body);
+                    return relayMessage.isEmpty() ? "AI 诊断失败：HTTP " + response.code() + "\n" + excerpt(body) : relayMessage;
+                }
                 String text = AiCompletionClient.extractCompletionText(body, config);
                 return isBlank(text) ? excerpt(body) : text.trim();
             }

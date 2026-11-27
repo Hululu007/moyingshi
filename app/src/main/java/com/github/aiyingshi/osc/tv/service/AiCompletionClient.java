@@ -43,14 +43,87 @@ public final class AiCompletionClient {
     private AiCompletionClient() {
     }
 
-    public static TestResult testConfig(AiConfig config) {
+    /**
+     * 把用户配置解析成真正发请求的配置（9 个服务只认 AiConfig 对象，不用改它们）。
+     *
+     * <ul>
+     * <li>mode=byok：原样返回用户配置。</li>
+     * <li>mode=relay：合成中转配置：protocol=openai_chat、endpoint={relayUrl}、
+     * apiKey=&lt;设备 token&gt;、model={@link AiConfig#DEFAULT_RELAY_MODEL}（与 Worker
+     * 白名单一致），其余提示词字段沿用用户配置。</li>
+     * </ul>
+     *
+     * <p>返回 null 表示本次 AI 不可用：中转未配置 relayUrl、AI 总开关关着（此时不发任何
+     * 请求，包括不注册），或设备注册失败。调用方按优雅降级处理，不重试、不崩溃。
+     * 注意：本方法是同步网络调用（首次用时注册设备），必须在子线程执行。
+     */
+    public static AiConfig resolveEffectiveConfig(AiConfig config) {
         AiConfig safe = config == null ? new AiConfig().sanitize() : config.sanitize();
+        if (!safe.isRelayMode()) return safe;
+        if (!safe.isEnabled()) return safe;
+        String base = AiRelayClient.relayBase(safe.getRelayUrl());
+        if (base.isEmpty()) return null;
+        String token = AiRelayClient.getOrRegisterToken(base);
+        if (token.isEmpty()) return null;
+        AiConfig effective = new AiConfig();
+        effective.setEnabled(true);
+        effective.setMode(AiConfig.MODE_RELAY);
+        effective.setRelayUrl(base);
+        effective.setProtocol(AiConfig.PROTOCOL_OPENAI_CHAT);
+        effective.setEndpoint(base);
+        effective.setApiKey(token);
+        effective.setModel(AiConfig.DEFAULT_RELAY_MODEL);
+        effective.setCustomUserAgent(safe.getCustomUserAgent());
+        effective.setRecommendPrompt(safe.getRecommendPrompt());
+        effective.setTitleExtractionPrompt(safe.getTitleExtractionPrompt());
+        effective.setViewingReportPrompt(safe.getViewingReportPrompt());
+        effective.setAdDetectionPrompt(safe.getAdDetectionPrompt());
+        effective.setGroupRulePrompt(safe.getGroupRulePrompt());
+        return effective.sanitize();
+    }
+
+    /**
+     * 中转返回的 429 一律不重试（配额/限速，重试只会更糟）；BYOK 保持原有重试规则。
+     * 其它服务的重试判断都应走这里，不要各自再写一套 429 规则。
+     */
+    public static boolean shouldRetryHttpStatus(int code, AiConfig config) {
+        // config 为空表示调用方不知道模式：按 BYOK 旧规则处理，别误伤。
+        if (config == null) return code == 408 || code == 409 || code == 425 || code == 429 || code >= 500;
+        AiConfig safe = config.sanitize();
+        if (safe.isRelayMode() && code == 429) return false;
+        return code == 408 || code == 409 || code == 425 || code == 429 || code >= 500;
+    }
+
+    /**
+     * 把中转 429 的 error.code 翻译成中文提示；非 429 返回空串。
+     * quota_exceeded → “本月 AI 额度用完了”，rate_limited → “请求太频繁，稍后再试”。
+     */
+    public static String relayRateLimitMessage(int code, String body) {
+        if (code != 429) return "";
+        String value = Objects.toString(body, "");
+        if (value.contains("quota_exceeded")) return "本月 AI 额度用完了";
+        return "请求太频繁，稍后再试";
+    }
+
+    /** 中转回 401/403 说明本地设备 token 已失效（未知/吊销）：清掉，下次调用重新注册。 */
+    public static void noteRelayAuthFailure(AiConfig config, int code) {
+        if (config == null) return;
+        AiConfig safe = config.sanitize();
+        if (safe.isRelayMode()) AiRelayClient.noteAuthFailure(code);
+    }
+
+    public static TestResult testConfig(AiConfig config) {
+        AiConfig safe = resolveEffectiveConfig(config);
+        if (safe == null) return TestResult.failed("中转未配置或设备注册失败，请检查中转地址。");
         if (!safe.isReady()) return TestResult.failed("请先启用 AI 服务，并填写端点、API key 和模型。");
         try {
             Request request = buildRequest(requestSpec(safe, "这是 AI 服务连通性测试。请只返回 JSON: {\"ok\":true,\"message\":\"connected\"}"));
             try (Response response = client().newCall(request).execute()) {
                 String responseBody = response.body() == null ? "" : response.body().string();
-                if (!response.isSuccessful()) return TestResult.failed("HTTP " + response.code() + ": " + excerpt(responseBody));
+                if (!response.isSuccessful()) {
+                    noteRelayAuthFailure(safe, response.code());
+                    return TestResult.failed("HTTP " + response.code() + ": " + excerpt(responseBody));
+                }
                 String text = extractCompletionText(responseBody, safe);
                 if (isBlank(text)) return TestResult.failed("接口已响应，但没有解析到 AI 输出。");
                 return TestResult.success(1, excerpt(text));
@@ -62,6 +135,7 @@ public final class AiCompletionClient {
 
     public static ModelFetchResult fetchModels(AiConfig config) {
         AiConfig safe = config == null ? new AiConfig().sanitize() : config.sanitize();
+        if (safe.isRelayMode()) return ModelFetchResult.failed("中转模式使用固定模型，无需拉取模型列表。");
         if (!safe.isModelFetchReady()) return ModelFetchResult.failed("请先填写端点和 API key。");
         List<String> candidates = buildModelUrlCandidates(safe);
         if (candidates.isEmpty()) return ModelFetchResult.failed("无法从端点推导模型列表地址。");
@@ -85,7 +159,12 @@ public final class AiCompletionClient {
     }
 
     public static RequestSpec requestSpec(AiConfig config, String prompt) {
-        AiConfig safe = config == null ? new AiConfig().sanitize() : config.sanitize();
+        AiConfig safe = resolveEffectiveConfig(config);
+        if (safe == null) {
+            // 中转未配置 relayUrl 或设备注册失败：本次调用直接降级，不发任何请求。
+            // 全部 9 个服务都在 try 里调这里，抛出的异常会被各自的降级逻辑接住。
+            throw new IllegalStateException("AI 中转不可用：未配置中转地址或设备注册失败。");
+        }
         JsonObject body = new JsonObject();
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Content-Type", "application/json");

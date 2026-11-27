@@ -49,6 +49,7 @@ public final class AiTitleExtractionService {
                 String body = response.body() == null ? "" : response.body().string();
                 long cost = System.currentTimeMillis() - start;
                 if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
                     AiDebugLog.response("ai-title", "title-extraction", response.code(), cost, body, "success=false");
                     SpiderDebug.log("ai-title", "request failed code=%d cost=%dms", response.code(), cost);
                     return null;

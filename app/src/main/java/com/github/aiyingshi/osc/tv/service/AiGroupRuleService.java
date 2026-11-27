@@ -108,6 +108,7 @@ public final class AiGroupRuleService {
             try (Response response = call.execute()) {
                 long cost = System.currentTimeMillis() - start;
                 if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
                     SpiderDebug.log("ai-group-rule", "request failed code=%d cost=%dms sources=%d", response.code(), cost, names.size());
                     return RequestResult.failed(FailureReason.HTTP, String.valueOf(response.code()));
                 }

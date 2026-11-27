@@ -18,7 +18,7 @@ final class AiDebugLog {
         if (!SpiderDebug.isEnabled() || spec == null) return;
         AiConfig safe = config == null ? new AiConfig().sanitize() : config.sanitize();
         SpiderDebug.log(tag, "ai request scene=%s protocol=%s model=%s url=%s %s headers=%s body=%s",
-                scene, safe.getProtocol(), safe.getModel(), spec.getUrl(), clean(extra), redactedHeaders(spec.getHeaders()), clip(spec.getBody().toString()));
+                scene, safe.getProtocol(), safe.getModel(), spec.getUrl(), clean(extra), redactedHeaders(spec.getHeaders(), safe), clip(spec.getBody().toString()));
     }
 
     static void response(String tag, String scene, int code, long cost, String body, String extra) {
@@ -38,14 +38,33 @@ final class AiDebugLog {
     }
 
     static Map<String, String> redactedHeaders(Map<String, String> headers) {
+        return redactedHeaders(headers, null);
+    }
+
+    static Map<String, String> redactedHeaders(Map<String, String> headers, AiConfig config) {
         Map<String, String> result = new LinkedHashMap<>();
         if (headers == null) return result;
+        boolean relay = config != null && config.isRelayMode();
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             String key = entry.getKey();
             String lower = key == null ? "" : key.toLowerCase();
-            result.put(key, lower.contains("key") || lower.contains("authorization") ? "<redacted>" : entry.getValue());
+            if (relay && "authorization".equals(lower)) {
+                // 中转模式：脱敏对象是设备 token，只记前 4 位 + ***，绝不记全文。
+                result.put(key, maskBearerToken(entry.getValue()));
+            } else {
+                result.put(key, lower.contains("key") || lower.contains("authorization") ? "<redacted>" : entry.getValue());
+            }
         }
         return result;
+    }
+
+    /** "Bearer <token>" 只留 token 前 4 位，其余用 *** 代替；格式不对时整段打码。 */
+    static String maskBearerToken(String value) {
+        String text = Objects.toString(value, "").trim();
+        if (!text.startsWith("Bearer ")) return "<redacted>";
+        String token = text.substring("Bearer ".length()).trim();
+        if (token.length() <= 4) return "<redacted>";
+        return "Bearer " + token.substring(0, 4) + "***";
     }
 
     private static String clean(String text) {

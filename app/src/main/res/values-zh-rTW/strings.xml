@@ -2175,6 +2175,29 @@
     <string name="dialog_ai_test_running">正在測試 AI 配置...</string>
     <string name="dialog_ai_test_success">AI 測試通過：%1$s（耗時 %2$s）</string>
     <string name="dialog_ai_test_failed">AI 測試失敗：%1$s（耗時 %2$s）</string>
+    <string name="dialog_ai_mode_label">AI 服務</string>
+    <string-array name="dialog_ai_mode_labels">
+        <item>中轉（推薦，不用填 key）</item>
+        <item>自己的 key</item>
+    </string-array>
+    <string name="dialog_ai_relay_url_label">中轉地址</string>
+    <string name="dialog_ai_relay_url_hint">https://ai-relay.&lt;子域&gt;.workers.dev</string>
+    <string name="dialog_ai_relay_status_label">中轉狀態</string>
+    <string name="dialog_ai_relay_connected">中轉：已連接</string>
+    <string name="dialog_ai_relay_connecting">中轉：連線中…</string>
+    <string name="dialog_ai_relay_not_configured">中轉：未設定</string>
+    <string name="dialog_ai_relay_disabled">中轉：AI 服務未啟用</string>
+    <string name="dialog_ai_relay_unreachable">中轉：連線失敗</string>
+    <string name="dialog_ai_relay_usage">本月已用：約 %1$s</string>
+    <string name="dialog_ai_relay_usage_unknown">本月已用：—</string>
+    <string name="dialog_ai_relay_over_limit_suffix">（已用完）</string>
+    <string name="dialog_ai_relay_device_registered">裝置：已註冊</string>
+    <string name="dialog_ai_relay_device_unregistered">裝置：未註冊</string>
+    <string name="dialog_ai_relay_reset">重置 AI 身份</string>
+    <string name="dialog_ai_relay_reset_running">正在重置 AI 身份…</string>
+    <string name="dialog_ai_relay_reset_success">AI 身份已重置，已重新註冊。</string>
+    <string name="dialog_ai_relay_reset_cleared">本機 AI 身份已清除，啟用後將重新註冊。</string>
+    <string name="dialog_ai_relay_reset_failed">重置 AI 身份失敗，請檢查中轉地址與網路後重試。</string>
     <string name="ai_recommendation_info_title">智能推薦詳情</string>
     <string name="ai_recommendation_reason_label">推薦理由</string>
     <string name="ai_recommendation_reason_preview">推薦理由：%1$s</string>

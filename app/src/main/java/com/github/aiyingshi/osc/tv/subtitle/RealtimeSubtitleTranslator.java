@@ -192,7 +192,10 @@ final class RealtimeSubtitleTranslator {
             activeCall = call;
             try (Response response = call.execute()) {
                 String body = response.body() == null ? "" : response.body().string();
-                if (!response.isSuccessful()) throw new IOException("HTTP " + response.code());
+                if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
+                    throw new IOException("HTTP " + response.code());
+                }
                 String text = AiCompletionClient.extractCompletionText(body, config);
                 if (text.trim().isEmpty()) throw new IOException("empty_response");
                 return text;

@@ -58,6 +58,7 @@ public final class AiEpisodeSeasonService {
                 long cost = System.currentTimeMillis() - start;
                 if (canceled) return AnalysisResult.failed(FailureReason.CANCELED);
                 if (!response.isSuccessful()) {
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
                     AiCompletionClient.logResponse("ai-episode-season", "manual-analysis", response.code(), cost, body, "success=false");
                     return AnalysisResult.failed(FailureReason.HTTP);
                 }

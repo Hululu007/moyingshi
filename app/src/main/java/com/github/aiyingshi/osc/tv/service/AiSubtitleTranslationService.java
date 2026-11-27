@@ -265,7 +265,7 @@ public final class AiSubtitleTranslationService {
                 if (canShrink(cues) || attempt >= MAX_TRANSLATION_ATTEMPTS) return ChunkAttempt.failed("invalid_response");
             } catch (Exception e) {
                 long cost = System.currentTimeMillis() - start;
-                boolean retryable = shouldRetryTranslation(e);
+                boolean retryable = shouldRetryTranslation(e, config);
                 logWarn("ai subtitle request error chunk=" + chunk + " attempt=" + attempt + "/" + MAX_TRANSLATION_ATTEMPTS + " cost=" + cost + "ms retryable=" + retryable + " error=" + errorName(e));
                 if (!retryable || attempt >= MAX_TRANSLATION_ATTEMPTS) throw e;
                 if (canShrink(cues)) return ChunkAttempt.failed(errorName(e));
@@ -699,7 +699,9 @@ public final class AiSubtitleTranslationService {
                 String body = response.body() == null ? "" : response.body().string();
                 long cost = System.currentTimeMillis() - start;
                 if (!response.isSuccessful()) {
-                    logWarn("ai request failed http=" + response.code() + " cost=" + cost + "ms retryable=" + shouldRetryHttp(response.code()));
+                    AiCompletionClient.noteRelayAuthFailure(config, response.code());
+                    String relayMessage = AiCompletionClient.relayRateLimitMessage(response.code(), body);
+                    logWarn("ai request failed http=" + response.code() + " cost=" + cost + "ms retryable=" + shouldRetryHttp(response.code(), config) + (relayMessage.isEmpty() ? "" : " " + relayMessage));
                     throw new AiHttpException(response.code());
                 }
                 String text = AiCompletionClient.extractCompletionText(body, config);
@@ -712,7 +714,7 @@ public final class AiSubtitleTranslationService {
             } catch (IOException e) {
                 if (!(e instanceof AiHttpException)) {
                     long cost = System.currentTimeMillis() - start;
-                    logWarn("ai request exception cost=" + cost + "ms retryable=" + shouldRetryTranslation(e) + " error=" + errorName(e));
+                    logWarn("ai request exception cost=" + cost + "ms retryable=" + shouldRetryTranslation(e, config) + " error=" + errorName(e));
                 }
                 throw e;
             }
@@ -728,8 +730,8 @@ public final class AiSubtitleTranslationService {
         }
     }
 
-    private static boolean shouldRetryTranslation(Throwable e) {
-        if (e instanceof AiHttpException) return shouldRetryHttp(((AiHttpException) e).code);
+    private static boolean shouldRetryTranslation(Throwable e, AiConfig config) {
+        if (e instanceof AiHttpException) return shouldRetryHttp(((AiHttpException) e).code, config);
         if (e instanceof InterruptedException) {
             Thread.currentThread().interrupt();
             return false;
@@ -738,8 +740,9 @@ public final class AiSubtitleTranslationService {
         return e instanceof IOException;
     }
 
-    private static boolean shouldRetryHttp(int code) {
-        return code == 408 || code == 409 || code == 425 || code == 429 || code >= 500;
+    private static boolean shouldRetryHttp(int code, AiConfig config) {
+        // 中转返回 429 一律不重试（配额/限速，重试只会更糟）；BYOK 保持原有规则。
+        return AiCompletionClient.shouldRetryHttpStatus(code, config);
     }
 
     private static boolean sleepBeforeRetry(int attempt) {
