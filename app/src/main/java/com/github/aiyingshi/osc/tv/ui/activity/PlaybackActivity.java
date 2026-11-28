@@ -7,9 +7,13 @@ import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
@@ -18,6 +22,8 @@ import android.view.WindowManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
+import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -99,6 +105,18 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     private ExoSubtitleSession attachedSubtitleSession;
     private final com.github.aiyingshi.osc.tv.player.SurfaceDiagnosticCollector surfaceDiagnostics =
             new com.github.aiyingshi.osc.tv.player.SurfaceDiagnosticCollector();
+
+    // 临时诊断：VLC 画面没铺满（实测窗口约 1403×592）——把 MPV_SIZE 的尺寸打在屏幕上，
+    // 用户截图就能读到。只做显示，不改任何播放行为；确诊后删除。
+    private TextView vlcDiagOverlay;
+    private final Handler vlcDiagHandler = new Handler(Looper.getMainLooper());
+    private final Runnable vlcDiagRefresh = new Runnable() {
+        @Override
+        public void run() {
+            updateVlcDiagOverlay();
+            if (!isFinishing() && !isDestroyed()) vlcDiagHandler.postDelayed(this, 1000);
+        }
+    };
 
     protected MediaController controller() {
         return mController;
@@ -871,6 +889,52 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
                 + " orientation=" + getResources().getConfiguration().orientation;
         Log.d(SIZE_TAG, message);
         if (SpiderDebug.isEnabled()) SpiderDebug.log("surface-size", "%s", message);
+        updateVlcDiagOverlay();
+    }
+
+    private void ensureVlcDiagOverlay() {
+        if (vlcDiagOverlay != null) return;
+        View content = findViewById(android.R.id.content);
+        if (!(content instanceof FrameLayout root)) return;
+        TextView overlay = new TextView(this);
+        overlay.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        overlay.setTypeface(android.graphics.Typeface.MONOSPACE);
+        overlay.setTextColor(Color.WHITE);
+        overlay.setBackgroundColor(0xCC000000);
+        int pad = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 6, getResources().getDisplayMetrics());
+        overlay.setPadding(pad, pad, pad, pad);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        params.topMargin = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics());
+        root.addView(overlay, params);
+        vlcDiagOverlay = overlay;
+    }
+
+    private void updateVlcDiagOverlay() {
+        if (vlcDiagOverlay == null) return;
+        PlayerManager manager = player();
+        if (manager == null || manager.isEmpty()) {
+            vlcDiagOverlay.setVisibility(View.GONE);
+            return;
+        }
+        vlcDiagOverlay.setVisibility(View.VISIBLE);
+        vlcDiagOverlay.setText(diagOverlayText());
+    }
+
+    private String diagOverlayText() {
+        PlayerView view = getExoView();
+        if (view == null) return "【诊断】playerView=null";
+        View surface = view.getVideoSurfaceView();
+        View content = view.findViewById(androidx.media3.ui.R.id.exo_content_frame);
+        String playerText = mService == null ? "none" : player().getPlayerText();
+        String sizeText = mService == null ? "?" : player().getSizeText();
+        boolean nativePlayer = mService != null && player().isNativePlayer();
+        return "【诊断】" + playerText + " 视频=" + sizeText
+                + "\nplayerView=" + viewSize(view) + " content=" + viewSize(content)
+                + "\nsurface=" + surfaceName(surface) + ":" + viewSize(surface)
+                + "\nholder=" + surfaceHolderSize(surface)
+                + "\nresize=" + view.getResizeMode() + " render=" + render + " native=" + nativePlayer;
     }
 
 
@@ -1386,12 +1450,17 @@ public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
         }
         syncKeepScreenOn();
         PluginHostEvents.playbackResume(this);
+        ensureVlcDiagOverlay();
+        updateVlcDiagOverlay();
+        vlcDiagHandler.removeCallbacks(vlcDiagRefresh);
+        vlcDiagHandler.postDelayed(vlcDiagRefresh, 1000);
     }
 
     @Override
     protected void onPause() {
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-lifecycle", "activity pause %s", lifecycleState());
         super.onPause();
+        vlcDiagHandler.removeCallbacks(vlcDiagRefresh);
         if (isRedirect() && mController != null) mController.pause();
         PluginHostEvents.playbackPause(this);
     }
