@@ -2,8 +2,8 @@
   "schema": 1,
   "artifact": {
     "path": "prebuilt/arm64-v8a/libexo_ass.so",
-    "sha256": "bb0858e3fa70d66ca9a86f82a99255c86a5d88b8ecd8bef87f3bd63bab2e7f4b",
-    "bytes": 2775192
+    "sha256": "265500f7ad20685d9632bc9996a634fbdf181ac29769e2c0fb71e1b8a020354f",
+    "bytes": 2775416
   },
   "android": {
     "ndk": "29.0.14206865",
@@ -18,7 +18,7 @@
     "third_party/exo-ass-lock.json": "b524b2904218465093a9d20ebc8e5419529eae322650adfe331b48474fa67000",
     "scripts/build_exo_ass_native.py": "be7828a4ba01788258c2ef67328e87b808df57d6d55eed9938df7c0fd286fdb4",
     "third_party/exo-ass-native/CMakeLists.txt": "4abec300900d0588502938c62c3e7a90f9fc5cc2a832f0446689356e5df29266",
-    "third_party/exo-ass-native/exo_ass.cpp": "1662c8e0f9a55302afc6d6d8f550c887c5df24e174fd494498bf5877a1efde6b",
+    "third_party/exo-ass-native/exo_ass.cpp": "2571549a24f5540d3997bf39ef2b67e4bc848ecabda6ad69ab7728558eff20c5",
     "third_party/exo-ass-native/mask_copy.h": "8fa89ecb7904ad82bb3bafd551517e77f1cef6463278897fcf198d12e42db574"
   },
   "sources": {
@@ -31,11 +31,11 @@
   },
   "static_archives": {
     "libass.a": "8a9ec2697badcc06be60de34ee719430727d5d185ff46f37adb85fa0838e2235",
-    "libfontconfig.a": "2cd9c01e1754951e8c18dafac35f415eca2b52ec2ebc247f8c061034c728aa54",
+    "libfontconfig.a": "da957b9fe8b548e6a104557ffd0db8d402163a82fc5be901dbd1663bbd072cb9",
     "libfreetype.a": "42f0c868979a3d690d3f0b903b931e1a130e1da74707327357dfcb2d64df1580",
     "libfribidi.a": "aa49e4640293e32b6596a231e30e8139be9ff01aa775fccd0d194cc07b81fa91",
     "libharfbuzz.a": "f115492904058072fff4a863da5414c069373212c1cfcbd5b43189679e8044de",
-    "libxml2.a": "a3fc9125b9039caa39e52a8e3dd8365749dac9451d3580744ea54a7b8bc564ed"
+    "libxml2.a": "dd8d932d9945a031049ed8700291b4bc7833c5f7b3b732c908c689991a170c8d"
   },
   "licenses": {
     "licenses/fontconfig/COPYING": "51a51aa9823704fd90bccc616cdd17ebabb5b2b3e9cbde886ca02c7002288067",
