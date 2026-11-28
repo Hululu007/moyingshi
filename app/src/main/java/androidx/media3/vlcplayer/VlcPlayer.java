@@ -1,6 +1,7 @@
 package androidx.media3.vlcplayer;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -116,6 +117,15 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
     private boolean newlyRenderedFirstFrame;
     private boolean renderedFirstFrameSeen;
     private volatile boolean released;
+
+    // VLC 画面落点只在 attachViews 时按当前 surface 尺寸算一次，surface 之后改尺寸
+    // （进/出全屏、切画面比例）它不跟着重算，画面就一直停在起播时的小窗口里——
+    // 诊断版实测：surface 已是 2247x1264/2780x1264，画面仍约 67% 宽。
+    // mpv/ijk 同款做法：在 holder 上挂回调，尺寸变了就 detach→bind 重绑一次。
+    private SurfaceHolder surfaceCallbackHolder;
+    private int lastBoundSurfaceWidth;
+    private int lastBoundSurfaceHeight;
+    private boolean rebindingSurface;
 
     public VlcPlayer(Context context) {
         this(context, PlayerEngine.HARD);
@@ -887,7 +897,14 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
             }
             if (!vout.areViewsAttached()) {
                 vout.attachViews(this);
+                // 落点按这次 attach 时的 surface 尺寸算；之后尺寸再变由 surfaceCallback 重绑。
+                // 注意：只有真正 attach 才更新，没 attach 时不更新——否则一次没重绑的
+                // bind 会把新尺寸记成“已绑定”，surfaceChanged 再来时就直接跳过了。
+                updateLastBoundSurfaceSize();
             }
+            // 挂在 holder 上（mpv/ijk 同款）：surface 改尺寸时重绑，libVLC 才重新落点。
+            // 放 attach 之后，避免 addCallback 立即回放 surfaceCreated 造成重入。
+            registerSurfaceCallback(surfaceHolderOf(videoOutput));
         } catch (Throwable e) {
             SpiderDebug.log(TAG, "bind surface failed errorType=%s", e.getClass().getSimpleName());
         }
@@ -901,6 +918,98 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
         } catch (Throwable ignored) {
         }
     }
+
+    /**
+     * surface 尺寸变了：detach→bind 逼 libVLC 按当前 surface 重新落点。
+     * 只换视频输出，不碰播放状态（不断流、不 seek、不改音量/倍速）。
+     */
+    private void rebindVideoOutput() {
+        if (released || rebindingSurface || mediaPlayer == null || videoOutput == null) return;
+        rebindingSurface = true;
+        try {
+            detachVideoOutput();
+            bindVideoOutput();
+        } finally {
+            rebindingSurface = false;
+        }
+    }
+
+    /**
+     * 画面比例/全屏导致 surface 尺寸变了时用：读当前 holder 尺寸，
+     * 与上次 attach 时的尺寸不同才 detach→bind，否则直接返回。
+     * 给 PlaybackActivity 的 applyResizeModeNow 兜底（surfaceChanged 没触发的路径），
+     * 不碰播放状态，不动 EXO/mpv/ijk。
+     */
+    public void rebindVideoOutputForResize() {
+        if (released || mediaPlayer == null || videoOutput == null || !mediaSet) return;
+        SurfaceHolder holder = surfaceHolderOf(videoOutput);
+        if (holder == null || holder.getSurfaceFrame() == null) return;
+        Rect frame = holder.getSurfaceFrame();
+        if (frame.width() <= 0 || frame.height() <= 0) return;
+        if (frame.width() == lastBoundSurfaceWidth && frame.height() == lastBoundSurfaceHeight) return;
+        SpiderDebug.log(TAG, "rebind for resize surface=%dx%d lastBound=%dx%d",
+                frame.width(), frame.height(), lastBoundSurfaceWidth, lastBoundSurfaceHeight);
+        rebindVideoOutput();
+    }
+
+    @Nullable
+    private static SurfaceHolder surfaceHolderOf(@Nullable Object output) {
+        if (output instanceof SurfaceView view) return view.getHolder();
+        if (output instanceof SurfaceHolder holder) return holder;
+        return null;
+    }
+
+    private void updateLastBoundSurfaceSize() {
+        SurfaceHolder holder = surfaceHolderOf(videoOutput);
+        if (holder == null || holder.getSurfaceFrame() == null) return;
+        Rect frame = holder.getSurfaceFrame();
+        if (frame.width() > 0 && frame.height() > 0) {
+            lastBoundSurfaceWidth = frame.width();
+            lastBoundSurfaceHeight = frame.height();
+        }
+    }
+
+    private void registerSurfaceCallback(@Nullable SurfaceHolder holder) {
+        if (holder == null || holder == surfaceCallbackHolder) return;
+        if (surfaceCallbackHolder != null) {
+            try {
+                surfaceCallbackHolder.removeCallback(surfaceCallback);
+            } catch (Throwable ignored) {
+            }
+        }
+        surfaceCallbackHolder = holder;
+        try {
+            holder.addCallback(surfaceCallback);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private final SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            if (released) return;
+            // 新 surface：按 mpv/ijk 同款做法重新接一次；surfaceChanged 紧接着会带真实尺寸再来。
+            bindVideoOutput();
+        }
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            if (released || width <= 0 || height <= 0) return;
+            if (width == lastBoundSurfaceWidth && height == lastBoundSurfaceHeight) return;
+            // surface 尺寸变了（进/出全屏、切画面比例），但 libVLC 的落点还停在上一次
+            // attach 时的尺寸上。没起播时 openCurrent/Playing 事件里自会 bind，这里只处理已起播。
+            if (!mediaSet) return;
+            SpiderDebug.log(TAG, "surface resized %dx%d lastBound=%dx%d rebind",
+                    width, height, lastBoundSurfaceWidth, lastBoundSurfaceHeight);
+            rebindVideoOutput();
+        }
+
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+            if (released) return;
+            detachVideoOutput();
+        }
+    };
 
     private String summarizeUrl() {
         String url = currentPlayableUrl;

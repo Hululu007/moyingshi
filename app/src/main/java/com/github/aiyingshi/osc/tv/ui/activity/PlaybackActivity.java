@@ -36,6 +36,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.mpvplayer.MpvPlayer;
 import androidx.media3.mpvplayer.MpvDiscMenuPolicy;
+import androidx.media3.vlcplayer.VlcPlayer;
 import androidx.media3.exoplayer.drm.FrameworkMediaDrm;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionToken;
@@ -533,6 +534,19 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         View surface = view.getVideoSurfaceView();
         if (surface != null) surface.requestLayout();
         logSurfaceState("applyResizeMode after mode=" + resizeMode + " effective=" + effectiveResizeMode + " aspect=" + contentAspectRatio);
+        // VLC：surface 尺寸变了但 libVLC 的画面落点不跟着变（诊断版实测：surface 已满，
+        // 画面仍约 67% 宽），布局完成后再对当前尺寸重绑一次。尺寸没变时内部直接返回；
+        // surfaceChanged 正常触发时那边已经重绑过，这里只兜底 surfaceChanged 没触发的
+        // 路径（例如退出全屏）。只对 VLC，不动其它内核。
+        if (surface != null) {
+            surface.post(() -> {
+                if (isFinishing() || isDestroyed() || mService == null) return;
+                PlayerManager manager = player();
+                if (manager == null) return;
+                Player active = manager.getPlayer();
+                if (active instanceof VlcPlayer vlc) vlc.rebindVideoOutputForResize();
+            });
+        }
     }
 
     private boolean isResizeModeApplied(int resizeMode, int effectiveResizeMode,
