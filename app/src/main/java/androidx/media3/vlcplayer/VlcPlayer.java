@@ -837,12 +837,23 @@ public class VlcPlayer extends SimpleBasePlayer implements IVLCVout.OnNewVideoLa
     private void addTrackGroup(List<Tracks.Group> groups, int type,
                                MediaPlayer.TrackDescription[] descriptions, int selectedId) {
         if (descriptions == null) return;
+        // libvlc 的 TrackDescription 只有 id/name，没有编码信息，只能用通用占位 mime。
+        // 但必须给一个：TrackGroup 的 type 是从 Format.sampleMimeType（为空时看
+        // containerMimeType）推导的；不给 mime 时 type 全是 UNKNOWN，PlayerView 的
+        // isTypeSelected(VIDEO) 永远为 false，海报就一直盖在画面上——v91 只改了
+        // selected 标志，没改 type，所以没生效。mpv/ijk 都给了 mime，只有 VLC 漏了。
+        String sampleMimeType = switch (type) {
+            case C.TRACK_TYPE_VIDEO -> MimeTypes.VIDEO_UNKNOWN;
+            case C.TRACK_TYPE_AUDIO -> MimeTypes.AUDIO_UNKNOWN;
+            default -> MimeTypes.TEXT_VTT;
+        };
         for (MediaPlayer.TrackDescription description : descriptions) {
             if (description == null) continue;
             String label = description.name == null || description.name.isEmpty() ? null : description.name;
             Format format = new Format.Builder()
                     .setId(type + ":" + description.id)
                     .setLabel(label)
+                    .setSampleMimeType(sampleMimeType)
                     .build();
             boolean selected = description.id == selectedId;
             TrackGroup group = new TrackGroup("vlc:" + type + ":" + description.id, format);
