@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.server;
+package com.github.aiyingshi.osc.tv.server;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -6,8 +6,8 @@ import android.os.SystemClock;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.fongmi.android.tv.bean.Device;
-import com.fongmi.android.tv.event.ServerEvent;
+import com.github.aiyingshi.osc.tv.bean.Device;
+import com.github.aiyingshi.osc.tv.event.ServerEvent;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -217,11 +217,11 @@ public class LanSecureIntegrationTest {
                 java.util.concurrent.CountDownLatch pairedUi = new java.util.concurrent.CountDownLatch(1);
                 android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
                 android.content.Intent intent = new android.content.Intent();
-                intent.setClassName(app, "com.fongmi.android.tv.ui.activity.HomeActivity");
+                intent.setClassName(app, "com.github.aiyingshi.osc.tv.ui.activity.HomeActivity");
                 intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
                 androidx.fragment.app.FragmentActivity activity = (androidx.fragment.app.FragmentActivity) instrumentation.startActivitySync(intent);
                 Device receiver = new Device(); receiver.setUuid(targetId); receiver.setIp(target); receiver.setName("KN17 receiver");
-                instrumentation.runOnMainSync(() -> com.fongmi.android.tv.ui.dialog.LanRemotePairDialog.show(activity, receiver, pairedUi::countDown));
+                instrumentation.runOnMainSync(() -> com.github.aiyingshi.osc.tv.ui.dialog.LanRemotePairDialog.show(activity, receiver, pairedUi::countDown));
                 assertTrue("explicit fingerprint confirmation and code must complete pairing", pairedUi.await(85, java.util.concurrent.TimeUnit.SECONDS));
             } else {
                 assertTrue("user-verified receiver pairs over pinned TLS", LanClient.pair(target, targetId, verified, code).success());

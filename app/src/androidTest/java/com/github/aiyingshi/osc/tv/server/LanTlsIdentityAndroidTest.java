@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.server;
+package com.github.aiyingshi.osc.tv.server;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 

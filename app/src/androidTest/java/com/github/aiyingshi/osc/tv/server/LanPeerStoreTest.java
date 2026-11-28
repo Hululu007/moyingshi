@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.server;
+package com.github.aiyingshi.osc.tv.server;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
